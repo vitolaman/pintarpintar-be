@@ -1,0 +1,42 @@
+import { Controller, Get, HttpStatus, Query } from '@nestjs/common';
+import { MasterCountryService } from './master-country.service';
+import { GetMasterCountryDto } from './dto/get-master-country.dto';
+import { DefaultResponse } from '~/common/decorator/response.decorator';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { MasterCountry } from './entities/master-country.entity';
+
+@Controller('master-country')
+export class MasterCountryController {
+  constructor(private readonly masterCountryService: MasterCountryService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Get All Master Country',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Success',
+    schema: {
+      example: {
+        data: [
+          {
+            countryId: 30,
+            countryName: 'British Indian Ocean Territory',
+          },
+          {
+            countryId: 97,
+            countryName: 'India',
+          },
+          {
+            countryId: 98,
+            countryName: 'Indonesia',
+          },
+        ],
+      },
+    },
+  })
+  @DefaultResponse(MasterCountry, HttpStatus.OK, [])
+  findAll(@Query() req: GetMasterCountryDto) {
+    return this.masterCountryService.findAll(req);
+  }
+}

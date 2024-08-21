@@ -1,13 +1,64 @@
-import { Controller, Post, Body, Res } from '@nestjs/common';
-import { Response } from 'express';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import {
+  DefaultResponse,
+  PaginatedResponse,
+} from '~/common/decorator/response.decorator';
+import { RequestPaginatedQueryWithSearchDto } from '~/common/dto/request-paginated.dto';
+import { FindOneUserParamDto } from './dto/find-one-user.req.dto';
+import { User } from './entities/user.entity';
 import { UserService } from './user.service';
+import { Response } from 'express';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto';
 
-@Controller('user')
+@Controller('users')
+@ApiBearerAuth()
+@ApiTags('User')
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get profile by ID',
+  })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @DefaultResponse(User, HttpStatus.OK, [
+    BadRequestException,
+    NotFoundException,
+    UnauthorizedException,
+  ])
+  findById(@Param() param: FindOneUserParamDto) {
+    const { id } = param;
+    return this.userService.findById(id);
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'Get all profile',
+  })
+  @PaginatedResponse(User, [BadRequestException])
+  findAllUsers(@Query() query: RequestPaginatedQueryWithSearchDto) {
+    return this.userService.findAllUssers(query);
+  }
 
   @Post('/forgot-password')
   @ApiOperation({

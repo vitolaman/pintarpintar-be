@@ -36,7 +36,7 @@ export class MasterCountryController {
     },
   })
   @DefaultResponse(MasterCountry, HttpStatus.OK, [])
-  findAll(@Query() req: GetMasterCountryDto) {
-    return this.masterCountryService.findAll(req);
+  async findAll(@Query() req: GetMasterCountryDto) {
+    return await this.masterCountryService.findAll(req);
   }
 }

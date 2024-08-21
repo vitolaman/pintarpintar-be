@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { UserService } from './user.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -28,9 +28,10 @@ export class UserController {
   ) {
     const response = await this.userService.forgotPassword(
       forgotPasswordDto.email,
+      res,
     );
 
-    return res.status(HttpStatus.OK).json(response);
+    return response;
   }
 
   @Post('/verify-forgot-password-otp')
@@ -42,7 +43,7 @@ export class UserController {
     description: 'Success',
     schema: {
       example: {
-        response: 'Berhasil Verifikasi OTP!',
+        responseMessage: 'Berhasil Verifikasi OTP!',
       },
     },
   })
@@ -51,7 +52,7 @@ export class UserController {
     description: 'Bad Request',
     schema: {
       example: {
-        response: 'OTP Salah / Tidak Ditemukan!',
+        responseMessage: 'OTP Salah / Tidak Ditemukan!',
       },
     },
   })
@@ -61,7 +62,8 @@ export class UserController {
   ) {
     const response = await this.userService.verifyForgotPasswordOtp(
       verifyForgotPasswordOtpDto,
+      res,
     );
-    return res.status(HttpStatus.OK).json(response);
+    return response;
   }
 }

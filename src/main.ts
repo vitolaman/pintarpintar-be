@@ -35,6 +35,7 @@ async function bootstrap() {
         ['API Documentation', 'https://github.com/vitolaman/'].join('<br>'),
       )
       .setVersion('1.0')
+      .addBearerAuth()
       .build(),
   );
 

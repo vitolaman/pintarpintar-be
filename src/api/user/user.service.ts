@@ -18,6 +18,7 @@ import { CreateUserBodyDto } from './dto/create-user.req.dto';
 import { redisConstant } from '~/constant/redis.constant';
 import { RedisService } from '~/common/redis/src';
 import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
 
 @Injectable()
 export class UserService {
@@ -182,6 +183,35 @@ export class UserService {
 
     return res.status(HttpStatus.UNAUTHORIZED).json({
       responseMessage: `Wrong OTP / Not Found!`,
+    });
+  }
+
+  async completeProfile(
+    body: CompleteProfileDto,
+    picture: any,
+    userId: string,
+    res: Response,
+  ) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+
+    if (!user) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        responseMessage: `User not found`,
+      });
+    }
+
+    if (picture) {
+      body['profilePicPath'] = picture.path;
+    }
+
+    console.log(body);
+
+    Object.assign(user, body);
+
+    await this.userRepo.save(user);
+
+    return res.status(HttpStatus.OK).json({
+      responseMessage: `Complete Profile Success!`,
     });
   }
 }

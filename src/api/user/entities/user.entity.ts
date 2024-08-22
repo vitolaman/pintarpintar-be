@@ -41,4 +41,8 @@ export class User extends BaseEntity {
   @ApiProperty()
   @Column({ name: 'wallet_address', type: 'text', nullable: true })
   walletAddress: string;
+
+  @ApiProperty()
+  @Column({ name: 'country_id', nullable: true })
+  countryId: number;
 }

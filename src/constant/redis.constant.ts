@@ -1,3 +1,4 @@
 export const redisConstant = {
   ACCESS_TOKEN_FORGOT_PASSWORD: 'AT1-',
+  ACCESS_TOKEN_CREATE_NEW_PASSWORD: 'AT2-',
 };

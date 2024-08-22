@@ -32,6 +32,9 @@ export const DefaultResponse = <TModel extends Type<any>>(
           { $ref: getSchemaPath(ResponseDto) },
           {
             properties: {
+              responseMessage: {
+                type: 'string',
+              },
               data: {
                 type: 'object',
                 $ref: getSchemaPath(model),

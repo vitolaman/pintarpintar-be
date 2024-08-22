@@ -71,6 +71,15 @@ export class UserMeController {
       },
     },
   })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Not Found',
+    schema: {
+      example: {
+        responseMessage: 'User not found',
+      },
+    },
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'Complete profile data',

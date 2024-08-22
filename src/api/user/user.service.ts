@@ -5,7 +5,6 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import * as moment from 'moment-timezone';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOneOptions, FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { RequestPaginatedQueryWithSearchDto } from '~/common/dto/request-paginated.dto';
@@ -15,9 +14,6 @@ import { hashSync } from 'bcrypt';
 import { Response } from 'express';
 import { User } from './entities/user.entity';
 import { CreateUserBodyDto } from './dto/create-user.req.dto';
-import { redisConstant } from '~/constant/redis.constant';
-import { RedisService } from '~/common/redis/src';
-import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
 
 @Injectable()
@@ -27,7 +23,6 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepo: Repository<User>,
-    private readonly redisService: RedisService,
   ) {}
 
   async findOne(options: FindOneOptions<User>): Promise<FindOneUserResDto> {
@@ -138,54 +133,6 @@ export class UserService {
     });
   }
 
-  async forgotPassword(email: string, res: Response) {
-    // Todo: send OTP to client email
-
-    const redisKey = redisConstant.ACCESS_TOKEN_FORGOT_PASSWORD + email;
-
-    const otp = this._generateOtp();
-    const tokenData = {
-      otp: otp,
-      createdAt: moment.utc().format('YYYY-MM-DDTHH:mm:ssZ'),
-      expiredAt: moment.utc().add(5, 'minutes').format('YYYY-MM-DDTHH:mm:ssZ'),
-    };
-
-    await this.redisService.saveCache(redisKey, tokenData, 300);
-
-    return res.status(HttpStatus.OK).json({
-      responseMessage: `OTP Sent Successfully!`,
-      otp: otp,
-    });
-  }
-
-  private _generateOtp() {
-    const otp = Math.floor(Math.random() * 10000);
-    return otp.toString().padStart(4, '0');
-  }
-
-  async verifyForgotPasswordOtp(
-    verifyForgotPasswordOtpDto: VerifyForgotPasswordOtpDto,
-    res: Response,
-  ) {
-    const redisKey =
-      redisConstant.ACCESS_TOKEN_FORGOT_PASSWORD +
-      verifyForgotPasswordOtpDto.email;
-
-    const redisData = await this.redisService.getCache(redisKey);
-
-    if (redisData && redisData['otp'] === verifyForgotPasswordOtpDto.otp) {
-      await this.redisService.removeCache(redisKey);
-
-      return res.status(HttpStatus.OK).json({
-        responseMessage: `Successful OTP Verification!`,
-      });
-    }
-
-    return res.status(HttpStatus.UNAUTHORIZED).json({
-      responseMessage: `Wrong OTP / Not Found!`,
-    });
-  }
-
   async completeProfile(
     body: CompleteProfileDto,
     picture: any,
@@ -203,8 +150,6 @@ export class UserService {
     if (picture) {
       body['profilePicPath'] = picture.path;
     }
-
-    console.log(body);
 
     Object.assign(user, body);
 

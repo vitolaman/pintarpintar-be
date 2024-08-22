@@ -152,7 +152,7 @@ export class UserService {
     await this.redisService.saveCache(redisKey, tokenData, 300);
 
     return res.status(HttpStatus.OK).json({
-      responseMessage: `OTP Berhasil Dikirimkan!`,
+      responseMessage: `OTP Sent Successfully!`,
       otp: otp,
     });
   }
@@ -176,12 +176,12 @@ export class UserService {
       await this.redisService.removeCache(redisKey);
 
       return res.status(HttpStatus.OK).json({
-        responseMessage: `Berhasil Verifikasi OTP!`,
+        responseMessage: `Successful OTP Verification!`,
       });
     }
 
     return res.status(HttpStatus.UNAUTHORIZED).json({
-      responseMessage: `OTP Salah / Tidak Ditemukan!`,
+      responseMessage: `Wrong OTP / Not Found!`,
     });
   }
 }

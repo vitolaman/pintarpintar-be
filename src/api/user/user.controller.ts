@@ -69,7 +69,7 @@ export class UserController {
     description: 'Success',
     schema: {
       example: {
-        response: 'OTP Berhasil Dikirimkan!',
+        response: 'OTP Sent Successfully!',
       },
     },
   })
@@ -94,16 +94,16 @@ export class UserController {
     description: 'Success',
     schema: {
       example: {
-        responseMessage: 'Berhasil Verifikasi OTP!',
+        responseMessage: 'Successful OTP Verification!',
       },
     },
   })
   @ApiResponse({
-    status: 400,
-    description: 'Bad Request',
+    status: 401,
+    description: 'Unauthorized',
     schema: {
       example: {
-        responseMessage: 'OTP Salah / Tidak Ditemukan!',
+        responseMessage: 'Wrong OTP / Not Found!',
       },
     },
   })

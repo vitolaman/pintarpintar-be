@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpStatus,
   Injectable,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -14,6 +15,11 @@ import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignInResDto } from './dto/sign-in.res.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 import { SignUpResDto } from './dto/sign-up.res.dto';
+import { RedisService } from '~/common/redis/src';
+import { redisConstant } from '~/constant/redis.constant';
+import * as moment from 'moment';
+import { Response } from 'express';
+import { VerifyForgotPasswordOtpDto } from '../user/dto/verify-forgot-password-otp.dto';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +28,7 @@ export class AuthService {
     private userRepo: Repository<User>,
     private jwtService: JwtService,
     private userService: UserService,
+    private readonly redisService: RedisService,
   ) {}
 
   generateJwt(user: User): string {
@@ -99,5 +106,72 @@ export class AuthService {
       where: { username: payload },
     });
     if (user) throw new ForbiddenException();
+  }
+
+  async forgotPassword(email: string, res: Response) {
+    // Todo: send OTP to client email
+
+    const redisKey = redisConstant.ACCESS_TOKEN_FORGOT_PASSWORD + email;
+
+    const otp = this._generateOtp();
+    const tokenData = {
+      otp: otp,
+      createdAt: moment.utc().format('YYYY-MM-DDTHH:mm:ssZ'),
+      expiredAt: moment.utc().add(5, 'minutes').format('YYYY-MM-DDTHH:mm:ssZ'),
+    };
+
+    await this.redisService.saveCache(redisKey, tokenData, 300);
+
+    return res.status(HttpStatus.OK).json({
+      responseMessage: `OTP Sent Successfully!`,
+      data: {
+        otp: otp,
+      },
+    });
+  }
+
+  private _generateOtp() {
+    const otp = Math.floor(Math.random() * 10000);
+    return otp.toString().padStart(4, '0');
+  }
+
+  generateEmailTokenJwt(email: string): string {
+    return this.jwtService.sign({ email });
+  }
+
+  async verifyForgotPasswordOtp(
+    verifyForgotPasswordOtpDto: VerifyForgotPasswordOtpDto,
+    res: Response,
+  ) {
+    const redisKey =
+      redisConstant.ACCESS_TOKEN_FORGOT_PASSWORD +
+      verifyForgotPasswordOtpDto.email;
+
+    const redisData = await this.redisService.getCache(redisKey);
+
+    if (redisData && redisData['otp'] === verifyForgotPasswordOtpDto.otp) {
+      await this.redisService.removeCache(redisKey);
+
+      const tokenJwt = this.generateEmailTokenJwt(
+        verifyForgotPasswordOtpDto.email,
+      );
+
+      const redisEmailKey =
+        redisConstant.ACCESS_TOKEN_CREATE_NEW_PASSWORD +
+        verifyForgotPasswordOtpDto.email;
+
+      await this.redisService.saveCache(redisEmailKey, tokenJwt, 600);
+
+      return res.status(HttpStatus.OK).json({
+        responseMessage: `Successful OTP Verification!`,
+        data: {
+          token: tokenJwt,
+        },
+      });
+    }
+
+    return res.status(HttpStatus.UNAUTHORIZED).json({
+      responseMessage: `Wrong OTP / Not Found!`,
+    });
   }
 }

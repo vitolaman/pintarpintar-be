@@ -19,7 +19,9 @@ import { RedisService } from '~/common/redis/src';
 import { redisConstant } from '~/constant/redis.constant';
 import * as moment from 'moment';
 import { Response } from 'express';
-import { VerifyForgotPasswordOtpDto } from '../user/dto/verify-forgot-password-otp.dto';
+import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto';
+import { CreateNewPasswordDto } from './dto/create-new-password.dto';
+import { hashSync } from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -33,7 +35,7 @@ export class AuthService {
 
   generateJwt(user: User): string {
     return this.jwtService.sign({
-      sub: user.id,
+      id: user.id,
       name: user.name,
       email: user.email,
       phone: user.phone,
@@ -172,6 +174,48 @@ export class AuthService {
 
     return res.status(HttpStatus.UNAUTHORIZED).json({
       responseMessage: `Wrong OTP / Not Found!`,
+    });
+  }
+
+  async createNewPassword(
+    createNewPasswordDto: CreateNewPasswordDto,
+    res: Response,
+  ) {
+    const { email, token, password } = createNewPasswordDto;
+
+    const redisKey = redisConstant.ACCESS_TOKEN_CREATE_NEW_PASSWORD + email;
+
+    const redisData = await this.redisService.getCache(redisKey);
+
+    if (redisData && redisData === token) {
+      await this.redisService.removeCache(redisKey);
+
+      const user = await this.userRepo.findOneBy({ email });
+
+      if (!user) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          responseMessage: `User not found`,
+        });
+      }
+
+      const hashPassword = hashSync(password, 10);
+
+      user.password = hashPassword;
+
+      await this.userRepo.save(user);
+
+      const tokenLoginUser = this.generateJwt(user);
+
+      return res.status(HttpStatus.OK).json({
+        responseMessage: `Create New Password Success!`,
+        data: {
+          token: tokenLoginUser,
+        },
+      });
+    }
+
+    return res.status(HttpStatus.UNAUTHORIZED).json({
+      responseMessage: `Token Invalid!`,
     });
   }
 }

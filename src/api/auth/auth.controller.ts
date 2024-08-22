@@ -11,9 +11,10 @@ import { Public } from '~/common/decorator/public.decorator';
 import { AuthService } from './auth.service';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
-import { VerifyForgotPasswordOtpDto } from '../user/dto/verify-forgot-password-otp.dto';
-import { ForgotPasswordDto } from '../user/dto/forgot-password.dto';
+import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { Response } from 'express';
+import { CreateNewPasswordDto } from './dto/create-new-password.dto';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -118,6 +119,48 @@ export class AuthController {
   ) {
     const response = await this.authService.verifyForgotPasswordOtp(
       verifyForgotPasswordOtpDto,
+      res,
+    );
+    return response;
+  }
+
+  @Post('/create-new-password')
+  @ApiOperation({
+    summary: 'Create New Password',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Success',
+    schema: {
+      example: {
+        responseMessage: 'Create New Password Success!',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not Found',
+    schema: {
+      example: {
+        responseMessage: 'User not found',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized',
+    schema: {
+      example: {
+        responseMessage: 'Token Invalid!',
+      },
+    },
+  })
+  async createNewPassword(
+    @Body() createNewPasswordDto: CreateNewPasswordDto,
+    @Res() res: Response,
+  ) {
+    const response = await this.authService.createNewPassword(
+      createNewPasswordDto,
       res,
     );
     return response;

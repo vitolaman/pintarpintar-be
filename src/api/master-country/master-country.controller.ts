@@ -4,12 +4,14 @@ import { GetMasterCountryDto } from './dto/get-master-country.dto';
 import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { MasterCountry } from './entities/master-country.entity';
+import { Public } from '~/common/decorator/public.decorator';
 
 @Controller('master-country')
 export class MasterCountryController {
   constructor(private readonly masterCountryService: MasterCountryService) {}
 
   @Get()
+  @Public()
   @ApiOperation({
     summary: 'Get All Master Country',
   })

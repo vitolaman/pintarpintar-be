@@ -10,14 +10,16 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './api/auth/auth.module';
 import { UserModule } from './api/user/user.module';
 import redisConfig from './config/redis.config';
-
+import { APP_GUARD } from '@nestjs/core';
+import { JwtGuard } from './common/guard/jwt.guard';
+import jwtConfig from './config/jwt.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [redisConfig],
+      load: [redisConfig, jwtConfig],
     }),
     TypeOrmModule.forRoot(defaultDataSource),
     MasterCountryModule,
@@ -26,6 +28,13 @@ import redisConfig from './config/redis.config';
     UserModule,
   ],
   controllers: [AppController],
-  providers: [RedisHealthIndicator, AppService],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtGuard,
+    },
+    RedisHealthIndicator,
+    AppService,
+  ],
 })
 export class AppModule {}

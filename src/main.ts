@@ -4,6 +4,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { WinstonModule, utilities as WinstonNestUtilities } from 'nest-winston';
 import * as Winston from 'winston';
 import { ValidationPipe } from '@nestjs/common';
+import { CustomHttpExceptionFilter } from './common/filters/exception-error.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -25,6 +26,7 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  app.useGlobalFilters(new CustomHttpExceptionFilter());
   app.enableCors({ origin: '*' });
 
   const document = SwaggerModule.createDocument(

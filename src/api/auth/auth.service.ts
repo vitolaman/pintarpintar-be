@@ -13,7 +13,6 @@ import { UserService } from '../user/user.service';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignInResDto } from './dto/sign-in.res.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
-import { SignUpResDto } from './dto/sign-up.res.dto';
 import { RedisService } from '~/common/redis/src';
 import { redisConstant } from '~/constant/redis.constant';
 import * as moment from 'moment';
@@ -42,11 +41,8 @@ export class AuthService {
     });
   }
 
-  async signUp(body: SignUpBodyDto): Promise<SignUpResDto> {
-    await this.userService.create(body);
-    return new SignUpResDto({
-      data: { message: 'Account Created' },
-    });
+  async signUp(body: SignUpBodyDto, res: Response) {
+    return await this.userService.create(body, res);
   }
 
   async signIn(body: SignInBodyDto): Promise<SignInResDto> {

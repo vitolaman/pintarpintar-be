@@ -1,5 +1,4 @@
 import {
-  ForbiddenException,
   HttpStatus,
   Injectable,
   Logger,
@@ -15,6 +14,8 @@ import { Response } from 'express';
 import { User } from './entities/user.entity';
 import { CreateUserBodyDto } from './dto/create-user.req.dto';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
+import { v4 as uuidv4 } from 'uuid';
+import { Referrals } from './entities/referrals.entity';
 
 @Injectable()
 export class UserService {
@@ -23,6 +24,8 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(Referrals)
+    private refRepo: Repository<Referrals>,
   ) {}
 
   async findOne(options: FindOneOptions<User>): Promise<FindOneUserResDto> {
@@ -49,31 +52,82 @@ export class UserService {
     });
   }
 
-  async create(body: CreateUserBodyDto): Promise<FindOneUserResDto> {
-    const { email, password, username } = body;
+  private async generateUniqueReferralCode(): Promise<string> {
+    let referralCode;
+    let isUnique = false;
 
-    if (!email && !password)
-      throw new ForbiddenException([
-        'both email and password number cannot be empty',
-      ]);
+    while (!isUnique) {
+      referralCode = uuidv4().split('-')[0];
+      const existingUser = await this.userRepo.findOne({
+        where: { referralCode },
+      });
+      if (!existingUser) {
+        isUnique = true;
+      }
+    }
 
-    let exists = await this.userRepo.findOne({
-      where: { email },
-    });
+    return referralCode;
+  }
 
-    if (exists) throw new ForbiddenException(['email has been registered']);
+  async create(body: CreateUserBodyDto, res: Response) {
+    const { email, password, username, referralCode: userReferralCode } = body;
 
-    exists = await this.userRepo.findOne({
-      where: { username },
-    });
+    try {
+      if (!email && !password && !username)
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          responseMessage: `Email, password, and username cannot be empty!`,
+        });
 
-    if (exists) throw new ForbiddenException(['username has been registered']);
+      let exists = await this.userRepo.findOne({
+        where: { email },
+      });
 
-    body.password = hashSync(body.password, 10);
+      if (exists)
+        return res.status(HttpStatus.CONFLICT).json({
+          responseMessage: `Email already registered!`,
+        });
 
-    const data = await this.userRepo.save(this.userRepo.create(body));
+      exists = await this.userRepo.findOne({
+        where: { username },
+      });
 
-    return new FindOneUserResDto({ data });
+      if (exists)
+        return res.status(HttpStatus.CONFLICT).json({
+          responseMessage: `Username already registered!`,
+        });
+
+      let checkReffExist: User;
+      if (userReferralCode) {
+        checkReffExist = await this.userRepo.findOne({
+          where: { referralCode: userReferralCode },
+        });
+
+        if (!checkReffExist)
+          return res.status(HttpStatus.NOT_FOUND).json({
+            responseMessage: `Referral Code Not Found!`,
+          });
+      }
+
+      body.password = hashSync(body.password, 10);
+      body.referralCode = await this.generateUniqueReferralCode();
+
+      const data = await this.userRepo.save(this.userRepo.create(body));
+
+      if (userReferralCode) {
+        await this.refRepo.save(
+          this.refRepo.create({
+            userIdRefOwner: data.id,
+            userIdRefUser: checkReffExist.id,
+          }),
+        );
+      }
+
+      return res.status(HttpStatus.OK).json({
+        responseMessage: `Account Created!`,
+      });
+    } catch (err) {
+      console.log(err);
+    }
   }
 
   // async update(

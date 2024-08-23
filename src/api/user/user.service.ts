@@ -114,7 +114,7 @@ export class UserService {
     await this.userRepo.softDelete({ id });
   }
 
-  async findAllUssers({
+  async findAllUsers({
     limit,
     page,
     search,

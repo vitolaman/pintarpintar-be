@@ -42,7 +42,7 @@ export class UserMeController {
   @ApiOperation({
     summary: 'Get current profile',
   })
-  @DefaultResponse(User, HttpStatus.OK, [
+  @DefaultResponse(User, 'Get current profile succes', HttpStatus.OK, [
     NotFoundException,
     UnauthorizedException,
   ])

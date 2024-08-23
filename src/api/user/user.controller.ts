@@ -34,7 +34,7 @@ export class UserController {
     summary: 'Get profile by ID',
   })
   @ApiParam({ name: 'id', description: 'User ID' })
-  @DefaultResponse(User, HttpStatus.OK, [
+  @DefaultResponse(User, 'Find user by id success', HttpStatus.OK, [
     BadRequestException,
     NotFoundException,
     UnauthorizedException,
@@ -48,8 +48,8 @@ export class UserController {
   @ApiOperation({
     summary: 'Get all profile',
   })
-  @PaginatedResponse(User, [BadRequestException])
+  @PaginatedResponse(User, 'Get all users success', [BadRequestException])
   findAllUsers(@Query() query: RequestPaginatedQueryWithSearchDto) {
-    return this.userService.findAllUssers(query);
+    return this.userService.findAllUsers(query);
   }
 }

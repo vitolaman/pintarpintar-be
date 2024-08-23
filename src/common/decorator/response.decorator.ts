@@ -18,6 +18,7 @@ import { ResponseDto } from '../dto/response.dto-default';
 
 export const DefaultResponse = <TModel extends Type<any>>(
   model: TModel,
+  responseMessage: string,
   status: HttpStatus = HttpStatus.OK,
   exceptions: Array<any> = [NotFoundException],
 ) => {
@@ -32,12 +33,13 @@ export const DefaultResponse = <TModel extends Type<any>>(
           { $ref: getSchemaPath(ResponseDto) },
           {
             properties: {
-              responseMessage: {
-                type: 'string',
-              },
               data: {
                 type: 'object',
                 $ref: getSchemaPath(model),
+              },
+              responseMessage: {
+                type: 'string',
+                example: responseMessage,
               },
             },
           },
@@ -58,6 +60,7 @@ export const EmptyResponse = (exceptions: Array<any> = [NotFoundException]) => {
 
 export const PaginatedResponse = <TModel extends Type<any>>(
   model: TModel,
+  responseMessage: string,
   exceptions: Array<any> = [],
 ) => {
   return applyDecorators(
@@ -78,6 +81,10 @@ export const PaginatedResponse = <TModel extends Type<any>>(
               meta: {
                 type: 'object',
                 $ref: getSchemaPath(ResponseMetaDto),
+              },
+              responseMessage: {
+                type: 'string',
+                example: responseMessage,
               },
             },
           },

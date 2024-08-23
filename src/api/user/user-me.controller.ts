@@ -47,7 +47,6 @@ export class UserMeController {
     UnauthorizedException,
   ])
   findOne(@Req() req) {
-    console.log(req);
     return this.userService.findMe(req.user.id);
   }
 

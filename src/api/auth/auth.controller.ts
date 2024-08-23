@@ -28,16 +28,66 @@ export class AuthController {
   })
   @HttpCode(HttpStatus.OK)
   @ApiResponse({
-    status: 200,
-    description: 'Success',
+    status: HttpStatus.OK,
+    description: 'Account Created!',
     schema: {
       example: {
-        message: 'Account Created',
+        responseMessage: 'Account Created!',
       },
     },
   })
-  signUp(@Body() body: SignUpBodyDto) {
-    return this.authService.signUp(body);
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Email, password, and username cannot be empty!',
+    schema: {
+      example: {
+        responseMessage: 'Email, password, and username cannot be empty!',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'This email already registered!',
+    schema: {
+      example: {
+        responseMessage: 'This email already registered!',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description:
+      'Conflict: Either the email or username is already registered.',
+    content: {
+      'application/json': {
+        examples: {
+          EmailConflict: {
+            summary: 'Email already registered',
+            value: {
+              responseMessage: 'Email already registered!',
+            },
+          },
+          UsernameConflict: {
+            summary: 'Username already registered',
+            value: {
+              responseMessage: 'Username already registered!',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Referral Code Not Found!',
+    schema: {
+      example: {
+        responseMessage: 'Referral Code Not Found!',
+      },
+    },
+  })
+  async signUp(@Body() body: SignUpBodyDto, @Res() res: Response) {
+    return await this.authService.signUp(body, res);
   }
 
   @Post('sign-in')

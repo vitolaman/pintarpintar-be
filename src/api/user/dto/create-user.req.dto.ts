@@ -1,7 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsStrongPassword,
 } from 'class-validator';
@@ -28,4 +29,9 @@ export class CreateUserBodyDto extends CheckPasswordBodyDto {
   })
   @ApiProperty({ example: '********' })
   password: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ example: '1a61fa50' })
+  referralCode: string;
 }

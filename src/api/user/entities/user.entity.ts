@@ -31,8 +31,8 @@ export class User extends BaseEntity {
   profilePicPath: string;
 
   @ApiProperty()
-  @Column({ name: 'refferal_code', nullable: true })
-  refferalCode: string;
+  @Column({ name: 'referral_code', nullable: true })
+  referralCode: string;
 
   @ApiProperty({ format: 'YYYY-MM-DD', example: '1990-01-01' })
   @Column({ type: 'date', nullable: true })

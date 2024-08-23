@@ -7,7 +7,6 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { compareSync } from 'bcrypt';
-import { isEmail, isPhoneNumber } from 'class-validator';
 import { Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
@@ -43,25 +42,6 @@ export class AuthService {
     });
   }
 
-  validateUsername(username: string) {
-    let email, phone;
-
-    switch (true) {
-      case isEmail(username):
-        email = username;
-        break;
-      case isPhoneNumber(username):
-        phone = username;
-        break;
-      default:
-        throw new BadRequestException([
-          'username must be a valid email or phone number',
-        ]);
-    }
-
-    return { email, phone };
-  }
-
   async signUp(body: SignUpBodyDto): Promise<SignUpResDto> {
     await this.userService.create(body);
     return new SignUpResDto({
@@ -70,10 +50,9 @@ export class AuthService {
   }
 
   async signIn(body: SignInBodyDto): Promise<SignInResDto> {
-    const { email, phone } = this.validateUsername(body.username);
-
+    const { email } = body;
     const { data: user } = await this.userService.findOne({
-      where: [{ email }, { phone }],
+      where: { email },
     });
 
     if (!user.password)

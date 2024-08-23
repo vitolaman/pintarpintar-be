@@ -1,5 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsStrongPassword } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  IsStrongPassword,
+} from 'class-validator';
 import { CheckPasswordBodyDto } from '~/api/auth/dto/check-password.req.dto';
 
 export class CreateUserBodyDto extends CheckPasswordBodyDto {
@@ -7,6 +12,11 @@ export class CreateUserBodyDto extends CheckPasswordBodyDto {
   @IsEmail()
   @ApiProperty({ example: 'john.doe@gmail.com' })
   email: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @ApiProperty({ example: 'thehashslingingslasher' })
+  username: string;
 
   @IsNotEmpty()
   @IsStrongPassword({

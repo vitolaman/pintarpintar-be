@@ -5,5 +5,5 @@ import { CheckPasswordBodyDto } from './check-password.req.dto';
 export class SignInBodyDto extends CheckPasswordBodyDto {
   @IsString()
   @ApiProperty({ example: 'john.doe@gmail.com' })
-  username: string;
+  email: string;
 }

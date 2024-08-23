@@ -50,19 +50,24 @@ export class UserService {
   }
 
   async create(body: CreateUserBodyDto): Promise<FindOneUserResDto> {
-    const { email, password } = body;
+    const { email, password, username } = body;
 
     if (!email && !password)
       throw new ForbiddenException([
         'both email and password number cannot be empty',
       ]);
 
-    const exists = await this.userRepo.findOne({
+    let exists = await this.userRepo.findOne({
       where: { email },
     });
 
-    if (exists)
-      throw new ForbiddenException(['tag, email or phone has been registered']);
+    if (exists) throw new ForbiddenException(['email has been registered']);
+
+    exists = await this.userRepo.findOne({
+      where: { username },
+    });
+
+    if (exists) throw new ForbiddenException(['username has been registered']);
 
     body.password = hashSync(body.password, 10);
 
@@ -127,6 +132,10 @@ export class UserService {
       skip: (page - 1) * limit,
       take: limit,
     });
+
+    for (const user of users) {
+      delete user.password;
+    }
 
     return new FindAllUserResDto({
       data: users,

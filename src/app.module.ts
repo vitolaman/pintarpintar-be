@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { defaultDataSource } from './database/database.data-source';
+import { dataSourceOptions } from './database/database.data-source';
 import { MasterCountryModule } from './api/master-country/master-country.module';
 import { RedisModule } from './common/redis/src';
 import { RedisHealthIndicator } from './common/redis/src/redis-health-indicator';
@@ -21,7 +21,7 @@ import jwtConfig from './config/jwt.config';
       cache: true,
       load: [redisConfig, jwtConfig],
     }),
-    TypeOrmModule.forRoot(defaultDataSource),
+    TypeOrmModule.forRoot(dataSourceOptions),
     MasterCountryModule,
     RedisModule,
     AuthModule,

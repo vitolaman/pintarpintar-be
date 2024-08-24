@@ -1,5 +1,6 @@
 export class ResponseDto<T> {
   data: T;
+  responseMessage: string;
 
   constructor(partial: Partial<ResponseDto<T>>) {
     Object.assign(this, partial);
@@ -8,11 +9,9 @@ export class ResponseDto<T> {
 
 export class ResponseArrayDto<T> {
   data: T[];
+  responseMessage: string;
 
   constructor(partial: Partial<ResponseArrayDto<T>>) {
-    const { data } = partial;
-    Object.assign(this, {
-      data,
-    });
+    Object.assign(this, partial);
   }
 }

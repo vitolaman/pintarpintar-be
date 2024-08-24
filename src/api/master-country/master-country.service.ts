@@ -29,6 +29,7 @@ export class MasterCountryService {
 
     return new FindAllMasterCountryResDto({
       data: countries,
+      responseMessage: 'Get country list success',
     });
   }
 }

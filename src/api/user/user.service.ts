@@ -26,6 +26,7 @@ import {
 import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { compareSync } from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UserService {
@@ -38,6 +39,7 @@ export class UserService {
     private refRepo: Repository<Referrals>,
     @InjectRepository(MonthlyReferralLeaderboard)
     private monthlyRefLeaderboardRepo: Repository<MonthlyReferralLeaderboard>,
+    private jwtService: JwtService,
   ) {}
 
   async findOne(options: FindOneOptions<User>): Promise<FindOneUserResDto> {
@@ -79,6 +81,16 @@ export class UserService {
     }
 
     return referralCode;
+  }
+
+  generateJwt(user: User): string {
+    return this.jwtService.sign({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      avatar: user.profilePicPath,
+    });
   }
 
   async create(body: CreateUserBodyDto, res: Response) {
@@ -179,8 +191,11 @@ export class UserService {
 
       await queryRunner.commitTransaction();
 
+      const token = this.generateJwt(data);
+
       return res.status(HttpStatus.OK).json({
         responseMessage: `Account Created!`,
+        data: { token },
       });
     } catch (err) {
       await queryRunner.rollbackTransaction();

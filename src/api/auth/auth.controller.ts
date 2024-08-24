@@ -33,6 +33,9 @@ export class AuthController {
     schema: {
       example: {
         responseMessage: 'Account Created!',
+        data: {
+          token: 'string',
+        },
       },
     },
   })

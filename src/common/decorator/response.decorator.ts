@@ -25,7 +25,13 @@ export const DefaultResponse = <TModel extends Type<any>>(
   return applyDecorators(
     ApiExtraModels(ResponseDto),
     ApiExtraModels(model),
-    ApiException(() => [...exceptions, InternalServerErrorException]),
+    ApiException(() => [...exceptions, InternalServerErrorException], {
+      template: {
+        statusCode: '$status',
+        responseMessage: '$description',
+        error: '$error',
+      },
+    }),
     ApiResponse({
       status,
       schema: {
@@ -51,7 +57,13 @@ export const DefaultResponse = <TModel extends Type<any>>(
 
 export const EmptyResponse = (exceptions: Array<any> = [NotFoundException]) => {
   return applyDecorators(
-    ApiException(() => [...exceptions, InternalServerErrorException]),
+    ApiException(() => [...exceptions, InternalServerErrorException], {
+      template: {
+        statusCode: '$status',
+        responseMessage: '$description',
+        error: '$error',
+      },
+    }),
     ApiResponse({
       status: HttpStatus.NO_CONTENT,
     }),
@@ -67,7 +79,13 @@ export const PaginatedResponse = <TModel extends Type<any>>(
     ApiExtraModels(ResponsePaginatedDto),
     ApiExtraModels(ResponseMetaDto),
     ApiExtraModels(model),
-    ApiException(() => [...exceptions, InternalServerErrorException]),
+    ApiException(() => [...exceptions, InternalServerErrorException], {
+      template: {
+        statusCode: '$status',
+        responseMessage: '$description',
+        error: '$error',
+      },
+    }),
     ApiOkResponse({
       schema: {
         allOf: [
@@ -81,6 +99,44 @@ export const PaginatedResponse = <TModel extends Type<any>>(
               meta: {
                 type: 'object',
                 $ref: getSchemaPath(ResponseMetaDto),
+              },
+              responseMessage: {
+                type: 'string',
+                example: responseMessage,
+              },
+            },
+          },
+        ],
+      },
+    }),
+  );
+};
+
+export const ArrayResponse = <TModel extends Type<any>>(
+  model: TModel,
+  responseMessage: string,
+  exceptions: Array<any> = [],
+) => {
+  return applyDecorators(
+    ApiExtraModels(ResponsePaginatedDto),
+    ApiExtraModels(ResponseMetaDto),
+    ApiExtraModels(model),
+    ApiException(() => [...exceptions, InternalServerErrorException], {
+      template: {
+        statusCode: '$status',
+        responseMessage: '$description',
+        error: '$error',
+      },
+    }),
+    ApiOkResponse({
+      schema: {
+        allOf: [
+          { $ref: getSchemaPath(ResponsePaginatedDto) },
+          {
+            properties: {
+              data: {
+                type: 'array',
+                items: { $ref: getSchemaPath(model) },
               },
               responseMessage: {
                 type: 'string',

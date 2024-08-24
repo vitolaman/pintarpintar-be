@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RedisService } from '~/common/redis/src';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
 
 @Module({
   controllers: [AuthController],
@@ -21,7 +22,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES') },
       }),
     }),
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, MonthlyReferralLeaderboard]),
     UserModule,
   ],
 })

@@ -23,6 +23,7 @@ import {
   SocialTypeEnum,
   UpdateSocialTokenDto,
 } from './dto/update-social-token.req.dto';
+import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
 
 @Injectable()
 export class UserService {
@@ -33,6 +34,8 @@ export class UserService {
     private userRepo: Repository<User>,
     @InjectRepository(Referrals)
     private refRepo: Repository<Referrals>,
+    @InjectRepository(MonthlyReferralLeaderboard)
+    private monthlyRefLeaderboardRepo: Repository<MonthlyReferralLeaderboard>,
   ) {}
 
   async findOne(options: FindOneOptions<User>): Promise<FindOneUserResDto> {
@@ -138,6 +141,31 @@ export class UserService {
           'countReferrals',
           1,
         );
+
+        const result = await queryRunner.manager
+          .getRepository(MonthlyReferralLeaderboard)
+          .createQueryBuilder('mrl')
+          .setLock('pessimistic_write')
+          .where('mrl.user_id = :user_id', {
+            user_id: checkReffExist.id,
+          })
+          .getRawOne();
+
+        if (result) {
+          await queryRunner.manager.increment(
+            MonthlyReferralLeaderboard,
+            { userId: checkReffExist.id },
+            'sumPoint',
+            1,
+          );
+        } else {
+          await queryRunner.manager.save(
+            this.monthlyRefLeaderboardRepo.create({
+              userId: checkReffExist.id,
+              sumPoint: 1,
+            }),
+          );
+        }
 
         await queryRunner.manager.save(
           this.refRepo.create({

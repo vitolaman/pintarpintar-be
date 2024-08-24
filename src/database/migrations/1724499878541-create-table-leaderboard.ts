@@ -31,23 +31,13 @@ export class CreateTableLeaderboard1724499878541 implements MigrationInterface {
             default: '0',
           },
           {
-            name: 'start_leaderboard_date',
-            type: 'TIMESTAMP',
-            isNullable: true,
-          },
-          {
-            name: 'end_leaderboard_date',
-            type: 'TIMESTAMP',
-            isNullable: true,
-          },
-          {
             name: 'created_at',
             type: 'TIMESTAMP',
             isNullable: false,
             default: 'now()',
           },
           {
-            name: 'modified_at',
+            name: 'updated_at',
             type: 'TIMESTAMP',
             isNullable: false,
             default: 'now()',
@@ -87,23 +77,13 @@ export class CreateTableLeaderboard1724499878541 implements MigrationInterface {
             default: '0',
           },
           {
-            name: 'start_leaderboard_date',
-            type: 'TIMESTAMP',
-            isNullable: true,
-          },
-          {
-            name: 'end_leaderboard_date',
-            type: 'TIMESTAMP',
-            isNullable: true,
-          },
-          {
             name: 'created_at',
             type: 'TIMESTAMP',
             isNullable: false,
             default: 'now()',
           },
           {
-            name: 'modified_at',
+            name: 'updated_at',
             type: 'TIMESTAMP',
             isNullable: false,
             default: 'now()',
@@ -143,23 +123,13 @@ export class CreateTableLeaderboard1724499878541 implements MigrationInterface {
             default: '0',
           },
           {
-            name: 'start_leaderboard_date',
-            type: 'TIMESTAMP',
-            isNullable: true,
-          },
-          {
-            name: 'end_leaderboard_date',
-            type: 'TIMESTAMP',
-            isNullable: true,
-          },
-          {
             name: 'created_at',
             type: 'TIMESTAMP',
             isNullable: false,
             default: 'now()',
           },
           {
-            name: 'modified_at',
+            name: 'updated_at',
             type: 'TIMESTAMP',
             isNullable: false,
             default: 'now()',
@@ -199,23 +169,13 @@ export class CreateTableLeaderboard1724499878541 implements MigrationInterface {
             default: '0',
           },
           {
-            name: 'start_leaderboard_date',
-            type: 'TIMESTAMP',
-            isNullable: true,
-          },
-          {
-            name: 'end_leaderboard_date',
-            type: 'TIMESTAMP',
-            isNullable: true,
-          },
-          {
             name: 'created_at',
             type: 'TIMESTAMP',
             isNullable: false,
             default: 'now()',
           },
           {
-            name: 'modified_at',
+            name: 'updated_at',
             type: 'TIMESTAMP',
             isNullable: false,
             default: 'now()',

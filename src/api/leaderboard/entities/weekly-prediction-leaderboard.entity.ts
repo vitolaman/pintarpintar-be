@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Column, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { User } from '~/api/user/entities/user.entity';
 import { BaseEntity } from '~/common/entities/base-entity';
 
+@Entity({ name: 'weekly_prediction_leaderboard' })
 export class WeeklyPredictionLeaderboard extends BaseEntity {
   @ApiProperty()
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
@@ -14,10 +15,4 @@ export class WeeklyPredictionLeaderboard extends BaseEntity {
   @ApiProperty()
   @Column({ name: 'sum_point', nullable: false })
   sumPoint: number;
-
-  @Column('timestamp', { name: 'start_leaderboard_date', nullable: false })
-  startLeaderboardDate: Date;
-
-  @Column('timestamp', { name: 'end_leaderboard_date', nullable: false })
-  endLeaderboardDate: Date;
 }

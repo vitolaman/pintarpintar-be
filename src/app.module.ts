@@ -12,6 +12,7 @@ import { UserModule } from './api/user/user.module';
 import redisConfig from './config/redis.config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtGuard } from './common/guard/jwt.guard';
+import { TaskModule } from './api/task/task.module';
 import jwtConfig from './config/jwt.config';
 
 @Module({
@@ -26,6 +27,7 @@ import jwtConfig from './config/jwt.config';
     RedisModule,
     AuthModule,
     UserModule,
+    TaskModule,
   ],
   controllers: [AppController],
   providers: [

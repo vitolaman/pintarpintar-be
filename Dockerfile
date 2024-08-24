@@ -17,7 +17,7 @@ RUN yarn install --production --ignore-scripts --prefer-offline && yarn autoclea
 USER node
 
 FROM node:18.18.0-alpine AS production
-WORKDIR /codeS
+WORKDIR /code
 RUN mkdir -p /code/uploads && chown -R node:node /code/uploads
 COPY --chown=node:node --from=build /code/package.json .
 COPY --chown=node:node --from=build /code/node_modules ./node_modules

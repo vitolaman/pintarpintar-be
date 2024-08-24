@@ -302,7 +302,6 @@ export class UserService {
 
   async completeProfile(
     body: CompleteProfileDto,
-    picture: any,
     userId: string,
     res: Response,
   ) {
@@ -312,10 +311,6 @@ export class UserService {
       return res.status(HttpStatus.NOT_FOUND).json({
         responseMessage: `User not found`,
       });
-    }
-
-    if (picture) {
-      body['profilePicPath'] = picture.path;
     }
 
     Object.assign(user, body);

@@ -137,33 +137,12 @@ export class UserMeController {
       },
     },
   })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    description: 'Complete profile data',
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', example: 'John Doe' },
-        phone: { type: 'string', example: '123-456-7890' },
-        dob: { type: 'string', example: '1990-01-01' },
-        countryId: { type: 'number', example: 1 },
-        picture: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
-  @UseInterceptors(
-    FileInterceptor('picture', MulterConfigService.getMulterConfig()),
-  )
   completeProfile(
     @Req() req,
     @Body() body: CompleteProfileDto,
-    @UploadedFile() picture: Express.Multer.File,
     @Res() res: Response,
   ) {
-    return this.userService.completeProfile(body, picture, req.user.id, res);
+    return this.userService.completeProfile(body, req.user.id, res);
   }
 
   @Post('edit-profile')

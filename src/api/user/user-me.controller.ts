@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -31,6 +32,7 @@ import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MulterConfigService } from '~/config/multer.config';
 import { Express, Response } from 'express';
+import { UpdateSocialTokenDto } from './dto/update-social-token.req.dto';
 
 @Controller('users/me')
 @ApiBearerAuth()
@@ -106,5 +108,48 @@ export class UserMeController {
     @Res() res: Response,
   ) {
     return this.userService.completeProfile(body, picture, req.user.id, res);
+  }
+
+  @Post('edit-profile')
+  @DefaultResponse(User, 'Update profile success ', HttpStatus.OK, [
+    NotFoundException,
+    UnauthorizedException,
+  ])
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Complete profile data',
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'John Doe' },
+        phone: { type: 'string', example: '123-456-7890' },
+        dob: { type: 'string', example: '1990-01-01' },
+        countryId: { type: 'number', example: 1 },
+        picture: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('picture', MulterConfigService.getMulterConfig()),
+  )
+  editProfile(
+    @Req() req,
+    @Body() body: CompleteProfileDto,
+    @UploadedFile() picture: Express.Multer.File,
+  ) {
+    return this.userService.editProfile(body, picture, req.user.id);
+  }
+
+  @Post('update-social-token')
+  @DefaultResponse(User, 'Update social token success', HttpStatus.OK, [
+    NotFoundException,
+    UnauthorizedException,
+    BadRequestException,
+  ])
+  updateSocialToken(@Req() req, @Body() body: UpdateSocialTokenDto) {
+    return this.userService.updateSocialToken(body, req.user.id);
   }
 }

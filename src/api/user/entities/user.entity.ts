@@ -45,4 +45,12 @@ export class User extends BaseEntity {
   @ApiProperty()
   @Column({ name: 'country_id', nullable: true })
   countryId: number;
+
+  @ApiProperty()
+  @Column({ name: 'discord_auth_token', nullable: true })
+  discordToken: string;
+
+  @ApiProperty()
+  @Column({ name: 'twitter_auth_token', nullable: true })
+  twitterToken: string;
 }

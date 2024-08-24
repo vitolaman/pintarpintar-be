@@ -28,7 +28,7 @@ export const DefaultResponse = <TModel extends Type<any>>(
     ApiException(() => [...exceptions, InternalServerErrorException], {
       template: {
         statusCode: '$status',
-        responseMessage: '$description',
+        responseMessage: ['$description'],
         error: '$error',
       },
     }),
@@ -60,7 +60,7 @@ export const EmptyResponse = (exceptions: Array<any> = [NotFoundException]) => {
     ApiException(() => [...exceptions, InternalServerErrorException], {
       template: {
         statusCode: '$status',
-        responseMessage: '$description',
+        responseMessage: ['$description'],
         error: '$error',
       },
     }),
@@ -82,7 +82,7 @@ export const PaginatedResponse = <TModel extends Type<any>>(
     ApiException(() => [...exceptions, InternalServerErrorException], {
       template: {
         statusCode: '$status',
-        responseMessage: '$description',
+        responseMessage: ['$description'],
         error: '$error',
       },
     }),
@@ -124,7 +124,7 @@ export const ArrayResponse = <TModel extends Type<any>>(
     ApiException(() => [...exceptions, InternalServerErrorException], {
       template: {
         statusCode: '$status',
-        responseMessage: '$description',
+        responseMessage: ['$description'],
         error: '$error',
       },
     }),

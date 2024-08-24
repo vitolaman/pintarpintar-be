@@ -60,6 +60,61 @@ export class UserMeController {
     return this.userService.delete(req.user.id);
   }
 
+  @Post('upload-pfp')
+  @ApiOperation({
+    summary: 'Upload Profile Picture',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Success',
+    schema: {
+      example: {
+        responseMessage: 'Upload Profile Picture Succeess!',
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Not Found',
+    schema: {
+      example: {
+        responseMessage: 'User not found',
+      },
+    },
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Upload Profile Picture',
+    schema: {
+      type: 'object',
+      properties: {
+        picture: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('picture', MulterConfigService.getMulterConfig()),
+  )
+  uploadProfilePic(
+    @Req() req,
+    @UploadedFile() picture: Express.Multer.File,
+    @Res() res: Response,
+  ) {
+    const host = req.headers.host;
+    const protocol = req.protocol;
+    const webLink = `${protocol}://${host}`;
+
+    return this.userService.uploadProfilePic(
+      webLink,
+      picture,
+      req.user.id,
+      res,
+    );
+  }
+
   @Post('complete-profile')
   @ApiOperation({
     summary: 'User Complete Profile',

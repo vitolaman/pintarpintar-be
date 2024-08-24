@@ -15,9 +15,15 @@ import { JwtGuard } from './common/guard/jwt.guard';
 import { TaskModule } from './api/task/task.module';
 import { LeaderboardModule } from './api/leaderboard/leaderboard.module';
 import jwtConfig from './config/jwt.config';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'profile_pics'),
+      serveRoot: '/profile-pictures',
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,

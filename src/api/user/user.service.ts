@@ -271,6 +271,35 @@ export class UserService {
     });
   }
 
+  async uploadProfilePic(
+    webLink: string,
+    picture: any,
+    userId: string,
+    res: Response,
+  ) {
+    if (!picture) {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        responseMessage: 'File is mandatory and must be an image.',
+      });
+    }
+
+    const user = await this.userRepo.findOneBy({ id: userId });
+
+    if (!user) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        responseMessage: `User not found`,
+      });
+    }
+
+    user.profilePicPath = webLink + '/profile-pictures/' + picture.filename;
+
+    await this.userRepo.save(user);
+
+    return res.status(HttpStatus.OK).json({
+      responseMessage: `Upload Profile Picture Succeess!`,
+    });
+  }
+
   async completeProfile(
     body: CompleteProfileDto,
     picture: any,

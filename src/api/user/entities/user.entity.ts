@@ -34,6 +34,10 @@ export class User extends BaseEntity {
   @Column({ name: 'referral_code', nullable: true })
   referralCode: string;
 
+  @ApiProperty()
+  @Column({ name: 'count_referrals', nullable: false })
+  countReferrals: number;
+
   @ApiProperty({ format: 'YYYY-MM-DD', example: '1990-01-01' })
   @Column({ type: 'date', nullable: true })
   dob: Date;

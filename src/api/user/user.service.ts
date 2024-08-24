@@ -1,6 +1,7 @@
 import {
   HttpStatus,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -78,29 +79,40 @@ export class UserService {
   async create(body: CreateUserBodyDto, res: Response) {
     const { email, password, username, referralCode: userReferralCode } = body;
 
+    const queryRunner = this.userRepo.manager.connection.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      if (!email && !password && !username)
+      if (!email && !password && !username) {
+        await queryRunner.rollbackTransaction();
         return res.status(HttpStatus.BAD_REQUEST).json({
           responseMessage: `Email, password, and username cannot be empty!`,
         });
+      }
 
       let exists = await this.userRepo.findOne({
         where: { email },
       });
 
-      if (exists)
+      if (exists) {
+        await queryRunner.rollbackTransaction();
         return res.status(HttpStatus.CONFLICT).json({
           responseMessage: `Email already registered!`,
         });
+      }
 
       exists = await this.userRepo.findOne({
         where: { username },
       });
 
-      if (exists)
+      if (exists) {
+        await queryRunner.rollbackTransaction();
         return res.status(HttpStatus.CONFLICT).json({
           responseMessage: `Username already registered!`,
         });
+      }
 
       let checkReffExist: User;
       if (userReferralCode) {
@@ -117,22 +129,34 @@ export class UserService {
       body.password = hashSync(body.password, 10);
       body.referralCode = await this.generateUniqueReferralCode();
 
-      const data = await this.userRepo.save(this.userRepo.create(body));
+      const data = await queryRunner.manager.save(this.userRepo.create(body));
 
       if (userReferralCode) {
-        await this.refRepo.save(
+        await queryRunner.manager.increment(
+          User,
+          { id: checkReffExist.id },
+          'countReferrals',
+          1,
+        );
+
+        await queryRunner.manager.save(
           this.refRepo.create({
-            userIdRefOwner: data.id,
-            userIdRefUser: checkReffExist.id,
+            userIdRefOwner: checkReffExist.id,
+            userIdRefUser: data.id,
           }),
         );
       }
+
+      await queryRunner.commitTransaction();
 
       return res.status(HttpStatus.OK).json({
         responseMessage: `Account Created!`,
       });
     } catch (err) {
-      console.log(err);
+      await queryRunner.rollbackTransaction();
+      throw new InternalServerErrorException();
+    } finally {
+      await queryRunner.release();
     }
   }
 

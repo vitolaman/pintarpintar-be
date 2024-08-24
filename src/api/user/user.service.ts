@@ -24,6 +24,8 @@ import {
   UpdateSocialTokenDto,
 } from './dto/update-social-token.req.dto';
 import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { compareSync } from 'bcrypt';
 
 @Injectable()
 export class UserService {
@@ -330,6 +332,32 @@ export class UserService {
     return new UpdateProfileResDto({
       data: updatedUser,
       responseMessage: 'Update social token success',
+    });
+  }
+
+  async changePassword(body: ChangePasswordDto, userId: string, res: Response) {
+    const { oldPassword, newPassword } = body;
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        responseMessage: `User not found`,
+      });
+    }
+
+    if (!compareSync(oldPassword, user.password)) {
+      return res.status(HttpStatus.UNAUTHORIZED).json({
+        responseMessage: `Old Password is incorrect`,
+      });
+    }
+
+    const hashPassword = hashSync(newPassword, 10);
+
+    user.password = hashPassword;
+
+    await this.userRepo.save(user);
+
+    return res.status(HttpStatus.OK).json({
+      responseMessage: `Change Password Success`,
     });
   }
 }

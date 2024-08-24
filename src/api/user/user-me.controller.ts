@@ -33,6 +33,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { MulterConfigService } from '~/config/multer.config';
 import { Express, Response } from 'express';
 import { UpdateSocialTokenDto } from './dto/update-social-token.req.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('users/me')
 @ApiBearerAuth()
@@ -151,5 +152,41 @@ export class UserMeController {
   ])
   updateSocialToken(@Req() req, @Body() body: UpdateSocialTokenDto) {
     return this.userService.updateSocialToken(body, req.user.id);
+  }
+
+  @Post('change-password')
+  @ApiResponse({
+    status: 200,
+    description: 'Success',
+    schema: {
+      example: {
+        responseMessage: 'Change Password Success',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not Found',
+    schema: {
+      example: {
+        responseMessage: 'User not found',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    schema: {
+      example: {
+        responseMessage: 'Old Password is incorrect',
+      },
+    },
+  })
+  async changePassword(
+    @Req() req,
+    @Body() body: ChangePasswordDto,
+    @Res() res: Response,
+  ) {
+    return await this.userService.changePassword(body, req.user.id, res);
   }
 }

@@ -3,7 +3,7 @@ import { Column, JoinColumn, ManyToOne } from 'typeorm';
 import { User } from '~/api/user/entities/user.entity';
 import { BaseEntity } from '~/common/entities/base-entity';
 
-export class MonthlyPredictionLeaderboard extends BaseEntity {
+export class MonthlyReferralLeaderboard extends BaseEntity {
   @ApiProperty()
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'user_id', referencedColumnName: 'id' })

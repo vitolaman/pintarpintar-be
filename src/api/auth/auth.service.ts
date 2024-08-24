@@ -62,6 +62,7 @@ export class AuthService {
     const token = this.generateJwt(user);
 
     return new SignInResDto({
+      responseMessage: 'Login Success',
       data: { token },
     });
   }

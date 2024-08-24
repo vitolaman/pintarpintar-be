@@ -100,9 +100,21 @@ export class AuthController {
     description: 'Success',
     schema: {
       example: {
+        responseMessage: 'Login Success',
         data: {
           token: 'string',
         },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'FORBIDDEN',
+    schema: {
+      example: {
+        responseMessage: ['invalid username or password'],
+        error: 'FORBIDDEN',
+        statusCode: 403,
       },
     },
   })

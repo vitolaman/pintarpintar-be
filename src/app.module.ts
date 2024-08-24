@@ -13,6 +13,7 @@ import redisConfig from './config/redis.config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtGuard } from './common/guard/jwt.guard';
 import { TaskModule } from './api/task/task.module';
+import { LeaderboardModule } from './api/leaderboard/leaderboard.module';
 import jwtConfig from './config/jwt.config';
 
 @Module({
@@ -28,6 +29,7 @@ import jwtConfig from './config/jwt.config';
     AuthModule,
     UserModule,
     TaskModule,
+    LeaderboardModule,
   ],
   controllers: [AppController],
   providers: [

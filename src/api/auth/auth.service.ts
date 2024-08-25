@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { compareSync } from 'bcrypt';
+import { compareSync, hashSync } from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
@@ -19,7 +19,6 @@ import * as moment from 'moment';
 import { Response } from 'express';
 import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto';
 import { CreateNewPasswordDto } from './dto/create-new-password.dto';
-import { hashSync } from 'bcrypt';
 
 @Injectable()
 export class AuthService {

@@ -1,29 +1,40 @@
+# Stage 1: Development
 FROM node:18.18.0-alpine AS development
 WORKDIR /code
 ENV NODE_ENV development
-COPY --chown=node:node package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY --chown=node:node package.json package-lock.json ./
+RUN npm ci
 COPY --chown=node:node . .
 USER node
 
+# Stage 2: Build
 FROM node:18.18.0-alpine AS build
 WORKDIR /code
-COPY --chown=node:node package.json yarn.lock ./
+COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node --from=development /code/node_modules ./node_modules
 COPY --chown=node:node . .
-RUN yarn run build
+RUN npm run build
 ENV NODE_ENV production
-RUN yarn install --production --ignore-scripts --prefer-offline && yarn autoclean --force
+RUN npm ci --only=production --ignore-scripts && npm prune --production
 USER node
 
+# Stage 3: Production
 FROM node:18.18.0-alpine AS production
 WORKDIR /code
-RUN mkdir -p /code/uploads && chown -R node:node /code/uploads
+
+# Create uploads directory with the right permissions
+RUN mkdir -p /code/profile_pics && chown -R node:node /code/profile_pics
+
+# Copy necessary files from the build stage
 COPY --chown=node:node --from=build /code/package.json .
 COPY --chown=node:node --from=build /code/node_modules ./node_modules
 COPY --chown=node:node --from=build /code/dist ./dist
 COPY --chown=node:node .env .env
+
+# Switch to the node user
 USER node
-ENV NODE_ENV development
+ENV NODE_ENV production
+
+# Define entrypoint and command
 ENTRYPOINT [ "node" ]
 CMD [ "--max-old-space-size=200", "dist/main.js" ]

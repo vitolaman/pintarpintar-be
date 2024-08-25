@@ -5,7 +5,7 @@ import { BaseEntity } from '~/common/entities/base-entity';
 @Entity({ name: 'monthly_referral_leaderboard' })
 export class MonthlyReferralLeaderboard extends BaseEntity {
   @ApiProperty()
-  @Column({ name: 'user_id', type: 'varchar', length: 36, nullable: true })
+  @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string;
 
   @ApiProperty()

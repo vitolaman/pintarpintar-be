@@ -10,7 +10,7 @@ import { FindOneOptions, FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { RequestPaginatedQueryWithSearchDto } from '~/common/dto/request-paginated.dto';
 import { FindAllUserResDto } from './dto/find-all-user.res.dto';
 import { FindOneUserResDto } from './dto/find-one-user.res.dto';
-import { hashSync } from 'bcrypt';
+import { hashSync, compareSync } from 'bcryptjs';
 import { Response } from 'express';
 import { User } from './entities/user.entity';
 import { CreateUserBodyDto } from './dto/create-user.req.dto';
@@ -25,7 +25,6 @@ import {
 } from './dto/update-social-token.req.dto';
 import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { compareSync } from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()

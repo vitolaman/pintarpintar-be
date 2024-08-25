@@ -8,6 +8,7 @@ import {
   HttpStatus,
   NotFoundException,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -34,6 +35,7 @@ import { MulterConfigService } from '~/config/multer.config';
 import { Express, Response } from 'express';
 import { UpdateSocialTokenDto } from './dto/update-social-token.req.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
 
 @Controller('users/me')
 @ApiBearerAuth()
@@ -222,5 +224,37 @@ export class UserMeController {
     @Res() res: Response,
   ) {
     return await this.userService.changePassword(body, req.user.id, res);
+  }
+
+  @Get('referral-list')
+  @ApiResponse({
+    status: 200,
+    description: 'Success',
+    schema: {
+      example: {
+        data: [
+          {
+            reffId: '9cd07519-aa6f-4f43-b7dc-52613210e488',
+            username: 'thehashslingingslasher',
+            createdAt: '2024-08-24T06:12:16.635Z',
+          },
+          {
+            reffId: '6dc9723c-c92f-4391-8ff1-72cd3979051c',
+            username: 'invipirate2',
+            createdAt: '2024-08-24T06:11:53.006Z',
+          },
+        ],
+        meta: {
+          page: 1,
+          per_page: 10,
+          total: 2,
+          total_page: 1,
+        },
+        responseMessage: 'Get Referral list success',
+      },
+    },
+  })
+  async referralList(@Req() req, @Query() query: RequestPaginatedQueryDto) {
+    return this.userService.referralList(query, req.user.id);
   }
 }

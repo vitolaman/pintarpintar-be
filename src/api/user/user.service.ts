@@ -26,6 +26,7 @@ import {
 import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtService } from '@nestjs/jwt';
+import { ReferralListResDto } from './dto/referral-list.dto';
 
 @Injectable()
 export class UserService {
@@ -396,6 +397,44 @@ export class UserService {
 
     return res.status(HttpStatus.OK).json({
       responseMessage: `Change Password Success`,
+    });
+  }
+
+  async referralList(
+    { limit, page }: RequestPaginatedQueryWithSearchDto,
+    userId: string,
+  ): Promise<ReferralListResDto> {
+    const queryBuilder = this.refRepo
+      .createQueryBuilder('referrals')
+      .leftJoin('users', 'users', 'referrals.user_id_ref_user = users.id')
+      .where('referrals.user_id_ref_owner = :userId', { userId })
+      .andWhere('referrals.deleted_at IS NULL')
+      .select([
+        'referrals.id as "reffId"',
+        'users.username as "username"',
+        'referrals.created_at as "createdAt"',
+      ])
+      .orderBy('referrals.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const rawResults = await queryBuilder.getRawMany();
+    const total = await queryBuilder.getCount();
+
+    const referrals = rawResults.map((result) => ({
+      reffId: result.reffId,
+      username: result.username,
+      createdAt: result.createdAt,
+    }));
+
+    return new ReferralListResDto({
+      data: referrals,
+      responseMessage: 'Get Referral list success',
+      meta: {
+        page,
+        per_page: limit,
+        total,
+      },
     });
   }
 }

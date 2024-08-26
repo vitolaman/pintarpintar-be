@@ -19,6 +19,8 @@ import * as moment from 'moment';
 import { Response } from 'express';
 import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto';
 import { CreateNewPasswordDto } from './dto/create-new-password.dto';
+import { ConfigService } from '@nestjs/config';
+import { SendMailClient } from 'zeptomail';
 
 @Injectable()
 export class AuthService {
@@ -28,6 +30,7 @@ export class AuthService {
     private jwtService: JwtService,
     private userService: UserService,
     private readonly redisService: RedisService,
+    private configService: ConfigService,
   ) {}
 
   generateJwt(user: User): string {
@@ -86,8 +89,6 @@ export class AuthService {
   }
 
   async forgotPassword(email: string, res: Response) {
-    // Todo: send OTP to client email
-
     const redisKey = redisConstant.ACCESS_TOKEN_FORGOT_PASSWORD + email;
 
     const otp = this._generateOtp();
@@ -99,17 +100,43 @@ export class AuthService {
 
     await this.redisService.saveCache(redisKey, tokenData, 300);
 
+    this._sendOtpMail(otp, email);
+
     return res.status(HttpStatus.OK).json({
       responseMessage: `OTP Sent Successfully!`,
-      data: {
-        otp: otp,
-      },
     });
   }
 
   private _generateOtp() {
     const otp = Math.floor(Math.random() * 10000);
     return otp.toString().padStart(4, '0');
+  }
+
+  private _sendOtpMail(otp: string, email: string) {
+    const mailApiKey = this.configService.get<string>('ZEPTO_API_KEY');
+    const mailApiUrl = this.configService.get<string>('ZEPTO_API_URL');
+    console.log(mailApiKey, mailApiUrl);
+    const client = new SendMailClient({ url: mailApiUrl, token: mailApiKey });
+    console.log(client);
+    client
+      .sendMail({
+        from: {
+          address: 'noreply@prdict.app',
+          name: 'noreply',
+        },
+        to: [
+          {
+            email_address: {
+              address: email,
+              name: 'Predict App',
+            },
+          },
+        ],
+        subject: 'Forgot Password OTP Email',
+        htmlbody: `<div>This is your forgot password otp: <b> ${otp} </b></div>`,
+      })
+      .then((resp) => console.log('success', resp))
+      .catch((error) => console.log('error', error));
   }
 
   generateEmailTokenJwt(email: string): string {

@@ -5,9 +5,27 @@ import { WinstonModule, utilities as WinstonNestUtilities } from 'nest-winston';
 import * as Winston from 'winston';
 import { ValidationPipe } from '@nestjs/common';
 import { CustomHttpExceptionFilter } from './common/filters/exception-error.filter';
+import { CronJobModule } from './api/cron-job/cron-job.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const configModule = await NestFactory.createApplicationContext(
+    ConfigModule.forRoot(),
+  );
+  const configService = configModule.get(ConfigService);
+
+  const getAppName = (name: string) => {
+    switch (name) {
+      case 'leaderboard-cron':
+        return CronJobModule;
+      default:
+        return AppModule;
+    }
+  };
+
+  const appName = getAppName(configService.get<string>('BOT_NAME'));
+
+  const app = await NestFactory.create(appName, {
     cors: true,
     logger: WinstonModule.createLogger({
       transports: [

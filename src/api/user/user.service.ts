@@ -27,6 +27,7 @@ import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-refe
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ReferralListResDto } from './dto/referral-list.dto';
+import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
 
 @Injectable()
 export class UserService {
@@ -39,6 +40,8 @@ export class UserService {
     private refRepo: Repository<Referrals>,
     @InjectRepository(MonthlyReferralLeaderboard)
     private monthlyRefLeaderboardRepo: Repository<MonthlyReferralLeaderboard>,
+    @InjectRepository(YearlyLeaderboard)
+    private yearlyRefLeaderboardRepo: Repository<YearlyLeaderboard>,
     private jwtService: JwtService,
   ) {}
 
@@ -172,11 +175,24 @@ export class UserService {
             'sumPoint',
             1,
           );
+          await queryRunner.manager.increment(
+            YearlyLeaderboard,
+            { userId: checkReffExist.id, type: 2 },
+            'sumPoint',
+            1,
+          );
         } else {
           await queryRunner.manager.save(
             this.monthlyRefLeaderboardRepo.create({
               userId: checkReffExist.id,
               sumPoint: 1,
+            }),
+          );
+          await queryRunner.manager.save(
+            this.yearlyRefLeaderboardRepo.create({
+              userId: checkReffExist.id,
+              sumPoint: 1,
+              type: 2,
             }),
           );
         }

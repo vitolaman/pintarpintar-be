@@ -38,6 +38,10 @@ export class User extends BaseEntity {
   @Column({ name: 'count_referrals', nullable: false })
   countReferrals: number;
 
+  @ApiProperty()
+  @Column({ name: 'predict_token', nullable: true, default: 5 })
+  predictToken: number;
+
   @ApiProperty({ format: 'YYYY-MM-DD', example: '1990-01-01' })
   @Column({ type: 'date', nullable: true })
   dob: Date;

@@ -117,7 +117,7 @@ export class AuthService {
     const mailApiUrl = this.configService.get<string>('ZEPTO_API_URL');
     console.log(mailApiKey, mailApiUrl);
     const client = new SendMailClient({ url: mailApiUrl, token: mailApiKey });
-    console.log(client);
+
     client
       .sendMail({
         from: {

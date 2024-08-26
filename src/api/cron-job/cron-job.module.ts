@@ -4,9 +4,13 @@ import { WeeklyPredictionLeaderboard } from '../leaderboard/entities/weekly-pred
 import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
 import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
 import { CronJobService } from './cron-job.service';
+import { ScheduleModule } from '@nestjs/schedule';
+import { dataSourceOptions } from '~/database/database.data-source';
 
 @Module({
   imports: [
+    TypeOrmModule.forRoot(dataSourceOptions),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([
       WeeklyPredictionLeaderboard,
       MonthlyReferralLeaderboard,

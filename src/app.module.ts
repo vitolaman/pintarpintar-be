@@ -17,12 +17,9 @@ import { LeaderboardModule } from './api/leaderboard/leaderboard.module';
 import jwtConfig from './config/jwt.config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { ScheduleModule } from '@nestjs/schedule';
-import { CronJobModule } from './api/cron-job/cron-job.module';
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'profile_pics'),
       serveRoot: '/profile-pictures',
@@ -39,7 +36,6 @@ import { CronJobModule } from './api/cron-job/cron-job.module';
     UserModule,
     TaskModule,
     LeaderboardModule,
-    CronJobModule,
   ],
   controllers: [AppController],
   providers: [

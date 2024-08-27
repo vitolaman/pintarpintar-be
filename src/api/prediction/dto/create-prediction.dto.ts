@@ -1,11 +1,25 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+
+export enum SportEnum {
+  SOCCER = 'soccernew',
+  BASKETBALL = 'bsktbl',
+  TENNIS = 'tennis_scores',
+  CRICKET = 'cricket',
+}
+
+export enum PredictionEnum {
+  LOCAL_TEAM_WIN = '1',
+  VISITOR_TEAM_WIN = '2',
+  DRAW = '3',
+}
 
 export class CreatePredictionDto {
   @IsNotEmpty()
   @IsString()
-  @IsIn(['soccernew', 'bsktbl', 'tennis_scores', 'cricket'])
+  @IsEnum(SportEnum)
   @ApiProperty({
+    enum: SportEnum,
     example: 'soccernew | bsktbl | tennis_scores | cricket',
   })
   sport: string;
@@ -22,8 +36,9 @@ export class CreatePredictionDto {
 
   @IsNotEmpty()
   @IsString()
-  @IsIn(['1', '2', '3'])
+  @IsEnum(PredictionEnum)
   @ApiProperty({
+    enum: PredictionEnum,
     example: '1 | 2 | 3',
     description: '1: local team win; 2: visitor team win; 3: draw.',
   })

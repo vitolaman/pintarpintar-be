@@ -17,6 +17,7 @@ import { LeaderboardModule } from './api/leaderboard/leaderboard.module';
 import jwtConfig from './config/jwt.config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { PredictionModule } from './api/prediction/prediction.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { join } from 'path';
     UserModule,
     TaskModule,
     LeaderboardModule,
+    PredictionModule,
   ],
   controllers: [AppController],
   providers: [

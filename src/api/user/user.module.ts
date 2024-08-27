@@ -8,6 +8,7 @@ import { Referrals } from './entities/referrals.entity';
 import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
 
 @Module({
   imports: [
@@ -19,7 +20,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES') },
       }),
     }),
-    TypeOrmModule.forFeature([User, Referrals, MonthlyReferralLeaderboard]),
+    TypeOrmModule.forFeature([
+      User,
+      Referrals,
+      MonthlyReferralLeaderboard,
+      YearlyLeaderboard,
+    ]),
   ],
   controllers: [UserMeController, UserController],
   providers: [UserService],

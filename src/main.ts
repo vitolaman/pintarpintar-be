@@ -23,7 +23,8 @@ async function bootstrap() {
     }
   };
 
-  const appName = getAppName(configService.get<string>('BOT_NAME'));
+  const appConfig = configService.get<string>('BOT_NAME');
+  const appName = getAppName(appConfig);
 
   const app = await NestFactory.create(appName, {
     cors: true,
@@ -61,7 +62,10 @@ async function bootstrap() {
 
   SwaggerModule.setup('api', app, document);
   await app.listen(3000, () => {
-    console.log('[REST]', `http://localhost:3000/api`);
+    console.log(
+      `[${appConfig ? 'CRON' : 'REST'}]`,
+      `http://localhost:3000/api`,
+    );
   });
 }
 bootstrap();

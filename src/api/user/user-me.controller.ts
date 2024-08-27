@@ -36,6 +36,7 @@ import { Express, Response } from 'express';
 import { UpdateSocialTokenDto } from './dto/update-social-token.req.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
+import { UpdateWalletAddressDto } from './dto/update-wallet-address.req.dto';
 
 @Controller('users/me')
 @ApiBearerAuth()
@@ -152,7 +153,6 @@ export class UserMeController {
     NotFoundException,
     UnauthorizedException,
   ])
-  @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'Complete profile data',
     schema: {
@@ -161,23 +161,12 @@ export class UserMeController {
         name: { type: 'string', example: 'John Doe' },
         phone: { type: 'string', example: '123-456-7890' },
         dob: { type: 'string', example: '1990-01-01' },
-        countryId: { type: 'number', example: 1 },
-        picture: {
-          type: 'string',
-          format: 'binary',
-        },
+        countryId: { type: 'string', example: '1' },
       },
     },
   })
-  @UseInterceptors(
-    FileInterceptor('picture', MulterConfigService.getMulterConfig()),
-  )
-  editProfile(
-    @Req() req,
-    @Body() body: CompleteProfileDto,
-    @UploadedFile() picture: Express.Multer.File,
-  ) {
-    return this.userService.editProfile(body, picture, req.user.id);
+  editProfile(@Req() req, @Body() body: CompleteProfileDto) {
+    return this.userService.editProfile(body, req.user.id);
   }
 
   @Post('update-social-token')
@@ -188,6 +177,16 @@ export class UserMeController {
   ])
   updateSocialToken(@Req() req, @Body() body: UpdateSocialTokenDto) {
     return this.userService.updateSocialToken(body, req.user.id);
+  }
+
+  @Post('update-wallet-address')
+  @DefaultResponse(User, 'Update wallet address success', HttpStatus.OK, [
+    NotFoundException,
+    UnauthorizedException,
+    BadRequestException,
+  ])
+  updateWalletAddress(@Req() req, @Body() body: UpdateWalletAddressDto) {
+    return this.userService.updateWalletAddress(body, req.user.id);
   }
 
   @Post('change-password')

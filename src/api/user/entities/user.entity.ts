@@ -35,7 +35,7 @@ export class User extends BaseEntity {
   referralCode: string;
 
   @ApiProperty()
-  @Column({ name: 'count_referrals', nullable: false })
+  @Column({ name: 'count_referrals', nullable: false, default: 0 })
   countReferrals: number;
 
   @ApiProperty()

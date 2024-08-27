@@ -28,6 +28,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ReferralListResDto } from './dto/referral-list.dto';
 import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
+import { UpdateWalletAddressDto } from './dto/update-wallet-address.req.dto';
 
 @Injectable()
 export class UserService {
@@ -340,16 +341,11 @@ export class UserService {
 
   async editProfile(
     body: UpdateProfileDto,
-    picture: any,
     userId: string,
   ): Promise<UpdateProfileResDto> {
     const user = await this.userRepo.findOneBy({ id: userId });
     if (!user) {
       throw new NotFoundException('User not found');
-    }
-
-    if (picture) {
-      body['profilePicPath'] = picture.path;
     }
 
     Object.assign(user, body);
@@ -387,6 +383,28 @@ export class UserService {
     return new UpdateProfileResDto({
       data: updatedUser,
       responseMessage: 'Update social token success',
+    });
+  }
+
+  async updateWalletAddress(
+    body: UpdateWalletAddressDto,
+    userId: string,
+  ): Promise<UpdateProfileResDto> {
+    const { address } = body;
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.walletAddress = address;
+
+    const updatedUser = await this.userRepo.save(user);
+
+    delete updatedUser.password;
+
+    return new UpdateProfileResDto({
+      data: updatedUser,
+      responseMessage: 'Update wallet address success',
     });
   }
 

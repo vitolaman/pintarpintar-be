@@ -12,13 +12,10 @@ import {
   Req,
   Res,
   UnauthorizedException,
-  UploadedFile,
-  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
-  ApiConsumes,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -30,13 +27,12 @@ import {
 import { UserService } from './user.service';
 import { User } from './entities/user.entity';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { MulterConfigService } from '~/config/multer.config';
-import { Express, Response } from 'express';
+import { Response } from 'express';
 import { UpdateSocialTokenDto } from './dto/update-social-token.req.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
 import { UpdateWalletAddressDto } from './dto/update-wallet-address.req.dto';
+import { UploadPfpDto } from './dto/upload-pfp.dto';
 
 @Controller('users/me')
 @ApiBearerAuth()
@@ -85,38 +81,73 @@ export class UserMeController {
       },
     },
   })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    description: 'Upload Profile Picture',
-    schema: {
-      type: 'object',
-      properties: {
-        picture: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
-  @UseInterceptors(
-    FileInterceptor('picture', MulterConfigService.getMulterConfig()),
-  )
   uploadProfilePic(
     @Req() req,
-    @UploadedFile() picture: Express.Multer.File,
+    @Body() body: UploadPfpDto,
     @Res() res: Response,
   ) {
-    const host = req.headers.host;
-    const protocol = req.protocol;
-    const webLink = `${protocol}://${host}`;
-
     return this.userService.uploadProfilePic(
-      webLink,
-      picture,
+      body.profilePicUrl,
       req.user.id,
       res,
     );
   }
+
+  // Ini upload pfp file beneran
+  // @Post('upload-pfp')
+  // @ApiOperation({
+  //   summary: 'Upload Profile Picture',
+  // })
+  // @ApiResponse({
+  //   status: 200,
+  //   description: 'Success',
+  //   schema: {
+  //     example: {
+  //       responseMessage: 'Upload Profile Picture Succeess!',
+  //     },
+  //   },
+  // })
+  // @ApiResponse({
+  //   status: HttpStatus.NOT_FOUND,
+  //   description: 'Not Found',
+  //   schema: {
+  //     example: {
+  //       responseMessage: 'User not found',
+  //     },
+  //   },
+  // })
+  // @ApiConsumes('multipart/form-data')
+  // @ApiBody({
+  //   description: 'Upload Profile Picture',
+  //   schema: {
+  //     type: 'object',
+  //     properties: {
+  //       picture: {
+  //         type: 'string',
+  //         format: 'binary',
+  //       },
+  //     },
+  //   },
+  // })
+  // @UseInterceptors(
+  //   FileInterceptor('picture', MulterConfigService.getMulterConfig()),
+  // )
+  // uploadProfilePic(
+  //   @Req() req,
+  //   @UploadedFile() picture: Express.Multer.File,
+  //   @Res() res: Response,
+  // ) {
+  //   const host = req.headers.host;
+  //   const protocol = req.protocol;
+  //   const webLink = `${protocol}://${host}`;
+
+  //   return this.userService.uploadProfilePic(
+  //     webLink,
+  //     picture,
+  //     req.user.id,
+  //     res,
+  //   );
+  // }
 
   @Post('complete-profile')
   @ApiOperation({

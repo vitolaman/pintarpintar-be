@@ -31,9 +31,19 @@ export class CreateTaskDto {
   isRepeatable: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  @ApiProperty({ example: false })
+  isUnlimited: boolean;
+
+  @IsOptional()
   @IsNumber()
   @ApiProperty({ example: 3 })
   maxRepeat: number;
+
+  @IsOptional()
+  @IsNumber()
+  @ApiProperty({ example: 1 })
+  repeatableType: number;
 
   @IsNotEmpty()
   @IsNumber()

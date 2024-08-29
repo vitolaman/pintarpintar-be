@@ -1,4 +1,9 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiHideProperty,
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
+import { Exclude } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
@@ -34,4 +39,8 @@ export class CreateUserBodyDto extends CheckPasswordBodyDto {
   @IsString()
   @ApiPropertyOptional({ example: '1a61fa50' })
   referralCode: string;
+
+  @Exclude()
+  @ApiHideProperty()
+  predictToken: number;
 }

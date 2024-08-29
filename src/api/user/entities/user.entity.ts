@@ -39,7 +39,7 @@ export class User extends BaseEntity {
   countReferrals: number;
 
   @ApiProperty()
-  @Column({ name: 'predict_token', nullable: true, default: 5 })
+  @Column({ name: 'predict_token', nullable: true, default: 0 })
   predictToken: number;
 
   @ApiProperty({ format: 'YYYY-MM-DD', example: '1990-01-01' })

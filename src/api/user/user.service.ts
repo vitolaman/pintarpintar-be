@@ -141,15 +141,17 @@ export class UserService {
           where: { referralCode: userReferralCode },
         });
 
-        if (!checkReffExist)
+        if (!checkReffExist) {
           return res.status(HttpStatus.NOT_FOUND).json({
             responseMessage: `Referral Code Not Found!`,
           });
+        } else {
+          body.predictToken = 5;
+        }
       }
 
       body.password = hashSync(body.password, 10);
       body.referralCode = await this.generateUniqueReferralCode();
-
       const data = await queryRunner.manager.save(this.userRepo.create(body));
 
       if (userReferralCode) {

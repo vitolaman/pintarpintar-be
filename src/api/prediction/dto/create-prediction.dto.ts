@@ -2,10 +2,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
 
 export enum SportEnum {
-  SOCCER = 'soccernew',
-  BASKETBALL = 'bsktbl',
-  TENNIS = 'tennis_scores',
-  CRICKET = 'cricket',
+  SOCCER = '1',
+  BASKETBALL = '2',
+  TENNIS = '3',
+  CRICKET = '4',
 }
 
 export enum PredictionEnum {
@@ -20,7 +20,8 @@ export class CreatePredictionDto {
   @IsEnum(SportEnum)
   @ApiProperty({
     enum: SportEnum,
-    example: 'soccernew | bsktbl | tennis_scores | cricket',
+    example: '1 = Soccer | 2 = Basketball | 3 = Tennis | 4 = Cricket',
+    description: '1 = Soccer | 2 = Basketball | 3 = Tennis | 4 = Cricket',
   })
   sport: string;
 

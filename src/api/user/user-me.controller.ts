@@ -33,6 +33,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
 import { UpdateWalletAddressDto } from './dto/update-wallet-address.req.dto';
 import { UploadPfpDto } from './dto/upload-pfp.dto';
+import { UpdateTwitterUsernameDto } from './dto/update-twitter-username.dto';
 
 @Controller('users/me')
 @ApiBearerAuth()
@@ -286,5 +287,41 @@ export class UserMeController {
   })
   async referralList(@Req() req, @Query() query: RequestPaginatedQueryDto) {
     return this.userService.referralList(query, req.user.id);
+  }
+
+  @Post('update-twitter-username')
+  @ApiResponse({
+    status: 200,
+    description: 'Success',
+    schema: {
+      example: {
+        responseMessage: 'Update twitter username success',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User Not Found',
+    schema: {
+      example: {
+        responseMessage: 'User not found',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict',
+    schema: {
+      example: {
+        responseMessage: 'Twitter Username already used',
+      },
+    },
+  })
+  async updateTwitterUsername(
+    @Req() req,
+    @Body() body: UpdateTwitterUsernameDto,
+    @Res() res: Response,
+  ) {
+    return await this.userService.updateTwitterUsername(body, req.user.id, res);
   }
 }

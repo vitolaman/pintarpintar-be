@@ -61,4 +61,8 @@ export class User extends BaseEntity {
   @ApiProperty()
   @Column({ name: 'twitter_auth_token', nullable: true })
   twitterToken: string;
+
+  @ApiProperty()
+  @Column({ name: 'twitter_username', nullable: true })
+  twitterUsername: string;
 }

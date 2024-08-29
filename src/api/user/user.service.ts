@@ -6,7 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOneOptions, FindOptionsWhere, ILike, Repository } from 'typeorm';
+import {
+  FindOneOptions,
+  FindOptionsWhere,
+  ILike,
+  Not,
+  Repository,
+} from 'typeorm';
 import { RequestPaginatedQueryWithSearchDto } from '~/common/dto/request-paginated.dto';
 import { FindAllUserResDto } from './dto/find-all-user.res.dto';
 import { FindOneUserResDto } from './dto/find-one-user.res.dto';
@@ -29,6 +35,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ReferralListResDto } from './dto/referral-list.dto';
 import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
 import { UpdateWalletAddressDto } from './dto/update-wallet-address.req.dto';
+import { UpdateTwitterUsernameDto } from './dto/update-twitter-username.dto';
 
 @Injectable()
 export class UserService {
@@ -426,6 +433,39 @@ export class UserService {
     return new UpdateProfileResDto({
       data: updatedUser,
       responseMessage: 'Update wallet address success',
+    });
+  }
+
+  async updateTwitterUsername(
+    body: UpdateTwitterUsernameDto,
+    userId: string,
+    res: Response,
+  ) {
+    const { twitterUsername } = body;
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        responseMessage: `User not found`,
+      });
+    }
+
+    // Check if username twitter is taken
+    const checkTwitterTaken = await this.userRepo.findOneBy({
+      twitterUsername,
+      id: Not(userId),
+    });
+    if (checkTwitterTaken) {
+      return res.status(HttpStatus.CONFLICT).json({
+        responseMessage: `Twitter Username already used`,
+      });
+    }
+
+    user.twitterUsername = twitterUsername;
+
+    await this.userRepo.save(user);
+
+    return res.status(HttpStatus.OK).json({
+      responseMessage: `Update twitter username success`,
     });
   }
 

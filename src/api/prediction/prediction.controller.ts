@@ -113,39 +113,28 @@ export class PredictionController {
     description: 'Success',
     schema: {
       example: {
-        data: [
-          {
-            predictionId: '0f241626-3111-4ef0-92dc-648a034c1f17',
-            sport: '1',
-            categoryId: '1',
-            matchId: '1',
-            matchStatus: 0,
-            prediction: 1,
-            localTeamId: '1',
-            visitorTeamId: '1',
-            partnerDataJson: null,
-            createdAt: '2024-08-29T06:57:20.152Z',
-          },
-          {
-            predictionId: 'bd050ed4-354d-405a-a15b-8b10894d87bb',
-            sport: 'soccernew',
-            categoryId: '1513',
-            matchId: '5531758',
-            matchStatus: 0,
-            prediction: 1,
-            localTeamId: '12287',
-            visitorTeamId: '140685',
-            partnerDataJson: null,
-            createdAt: '2024-08-26T07:27:46.276Z',
-          },
-        ],
-        meta: {
-          page: 1,
-          per_page: 10,
-          total: 2,
-          total_page: 1,
+        data: {
+          predictionId: 'bd050ed4-354d-405a-a15b-8b10894d87bb',
+          sport: 'soccernew',
+          categoryId: '1513',
+          matchId: '5531758',
+          matchStatus: 0,
+          prediction: 1,
+          localTeamId: '12287',
+          visitorTeamId: '140685',
+          partnerDataJson: null,
+          createdAt: '2024-08-26T07:27:46.276Z',
         },
-        responseMessage: 'Get Prediction list success',
+        responseMessage: 'Get Prediction detail success',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not Found',
+    schema: {
+      example: {
+        responseMessage: 'Prediction Not Found!',
       },
     },
   })

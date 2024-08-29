@@ -23,6 +23,17 @@ export class TaskService {
   ) {}
 
   async create(body: CreateTaskDto) {
+    const { isRepeatable, maxRepeat } = body;
+    if (isRepeatable && !maxRepeat) {
+      throw new BadRequestException(
+        'If task repeatable, maxRepeat must be filled',
+      );
+    }
+
+    if (!isRepeatable) {
+      body.maxRepeat = 0;
+    }
+
     const task = await this.masterTaskRepo.save(
       this.masterTaskRepo.create(body),
     );
@@ -57,7 +68,7 @@ export class TaskService {
   }
 
   async update(id: string, body: UpdateTaskDto) {
-    const { name, url, type } = body;
+    const { name, url, type, isRepeatable, maxRepeat } = body;
     const task = await this.masterTaskRepo.findOne({ where: { id } });
 
     if (!name && !url && !type) {
@@ -66,6 +77,16 @@ export class TaskService {
 
     if (!task) {
       throw new NotFoundException('Task not found');
+    }
+
+    if (isRepeatable && !maxRepeat) {
+      throw new BadRequestException(
+        'If task repeatable, maxRepeat must be filled',
+      );
+    }
+
+    if (!isRepeatable) {
+      body.maxRepeat = 0;
     }
 
     Object.assign(task, body);

@@ -15,4 +15,16 @@ export class Task extends BaseEntity {
   @ApiProperty()
   @Column({ nullable: false })
   type: string;
+
+  @ApiProperty()
+  @Column({ nullable: false, default: 1 })
+  token: number;
+
+  @ApiProperty()
+  @Column({ nullable: false, default: false })
+  isRepeatable: boolean;
+
+  @ApiProperty()
+  @Column({ name: 'max_repeat', nullable: true })
+  maxRepeat: number;
 }

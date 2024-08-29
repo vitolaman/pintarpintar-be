@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateTaskDto {
   @IsNotEmpty()
@@ -18,4 +24,19 @@ export class CreateTaskDto {
   @IsString()
   @ApiProperty({ example: 'twitter like post' })
   type: string;
+
+  @IsNotEmpty()
+  @IsBoolean()
+  @ApiProperty({ example: false })
+  isRepeatable: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @ApiProperty({ example: 3 })
+  maxRepeat: number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @ApiProperty({ example: 1 })
+  token: number;
 }

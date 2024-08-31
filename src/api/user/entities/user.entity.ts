@@ -65,4 +65,8 @@ export class User extends BaseEntity {
   @ApiProperty()
   @Column({ name: 'twitter_username', nullable: true })
   twitterUsername: string;
+
+  @ApiProperty()
+  @Column({ nullable: false, default: false })
+  isEmailVerified: boolean;
 }

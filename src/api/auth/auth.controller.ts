@@ -15,6 +15,8 @@ import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { Response } from 'express';
 import { CreateNewPasswordDto } from './dto/create-new-password.dto';
+import { SendOtpRegisterUser } from './dto/send-otp-register-user.dto';
+import { VerifyOtpRegisterUserDto } from './dto/verify-otp-register-user.dto';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -226,6 +228,77 @@ export class AuthController {
   ) {
     const response = await this.authService.createNewPassword(
       createNewPasswordDto,
+      res,
+    );
+    return response;
+  }
+
+  @Post('/send-otp-register-user')
+  @ApiOperation({
+    summary: 'Send OTP Register User',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Success',
+    schema: {
+      example: {
+        responseMessage: 'OTP Sent Successfully!',
+        data: {
+          token: '1234',
+        },
+      },
+    },
+  })
+  async sendOtpRegisterUser(
+    @Body() sendOtpRegisterUser: SendOtpRegisterUser,
+    @Res() res: Response,
+  ) {
+    const response = await this.authService.sendOtpRegisterUser(
+      sendOtpRegisterUser.email,
+      res,
+    );
+
+    return response;
+  }
+
+  @Post('/verify-otp-register-user')
+  @ApiOperation({
+    summary: 'Verify OTP Register User',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Success',
+    schema: {
+      example: {
+        responseMessage:
+          'Successful OTP Verification! Your Account has Been Verified',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    schema: {
+      example: {
+        responseMessage: 'Wrong OTP / Not Found!',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not Found',
+    schema: {
+      example: {
+        responseMessage: 'User not found',
+      },
+    },
+  })
+  async verifyOtpRegisterUser(
+    @Body() verifyOtpRegisterUserDto: VerifyOtpRegisterUserDto,
+    @Res() res: Response,
+  ) {
+    const response = await this.authService.verifyOtpRegisterUser(
+      verifyOtpRegisterUserDto,
       res,
     );
     return response;

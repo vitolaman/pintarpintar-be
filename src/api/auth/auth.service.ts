@@ -21,6 +21,7 @@ import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto
 import { CreateNewPasswordDto } from './dto/create-new-password.dto';
 import { ConfigService } from '@nestjs/config';
 import { SendMailClient } from 'zeptomail';
+import { VerifyOtpRegisterUserDto } from './dto/verify-otp-register-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -65,7 +66,7 @@ export class AuthService {
 
     return new SignInResDto({
       responseMessage: 'Login Success',
-      data: { token },
+      data: { token, isEmailVerif: user.isEmailVerified },
     });
   }
 
@@ -104,6 +105,9 @@ export class AuthService {
 
     return res.status(HttpStatus.OK).json({
       responseMessage: `OTP Sent Successfully!`,
+      data: {
+        otp,
+      },
     });
   }
 
@@ -218,6 +222,58 @@ export class AuthService {
 
     return res.status(HttpStatus.UNAUTHORIZED).json({
       responseMessage: `Token Invalid!`,
+    });
+  }
+
+  async sendOtpRegisterUser(email: string, res: Response) {
+    const redisKey = redisConstant.ACCESS_TOKEN_REGISTER_USER + email;
+
+    const otp = this._generateOtp();
+    const tokenData = {
+      otp: otp,
+      createdAt: moment.utc().format('YYYY-MM-DDTHH:mm:ssZ'),
+      expiredAt: moment.utc().add(5, 'minutes').format('YYYY-MM-DDTHH:mm:ssZ'),
+    };
+
+    await this.redisService.saveCache(redisKey, tokenData, 300);
+
+    this._sendOtpMail(otp, email);
+
+    return res.status(HttpStatus.OK).json({
+      responseMessage: `OTP Sent Successfully!`,
+      data: {
+        otp,
+      },
+    });
+  }
+
+  async verifyOtpRegisterUser(body: VerifyOtpRegisterUserDto, res: Response) {
+    const redisKey = redisConstant.ACCESS_TOKEN_REGISTER_USER + body.email;
+
+    const redisData = await this.redisService.getCache(redisKey);
+
+    if (redisData && redisData['otp'] === body.otp) {
+      await this.redisService.removeCache(redisKey);
+
+      const user = await this.userRepo.findOneBy({ email: body.email });
+
+      if (!user) {
+        return res.status(HttpStatus.NOT_FOUND).json({
+          responseMessage: `User not found`,
+        });
+      }
+
+      user.isEmailVerified = true;
+
+      await this.userRepo.save(user);
+
+      return res.status(HttpStatus.OK).json({
+        responseMessage: `Successful OTP Verification! Your Account has Been Verified`,
+      });
+    }
+
+    return res.status(HttpStatus.UNAUTHORIZED).json({
+      responseMessage: `Wrong OTP / Not Found!`,
     });
   }
 }

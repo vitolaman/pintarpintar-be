@@ -18,6 +18,7 @@ import jwtConfig from './config/jwt.config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { PredictionModule } from './api/prediction/prediction.module';
+import { MasterPfpModule } from './api/master-pfp/master-pfp.module';
 import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 
 @Module({
@@ -25,6 +26,10 @@ import twitterRapidapiConfig from './config/twitter-rapidapi.config';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'profile_pics'),
       serveRoot: '/profile-pictures',
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'master_profile_pics'),
+      serveRoot: '/master-profile-pictures',
     }),
     ConfigModule.forRoot({
       isGlobal: true,
@@ -39,6 +44,7 @@ import twitterRapidapiConfig from './config/twitter-rapidapi.config';
     TaskModule,
     LeaderboardModule,
     PredictionModule,
+    MasterPfpModule,
   ],
   controllers: [AppController],
   providers: [

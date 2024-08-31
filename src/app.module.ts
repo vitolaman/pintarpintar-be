@@ -18,6 +18,7 @@ import jwtConfig from './config/jwt.config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { PredictionModule } from './api/prediction/prediction.module';
+import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { PredictionModule } from './api/prediction/prediction.module';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [redisConfig, jwtConfig],
+      load: [redisConfig, jwtConfig, twitterRapidapiConfig],
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     MasterCountryModule,

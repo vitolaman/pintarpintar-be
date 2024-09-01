@@ -49,7 +49,6 @@ export class JwtGuard implements CanActivate {
       const { deviceToken } = await this.userRepo.findOne({
         where: { id: userJwt?.id },
       });
-      console.log(deviceToken, userJwt.deviceToken);
       if (userJwt.deviceToken !== deviceToken)
         throw new UnauthorizedException();
     } catch {

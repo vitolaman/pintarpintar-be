@@ -37,7 +37,6 @@ export class AuthService {
   async generateJwt(user: User, deviceToken: string): Promise<string> {
     const userData = await this.userRepo.findOne({ where: { id: user.id } });
     userData.deviceToken = deviceToken;
-    console.log(userData);
     await this.userRepo.save(userData);
 
     return this.jwtService.sign({

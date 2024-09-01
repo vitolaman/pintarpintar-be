@@ -64,6 +64,11 @@ export class UserService {
   async findMe(id: string): Promise<FindOneUserResDto> {
     const user = await this.userRepo.findOne({ where: { id } });
 
+    delete user.password;
+    delete user.deviceToken;
+    delete user.discordToken;
+    delete user.twitterToken;
+
     return new FindOneUserResDto({
       data: user,
     });
@@ -94,18 +99,25 @@ export class UserService {
     return referralCode;
   }
 
-  generateJwt(user: User): string {
+  async generateJwt(user: User, deviceToken: string): Promise<string> {
+    const userData = await this.userRepo.findOne({ where: { id: user.id } });
+    userData.deviceToken = deviceToken;
+    await this.userRepo.save(userData);
+
     return this.jwtService.sign({
       id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      avatar: user.profilePicPath,
+      deviceToken: deviceToken,
     });
   }
 
   async create(body: CreateUserBodyDto, res: Response) {
-    const { email, password, username, referralCode: userReferralCode } = body;
+    const {
+      email,
+      password,
+      username,
+      referralCode: userReferralCode,
+      deviceToken,
+    } = body;
 
     const queryRunner = this.userRepo.manager.connection.createQueryRunner();
 
@@ -217,7 +229,7 @@ export class UserService {
 
       await queryRunner.commitTransaction();
 
-      const token = this.generateJwt(data);
+      const token = await this.generateJwt(data, deviceToken);
 
       return res.status(HttpStatus.OK).json({
         responseMessage: `Account Created!`,
@@ -479,7 +491,7 @@ export class UserService {
     }
 
     if (!compareSync(oldPassword, user.password)) {
-      return res.status(HttpStatus.UNAUTHORIZED).json({
+      return res.status(HttpStatus.BAD_REQUEST).json({
         responseMessage: `Old Password is incorrect`,
       });
     }

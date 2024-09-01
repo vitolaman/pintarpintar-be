@@ -34,13 +34,15 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  generateJwt(user: User): string {
+  async generateJwt(user: User, deviceToken: string): Promise<string> {
+    const userData = await this.userRepo.findOne({ where: { id: user.id } });
+    userData.deviceToken = deviceToken;
+    console.log(userData);
+    await this.userRepo.save(userData);
+
     return this.jwtService.sign({
       id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      avatar: user.profilePicPath,
+      deviceToken: deviceToken,
     });
   }
 
@@ -49,7 +51,7 @@ export class AuthService {
   }
 
   async signIn(body: SignInBodyDto): Promise<SignInResDto> {
-    const { email } = body;
+    const { email, deviceToken } = body;
     const { data: user } = await this.userService.findOne({
       where: { email },
     });
@@ -62,7 +64,7 @@ export class AuthService {
     if (!compareSync(body.password, user.password))
       throw new ForbiddenException('invalid username or password');
 
-    const token = this.generateJwt(user);
+    const token = await this.generateJwt(user, deviceToken);
 
     return new SignInResDto({
       responseMessage: 'Login Success',
@@ -187,7 +189,7 @@ export class AuthService {
     createNewPasswordDto: CreateNewPasswordDto,
     res: Response,
   ) {
-    const { email, token, password } = createNewPasswordDto;
+    const { email, token, password, deviceToken } = createNewPasswordDto;
 
     const redisKey = redisConstant.ACCESS_TOKEN_CREATE_NEW_PASSWORD + email;
 
@@ -210,7 +212,7 @@ export class AuthService {
 
       await this.userRepo.save(user);
 
-      const tokenLoginUser = this.generateJwt(user);
+      const tokenLoginUser = this.generateJwt(user, deviceToken);
 
       return res.status(HttpStatus.OK).json({
         responseMessage: `Create New Password Success!`,
@@ -263,7 +265,7 @@ export class AuthService {
         });
       }
 
-      const tokenLoginUser = this.generateJwt(user);
+      const tokenLoginUser = this.generateJwt(user, body.deviceToken);
 
       user.isEmailVerified = true;
 

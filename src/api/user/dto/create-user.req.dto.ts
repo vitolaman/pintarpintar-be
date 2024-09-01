@@ -43,4 +43,8 @@ export class CreateUserBodyDto extends CheckPasswordBodyDto {
   @Exclude()
   @ApiHideProperty()
   predictToken: number;
+
+  @IsString()
+  @ApiProperty({ example: 'xxxxxxxxxxxxxxx' })
+  deviceToken: string;
 }

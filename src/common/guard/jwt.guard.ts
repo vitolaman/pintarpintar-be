@@ -11,6 +11,9 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import jwtConfig from '~/config/jwt.config';
 import { IS_PUBLIC_ENDPOINT } from '../decorator/public.decorator';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from '~/api/user/entities/user.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class JwtGuard implements CanActivate {
@@ -19,6 +22,8 @@ export class JwtGuard implements CanActivate {
     private jwtCfg: ConfigType<typeof jwtConfig>,
     private jwtService: JwtService,
     private reflector: Reflector,
+    @InjectRepository(User)
+    private userRepo: Repository<User>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -38,6 +43,15 @@ export class JwtGuard implements CanActivate {
       const { secret } = this.jwtCfg;
       const payload = await this.jwtService.verifyAsync(token, { secret });
       request['user'] = payload;
+      const userJwt = request['user'];
+
+      // cek device token
+      const { deviceToken } = await this.userRepo.findOne({
+        where: { id: userJwt?.id },
+      });
+      console.log(deviceToken, userJwt.deviceToken);
+      if (userJwt.deviceToken !== deviceToken)
+        throw new UnauthorizedException();
     } catch {
       throw new UnauthorizedException();
     }

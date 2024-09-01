@@ -69,4 +69,8 @@ export class User extends BaseEntity {
   @ApiProperty()
   @Column({ nullable: false, default: false })
   isEmailVerified: boolean;
+
+  @ApiProperty()
+  @Column({ nullable: true })
+  deviceToken: string;
 }

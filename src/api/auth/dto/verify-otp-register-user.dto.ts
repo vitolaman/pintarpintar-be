@@ -11,4 +11,8 @@ export class VerifyOtpRegisterUserDto {
   @IsString({ message: 'validation.INVALID_STRING' })
   @IsNotEmpty({ message: 'validation.NOT_EMPTY' })
   otp: string;
+
+  @IsString()
+  @ApiProperty({ example: 'xxxxxxxxxxxxxxx' })
+  deviceToken: string;
 }

@@ -1,9 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
-import { CheckPasswordBodyDto } from './check-password.req.dto';
 
-export class SignInBodyDto extends CheckPasswordBodyDto {
+export class SignInBodyDto {
   @IsString()
   @ApiProperty({ example: 'john.doe@gmail.com' })
   email: string;
+
+  @IsString()
+  @ApiProperty({ example: 'qwerty1!' })
+  password: string;
 }

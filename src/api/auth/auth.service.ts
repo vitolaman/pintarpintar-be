@@ -263,12 +263,17 @@ export class AuthService {
         });
       }
 
+      const tokenLoginUser = this.generateJwt(user);
+
       user.isEmailVerified = true;
 
       await this.userRepo.save(user);
 
       return res.status(HttpStatus.OK).json({
         responseMessage: `Successful OTP Verification! Your Account has Been Verified`,
+        data: {
+          token: tokenLoginUser,
+        },
       });
     }
 

@@ -20,6 +20,7 @@ import { join } from 'path';
 import { PredictionModule } from './api/prediction/prediction.module';
 import { MasterPfpModule } from './api/master-pfp/master-pfp.module';
 import twitterRapidapiConfig from './config/twitter-rapidapi.config';
+import { User } from './api/user/entities/user.entity';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import twitterRapidapiConfig from './config/twitter-rapidapi.config';
       load: [redisConfig, jwtConfig, twitterRapidapiConfig],
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
+    TypeOrmModule.forFeature([User]),
     MasterCountryModule,
     RedisModule,
     AuthModule,

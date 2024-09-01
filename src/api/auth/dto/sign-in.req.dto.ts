@@ -9,4 +9,8 @@ export class SignInBodyDto {
   @IsString()
   @ApiProperty({ example: 'qwerty1!' })
   password: string;
+
+  @IsString()
+  @ApiProperty({ example: 'xxxxxxxxxxxxxxx' })
+  deviceToken: string;
 }

@@ -27,4 +27,8 @@ export class CreateNewPasswordDto {
   })
   @ApiProperty({ example: '********' })
   password: string;
+
+  @IsString()
+  @ApiProperty({ example: 'xxxxxxxxxxxxxxx' })
+  deviceToken: string;
 }

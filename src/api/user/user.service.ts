@@ -390,6 +390,10 @@ export class UserService {
 
     Object.assign(user, body);
 
+    if (body.countryId) {
+      user.countryId = parseInt(body.countryId);
+    }
+
     const updatedUser = await this.userRepo.save(user);
 
     delete updatedUser.password;

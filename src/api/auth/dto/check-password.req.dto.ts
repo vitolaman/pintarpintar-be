@@ -5,6 +5,7 @@ export class CheckPasswordBodyDto {
   @IsStrongPassword({
     minLength: 8,
     minNumbers: 1,
+    minSymbols: 0,
     minLowercase: 0,
     minUppercase: 0,
   })

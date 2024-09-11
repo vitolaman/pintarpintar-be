@@ -137,8 +137,8 @@ export class AuthService {
             },
           },
         ],
-        subject: 'Forgot Password OTP Email',
-        htmlbody: `<div>This is your forgot password otp: <b> ${otp} </b></div>`,
+        subject: 'Scora OTP Email',
+        htmlbody: `<div>This is your otp code: <b> ${otp} </b></div>`,
       })
       .then((resp) => console.log('success', resp))
       .catch((error) => console.log('error', error));

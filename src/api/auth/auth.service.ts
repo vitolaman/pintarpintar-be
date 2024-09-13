@@ -63,6 +63,9 @@ export class AuthService {
     if (!compareSync(body.password, user.password))
       throw new ForbiddenException('invalid username or password');
 
+    if (user.isEmailVerified == false)
+      throw new ForbiddenException('Please verified email to continue');
+
     const token = await this.generateJwt(user, deviceToken);
 
     return new SignInResDto({

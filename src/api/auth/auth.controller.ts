@@ -113,6 +113,17 @@ export class AuthController {
     },
   })
   @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'UNPROCESSABLE_ENTITY',
+    schema: {
+      example: {
+        responseMessage: ['Please verified email to continue'],
+        error: 'UNPROCESSABLE_ENTITY',
+        statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+      },
+    },
+  })
+  @ApiResponse({
     status: 403,
     description: 'FORBIDDEN',
     schema: {

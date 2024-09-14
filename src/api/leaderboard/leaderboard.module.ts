@@ -5,6 +5,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MonthlyReferralLeaderboard } from './entities/monthly-referral-leaderboard.entity';
 import { WeeklyPredictionLeaderboard } from './entities/weekly-prediction-leaderboard.entity';
 import { YearlyLeaderboard } from './entities/yearly-prediction-leaderboard.entity';
+import { WeeklyLeaderboardCategory } from './entities/weekly-leaderboard-category.entity';
+import { MonthlyLeaderboardCategory } from './entities/monthly-leaderboard-category.entity';
+import { YearlyLeaderboardCategory } from './entities/yearly-leaderboard-category.entity';
 
 @Module({
   imports: [
@@ -12,6 +15,9 @@ import { YearlyLeaderboard } from './entities/yearly-prediction-leaderboard.enti
       WeeklyPredictionLeaderboard,
       MonthlyReferralLeaderboard,
       YearlyLeaderboard,
+      WeeklyLeaderboardCategory,
+      MonthlyLeaderboardCategory,
+      YearlyLeaderboardCategory,
     ]),
   ],
   controllers: [LeaderboardController],

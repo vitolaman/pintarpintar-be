@@ -2,19 +2,15 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Column, Entity } from 'typeorm';
 import { BaseEntity } from '~/common/entities/base-entity';
 
-@Entity({ name: 'yearly_leaderboard' })
-export class YearlyLeaderboard extends BaseEntity {
+@Entity({ name: 'monthly_leaderboard_category' })
+export class MonthlyLeaderboardCategory extends BaseEntity {
   @ApiProperty()
-  @Column({ name: 'user_id', type: 'uuid', nullable: true })
-  userId: string;
+  @Column({ name: 'counter', nullable: false })
+  counter: number;
 
   @ApiProperty()
-  @Column({ name: 'sum_point', nullable: false })
-  sumPoint: number;
-
-  @ApiProperty()
-  @Column({ name: 'type', nullable: false })
-  type: number; // 1: Prediction; 2: Referral
+  @Column({ name: 'name', nullable: false })
+  name: string;
 
   @ApiProperty({ description: 'The starting date for the leaderboard period' })
   @Column({ name: 'from_date', type: 'timestamp', nullable: false })

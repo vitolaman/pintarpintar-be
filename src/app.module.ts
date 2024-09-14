@@ -21,6 +21,7 @@ import { PredictionModule } from './api/prediction/prediction.module';
 import { MasterPfpModule } from './api/master-pfp/master-pfp.module';
 import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 import { User } from './api/user/entities/user.entity';
+import { CronJobModule } from './api/cron-job/cron-job.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { User } from './api/user/entities/user.entity';
     LeaderboardModule,
     PredictionModule,
     MasterPfpModule,
+    CronJobModule,
   ],
   controllers: [AppController],
   providers: [

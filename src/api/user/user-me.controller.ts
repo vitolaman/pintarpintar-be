@@ -34,6 +34,7 @@ import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
 import { UpdateWalletAddressDto } from './dto/update-wallet-address.req.dto';
 import { UploadPfpDto } from './dto/upload-pfp.dto';
 import { UpdateTwitterUsernameDto } from './dto/update-twitter-username.dto';
+import { UpdateProfileDto } from './dto/update-profile.req.dto';
 
 @Controller('users/me')
 @ApiBearerAuth()
@@ -197,7 +198,7 @@ export class UserMeController {
       },
     },
   })
-  editProfile(@Req() req, @Body() body: CompleteProfileDto) {
+  editProfile(@Req() req, @Body() body: UpdateProfileDto) {
     return this.userService.editProfile(body, req.user.id);
   }
 

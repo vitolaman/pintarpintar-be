@@ -1,27 +1,35 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { WeeklyPredictionLeaderboard } from '../leaderboard/entities/weekly-prediction-leaderboard.entity';
 import { Repository } from 'typeorm';
-import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
-import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
 import { HttpService } from '@nestjs/axios';
 import { catchError, firstValueFrom } from 'rxjs';
 import { ConfigService } from '@nestjs/config';
 import { matchStatus, sportList } from '../../constant/cron-job.constants';
 import { Predictions } from '../prediction/entities/prediction.entity';
+import { WeeklyLeaderboardCategory } from '../leaderboard/entities/weekly-leaderboard-category.entity';
+import { MonthlyLeaderboardCategory } from '../leaderboard/entities/monthly-leaderboard-category.entity';
+import { YearlyLeaderboardCategory } from '../leaderboard/entities/yearly-leaderboard-category.entity';
+import {
+  getCurrentMonthEndDatetime,
+  getCurrentMonthStartDatetime,
+  getCurrentTuesdayStartDatetime,
+  getCurrentYearEndDatetime,
+  getCurrentYearStartDatetime,
+  getNextMondayEndDatetime,
+} from '~/common/util/date';
 
 @Injectable()
 export class CronJobService {
   private readonly logger = new Logger(CronJobService.name);
 
   constructor(
-    @InjectRepository(WeeklyPredictionLeaderboard)
-    private readonly weeklyPredictionLeaderboard: Repository<WeeklyPredictionLeaderboard>,
-    @InjectRepository(MonthlyReferralLeaderboard)
-    private readonly monthlyReferralLeaderboard: Repository<MonthlyReferralLeaderboard>,
-    @InjectRepository(YearlyLeaderboard)
-    private readonly yearlyLeaderboard: Repository<YearlyLeaderboard>,
+    @InjectRepository(WeeklyLeaderboardCategory)
+    private readonly weeklyLeaderboardCategory: Repository<WeeklyLeaderboardCategory>,
+    @InjectRepository(MonthlyLeaderboardCategory)
+    private readonly monthlyLeaderboardCategory: Repository<MonthlyLeaderboardCategory>,
+    @InjectRepository(YearlyLeaderboardCategory)
+    private readonly yearlyLeaderboardCategory: Repository<YearlyLeaderboardCategory>,
     @InjectRepository(Predictions)
     private readonly predictionsRepo: Repository<Predictions>,
     private configService: ConfigService,
@@ -31,36 +39,120 @@ export class CronJobService {
   @Cron('0 0 * * 2', {
     timeZone: 'UTC',
   }) // Cron expression for every Tuesday at midnight
-  async wipeWeeklyPredictionLeaderboard() {
+  async createWeeklyPredictionCategory() {
+    const queryRunner =
+      this.weeklyLeaderboardCategory.manager.connection.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      await this.weeklyPredictionLeaderboard.clear();
-      console.log('Weekly prediction leaderboard table has been cleared.');
+      const result = await queryRunner.manager
+        .getRepository(WeeklyLeaderboardCategory)
+        .createQueryBuilder('wlc')
+        .orderBy('wlc.counter', 'DESC')
+        .getOne();
+
+      console.log('Query result:', result);
+
+      const nextCounter = result ? (result.counter as number) + 1 : 1;
+      const categoryName = `Week ${nextCounter}`;
+
+      await queryRunner.manager.save(
+        this.weeklyLeaderboardCategory.create({
+          counter: nextCounter,
+          name: categoryName,
+          fromDate: getCurrentTuesdayStartDatetime(),
+          toDate: getNextMondayEndDatetime(),
+        }),
+      );
+
+      await queryRunner.commitTransaction();
+      this.logger.log('Created Weekly Category.');
     } catch (error) {
+      await queryRunner.rollbackTransaction();
       console.error('Error clearing the table:', error);
+    } finally {
+      await queryRunner.release();
     }
   }
 
   @Cron('0 0 1 * *', {
     timeZone: 'UTC',
   }) // Monthly: First day of every month at midnight
-  async wipeMonthlyPredictionLeaderboard() {
+  async createMonthlyPredictionCategory() {
+    const queryRunner =
+      this.monthlyLeaderboardCategory.manager.connection.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      await this.monthlyReferralLeaderboard.clear();
-      console.log('Monthly prediction leaderboard table has been cleared.');
+      const result = await queryRunner.manager
+        .getRepository(MonthlyLeaderboardCategory)
+        .createQueryBuilder('mlc')
+        .orderBy('mlc.counter', 'DESC')
+        .getOne();
+
+      const nextCounter = result ? (result.counter as number) + 1 : 1;
+      const categoryName = `Month ${nextCounter}`;
+
+      await queryRunner.manager.save(
+        this.monthlyLeaderboardCategory.create({
+          counter: nextCounter,
+          name: categoryName,
+          fromDate: getCurrentMonthStartDatetime(),
+          toDate: getCurrentMonthEndDatetime(),
+        }),
+      );
+
+      await queryRunner.commitTransaction();
+      this.logger.log('Created Monthly Category.');
     } catch (error) {
-      console.error('Error clearing the table:', error);
+      await queryRunner.rollbackTransaction();
+      this.logger.error('Error creating monthly category:', error);
+    } finally {
+      await queryRunner.release();
     }
   }
 
   @Cron('0 0 1 1 *', {
     timeZone: 'UTC',
-  }) // Yearly: January 1st at midnight
-  async wipeYearlyPredictionLeaderboard() {
+  }) // Cron expression for January 1st at midnight
+  async createYearlyPredictionCategory() {
+    const queryRunner =
+      this.yearlyLeaderboardCategory.manager.connection.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      await this.yearlyLeaderboard.clear();
-      console.log('Yearly prediction leaderboard table has been cleared.');
+      // Get the latest counter value
+      const result = await queryRunner.manager
+        .getRepository(YearlyLeaderboardCategory)
+        .createQueryBuilder('ylc')
+        .orderBy('ylc.counter', 'DESC')
+        .getOne();
+
+      const nextCounter = result ? (result.counter as number) + 1 : 1;
+      const categoryName = `Year ${nextCounter}`;
+
+      await queryRunner.manager.save(
+        this.yearlyLeaderboardCategory.create({
+          counter: nextCounter,
+          name: categoryName,
+          fromDate: getCurrentYearStartDatetime(),
+          toDate: getCurrentYearEndDatetime(),
+        }),
+      );
+
+      await queryRunner.commitTransaction();
+      this.logger.log('Created Yearly Category.');
     } catch (error) {
-      console.error('Error clearing the table:', error);
+      await queryRunner.rollbackTransaction();
+      this.logger.error('Error creating yearly category:', error);
+    } finally {
+      await queryRunner.release();
     }
   }
 

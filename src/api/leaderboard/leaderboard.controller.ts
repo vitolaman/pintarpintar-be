@@ -1,13 +1,92 @@
-import { Controller, Get, HttpStatus, Req, Res } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Query, Req, Res } from '@nestjs/common';
 import { LeaderboardService } from './leaderboard.service';
 import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
+import { LeaderboardDto } from './dto/leaderboard.dto';
 
 @ApiBearerAuth()
 @Controller('leaderboard')
 @ApiTags('Leaderboard')
 export class LeaderboardController {
   constructor(private readonly leaderboardService: LeaderboardService) {}
+
+  @Get('/weekly-leaderboard-category')
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Success',
+    schema: {
+      example: {
+        responseMessage: 'Get Weekly Leaderboard Category Success',
+        data: {
+          category: [
+            {
+              id: '4e4c1ff5-9788-469b-a86b-3baa8507b6d0',
+              name: 'Week 2',
+            },
+            {
+              id: '6ba60e4e-efe7-450c-9e82-8eb86b59aea6',
+              name: 'Week 1',
+            },
+          ],
+        },
+      },
+    },
+  })
+  weeklyLeaderboardCategory(@Res() res: Response) {
+    return this.leaderboardService.weeklyLeaderboardCategory(res);
+  }
+
+  @Get('/monthly-leaderboard-category')
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Success',
+    schema: {
+      example: {
+        responseMessage: 'Get Monthly Leaderboard Category Success',
+        data: {
+          category: [
+            {
+              id: '4e4c1ff5-9788-469b-a86b-3baa8507b6d0',
+              name: 'Month 2',
+            },
+            {
+              id: '6ba60e4e-efe7-450c-9e82-8eb86b59aea6',
+              name: 'Month 1',
+            },
+          ],
+        },
+      },
+    },
+  })
+  monthlyLeaderboardCategory(@Res() res: Response) {
+    return this.leaderboardService.monthlyLeaderboardCategory(res);
+  }
+
+  @Get('/yearly-leaderboard-category')
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Success',
+    schema: {
+      example: {
+        responseMessage: 'Get Yearly Leaderboard Category Success',
+        data: {
+          category: [
+            {
+              id: '4e4c1ff5-9788-469b-a86b-3baa8507b6d0',
+              name: 'Year 2',
+            },
+            {
+              id: '6ba60e4e-efe7-450c-9e82-8eb86b59aea6',
+              name: 'Year 1',
+            },
+          ],
+        },
+      },
+    },
+  })
+  yearlyLeaderboardCategory(@Res() res: Response) {
+    return this.leaderboardService.yearlyLeaderboardCategory(res);
+  }
 
   @Get('/weekly-leaderboard')
   @ApiResponse({
@@ -170,8 +249,12 @@ export class LeaderboardController {
       },
     },
   })
-  weeklyLeaderboard(@Req() req, @Res() res: Response) {
-    return this.leaderboardService.weeklyLeaderboard(req.user.id, res);
+  weeklyLeaderboard(
+    @Query() query: LeaderboardDto,
+    @Req() req,
+    @Res() res: Response,
+  ) {
+    return this.leaderboardService.weeklyLeaderboard(query, req.user.id, res);
   }
 
   @Get('/monthly-leaderboard')
@@ -335,8 +418,12 @@ export class LeaderboardController {
       },
     },
   })
-  monthlyLeaderboard(@Req() req, @Res() res: Response) {
-    return this.leaderboardService.monthlyLeaderboard(req.user.id, res);
+  monthlyLeaderboard(
+    @Query() query: LeaderboardDto,
+    @Req() req,
+    @Res() res: Response,
+  ) {
+    return this.leaderboardService.monthlyLeaderboard(query, req.user.id, res);
   }
 
   @Get('/yearly-leaderboard')
@@ -500,7 +587,11 @@ export class LeaderboardController {
       },
     },
   })
-  yearlyLeaderboard(@Req() req, @Res() res: Response) {
-    return this.leaderboardService.yearlyLeaderboard(req.user.id, res);
+  yearlyLeaderboard(
+    @Query() query: LeaderboardDto,
+    @Req() req,
+    @Res() res: Response,
+  ) {
+    return this.leaderboardService.yearlyLeaderboard(query, req.user.id, res);
   }
 }

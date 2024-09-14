@@ -1,14 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { WeeklyPredictionLeaderboard } from '../leaderboard/entities/weekly-prediction-leaderboard.entity';
-import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
-import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
 import { CronJobService } from './cron-job.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { dataSourceOptions } from '~/database/database.data-source';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Predictions } from '../prediction/entities/prediction.entity';
+import { CronJobController } from './cron-job.controller';
+import { WeeklyLeaderboardCategory } from '../leaderboard/entities/weekly-leaderboard-category.entity';
+import { MonthlyLeaderboardCategory } from '../leaderboard/entities/monthly-leaderboard-category.entity';
+import { YearlyLeaderboardCategory } from '../leaderboard/entities/yearly-leaderboard-category.entity';
 
 @Module({
   imports: [
@@ -28,13 +29,13 @@ import { Predictions } from '../prediction/entities/prediction.entity';
     TypeOrmModule.forRoot(dataSourceOptions),
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([
-      WeeklyPredictionLeaderboard,
-      MonthlyReferralLeaderboard,
-      YearlyLeaderboard,
+      WeeklyLeaderboardCategory,
+      MonthlyLeaderboardCategory,
+      YearlyLeaderboardCategory,
       Predictions,
     ]),
   ],
-  controllers: [],
+  controllers: [CronJobController],
   providers: [CronJobService],
 })
 export class CronJobModule {}

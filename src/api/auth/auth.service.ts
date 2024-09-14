@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   HttpStatus,
   Injectable,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -62,6 +63,11 @@ export class AuthService {
 
     if (!compareSync(body.password, user.password))
       throw new ForbiddenException('invalid username or password');
+
+    if (user.isEmailVerified == false)
+      throw new UnprocessableEntityException(
+        'Please verified email to continue',
+      );
 
     const token = await this.generateJwt(user, deviceToken);
 

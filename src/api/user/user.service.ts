@@ -36,6 +36,12 @@ import { ReferralListResDto } from './dto/referral-list.dto';
 import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
 import { UpdateWalletAddressDto } from './dto/update-wallet-address.req.dto';
 import { UpdateTwitterUsernameDto } from './dto/update-twitter-username.dto';
+import {
+  getCurrentMonthEndDatetime,
+  getCurrentMonthStartDatetime,
+  getCurrentYearEndDatetime,
+  getCurrentYearStartDatetime,
+} from '~/common/util/date';
 
 @Injectable()
 export class UserService {
@@ -193,13 +199,22 @@ export class UserService {
         if (result) {
           await queryRunner.manager.increment(
             MonthlyReferralLeaderboard,
-            { userId: checkReffExist.id },
+            {
+              userId: checkReffExist.id,
+              fromDate: getCurrentMonthStartDatetime(),
+              toDate: getCurrentMonthEndDatetime(),
+            },
             'sumPoint',
             1,
           );
           await queryRunner.manager.increment(
             YearlyLeaderboard,
-            { userId: checkReffExist.id, type: 2 },
+            {
+              userId: checkReffExist.id,
+              type: 2,
+              fromDate: getCurrentYearStartDatetime(),
+              toDate: getCurrentYearEndDatetime(),
+            },
             'sumPoint',
             1,
           );
@@ -208,6 +223,8 @@ export class UserService {
             this.monthlyRefLeaderboardRepo.create({
               userId: checkReffExist.id,
               sumPoint: 1,
+              fromDate: getCurrentMonthStartDatetime(),
+              toDate: getCurrentMonthEndDatetime(),
             }),
           );
           await queryRunner.manager.save(
@@ -215,6 +232,8 @@ export class UserService {
               userId: checkReffExist.id,
               sumPoint: 1,
               type: 2,
+              fromDate: getCurrentYearStartDatetime(),
+              toDate: getCurrentYearEndDatetime(),
             }),
           );
         }
@@ -389,6 +408,10 @@ export class UserService {
     }
 
     Object.assign(user, body);
+
+    if (body.countryId) {
+      user.countryId = parseInt(body.countryId);
+    }
 
     const updatedUser = await this.userRepo.save(user);
 

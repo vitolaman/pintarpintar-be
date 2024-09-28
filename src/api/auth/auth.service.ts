@@ -216,7 +216,7 @@ export class AuthService {
 
       await this.userRepo.save(user);
 
-      const tokenLoginUser = this.generateJwt(user, deviceToken);
+      const tokenLoginUser = await this.generateJwt(user, deviceToken);
 
       return res.status(HttpStatus.OK).json({
         responseMessage: `Create New Password Success!`,
@@ -269,7 +269,7 @@ export class AuthService {
         });
       }
 
-      const tokenLoginUser = this.generateJwt(user, body.deviceToken);
+      const tokenLoginUser = await this.generateJwt(user, body.deviceToken);
 
       user.isEmailVerified = true;
 

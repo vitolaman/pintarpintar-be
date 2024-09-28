@@ -126,7 +126,6 @@ export class AuthService {
   private _sendOtpMail(otp: string, email: string) {
     const mailApiKey = this.configService.get<string>('ZEPTO_API_KEY');
     const mailApiUrl = this.configService.get<string>('ZEPTO_API_URL');
-    console.log(mailApiKey, mailApiUrl);
     const client = new SendMailClient({ url: mailApiUrl, token: mailApiKey });
 
     client
@@ -143,8 +142,8 @@ export class AuthService {
             },
           },
         ],
-        subject: 'Forgot Password OTP Email',
-        htmlbody: `<div>This is your forgot password otp: <b> ${otp} </b></div>`,
+        subject: 'Scora OTP Email',
+        htmlbody: `<div>This is your otp code: <b> ${otp} </b></div>`,
       })
       .then((resp) => console.log('success', resp))
       .catch((error) => console.log('error', error));

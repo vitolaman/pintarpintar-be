@@ -10,6 +10,8 @@ import { CronJobController } from './cron-job.controller';
 import { WeeklyLeaderboardCategory } from '../leaderboard/entities/weekly-leaderboard-category.entity';
 import { MonthlyLeaderboardCategory } from '../leaderboard/entities/monthly-leaderboard-category.entity';
 import { YearlyLeaderboardCategory } from '../leaderboard/entities/yearly-leaderboard-category.entity';
+import { User } from '../user/entities/user.entity';
+import { WeeklyPredictionLeaderboard } from '../leaderboard/entities/weekly-prediction-leaderboard.entity';
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { YearlyLeaderboardCategory } from '../leaderboard/entities/yearly-leader
       MonthlyLeaderboardCategory,
       YearlyLeaderboardCategory,
       Predictions,
+      User,
+      WeeklyPredictionLeaderboard,
     ]),
   ],
   controllers: [CronJobController],

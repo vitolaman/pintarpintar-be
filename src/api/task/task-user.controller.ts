@@ -22,7 +22,7 @@ export class TaskUserController {
   @ApiResponse({
     status: 200,
     description:
-      'Success || taskType: 1: Watch Ads; 2: Follow Twitter; 3: Like X; 4: Retweet X;',
+      'Success || taskType: 1: Watch Ads; 2: Follow Twitter; 3: Like X; 4: Retweet X; 5: Daily Login;',
     schema: {
       example: {
         data: [
@@ -82,7 +82,7 @@ export class TaskUserController {
   @ApiResponse({
     status: 200,
     description:
-      'Success || taskType: 1: Watch Ads; 2: Follow Twitter; 3: Like X; 4: Retweet X;',
+      'Success || taskType: 1: Watch Ads; 2: Follow Twitter; 3: Like X; 4: Retweet X; 5: Daily Login;',
     schema: {
       example: {
         data: {

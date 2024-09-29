@@ -1,10 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayNotEmpty,
+  IsArray,
   IsBoolean,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateTaskDto {
@@ -22,7 +25,7 @@ export class CreateTaskDto {
 
   @IsNotEmpty()
   @IsString()
-  @ApiProperty({ example: 'twitter like post' })
+  @ApiProperty({ example: '1' })
   type: string;
 
   @IsNotEmpty()
@@ -49,4 +52,14 @@ export class CreateTaskDto {
   @IsNumber()
   @ApiProperty({ example: 1 })
   token: number;
+
+  @ValidateIf((o) => o.type === '5')
+  @IsArray()
+  @ArrayNotEmpty()
+  @ApiPropertyOptional({
+    example: [10, 20, 30, 40, 50],
+    description:
+      'Only Mandatory for type 5. Points a user earns at each streak milestone',
+  })
+  loginStreakMetadata: number[];
 }

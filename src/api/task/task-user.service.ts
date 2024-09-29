@@ -15,6 +15,7 @@ import {
   FindOneTaskUserResDto,
 } from './dto/find-one-task-user.dto';
 import * as moment from 'moment';
+import 'moment-timezone';
 import { VerifyTaskDto } from './dto/verify-task.dto';
 import { TaskRepeatableTypeEnum, TaskTypeEnum } from './task.enum';
 import { User } from '../user/entities/user.entity';
@@ -53,7 +54,16 @@ export class TaskUserService {
         't.task_name as "taskName"',
         't.url as "taskUrl"',
         't.type as "taskType"',
-        't.token as "token"',
+        `
+          CASE
+            WHEN t.type = '5' THEN 
+              CASE 
+                WHEN u.login_task_streak IS NOT NULL AND u.login_task_streak < array_length(t.login_streak_metadata, 1) THEN t.login_streak_metadata[u.login_task_streak + 1]
+                ELSE "t".login_streak_metadata[array_length("t"."login_streak_metadata", 1)]
+              END
+            ELSE t.token
+          END as "token"
+        `,
         't.created_at as "createdAt"',
       ])
       .from(Task, 't')
@@ -63,9 +73,15 @@ export class TaskUserService {
         't.id = th.task_id AND th.user_id = :userId',
         { userId },
       )
+      .leftJoin(
+        User,
+        'u',
+        'u.id = :userId', // Join with the User table
+        { userId },
+      )
       .where('t.id = :taskId', { taskId: query.masterTaskId })
-      .where('t.deleted_at IS NULL')
-      .groupBy('t.id')
+      .andWhere('t.deleted_at IS NULL')
+      .groupBy('t.id, u.login_task_streak, t.login_streak_metadata')
       .addSelect(
         `
         CASE
@@ -102,7 +118,16 @@ export class TaskUserService {
         't.task_name as "taskName"',
         't.url as "taskUrl"',
         't.type as "taskType"',
-        't.token as "token"',
+        `
+          CASE
+            WHEN t.type = '5' THEN 
+              CASE 
+                WHEN u.login_task_streak IS NOT NULL AND u.login_task_streak < array_length(t.login_streak_metadata, 1) THEN t.login_streak_metadata[u.login_task_streak + 1]
+                ELSE "t".login_streak_metadata[array_length("t"."login_streak_metadata", 1)]
+              END
+            ELSE t.token
+          END as "token"
+        `,
         't.created_at as "createdAt"',
       ])
       .from(Task, 't')
@@ -112,8 +137,14 @@ export class TaskUserService {
         't.id = th.task_id AND th.user_id = :userId',
         { userId },
       )
+      .leftJoin(
+        User,
+        'u',
+        'u.id = :userId', // Join with the User table
+        { userId },
+      )
       .where('t.deleted_at IS NULL')
-      .groupBy('t.id')
+      .groupBy('t.id, u.login_task_streak, t.login_streak_metadata') // Include new fields in group by
       .orderBy('t.created_at', 'ASC')
       .skip((page - 1) * limit)
       .take(limit)
@@ -168,6 +199,7 @@ export class TaskUserService {
     await this._validateTaskHistory(masterTask, userId);
 
     switch (masterTask.type) {
+      case TaskTypeEnum.DAILY_SIGN_IN:
       case TaskTypeEnum.WATCH_ADS:
         break;
       case TaskTypeEnum.FOLLOW_TWITTER:
@@ -276,8 +308,27 @@ export class TaskUserService {
   }
 
   private async _updatePredictToken(masterTask: Task, user: User) {
-    user.predictToken = user.predictToken + masterTask.token;
+    if (masterTask.type === TaskTypeEnum.DAILY_SIGN_IN) {
+      await this._updateDailySignInPredictToken(masterTask, user);
+    } else {
+      user.predictToken = user.predictToken + masterTask.token;
+      await this.userRepo.save(user);
+    }
+  }
 
+  private async _updateDailySignInPredictToken(masterTask: Task, user: User) {
+    const streakLength = masterTask.loginStreakMetadata.length;
+
+    let token: number;
+    if (user.loginTaskStreak < streakLength) {
+      token = masterTask.loginStreakMetadata[user.loginTaskStreak];
+    } else {
+      token = masterTask.loginStreakMetadata[streakLength - 1];
+    }
+
+    user.predictToken += token;
+    user.loginTaskStreak = user.loginTaskStreak + 1;
+    user.lastLoginTaskDate = moment().utc().toDate();
     await this.userRepo.save(user);
   }
 

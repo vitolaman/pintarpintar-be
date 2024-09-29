@@ -10,6 +10,7 @@ import {
   NotFoundException,
   UnauthorizedException,
   Query,
+  Delete,
 } from '@nestjs/common';
 import { TaskService } from './task.service';
 import { CreateTaskDto } from './dto/create-task.req.dto';
@@ -28,7 +29,7 @@ import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 
-  @DefaultResponse(Task, 'Create task success', HttpStatus.OK, [
+  @DefaultResponse(Task, 'Create task success', HttpStatus.CREATED, [
     NotFoundException,
     UnauthorizedException,
     BadRequestException,
@@ -47,6 +48,16 @@ export class TaskController {
     return this.taskService.findAll(query);
   }
 
+  @Get(':id')
+  @DefaultResponse(Task, 'Get task success', HttpStatus.OK, [
+    NotFoundException,
+    UnauthorizedException,
+    BadRequestException,
+  ])
+  async findOne(@Param('id') id: string) {
+    return this.taskService.findOne(id);
+  }
+
   @DefaultResponse(Task, 'Update task success', HttpStatus.OK, [
     NotFoundException,
     UnauthorizedException,
@@ -55,5 +66,15 @@ export class TaskController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
     return this.taskService.update(id, updateTaskDto);
+  }
+
+  @DefaultResponse(Task, 'Delete task success', HttpStatus.OK, [
+    NotFoundException,
+    UnauthorizedException,
+    BadRequestException,
+  ])
+  @Delete(':id')
+  delete(@Param('id') id: string) {
+    return this.taskService.delete(id);
   }
 }

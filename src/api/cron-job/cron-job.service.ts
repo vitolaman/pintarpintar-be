@@ -35,6 +35,7 @@ export class CronJobService {
     @InjectRepository(Predictions)
     private readonly predictionsRepo: Repository<Predictions>,
     @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private configService: ConfigService,
     private readonly httpService: HttpService,
     private leaderboardService: LeaderboardService,
@@ -158,6 +159,23 @@ export class CronJobService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    timeZone: 'UTC',
+  })
+  async resetStreakInactiveUser() {
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    yesterday.setUTCHours(0, 0, 0, 0);
+
+    await this.userRepo
+      .createQueryBuilder()
+      .update(User)
+      .set({ loginTaskStreak: 0 })
+      .where('last_login_task_date < :yesterday', { yesterday })
+      .andWhere('login_task_streak != 0')
+      .execute();
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {

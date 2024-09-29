@@ -18,7 +18,7 @@ export class Task extends BaseEntity {
 
   @ApiProperty()
   @Column({ nullable: false, default: 1 })
-  token: number;
+  token: number; // Dikacang kalau di task login karena dinamis, pakai login_streak_metadata
 
   @ApiProperty()
   @Column({ nullable: false, default: false })
@@ -35,4 +35,16 @@ export class Task extends BaseEntity {
   @ApiProperty()
   @Column({ nullable: false, default: 1 })
   repeatableType: number; // 0: none, 1: daily
+
+  @ApiProperty({
+    type: [Number],
+    example: [10, 20, 30, 40, 50],
+    description: 'Points earned at each streak milestone',
+  })
+  @Column('integer', {
+    name: 'login_streak_metadata',
+    array: true,
+    nullable: true,
+  })
+  loginStreakMetadata: number[];
 }

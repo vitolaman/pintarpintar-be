@@ -3,6 +3,7 @@ export enum TaskTypeEnum {
   FOLLOW_TWITTER = '2',
   LIKE_TWITTER = '3',
   RETWEET_TWITTER = '4',
+  DAILY_SIGN_IN = '5',
 }
 
 export enum TaskRepeatableTypeEnum {

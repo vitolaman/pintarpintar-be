@@ -73,4 +73,15 @@ export class User extends BaseEntity {
   @ApiProperty()
   @Column({ nullable: true })
   deviceToken: string;
+
+  @ApiProperty()
+  @Column({ name: 'login_task_streak', nullable: false, default: 0 })
+  loginTaskStreak: number;
+
+  @ApiProperty()
+  @Column('timestamp', {
+    name: 'last_login_task_date',
+    nullable: true,
+  })
+  lastLoginTaskDate: Date;
 }

@@ -12,6 +12,9 @@ import { MonthlyLeaderboardCategory } from '../leaderboard/entities/monthly-lead
 import { YearlyLeaderboardCategory } from '../leaderboard/entities/yearly-leaderboard-category.entity';
 import { User } from '../user/entities/user.entity';
 import { WeeklyPredictionLeaderboard } from '../leaderboard/entities/weekly-prediction-leaderboard.entity';
+import { LeaderboardService } from '../leaderboard/leaderboard.service';
+import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
+import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
 
 @Module({
   imports: [
@@ -31,15 +34,17 @@ import { WeeklyPredictionLeaderboard } from '../leaderboard/entities/weekly-pred
     TypeOrmModule.forRoot(dataSourceOptions),
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([
+      Predictions,
+      User,
+      MonthlyReferralLeaderboard,
+      YearlyLeaderboard,
+      WeeklyPredictionLeaderboard,
       WeeklyLeaderboardCategory,
       MonthlyLeaderboardCategory,
       YearlyLeaderboardCategory,
-      Predictions,
-      User,
-      WeeklyPredictionLeaderboard,
     ]),
   ],
   controllers: [CronJobController],
-  providers: [CronJobService],
+  providers: [CronJobService, LeaderboardService],
 })
 export class CronJobModule {}

@@ -9,6 +9,11 @@ import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-refe
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
+import { LeaderboardService } from '../leaderboard/leaderboard.service';
+import { WeeklyPredictionLeaderboard } from '../leaderboard/entities/weekly-prediction-leaderboard.entity';
+import { WeeklyLeaderboardCategory } from '../leaderboard/entities/weekly-leaderboard-category.entity';
+import { MonthlyLeaderboardCategory } from '../leaderboard/entities/monthly-leaderboard-category.entity';
+import { YearlyLeaderboardCategory } from '../leaderboard/entities/yearly-leaderboard-category.entity';
 
 @Module({
   imports: [
@@ -25,10 +30,14 @@ import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-lea
       Referrals,
       MonthlyReferralLeaderboard,
       YearlyLeaderboard,
+      WeeklyPredictionLeaderboard,
+      WeeklyLeaderboardCategory,
+      MonthlyLeaderboardCategory,
+      YearlyLeaderboardCategory,
     ]),
   ],
   controllers: [UserMeController, UserController],
-  providers: [UserService],
+  providers: [UserService, LeaderboardService],
   exports: [UserService],
 })
 export class UserModule {}

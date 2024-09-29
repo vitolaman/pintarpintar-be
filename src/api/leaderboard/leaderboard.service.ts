@@ -301,4 +301,142 @@ export class LeaderboardService {
       },
     });
   }
+
+  async updateWeeklyPredictionLeaderboard(userId: string) {
+    const weeklyPrediction = await this.weeklyPredictionLeaderboardRepository
+      .createQueryBuilder('wlr')
+      .setLock('pessimistic_write')
+      .where('wlr.user_id = :user_id', {
+        user_id: userId,
+        from_date: getCurrentTuesdayStartDatetime(),
+        to_date: getNextMondayEndDatetime(),
+      })
+      .getRawOne();
+
+    if (weeklyPrediction) {
+      await this.weeklyPredictionLeaderboardRepository.increment(
+        {
+          userId: userId,
+          fromDate: getCurrentTuesdayStartDatetime(),
+          toDate: getNextMondayEndDatetime(),
+        },
+        'sumPoint',
+        1,
+      );
+    } else {
+      await this.weeklyPredictionLeaderboardRepository.save(
+        this.weeklyPredictionLeaderboardRepository.create({
+          userId: userId,
+          sumPoint: 1,
+          fromDate: getCurrentTuesdayStartDatetime(),
+          toDate: getNextMondayEndDatetime(),
+        }),
+      );
+    }
+  }
+
+  async updateMonthlyReferralLeaderboard(userId: string) {
+    const monthly = await this.monthlyReferralLeaderboardRepository
+      .createQueryBuilder('mrl')
+      .setLock('pessimistic_write')
+      .where('mrl.user_id = :user_id', {
+        user_id: userId,
+        from_date: getCurrentMonthStartDatetime(),
+        to_date: getCurrentMonthEndDatetime(),
+      })
+      .getRawOne();
+
+    if (monthly) {
+      await this.monthlyReferralLeaderboardRepository.increment(
+        {
+          userId: userId,
+          fromDate: getCurrentMonthStartDatetime(),
+          toDate: getCurrentMonthEndDatetime(),
+        },
+        'sumPoint',
+        1,
+      );
+    } else {
+      await this.monthlyReferralLeaderboardRepository.save(
+        this.monthlyReferralLeaderboardRepository.create({
+          userId: userId,
+          sumPoint: 1,
+          fromDate: getCurrentMonthStartDatetime(),
+          toDate: getCurrentMonthEndDatetime(),
+        }),
+      );
+    }
+  }
+
+  async updateYearlyReferralLeaderboard(userId: string) {
+    const yearly = await this.yearlyLeaderboardRepository
+      .createQueryBuilder('ylr')
+      .setLock('pessimistic_write')
+      .where('ylr.user_id = :user_id', {
+        user_id: userId,
+        type: 2,
+        from_date: getCurrentYearStartDatetime(),
+        to_date: getCurrentYearEndDatetime(),
+      })
+      .getRawOne();
+
+    if (yearly) {
+      await this.yearlyLeaderboardRepository.increment(
+        {
+          userId: userId,
+          type: 2,
+          fromDate: getCurrentYearStartDatetime(),
+          toDate: getCurrentYearEndDatetime(),
+        },
+        'sumPoint',
+        1,
+      );
+    } else {
+      await this.yearlyLeaderboardRepository.save(
+        this.yearlyLeaderboardRepository.create({
+          userId: userId,
+          sumPoint: 1,
+          type: 2,
+          fromDate: getCurrentYearStartDatetime(),
+          toDate: getCurrentYearEndDatetime(),
+        }),
+      );
+    }
+  }
+
+  async updateYearlyPredictionLeaderboard(userId: string) {
+    const yearly = await this.yearlyLeaderboardRepository
+      .createQueryBuilder('ylr')
+      .setLock('pessimistic_write')
+      .where('ylr.user_id = :user_id', {
+        user_id: userId,
+        type: 1,
+        from_date: getCurrentYearStartDatetime(),
+        to_date: getCurrentYearEndDatetime(),
+      })
+      .getRawOne();
+
+    if (yearly) {
+      await this.yearlyLeaderboardRepository.increment(
+        {
+          userId: userId,
+          type: 1,
+          fromDate: getCurrentYearStartDatetime(),
+          toDate: getCurrentYearEndDatetime(),
+        },
+        'sumPoint',
+        1,
+      );
+    } else {
+      await this.yearlyLeaderboardRepository.save(
+        this.yearlyLeaderboardRepository.create({
+          userId: userId,
+          sumPoint: 1,
+          type: 1,
+          fromDate: getCurrentYearStartDatetime(),
+          toDate: getCurrentYearEndDatetime(),
+        }),
+      );
+    }
+  }
 }

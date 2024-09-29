@@ -19,7 +19,7 @@ import {
   getNextMondayEndDatetime,
 } from '~/common/util/date';
 import { User } from '../user/entities/user.entity';
-import { WeeklyPredictionLeaderboard } from '../leaderboard/entities/weekly-prediction-leaderboard.entity';
+import { LeaderboardService } from '../leaderboard/leaderboard.service';
 
 @Injectable()
 export class CronJobService {
@@ -35,11 +35,9 @@ export class CronJobService {
     @InjectRepository(Predictions)
     private readonly predictionsRepo: Repository<Predictions>,
     @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-    @InjectRepository(WeeklyPredictionLeaderboard)
-    private readonly weeklyLeaderboardRepo: Repository<WeeklyPredictionLeaderboard>,
     private configService: ConfigService,
     private readonly httpService: HttpService,
+    private leaderboardService: LeaderboardService,
   ) {}
 
   @Cron('0 0 * * 2', {
@@ -248,10 +246,11 @@ export class CronJobService {
           for (const predict of predicts) {
             predict.matchStatus = result === predict.prediction ? 1 : -1;
             if (predict.matchStatus === 1) {
-              await this.weeklyLeaderboardRepo.increment(
-                { id: predict.userId },
-                'sum_point',
-                1,
+              await this.leaderboardService.updateWeeklyPredictionLeaderboard(
+                predict.userId,
+              );
+              await this.leaderboardService.updateYearlyPredictionLeaderboard(
+                predict.userId,
               );
             }
           }
@@ -333,10 +332,11 @@ export class CronJobService {
           for (const predict of predicts) {
             predict.matchStatus = result === predict.prediction ? 1 : -1;
             if (predict.matchStatus === 1) {
-              await this.weeklyLeaderboardRepo.increment(
-                { id: predict.userId },
-                'sum_point',
-                1,
+              await this.leaderboardService.updateWeeklyPredictionLeaderboard(
+                predict.userId,
+              );
+              await this.leaderboardService.updateYearlyPredictionLeaderboard(
+                predict.userId,
               );
             }
           }
@@ -427,10 +427,11 @@ export class CronJobService {
           for (const predict of predicts) {
             predict.matchStatus = result === predict.prediction ? 1 : -1;
             if (predict.matchStatus === 1) {
-              await this.weeklyLeaderboardRepo.increment(
-                { id: predict.userId },
-                'sum_point',
-                1,
+              await this.leaderboardService.updateWeeklyPredictionLeaderboard(
+                predict.userId,
+              );
+              await this.leaderboardService.updateYearlyPredictionLeaderboard(
+                predict.userId,
               );
             }
           }

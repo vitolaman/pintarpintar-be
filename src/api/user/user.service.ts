@@ -29,19 +29,12 @@ import {
   SocialTypeEnum,
   UpdateSocialTokenDto,
 } from './dto/update-social-token.req.dto';
-import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ReferralListResDto } from './dto/referral-list.dto';
-import { YearlyLeaderboard } from '../leaderboard/entities/yearly-prediction-leaderboard.entity';
 import { UpdateWalletAddressDto } from './dto/update-wallet-address.req.dto';
 import { UpdateTwitterUsernameDto } from './dto/update-twitter-username.dto';
-import {
-  getCurrentMonthEndDatetime,
-  getCurrentMonthStartDatetime,
-  getCurrentYearEndDatetime,
-  getCurrentYearStartDatetime,
-} from '~/common/util/date';
+import { LeaderboardService } from '../leaderboard/leaderboard.service';
 
 @Injectable()
 export class UserService {
@@ -52,11 +45,8 @@ export class UserService {
     private userRepo: Repository<User>,
     @InjectRepository(Referrals)
     private refRepo: Repository<Referrals>,
-    @InjectRepository(MonthlyReferralLeaderboard)
-    private monthlyRefLeaderboardRepo: Repository<MonthlyReferralLeaderboard>,
-    @InjectRepository(YearlyLeaderboard)
-    private yearlyRefLeaderboardRepo: Repository<YearlyLeaderboard>,
     private jwtService: JwtService,
+    private leaderboardService: LeaderboardService,
   ) {}
 
   async findOne(options: FindOneOptions<User>): Promise<FindOneUserResDto> {
@@ -187,56 +177,13 @@ export class UserService {
           1,
         );
 
-        const result = await queryRunner.manager
-          .getRepository(MonthlyReferralLeaderboard)
-          .createQueryBuilder('mrl')
-          .setLock('pessimistic_write')
-          .where('mrl.user_id = :user_id', {
-            user_id: checkReffExist.id,
-          })
-          .getRawOne();
+        await this.leaderboardService.updateMonthlyReferralLeaderboard(
+          checkReffExist.id,
+        );
 
-        if (result) {
-          await queryRunner.manager.increment(
-            MonthlyReferralLeaderboard,
-            {
-              userId: checkReffExist.id,
-              fromDate: getCurrentMonthStartDatetime(),
-              toDate: getCurrentMonthEndDatetime(),
-            },
-            'sumPoint',
-            1,
-          );
-          await queryRunner.manager.increment(
-            YearlyLeaderboard,
-            {
-              userId: checkReffExist.id,
-              type: 2,
-              fromDate: getCurrentYearStartDatetime(),
-              toDate: getCurrentYearEndDatetime(),
-            },
-            'sumPoint',
-            1,
-          );
-        } else {
-          await queryRunner.manager.save(
-            this.monthlyRefLeaderboardRepo.create({
-              userId: checkReffExist.id,
-              sumPoint: 1,
-              fromDate: getCurrentMonthStartDatetime(),
-              toDate: getCurrentMonthEndDatetime(),
-            }),
-          );
-          await queryRunner.manager.save(
-            this.yearlyRefLeaderboardRepo.create({
-              userId: checkReffExist.id,
-              sumPoint: 1,
-              type: 2,
-              fromDate: getCurrentYearStartDatetime(),
-              toDate: getCurrentYearEndDatetime(),
-            }),
-          );
-        }
+        await this.leaderboardService.updateYearlyReferralLeaderboard(
+          checkReffExist.id,
+        );
 
         await queryRunner.manager.save(
           this.refRepo.create({

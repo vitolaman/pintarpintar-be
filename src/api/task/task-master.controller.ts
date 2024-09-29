@@ -11,6 +11,7 @@ import {
   UnauthorizedException,
   Query,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { TaskService } from './task.service';
 import { CreateTaskDto } from './dto/create-task.req.dto';
@@ -22,10 +23,16 @@ import {
 } from '~/common/decorator/response.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
+import {
+  AdminJwtGuard,
+  UseAdminJwtGuard,
+} from '~/common/guard/admin-jwt.guard';
 
 @Controller('task/master')
 @ApiBearerAuth()
 @ApiTags('Master Task')
+@UseGuards(AdminJwtGuard)
+@UseAdminJwtGuard()
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 

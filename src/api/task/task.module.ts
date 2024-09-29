@@ -7,11 +7,22 @@ import { TaskHistory } from './entities/task-histories.entity';
 import { TaskUserController } from './task-user.controller';
 import { TaskUserService } from './task-user.service';
 import { User } from '../user/entities/user.entity';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HttpService } from '~/common/util/http.service';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Task, TaskHistory, User])],
+  imports: [
+    TypeOrmModule.forFeature([Task, TaskHistory, User]),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('ADMIN_JWT_ADMIN_KEY'),
+        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES') },
+      }),
+    }),
+  ],
   controllers: [TaskController, TaskUserController],
   providers: [TaskService, TaskUserService, HttpService, ConfigService],
 })

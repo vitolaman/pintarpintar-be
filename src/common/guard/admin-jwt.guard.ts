@@ -9,22 +9,22 @@ import { ConfigType } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
-import jwtConfig from '~/config/jwt.config';
 import { IS_PUBLIC_ENDPOINT } from '../decorator/public.decorator';
-import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '~/api/user/entities/user.entity';
-import { Repository } from 'typeorm';
-import { ADMIN_JWT_GUARD_KEY } from './admin-jwt.guard';
+import adminJwtConfig from '~/config/admin-jwt.config';
+
+import { SetMetadata } from '@nestjs/common';
+
+export const ADMIN_JWT_GUARD_KEY = 'adminJwtGuard';
+
+export const UseAdminJwtGuard = () => SetMetadata(ADMIN_JWT_GUARD_KEY, true);
 
 @Injectable()
-export class JwtGuard implements CanActivate {
+export class AdminJwtGuard implements CanActivate {
   constructor(
-    @Inject(jwtConfig.KEY)
-    private jwtCfg: ConfigType<typeof jwtConfig>,
+    @Inject(adminJwtConfig.KEY)
+    private adminJwtCfg: ConfigType<typeof adminJwtConfig>,
     private jwtService: JwtService,
     private reflector: Reflector,
-    @InjectRepository(User)
-    private userRepo: Repository<User>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -35,30 +35,15 @@ export class JwtGuard implements CanActivate {
 
     if (isPublicEndpoint) return true;
 
-    const hasAnotherGuard = this.reflector.getAllAndOverride<boolean>(
-      ADMIN_JWT_GUARD_KEY,
-      [context.getHandler(), context.getClass()],
-    );
-
-    if (hasAnotherGuard) return true;
-
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
 
     if (!token) throw new UnauthorizedException();
 
     try {
-      const { secret } = this.jwtCfg;
+      const { secret } = this.adminJwtCfg;
       const payload = await this.jwtService.verifyAsync(token, { secret });
-      request['user'] = payload;
-      const userJwt = request['user'];
-
-      // cek device token
-      const { deviceToken } = await this.userRepo.findOne({
-        where: { id: userJwt?.id },
-      });
-      if (userJwt.deviceToken !== deviceToken)
-        throw new UnauthorizedException();
+      request['admin'] = payload;
     } catch {
       throw new UnauthorizedException();
     }

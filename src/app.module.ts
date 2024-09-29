@@ -22,6 +22,8 @@ import { MasterPfpModule } from './api/master-pfp/master-pfp.module';
 import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 import { User } from './api/user/entities/user.entity';
 import { CronJobModule } from './api/cron-job/cron-job.module';
+import { AdminModule } from './api/admin/admin.module';
+import adminJwtConfig from './config/admin-jwt.config';
 
 @Module({
   imports: [
@@ -36,7 +38,7 @@ import { CronJobModule } from './api/cron-job/cron-job.module';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [redisConfig, jwtConfig, twitterRapidapiConfig],
+      load: [redisConfig, jwtConfig, twitterRapidapiConfig, adminJwtConfig],
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     TypeOrmModule.forFeature([User]),
@@ -44,6 +46,7 @@ import { CronJobModule } from './api/cron-job/cron-job.module';
     RedisModule,
     AuthModule,
     UserModule,
+    AdminModule,
     TaskModule,
     LeaderboardModule,
     PredictionModule,

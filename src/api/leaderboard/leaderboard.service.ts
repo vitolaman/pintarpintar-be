@@ -266,7 +266,7 @@ export class LeaderboardService {
         'leaderboard.userId as "userId"',
         'SUM(leaderboard.sumPoint) as "sumPoint"',
         'MAX(leaderboard.updated_at) as "updated_at"',
-        'user.username',
+        'user.username as "username"',
         'RANK() OVER (ORDER BY SUM(leaderboard.sumPoint) DESC, MAX(leaderboard.updated_at) ASC) AS rank',
       ])
       .where(`1=1 ${additionalWhere}`, parameters)

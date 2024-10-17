@@ -20,10 +20,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  DefaultResponse,
-  EmptyResponse,
-} from '~/common/decorator/response.decorator';
+import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { UserService } from './user.service';
 import { User } from './entities/user.entity';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
@@ -55,8 +52,11 @@ export class UserMeController {
   }
 
   @Delete()
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse([UnauthorizedException])
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(User, 'Delete Account Success', HttpStatus.OK, [
+    NotFoundException,
+    UnauthorizedException,
+  ])
   async delete(@Req() req) {
     return this.userService.delete(req.user.id);
   }

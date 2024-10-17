@@ -243,8 +243,15 @@ export class UserService {
   //   return this.findOne({ where: { id } });
   // }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string): Promise<FindOneUserResDto> {
+    const { data: user } = await this.findMe(id);
+
     await this.userRepo.softDelete({ id });
+
+    return new FindOneUserResDto({
+      data: user,
+      responseMessage: 'Delete Account Success',
+    });
   }
 
   async findAllUsers({

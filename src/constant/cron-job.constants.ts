@@ -10,8 +10,8 @@ export const matchStatus = {
 };
 
 export const sportList = {
-  TENNIS: 'tennis',
-  SOCCER: 'soccer',
-  CRICKET: 'cricket',
-  BASKETBALL: 'basketball',
+  TENNIS: '3',
+  SOCCER: '1',
+  CRICKET: '4',
+  BASKETBALL: '2',
 };

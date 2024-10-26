@@ -17,10 +17,13 @@ import {
   getCurrentYearStartDatetime,
   getNextMondayEndDatetime,
 } from '~/common/util/date';
+import { User } from '../user/entities/user.entity';
 
 @Injectable()
 export class LeaderboardService {
   constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     @InjectRepository(WeeklyPredictionLeaderboard)
     private readonly weeklyPredictionLeaderboardRepository: Repository<WeeklyPredictionLeaderboard>,
     @InjectRepository(MonthlyReferralLeaderboard)
@@ -128,7 +131,28 @@ export class LeaderboardService {
 
     const topUsers = allUsers.slice(0, 20);
 
-    const loggedInUser = allUsers.find((user) => user.userId === userId);
+    let loggedInUser = allUsers.find((user) => user.userId === userId);
+
+    // Kalau data user loggedIn ga ada di leaderboard maka
+    if (!loggedInUser) {
+      const userLoggedInData = await this.userRepository
+        .createQueryBuilder('users')
+        .select([
+          'users.id as "userId"',
+          'users.updated_at as "updatedAt"',
+          'users.username as "username"',
+        ])
+        .where('users.id = :userId', { userId })
+        .getRawOne();
+
+      loggedInUser = {
+        rank: '#',
+        userId: userLoggedInData.userId,
+        user_username: userLoggedInData.username,
+        sumPoint: 0,
+        leaderboard_updated_at: userLoggedInData.updatedAt,
+      };
+    }
 
     return res.status(HttpStatus.OK).json({
       responseMessage: `Get Top Weekly Leaderboard Success`,
@@ -202,7 +226,28 @@ export class LeaderboardService {
 
     const topUsers = allUsers.slice(0, 20);
 
-    const loggedInUser = allUsers.find((user) => user.userId === userId);
+    let loggedInUser = allUsers.find((user) => user.userId === userId);
+
+    // Kalau data user loggedIn ga ada di leaderboard maka
+    if (!loggedInUser) {
+      const userLoggedInData = await this.userRepository
+        .createQueryBuilder('users')
+        .select([
+          'users.id as "userId"',
+          'users.updated_at as "updatedAt"',
+          'users.username as "username"',
+        ])
+        .where('users.id = :userId', { userId })
+        .getRawOne();
+
+      loggedInUser = {
+        rank: '#',
+        userId: userLoggedInData.userId,
+        user_username: userLoggedInData.username,
+        sumPoint: 0,
+        leaderboard_updated_at: userLoggedInData.updatedAt,
+      };
+    }
 
     return res.status(HttpStatus.OK).json({
       responseMessage: `Get Top Monthly Leaderboard Success`,
@@ -277,7 +322,28 @@ export class LeaderboardService {
 
     const topUsers = allUsers.slice(0, 20);
 
-    const loggedInUser = allUsers.find((user) => user.userId === userId);
+    let loggedInUser = allUsers.find((user) => user.userId === userId);
+
+    // Kalau data user loggedIn ga ada di leaderboard maka
+    if (!loggedInUser) {
+      const userLoggedInData = await this.userRepository
+        .createQueryBuilder('users')
+        .select([
+          'users.id as "userId"',
+          'users.updated_at as "updatedAt"',
+          'users.username as "username"',
+        ])
+        .where('users.id = :userId', { userId })
+        .getRawOne();
+
+      loggedInUser = {
+        rank: '#',
+        userId: userLoggedInData.userId,
+        username: userLoggedInData.username,
+        sumPoint: 0,
+        updated_at: userLoggedInData.updatedAt,
+      };
+    }
 
     return res.status(HttpStatus.OK).json({
       responseMessage: `Get Top Yearly Leaderboard Success`,

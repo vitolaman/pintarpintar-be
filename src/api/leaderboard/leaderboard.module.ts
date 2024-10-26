@@ -8,10 +8,12 @@ import { YearlyLeaderboard } from './entities/yearly-prediction-leaderboard.enti
 import { WeeklyLeaderboardCategory } from './entities/weekly-leaderboard-category.entity';
 import { MonthlyLeaderboardCategory } from './entities/monthly-leaderboard-category.entity';
 import { YearlyLeaderboardCategory } from './entities/yearly-leaderboard-category.entity';
+import { User } from '../user/entities/user.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      User,
       WeeklyPredictionLeaderboard,
       MonthlyReferralLeaderboard,
       YearlyLeaderboard,

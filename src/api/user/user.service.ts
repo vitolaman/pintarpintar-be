@@ -170,20 +170,23 @@ export class UserService {
       const data = await queryRunner.manager.save(this.userRepo.create(body));
 
       if (userReferralCode) {
+        // Tambah point leaderboard untuk old user
         await queryRunner.manager.increment(
           User,
           { id: checkReffExist.id },
           'countReferrals',
           1,
         );
-
         await this.leaderboardService.updateMonthlyReferralLeaderboard(
           checkReffExist.id,
         );
-
         await this.leaderboardService.updateYearlyReferralLeaderboard(
           checkReffExist.id,
         );
+
+        // Tambah point leaderboard untuk new user
+        await this.leaderboardService.updateMonthlyReferralLeaderboard(data.id);
+        await this.leaderboardService.updateYearlyReferralLeaderboard(data.id);
 
         await queryRunner.manager.save(
           this.refRepo.create({

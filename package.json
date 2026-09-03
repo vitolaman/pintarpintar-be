@@ -10,6 +10,8 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
+    "start:local": "cross-env ENV_FILE=.env.local nest start",
+    "start:dev:local": "cross-env ENV_FILE=.env.local nest start --watch",
     "start:dev:cron": "cross-env BOT_NAME=leaderboard-cron nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
@@ -19,7 +21,11 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "typeorm": "typeorm-ts-node-commonjs -d ./src/database/database.data-source.ts"
+    "typeorm": "typeorm-ts-node-commonjs -d ./src/database/database.data-source.ts",
+    "db:local:up": "docker compose --env-file .env.local up -d postgres redis",
+    "db:local:down": "docker compose --env-file .env.local down",
+    "db:local:migrate": "cross-env ENV_FILE=.env.local node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d ./src/database/database.data-source.ts migration:run",
+    "db:local:status": "cross-env ENV_FILE=.env.local node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d ./src/database/database.data-source.ts migration:show"
   },
   "dependencies": {
     "@nanogiants/nestjs-swagger-api-exception-decorator": "^1.6.11",
@@ -95,6 +101,9 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^~/(.*)$": "<rootDir>/$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

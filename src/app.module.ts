@@ -1,29 +1,22 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from './api/auth/auth.module';
+import { User } from './api/user/entities/user.entity';
+import { UserModule } from './api/user/user.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { dataSourceOptions } from './database/database.data-source';
-import { MasterCountryModule } from './api/master-country/master-country.module';
+import { JwtGuard } from './common/guard/jwt.guard';
 import { RedisModule } from './common/redis/src';
 import { RedisHealthIndicator } from './common/redis/src/redis-health-indicator';
-import { ConfigModule } from '@nestjs/config';
-import { AuthModule } from './api/auth/auth.module';
-import { UserModule } from './api/user/user.module';
-import redisConfig from './config/redis.config';
-import { APP_GUARD } from '@nestjs/core';
-import { JwtGuard } from './common/guard/jwt.guard';
-import { TaskModule } from './api/task/task.module';
-import { LeaderboardModule } from './api/leaderboard/leaderboard.module';
-import jwtConfig from './config/jwt.config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { PredictionModule } from './api/prediction/prediction.module';
-import { MasterPfpModule } from './api/master-pfp/master-pfp.module';
-import twitterRapidapiConfig from './config/twitter-rapidapi.config';
-import { User } from './api/user/entities/user.entity';
-import { CronJobModule } from './api/cron-job/cron-job.module';
-import { AdminModule } from './api/admin/admin.module';
+import jwtConfig from './config/jwt.config';
 import adminJwtConfig from './config/admin-jwt.config';
+import redisConfig from './config/redis.config';
+import twitterRapidapiConfig from './config/twitter-rapidapi.config';
+import { dataSourceOptions } from './database/database.data-source';
 
 @Module({
   imports: [
@@ -38,20 +31,14 @@ import adminJwtConfig from './config/admin-jwt.config';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
+      envFilePath: process.env.ENV_FILE || '.env',
       load: [redisConfig, jwtConfig, twitterRapidapiConfig, adminJwtConfig],
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     TypeOrmModule.forFeature([User]),
-    MasterCountryModule,
     RedisModule,
     AuthModule,
     UserModule,
-    AdminModule,
-    TaskModule,
-    LeaderboardModule,
-    PredictionModule,
-    MasterPfpModule,
-    CronJobModule,
   ],
   controllers: [AppController],
   providers: [

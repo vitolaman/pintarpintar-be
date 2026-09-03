@@ -14,7 +14,10 @@ import { IS_PUBLIC_ENDPOINT } from '../decorator/public.decorator';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '~/api/user/entities/user.entity';
 import { Repository } from 'typeorm';
-import { ADMIN_JWT_GUARD_KEY } from './admin-jwt.guard';
+
+interface JwtPayload {
+  id: string;
+}
 
 @Injectable()
 export class JwtGuard implements CanActivate {
@@ -35,13 +38,6 @@ export class JwtGuard implements CanActivate {
 
     if (isPublicEndpoint) return true;
 
-    const hasAnotherGuard = this.reflector.getAllAndOverride<boolean>(
-      ADMIN_JWT_GUARD_KEY,
-      [context.getHandler(), context.getClass()],
-    );
-
-    if (hasAnotherGuard) return true;
-
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
 
@@ -49,16 +45,18 @@ export class JwtGuard implements CanActivate {
 
     try {
       const { secret } = this.jwtCfg;
-      const payload = await this.jwtService.verifyAsync(token, { secret });
-      request['user'] = payload;
-      const userJwt = request['user'];
-
-      // cek device token
-      const { deviceToken } = await this.userRepo.findOne({
-        where: { id: userJwt?.id },
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
+        secret,
       });
-      if (userJwt.deviceToken !== deviceToken)
+
+      if (
+        !payload?.id ||
+        !(await this.userRepo.exists({ where: { id: payload.id } }))
+      ) {
         throw new UnauthorizedException();
+      }
+
+      request['user'] = payload;
     } catch {
       throw new UnauthorizedException();
     }

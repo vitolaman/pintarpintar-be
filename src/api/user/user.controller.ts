@@ -1,26 +1,11 @@
-import {
-  BadRequestException,
-  Controller,
-  Get,
-  HttpStatus,
-  NotFoundException,
-  Param,
-  Query,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Body, Controller, HttpStatus, Patch, Req } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
-  ApiParam,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  DefaultResponse,
-  PaginatedResponse,
-} from '~/common/decorator/response.decorator';
-import { RequestPaginatedQueryWithSearchDto } from '~/common/dto/request-paginated.dto';
-import { FindOneUserParamDto } from './dto/find-one-user.req.dto';
-import { User } from './entities/user.entity';
+import { UpdateCurrentUserBodyDto } from './dto/update-current-user.req.dto';
 import { UserService } from './user.service';
 
 @Controller('users')
@@ -29,27 +14,15 @@ import { UserService } from './user.service';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get(':id')
+  @Patch('me')
   @ApiOperation({
-    summary: 'Get profile by ID',
+    summary: 'Update current user name',
   })
-  @ApiParam({ name: 'id', description: 'User ID' })
-  @DefaultResponse(User, 'Find user by id success', HttpStatus.OK, [
-    BadRequestException,
-    NotFoundException,
-    UnauthorizedException,
-  ])
-  findById(@Param() param: FindOneUserParamDto) {
-    const { id } = param;
-    return this.userService.findById(id);
-  }
-
-  @Get()
-  @ApiOperation({
-    summary: 'Get all profile',
-  })
-  @PaginatedResponse(User, 'Get all users success', [BadRequestException])
-  findAllUsers(@Query() query: RequestPaginatedQueryWithSearchDto) {
-    return this.userService.findAllUsers(query);
+  @ApiResponse({ status: HttpStatus.OK, description: 'Updated current user' })
+  updateCurrentUser(
+    @Req() req: { user: { id: string } },
+    @Body() body: UpdateCurrentUserBodyDto,
+  ) {
+    return this.userService.updateCurrentUser(req.user.id, body.name);
   }
 }

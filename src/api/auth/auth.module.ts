@@ -5,9 +5,8 @@ import { User } from '../user/entities/user.entity';
 import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { RedisService } from '~/common/redis/src';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-referral-leaderboard.entity';
+import { RedisService } from '~/common/redis/src';
 
 @Module({
   controllers: [AuthController],
@@ -18,11 +17,13 @@ import { MonthlyReferralLeaderboard } from '../leaderboard/entities/monthly-refe
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_ADMIN_KEY'),
-        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES') },
+        secret: configService.get<string>('jwt.secret'),
+        signOptions: {
+          expiresIn: configService.get<string>('jwt.expiresIn'),
+        },
       }),
     }),
-    TypeOrmModule.forFeature([User, MonthlyReferralLeaderboard]),
+    TypeOrmModule.forFeature([User]),
     UserModule,
   ],
 })

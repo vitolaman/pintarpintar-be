@@ -21,5 +21,17 @@
     "paths": {
       "~/*": ["./src/*"]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "src/api/admin/**",
+    "src/api/cron-job/**",
+    "src/api/leaderboard/**",
+    "src/api/master-country/**",
+    "src/api/master-pfp/**",
+    "src/api/prediction/**",
+    "src/api/task/**"
+  ]
 }

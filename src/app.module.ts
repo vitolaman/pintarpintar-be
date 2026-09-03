@@ -8,19 +8,35 @@ import { UserModule } from './api/user/user.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtGuard } from './common/guard/jwt.guard';
+import { RedisModule } from './common/redis/src';
+import { RedisHealthIndicator } from './common/redis/src/redis-health-indicator';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import jwtConfig from './config/jwt.config';
+import adminJwtConfig from './config/admin-jwt.config';
+import redisConfig from './config/redis.config';
+import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 import { dataSourceOptions } from './database/database.data-source';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'profile_pics'),
+      serveRoot: '/profile-pictures',
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'master_profile_pics'),
+      serveRoot: '/master-profile-pictures',
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
       envFilePath: process.env.ENV_FILE || '.env',
-      load: [jwtConfig],
+      load: [redisConfig, jwtConfig, twitterRapidapiConfig, adminJwtConfig],
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     TypeOrmModule.forFeature([User]),
+    RedisModule,
     AuthModule,
     UserModule,
   ],
@@ -30,6 +46,7 @@ import { dataSourceOptions } from './database/database.data-source';
       provide: APP_GUARD,
       useClass: JwtGuard,
     },
+    RedisHealthIndicator,
     AppService,
   ],
 })

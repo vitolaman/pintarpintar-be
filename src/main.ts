@@ -25,13 +25,7 @@ async function bootstrap() {
     }),
   });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useGlobalFilters(new CustomHttpExceptionFilter());
   app.enableCors({ origin: '*' });
 

@@ -20,10 +20,8 @@ export const dataSourceOptions: DataSourceOptions = {
   // remain in `migrations/` as reference only and must never run on this database.
   migrations: [`${__dirname}/migrations/pintar-pintar/*.{js,ts}`],
   synchronize: false,
-  migrationsRun: false,
+  migrationsRun: true,
   migrationsTransactionMode: 'each',
-  // PostgreSQL extensions are created by the first ERD migration, never by app startup.
-  installExtensions: false,
   logging: true,
   logger: isProduction
     ? new DatabaseLogger(new Logger('Database'), true)

@@ -1,26 +1,19 @@
 import {
-  BadRequestException,
+  Body,
   Controller,
+  Delete,
   Get,
   HttpStatus,
-  NotFoundException,
-  Param,
-  Query,
-  UnauthorizedException,
+  Patch,
+  Req,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
-  ApiParam,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  DefaultResponse,
-  PaginatedResponse,
-} from '~/common/decorator/response.decorator';
-import { RequestPaginatedQueryWithSearchDto } from '~/common/dto/request-paginated.dto';
-import { FindOneUserParamDto } from './dto/find-one-user.req.dto';
-import { User } from './entities/user.entity';
+import { UpdateCurrentUserBodyDto } from './dto/update-current-user.req.dto';
 import { UserService } from './user.service';
 
 @Controller('users')
@@ -29,27 +22,33 @@ import { UserService } from './user.service';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get(':id')
+  @Get('me')
   @ApiOperation({
-    summary: 'Get profile by ID',
+    summary: 'Get current user profile',
   })
-  @ApiParam({ name: 'id', description: 'User ID' })
-  @DefaultResponse(User, 'Find user by id success', HttpStatus.OK, [
-    BadRequestException,
-    NotFoundException,
-    UnauthorizedException,
-  ])
-  findById(@Param() param: FindOneUserParamDto) {
-    const { id } = param;
-    return this.userService.findById(id);
+  @ApiResponse({ status: HttpStatus.OK, description: 'Current user profile' })
+  findCurrentUser(@Req() req: { user: { id: string } }) {
+    return this.userService.findCurrentUser(req.user.id);
   }
 
-  @Get()
+  @Patch('me')
   @ApiOperation({
-    summary: 'Get all profile',
+    summary: 'Update current user name',
   })
-  @PaginatedResponse(User, 'Get all users success', [BadRequestException])
-  findAllUsers(@Query() query: RequestPaginatedQueryWithSearchDto) {
-    return this.userService.findAllUsers(query);
+  @ApiResponse({ status: HttpStatus.OK, description: 'Updated current user' })
+  updateCurrentUser(
+    @Req() req: { user: { id: string } },
+    @Body() body: UpdateCurrentUserBodyDto,
+  ) {
+    return this.userService.updateCurrentUser(req.user.id, body.name);
+  }
+
+  @Delete('me')
+  @ApiOperation({
+    summary: 'Soft-delete current user account',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Deleted current user' })
+  deleteCurrentUser(@Req() req: { user: { id: string } }) {
+    return this.userService.deleteCurrentUser(req.user.id);
   }
 }

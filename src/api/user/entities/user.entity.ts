@@ -6,82 +6,19 @@ import { BaseEntity } from '~/common/entities/base-entity';
 @Entity({ name: 'users' })
 export class User extends BaseEntity {
   @ApiProperty()
-  @Column({ nullable: true })
+  @Column()
   name: string;
 
   @ApiProperty()
-  @Column({ nullable: true })
-  username: string;
-
-  @ApiProperty()
-  @Column({ nullable: false })
+  @Column({ unique: true })
   email: string;
-
-  @ApiProperty()
-  @Column({ nullable: true })
-  phone: string;
 
   @ApiHideProperty()
   @Exclude()
-  @Column({ nullable: false })
-  password: string;
+  @Column({ name: 'password_hash' })
+  passwordHash: string;
 
-  @ApiProperty()
-  @Column({ name: 'profile_pic_path', nullable: true })
-  profilePicPath: string;
-
-  @ApiProperty()
-  @Column({ name: 'referral_code', nullable: true })
-  referralCode: string;
-
-  @ApiProperty()
-  @Column({ name: 'count_referrals', nullable: false, default: 0 })
-  countReferrals: number;
-
-  @ApiProperty()
-  @Column({ name: 'predict_token', nullable: true, default: 0 })
-  predictToken: number;
-
-  @ApiProperty({ format: 'YYYY-MM-DD', example: '1990-01-01' })
-  @Column({ type: 'date', nullable: true })
-  dob: Date;
-
-  @ApiProperty()
-  @Column({ name: 'wallet_address', type: 'text', nullable: true })
-  walletAddress: string;
-
-  @ApiProperty()
-  @Column({ name: 'country_id', nullable: true })
-  countryId: number;
-
-  @ApiProperty()
-  @Column({ name: 'discord_auth_token', nullable: true })
-  discordToken: string;
-
-  @ApiProperty()
-  @Column({ name: 'twitter_auth_token', nullable: true })
-  twitterToken: string;
-
-  @ApiProperty()
-  @Column({ name: 'twitter_username', nullable: true })
-  twitterUsername: string;
-
-  @ApiProperty()
-  @Column({ nullable: false, default: false })
-  isEmailVerified: boolean;
-
-  @ApiProperty()
-  @Column({ nullable: true })
-  deviceToken: string;
-
-  @ApiProperty()
-  @Column({ name: 'login_task_streak', nullable: false, default: 0 })
-  loginTaskStreak: number;
-
-  @ApiProperty()
-  @Column('timestamp', {
-    name: 'last_login_task_date',
-    nullable: true,
-  })
-  lastLoginTaskDate: Date;
+  @ApiHideProperty()
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+  deletedBy: string | null;
 }

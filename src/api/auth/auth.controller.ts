@@ -1,22 +1,9 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Res,
-} from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
 import { AuthService } from './auth.service';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
-import { VerifyForgotPasswordOtpDto } from './dto/verify-forgot-password-otp.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { Response } from 'express';
-import { CreateNewPasswordDto } from './dto/create-new-password.dto';
-import { SendOtpRegisterUser } from './dto/send-otp-register-user.dto';
-import { VerifyOtpRegisterUserDto } from './dto/verify-otp-register-user.dto';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -42,57 +29,11 @@ export class AuthController {
     },
   })
   @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Email, password, and username cannot be empty!',
-    schema: {
-      example: {
-        responseMessage: 'Email, password, and username cannot be empty!',
-      },
-    },
-  })
-  @ApiResponse({
     status: HttpStatus.CONFLICT,
-    description: 'This email already registered!',
-    schema: {
-      example: {
-        responseMessage: 'This email already registered!',
-      },
-    },
+    description: 'Email already registered',
   })
-  @ApiResponse({
-    status: HttpStatus.CONFLICT,
-    description:
-      'Conflict: Either the email or username is already registered.',
-    content: {
-      'application/json': {
-        examples: {
-          EmailConflict: {
-            summary: 'Email already registered',
-            value: {
-              responseMessage: 'Email already registered!',
-            },
-          },
-          UsernameConflict: {
-            summary: 'Username already registered',
-            value: {
-              responseMessage: 'Username already registered!',
-            },
-          },
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Referral Code Not Found!',
-    schema: {
-      example: {
-        responseMessage: 'Referral Code Not Found!',
-      },
-    },
-  })
-  async signUp(@Body() body: SignUpBodyDto, @Res() res: Response) {
-    return await this.authService.signUp(body, res);
+  signUp(@Body() body: SignUpBodyDto) {
+    return this.authService.signUp(body);
   }
 
   @Post('sign-in')
@@ -113,19 +54,8 @@ export class AuthController {
     },
   })
   @ApiResponse({
-    status: HttpStatus.UNPROCESSABLE_ENTITY,
-    description: 'UNPROCESSABLE_ENTITY',
-    schema: {
-      example: {
-        responseMessage: ['Please verified email to continue'],
-        error: 'UNPROCESSABLE_ENTITY',
-        statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-      },
-    },
-  })
-  @ApiResponse({
     status: 403,
-    description: 'FORBIDDEN',
+    description: 'Invalid credentials',
     schema: {
       example: {
         responseMessage: ['invalid username or password'],
@@ -136,182 +66,5 @@ export class AuthController {
   })
   signIn(@Body() body: SignInBodyDto) {
     return this.authService.signIn(body);
-  }
-
-  @Post('/forgot-password')
-  @ApiOperation({
-    summary: 'Forgot Password',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Success',
-    schema: {
-      example: {
-        responseMessage: 'OTP Sent Successfully!',
-        data: {
-          token: '1234',
-        },
-      },
-    },
-  })
-  async forgotPassword(
-    @Body() forgotPasswordDto: ForgotPasswordDto,
-    @Res() res: Response,
-  ) {
-    const response = await this.authService.forgotPassword(
-      forgotPasswordDto.email,
-      res,
-    );
-
-    return response;
-  }
-
-  @Post('/verify-forgot-password-otp')
-  @ApiOperation({
-    summary: 'Verify Forgot Password OTP',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Success',
-    schema: {
-      example: {
-        responseMessage: 'Successful OTP Verification!',
-        data: {
-          token: 'hiogado5731031259hfoaidsfd',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-    schema: {
-      example: {
-        responseMessage: 'Wrong OTP / Not Found!',
-      },
-    },
-  })
-  async verifyForgotPasswordOtp(
-    @Body() verifyForgotPasswordOtpDto: VerifyForgotPasswordOtpDto,
-    @Res() res: Response,
-  ) {
-    const response = await this.authService.verifyForgotPasswordOtp(
-      verifyForgotPasswordOtpDto,
-      res,
-    );
-    return response;
-  }
-
-  @Post('/create-new-password')
-  @ApiOperation({
-    summary: 'Create New Password',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Success',
-    schema: {
-      example: {
-        responseMessage: 'Create New Password Success!',
-      },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not Found',
-    schema: {
-      example: {
-        responseMessage: 'User not found',
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized',
-    schema: {
-      example: {
-        responseMessage: 'Token Invalid!',
-      },
-    },
-  })
-  async createNewPassword(
-    @Body() createNewPasswordDto: CreateNewPasswordDto,
-    @Res() res: Response,
-  ) {
-    const response = await this.authService.createNewPassword(
-      createNewPasswordDto,
-      res,
-    );
-    return response;
-  }
-
-  @Post('/send-otp-register-user')
-  @ApiOperation({
-    summary: 'Send OTP Register User',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Success',
-    schema: {
-      example: {
-        responseMessage: 'OTP Sent Successfully!',
-        data: {
-          token: '1234',
-        },
-      },
-    },
-  })
-  async sendOtpRegisterUser(
-    @Body() sendOtpRegisterUser: SendOtpRegisterUser,
-    @Res() res: Response,
-  ) {
-    const response = await this.authService.sendOtpRegisterUser(
-      sendOtpRegisterUser.email,
-      res,
-    );
-
-    return response;
-  }
-
-  @Post('/verify-otp-register-user')
-  @ApiOperation({
-    summary: 'Verify OTP Register User',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Success',
-    schema: {
-      example: {
-        responseMessage:
-          'Successful OTP Verification! Your Account has Been Verified',
-      },
-    },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-    schema: {
-      example: {
-        responseMessage: 'Wrong OTP / Not Found!',
-      },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not Found',
-    schema: {
-      example: {
-        responseMessage: 'User not found',
-      },
-    },
-  })
-  async verifyOtpRegisterUser(
-    @Body() verifyOtpRegisterUserDto: VerifyOtpRegisterUserDto,
-    @Res() res: Response,
-  ) {
-    const response = await this.authService.verifyOtpRegisterUser(
-      verifyOtpRegisterUserDto,
-      res,
-    );
-    return response;
   }
 }

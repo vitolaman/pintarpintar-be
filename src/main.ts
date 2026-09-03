@@ -5,28 +5,9 @@ import { WinstonModule, utilities as WinstonNestUtilities } from 'nest-winston';
 import * as Winston from 'winston';
 import { ValidationPipe } from '@nestjs/common';
 import { CustomHttpExceptionFilter } from './common/filters/exception-error.filter';
-import { CronJobModule } from './api/cron-job/cron-job.module';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const configModule = await NestFactory.createApplicationContext(
-    ConfigModule.forRoot(),
-  );
-  const configService = configModule.get(ConfigService);
-
-  const getAppName = (name: string) => {
-    switch (name) {
-      case 'leaderboard-cron':
-        return CronJobModule;
-      default:
-        return AppModule;
-    }
-  };
-
-  const appConfig = configService.get<string>('BOT_NAME');
-  const appName = getAppName(appConfig);
-
-  const app = await NestFactory.create(appName, {
+  const app = await NestFactory.create(AppModule, {
     cors: true,
     logger: WinstonModule.createLogger({
       transports: [
@@ -44,17 +25,21 @@ async function bootstrap() {
     }),
   });
 
-  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
   app.useGlobalFilters(new CustomHttpExceptionFilter());
   app.enableCors({ origin: '*' });
 
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
-      .setTitle('SCORA API')
-      .setDescription(
-        ['API Documentation', 'https://github.com/vitolaman/'].join('<br>'),
-      )
+      .setTitle('Pintar Pintar API')
+      .setDescription('Pintar Pintar backend API documentation')
       .setVersion('1.0')
       .addBearerAuth()
       .build(),
@@ -62,10 +47,7 @@ async function bootstrap() {
 
   SwaggerModule.setup('api', app, document);
   await app.listen(3000, () => {
-    console.log(
-      `[${appConfig ? 'CRON' : 'REST'}]`,
-      `http://localhost:3000/api`,
-    );
+    console.log('[REST]', `http://localhost:3000/api`);
   });
 }
 bootstrap();

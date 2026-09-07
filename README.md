@@ -2,6 +2,10 @@
 
 Backend API for Pintar Pintar.
 
+## Description
+
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+
 ## Installation
 
 ```bash
@@ -65,3 +69,15 @@ $ yarn db:local:migrate
 ```bash
 http://localhost:3000/api
 ```
+
+## Create Migration
+
+```bash
+$ npx typeorm migration:generate {{name}} -d dist/database/database.data-source.js
+```
+
+Then copy the migration file to `src/database/migrations`.
+
+## License
+
+Nest is [MIT licensed](LICENSE).

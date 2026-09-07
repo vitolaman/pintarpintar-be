@@ -19,6 +19,7 @@ import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 import { dataSourceOptions } from './database/database.data-source';
 import { ProfileModule } from './api/profile/profile.module';
 import { HomeModule } from './api/home/home.module';
+import { MerchantModule } from './api/merchant/merchant.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { HomeModule } from './api/home/home.module';
     UserModule,
     ProfileModule,
     HomeModule,
+    MerchantModule,
   ],
   controllers: [AppController],
   providers: [

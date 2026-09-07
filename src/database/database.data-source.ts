@@ -4,6 +4,11 @@ import { DatabaseLogger } from './database.logger';
 import * as dotenv from 'dotenv';
 import * as dotenvExpand from 'dotenv-expand';
 import { User } from '~/api/user/entities/user.entity';
+import { FileAsset } from '~/api/profile/entities/file-asset.entity';
+import { Product } from '~/api/profile/entities/product.entity';
+import { Profile } from '~/api/profile/entities/profile.entity';
+import { StudentProgress } from '~/api/profile/entities/student-progress.entity';
+import { UserAccess } from '~/api/profile/entities/user-access.entity';
 
 dotenvExpand.expand(dotenv.config({ path: process.env.ENV_FILE || '.env' }));
 const isProduction = process.env.NODE_ENV == 'production';
@@ -15,7 +20,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_DATABASE,
-  entities: [User],
+  entities: [FileAsset, Product, Profile, StudentProgress, User, UserAccess],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations
   // remain in `migrations/` as reference only and must never run on this database.
   migrations: [`${__dirname}/migrations/pintar-pintar/*.{js,ts}`],

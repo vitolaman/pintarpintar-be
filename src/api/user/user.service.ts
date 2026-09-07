@@ -10,10 +10,15 @@ import { QueryFailedError, Repository } from 'typeorm';
 import { CreateUserBodyDto } from './dto/create-user.req.dto';
 import { User } from './entities/user.entity';
 
-export type PublicUser = Pick<
-  User,
-  'id' | 'name' | 'email' | 'created_at' | 'updated_at'
->;
+export interface PublicUser {
+  id: string;
+  name: string;
+  email: string;
+  is_mentor: boolean;
+  is_merchant: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
 
 @Injectable()
 export class UserService {
@@ -78,6 +83,8 @@ export class UserService {
       id: user.id,
       name: user.name,
       email: user.email,
+      is_mentor: user.isMentor,
+      is_merchant: user.isMerchant,
       created_at: user.created_at,
       updated_at: user.updated_at,
     };

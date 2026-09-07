@@ -46,6 +46,7 @@ $ yarn db:local:migrate
 - `GET /profile/v1/get-profile`
 - `PATCH /profile/v1/update-profile`
 - `GET /profile/v1/get-learning`
+- `GET /profile/v1/get-certifications`
 
 ### Merchant
 

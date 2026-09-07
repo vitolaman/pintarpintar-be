@@ -7,6 +7,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { FileAsset } from './entities/file-asset.entity';
+import { IssuedCertificate } from './entities/issued-certificate.entity';
 import { Product } from './entities/product.entity';
 import { Profile } from './entities/profile.entity';
 import { StudentProgress } from './entities/student-progress.entity';
@@ -15,6 +16,7 @@ import { User } from '../user/entities/user.entity';
 import {
   LearningItemResponseDto,
   ProfileResponseDto,
+  CertificationItemResponseDto,
 } from './dto/profile-response.dto';
 
 @Injectable()
@@ -24,6 +26,8 @@ export class ProfileService {
     private readonly dataSource: DataSource,
     @InjectRepository(FileAsset)
     private readonly fileAssets: Repository<FileAsset>,
+    @InjectRepository(IssuedCertificate)
+    private readonly issuedCertificates: Repository<IssuedCertificate>,
     @InjectRepository(Product)
     private readonly products: Repository<Product>,
     @InjectRepository(Profile)
@@ -147,6 +151,38 @@ export class ProfileService {
     };
   }
 
+  async findCertifications(userId: string) {
+    const rows = await this.issuedCertificates
+      .createQueryBuilder('certificate')
+      .innerJoin(Product, 'product', 'product.id = certificate.product_id')
+      .leftJoin(
+        FileAsset,
+        'asset',
+        'asset.id = certificate.certificate_asset_id AND asset.deleted_at IS NULL AND asset.status = :assetStatus',
+        { assetStatus: 'active' },
+      )
+      .select([
+        'certificate.id AS id',
+        'certificate.product_id AS product_id',
+        'certificate.certificate_number AS certificate_number',
+        'certificate.issued_at AS issued_at',
+        'certificate.certificate_asset_id AS certificate_asset_id',
+        'asset.object_key AS certificate_asset_object_key',
+        'product.title AS product_title',
+      ])
+      .where('certificate.user_id = :userId', { userId })
+      .andWhere('certificate.deleted_at IS NULL')
+      .andWhere('certificate.revoked_at IS NULL')
+      .andWhere('product.deleted_at IS NULL')
+      .orderBy('certificate.issued_at', 'DESC')
+      .getRawMany<CertificationRow>();
+
+    return {
+      data: rows.map((row) => this.toCertificationItem(row)),
+      responseMessage: 'Get certifications success',
+    };
+  }
+
   private async findProfileResponse(
     userId: string,
   ): Promise<ProfileResponseDto> {
@@ -220,6 +256,20 @@ export class ProfileService {
     };
   }
 
+  private toCertificationItem(
+    row: CertificationRow,
+  ): CertificationItemResponseDto {
+    return {
+      id: row.id,
+      product_id: row.product_id,
+      product_title: row.product_title,
+      certificate_number: row.certificate_number,
+      issued_at: row.issued_at,
+      certificate_asset_id: row.certificate_asset_id,
+      certificate_asset_object_key: row.certificate_asset_object_key,
+    };
+  }
+
   private requireText(value: string, fieldName: string): string {
     const normalized = value.trim();
 
@@ -256,4 +306,14 @@ interface LearningRow {
   total_time_spent: string;
   last_accessed_at: Date | null;
   expires_at: Date | null;
+}
+
+interface CertificationRow {
+  id: string;
+  product_id: string;
+  product_title: string;
+  certificate_number: string;
+  issued_at: Date;
+  certificate_asset_id: string | null;
+  certificate_asset_object_key: string | null;
 }

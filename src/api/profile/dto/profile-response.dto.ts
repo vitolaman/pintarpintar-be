@@ -69,3 +69,26 @@ export class LearningItemResponseDto {
   @ApiPropertyOptional()
   expires_at: Date | null;
 }
+
+export class CertificationItemResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ format: 'uuid' })
+  product_id: string;
+
+  @ApiProperty()
+  product_title: string;
+
+  @ApiProperty()
+  certificate_number: string;
+
+  @ApiProperty()
+  issued_at: Date;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  certificate_asset_id: string | null;
+
+  @ApiPropertyOptional()
+  certificate_asset_object_key: string | null;
+}

@@ -16,6 +16,7 @@ import {
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
+  CertificationItemResponseDto,
   LearningItemResponseDto,
   ProfileResponseDto,
 } from './dto/profile-response.dto';
@@ -54,5 +55,13 @@ export class ProfileController {
   ])
   findLearning(@Req() req: { user: { id: string } }) {
     return this.profileService.findLearning(req.user.id);
+  }
+
+  @Get('get-certifications')
+  @ArrayResponse(CertificationItemResponseDto, 'Get certifications success', [
+    NotFoundException,
+  ])
+  findCertifications(@Req() req: { user: { id: string } }) {
+    return this.profileService.findCertifications(req.user.id);
   }
 }

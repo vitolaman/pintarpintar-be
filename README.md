@@ -1,46 +1,67 @@
-## Description
+# Pintar Pintar Backend
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Backend API for Pintar Pintar.
 
 ## Installation
 
 ```bash
 $ npm i -g @nest/cli
-$ npm install
+$ cp .env.example .env
+$ yarn install
 ```
 
 ## Running the app
 
 ```bash
 # development
-$ yarn run start
+$ yarn start
 
-# watch mode
-$ yarn run start:dev
+# local development
+$ yarn start:local
 
-# production mode
-$ yarn run start:prod
+# local database
+$ yarn db:local:up
+$ yarn db:local:migrate
 ```
 
-## Test
+## API
+
+### Authentication
+
+- `POST /auth/sign-up`
+- `POST /auth/sign-in`
+
+### User
+
+- `GET /users/me`
+- `PATCH /users/me`
+- `DELETE /users/me`
+
+### Profile
+
+- `GET /profile/v1/get-profile`
+- `PATCH /profile/v1/update-profile`
+- `GET /profile/v1/get-learning`
+
+### Merchant
+
+- `POST /merchants/v1/register`
+- `GET /merchants/v1/get-my-merchant`
+- `PATCH /merchants/v1/update-my-merchant`
+- `GET /merchants/v1/get-notification-preferences`
+- `PATCH /merchants/v1/update-notification-preferences`
+
+### Home
+
+- `GET /home/v1/get-statistics`
+- `GET /home/v1/get-bootcamps`
+- `GET /home/v1/get-video-classes`
+- `GET /home/v1/get-digital-products`
+- `GET /home/v1/get-merchants`
+- `GET /home/v1/get-testimonials`
+
+## Swagger
 
 ```bash
-# unit tests
-$ yarn run test
-
-# e2e tests
-$ yarn run test:e2e
-
-# test coverage
-$ yarn run test:cov
+http://localhost:3000/api
 ```
-
-## Create Migration
-```bash
-$ npx typeorm migration:generate {{name}} -d dist/database/database.data-source.js
-```
-Then Copy the migration file to src/database/migrations
-
-## License
-
-Nest is [MIT licensed](LICENSE).

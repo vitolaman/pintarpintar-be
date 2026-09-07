@@ -13,6 +13,14 @@ export class User extends BaseEntity {
   @Column({ unique: true })
   email: string;
 
+  @ApiProperty()
+  @Column({ name: 'is_mentor', default: false })
+  isMentor: boolean;
+
+  @ApiProperty()
+  @Column({ name: 'is_merchant', default: false })
+  isMerchant: boolean;
+
   @ApiHideProperty()
   @Exclude()
   @Column({ name: 'password_hash' })

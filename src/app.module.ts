@@ -17,6 +17,7 @@ import adminJwtConfig from './config/admin-jwt.config';
 import redisConfig from './config/redis.config';
 import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 import { dataSourceOptions } from './database/database.data-source';
+import { ProfileModule } from './api/profile/profile.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { dataSourceOptions } from './database/database.data-source';
     RedisModule,
     AuthModule,
     UserModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [

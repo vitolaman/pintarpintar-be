@@ -16,6 +16,8 @@ describe('UserService', () => {
       '$2a$10$zI1nd0RSP99PsAmmM1gZhe3nLlN8PbePfaLYGvA2xKgsmGe98/tSC',
     created_at: new Date('2026-09-01T00:00:00.000Z'),
     updated_at: new Date('2026-09-01T00:00:00.000Z'),
+    isMentor: false,
+    isMerchant: false,
     deletedBy: null,
   } as User;
 
@@ -81,7 +83,12 @@ describe('UserService', () => {
 
     const result = await service.findCurrentUser(user.id);
 
-    expect(result).toMatchObject({ id: user.id, name: user.name });
+    expect(result).toMatchObject({
+      id: user.id,
+      name: user.name,
+      is_mentor: false,
+      is_merchant: false,
+    });
     expect(result).not.toHaveProperty('passwordHash');
   });
 

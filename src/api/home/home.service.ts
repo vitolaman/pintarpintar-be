@@ -5,8 +5,8 @@ import { Product } from '../profile/entities/product.entity';
 import {
   HomeMerchantCardResponseDto,
   HomeProductCardResponseDto,
-  HomeResponseDto,
   HomeStatisticsResponseDto,
+  HomeTestimonialResponseDto,
 } from './dto/home-response.dto';
 
 @Injectable()
@@ -16,31 +16,49 @@ export class HomeService {
     private readonly products: Repository<Product>,
   ) {}
 
-  async getHome(limit: number) {
-    const [statistics, bootcamps, videoClasses, digitalProducts, merchants] =
-      await Promise.all([
-        this.getStatistics(),
-        this.getProductCards('bootcamps', limit),
-        this.getProductCards('video_classes', limit),
-        this.getProductCards('digital_files', limit),
-        this.getMerchantCards(limit),
-      ]);
-
-    const data: HomeResponseDto = {
-      statistics,
-      featured_bootcamps: bootcamps,
-      featured_video_classes: videoClasses,
-      featured_digital_products: digitalProducts,
-      latest_merchants: merchants,
-    };
-
+  async getStatistics() {
     return {
-      data,
-      responseMessage: 'Get home success',
+      data: await this.getStatisticsProjection(),
+      responseMessage: 'Get home statistics success',
     };
   }
 
-  private async getStatistics(): Promise<HomeStatisticsResponseDto> {
+  async getBootcamps(limit: number) {
+    return {
+      data: await this.getProductCards('bootcamps', limit),
+      responseMessage: 'Get bootcamps success',
+    };
+  }
+
+  async getVideoClasses(limit: number) {
+    return {
+      data: await this.getProductCards('video_classes', limit),
+      responseMessage: 'Get video classes success',
+    };
+  }
+
+  async getDigitalProducts(limit: number) {
+    return {
+      data: await this.getProductCards('digital_files', limit),
+      responseMessage: 'Get digital products success',
+    };
+  }
+
+  async getMerchants(limit: number) {
+    return {
+      data: await this.getMerchantCards(limit),
+      responseMessage: 'Get merchants success',
+    };
+  }
+
+  async getTestimonials(limit: number) {
+    return {
+      data: await this.getTestimonialCards(limit),
+      responseMessage: 'Get testimonials success',
+    };
+  }
+
+  private async getStatisticsProjection(): Promise<HomeStatisticsResponseDto> {
     const [row] = (await this.products.query(`
       SELECT
         (
@@ -86,6 +104,11 @@ export class HomeService {
     subtypeTable: 'bootcamps' | 'video_classes' | 'digital_files',
     limit: number,
   ): Promise<HomeProductCardResponseDto[]> {
+    const productType = {
+      bootcamps: 'bootcamp',
+      video_classes: 'video_class',
+      digital_files: 'digital_product',
+    }[subtypeTable];
     const rows = (await this.products.query(
       `
         SELECT
@@ -132,6 +155,7 @@ export class HomeService {
         WHERE product.deleted_at IS NULL
           AND product.is_published = true
           AND product.publication_status = 'published'
+          AND product.product_type = $1
         GROUP BY
           product.id,
           cover.object_key,
@@ -140,9 +164,9 @@ export class HomeService {
           merchant_profile.avatar_asset_id,
           merchant_avatar.object_key
         ORDER BY COALESCE(product.published_at, product.created_at) DESC
-        LIMIT $1
+        LIMIT $2
       `,
-      [limit],
+      [productType, limit],
     )) as ProductCardRow[];
 
     return rows.map((row) => ({
@@ -231,6 +255,55 @@ export class HomeService {
           : Number(row.best_product_rating),
     }));
   }
+
+  private async getTestimonialCards(
+    limit: number,
+  ): Promise<HomeTestimonialResponseDto[]> {
+    const rows = (await this.products.query(
+      `
+        SELECT
+          review.id,
+          review.rating,
+          review.comment,
+          review.created_at,
+          reviewer.name AS user_name,
+          reviewer_profile.avatar_asset_id AS user_avatar_asset_id,
+          reviewer_avatar.object_key AS user_avatar_object_key,
+          product.id AS product_id,
+          product.title AS product_title
+        FROM reviews review
+        INNER JOIN users reviewer
+          ON reviewer.id = review.user_id AND reviewer.deleted_at IS NULL
+        INNER JOIN products product
+          ON product.id = review.product_id AND product.deleted_at IS NULL
+        LEFT JOIN user_profiles reviewer_profile
+          ON reviewer_profile.user_id = reviewer.id
+          AND reviewer_profile.deleted_at IS NULL
+        LEFT JOIN file_assets reviewer_avatar
+          ON reviewer_avatar.id = reviewer_profile.avatar_asset_id
+          AND reviewer_avatar.deleted_at IS NULL
+        WHERE review.deleted_at IS NULL
+          AND NULLIF(BTRIM(review.comment), '') IS NOT NULL
+          AND product.is_published = true
+          AND product.publication_status = 'published'
+        ORDER BY review.created_at DESC
+        LIMIT $1
+      `,
+      [limit],
+    )) as TestimonialRow[];
+
+    return rows.map((row) => ({
+      id: row.id,
+      rating: Number(row.rating),
+      comment: row.comment,
+      created_at: row.created_at,
+      user_name: row.user_name,
+      user_avatar_asset_id: row.user_avatar_asset_id,
+      user_avatar_object_key: row.user_avatar_object_key,
+      product_id: row.product_id,
+      product_title: row.product_title,
+    }));
+  }
 }
 
 interface StatisticsRow {
@@ -270,4 +343,16 @@ interface MerchantCardRow {
   best_product_cover_asset_id: string | null;
   best_product_cover_object_key: string | null;
   best_product_rating: string | null;
+}
+
+interface TestimonialRow {
+  id: string;
+  rating: string;
+  comment: string;
+  created_at: Date;
+  user_name: string;
+  user_avatar_asset_id: string | null;
+  user_avatar_object_key: string | null;
+  product_id: string;
+  product_title: string;
 }

@@ -96,19 +96,31 @@ export class HomeMerchantCardResponseDto {
   best_product_rating: number | null;
 }
 
-export class HomeResponseDto {
-  @ApiProperty({ type: HomeStatisticsResponseDto })
-  statistics: HomeStatisticsResponseDto;
+export class HomeTestimonialResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
 
-  @ApiProperty({ type: [HomeProductCardResponseDto] })
-  featured_bootcamps: HomeProductCardResponseDto[];
+  @ApiProperty()
+  rating: number;
 
-  @ApiProperty({ type: [HomeProductCardResponseDto] })
-  featured_video_classes: HomeProductCardResponseDto[];
+  @ApiProperty()
+  comment: string;
 
-  @ApiProperty({ type: [HomeProductCardResponseDto] })
-  featured_digital_products: HomeProductCardResponseDto[];
+  @ApiProperty()
+  created_at: Date;
 
-  @ApiProperty({ type: [HomeMerchantCardResponseDto] })
-  latest_merchants: HomeMerchantCardResponseDto[];
+  @ApiProperty()
+  user_name: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  user_avatar_asset_id: string | null;
+
+  @ApiPropertyOptional()
+  user_avatar_object_key: string | null;
+
+  @ApiProperty({ format: 'uuid' })
+  product_id: string;
+
+  @ApiProperty()
+  product_title: string;
 }

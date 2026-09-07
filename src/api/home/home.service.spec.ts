@@ -3,7 +3,7 @@ import { Product } from '../profile/entities/product.entity';
 import { HomeService } from './home.service';
 
 describe('HomeService', () => {
-  it('builds all Beranda collections from bounded database projections', async () => {
+  it('builds independent bounded Beranda component projections', async () => {
     const products: jest.Mocked<Partial<Repository<Product>>> = {
       query: jest.fn((sql: string) => {
         if (sql.includes('AS active_students')) {
@@ -29,6 +29,22 @@ describe('HomeService', () => {
               best_product_cover_asset_id: null,
               best_product_cover_object_key: null,
               best_product_rating: '4.9',
+            },
+          ]);
+        }
+
+        if (sql.includes('FROM reviews review')) {
+          return Promise.resolve([
+            {
+              id: 'review-id',
+              rating: '5',
+              comment: 'Materinya jelas dan mudah diikuti.',
+              created_at: new Date('2026-09-01T00:00:00.000Z'),
+              user_name: 'Alya Pratama',
+              user_avatar_asset_id: null,
+              user_avatar_object_key: null,
+              product_id: 'video-class-id',
+              product_title: 'Video class title',
             },
           ]);
         }
@@ -64,49 +80,67 @@ describe('HomeService', () => {
     };
     const service = new HomeService(products as Repository<Product>);
 
-    await expect(service.getHome(8)).resolves.toEqual({
-      responseMessage: 'Get home success',
-      data: expect.objectContaining({
-        statistics: {
-          active_students: 10,
-          learning_products: 4,
-          digital_products: 2,
-          platform_rating: 4.8,
-        },
-        featured_bootcamps: [
-          expect.objectContaining({
-            id: 'bootcamp-id',
-            price: 249000,
-            rating: 4.8,
-          }),
-        ],
-        featured_video_classes: [
-          expect.objectContaining({ id: 'video_class-id' }),
-        ],
-        featured_digital_products: [
-          expect.objectContaining({ id: 'digital_product-id' }),
-        ],
-        latest_merchants: [
-          expect.objectContaining({
-            id: 'merchant-id',
-            best_product_rating: 4.9,
-          }),
-        ],
-      }),
+    await expect(service.getStatistics()).resolves.toEqual({
+      responseMessage: 'Get home statistics success',
+      data: {
+        active_students: 10,
+        learning_products: 4,
+        digital_products: 2,
+        platform_rating: 4.8,
+      },
+    });
+    await expect(service.getBootcamps(10)).resolves.toEqual({
+      responseMessage: 'Get bootcamps success',
+      data: [expect.objectContaining({ id: 'bootcamp-id', price: 249000 })],
+    });
+    await expect(service.getVideoClasses(10)).resolves.toEqual({
+      responseMessage: 'Get video classes success',
+      data: [expect.objectContaining({ id: 'video_class-id' })],
+    });
+    await expect(service.getDigitalProducts(10)).resolves.toEqual({
+      responseMessage: 'Get digital products success',
+      data: [expect.objectContaining({ id: 'digital_product-id' })],
+    });
+    await expect(service.getMerchants(10)).resolves.toEqual({
+      responseMessage: 'Get merchants success',
+      data: [
+        expect.objectContaining({
+          id: 'merchant-id',
+          best_product_rating: 4.9,
+        }),
+      ],
+    });
+    await expect(service.getTestimonials(10)).resolves.toEqual({
+      responseMessage: 'Get testimonials success',
+      data: [
+        expect.objectContaining({
+          id: 'review-id',
+          rating: 5,
+          user_name: 'Alya Pratama',
+        }),
+      ],
     });
 
-    expect(products.query).toHaveBeenCalledTimes(5);
+    expect(products.query).toHaveBeenCalledTimes(6);
     expect(products.query).toHaveBeenCalledWith(
       expect.stringContaining('INNER JOIN bootcamps'),
-      [8],
+      ['bootcamp', 10],
     );
     expect(products.query).toHaveBeenCalledWith(
       expect.stringContaining('INNER JOIN video_classes'),
-      [8],
+      ['video_class', 10],
     );
     expect(products.query).toHaveBeenCalledWith(
       expect.stringContaining('INNER JOIN digital_files'),
-      [8],
+      ['digital_product', 10],
+    );
+    expect(products.query).toHaveBeenCalledWith(
+      expect.stringContaining('FROM merchants merchant'),
+      [10],
+    );
+    expect(products.query).toHaveBeenCalledWith(
+      expect.stringContaining("NULLIF(BTRIM(review.comment), '') IS NOT NULL"),
+      [10],
     );
   });
 });

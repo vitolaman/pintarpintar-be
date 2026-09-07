@@ -18,6 +18,7 @@ import redisConfig from './config/redis.config';
 import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 import { dataSourceOptions } from './database/database.data-source';
 import { ProfileModule } from './api/profile/profile.module';
+import { HomeModule } from './api/home/home.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ProfileModule } from './api/profile/profile.module';
     AuthModule,
     UserModule,
     ProfileModule,
+    HomeModule,
   ],
   controllers: [AppController],
   providers: [

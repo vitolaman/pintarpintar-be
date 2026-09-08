@@ -25,6 +25,7 @@ WORKDIR /code
 # Create uploads directory with the right permissions
 RUN mkdir -p /code/profile_pics && chown -R node:node /code/profile_pics
 RUN mkdir -p /code/master_profile_pics && chown -R node:node /code/master_profile_pics
+RUN mkdir -p /code/mentor_documents && chown -R node:node /code/mentor_documents
 
 # Copy necessary files from the build stage
 COPY --chown=node:node --from=build /code/package.json .

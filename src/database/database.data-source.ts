@@ -14,6 +14,8 @@ import { MerchantMember } from '~/api/merchant/entities/merchant-member.entity';
 import { MerchantProfile } from '~/api/merchant/entities/merchant-profile.entity';
 import { Merchant } from '~/api/merchant/entities/merchant.entity';
 import { UserNotificationPreferences } from '~/api/merchant/entities/user-notification-preferences.entity';
+import { Mentor } from '~/api/mentor/entities/mentor.entity';
+import { MentorProfile } from '~/api/mentor/entities/mentor-profile.entity';
 
 dotenvExpand.expand(dotenv.config({ path: process.env.ENV_FILE || '.env' }));
 const isProduction = process.env.NODE_ENV == 'production';
@@ -31,6 +33,8 @@ export const dataSourceOptions: DataSourceOptions = {
     Merchant,
     MerchantMember,
     MerchantProfile,
+    Mentor,
+    MentorProfile,
     Product,
     Profile,
     StudentProgress,

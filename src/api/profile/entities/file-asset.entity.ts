@@ -21,7 +21,7 @@ export class FileAsset extends BaseEntity {
   @Column({ name: 'size_bytes', type: 'bigint' })
   sizeBytes: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'checksum_sha256', nullable: true })
   checksumSha256: string | null;
 
   @Column()

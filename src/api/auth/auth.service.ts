@@ -29,7 +29,7 @@ export class AuthService {
     return this.createTokenResponse('Login Success', user.id);
   }
 
-  private async createTokenResponse(
+  async createTokenResponse(
     responseMessage: string,
     userId: string,
   ): Promise<SignInResDto> {

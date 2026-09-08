@@ -45,8 +45,8 @@ export class MerchantService {
 
       const merchant = manager.create(Merchant, {
         userId,
-        storeName: user.name,
-        storeDescription: input.bio,
+        storeName: input.store_name,
+        storeDescription: input.store_description,
         status: 'active',
       });
       await manager.save(Merchant, merchant);
@@ -55,16 +55,9 @@ export class MerchantService {
         MerchantProfile,
         manager.create(MerchantProfile, {
           merchantId: merchant.id,
-          slug: await this.nextAvailableSlug(manager, user.name),
-          expertise: input.expertise,
-          experienceYears: input.experience_years,
-          education: input.education,
-          portfolioUrl: input.portfolio_url ?? null,
-          linkedinUrl: input.linkedin_url ?? null,
-          termsAcceptedAt: new Date(),
+          slug: await this.nextAvailableSlug(manager, input.store_name),
         }),
       );
-      await this.savePrivatePhone(manager, userId, input.phone);
       await manager.save(
         MerchantMember,
         manager.create(MerchantMember, {

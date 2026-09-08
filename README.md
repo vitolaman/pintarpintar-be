@@ -56,6 +56,15 @@ $ yarn db:local:migrate
 - `GET /merchants/v1/get-notification-preferences`
 - `PATCH /merchants/v1/update-notification-preferences`
 
+### Mentor
+
+- `POST /mentors/v1/sign-up`
+- `POST /mentors/v1/register`
+- `GET /mentors/v1/get-mentor/:id`
+- `GET /mentors/v1/get-profile`
+- `PATCH /mentors/v1/update-profile`
+- `GET /mentors/v1/get-assignments`
+
 ### Home
 
 - `GET /home/v1/get-statistics`

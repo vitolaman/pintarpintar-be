@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hash } from 'bcryptjs';
-import { QueryFailedError, Repository } from 'typeorm';
+import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { CreateUserBodyDto } from './dto/create-user.req.dto';
 import { User } from './entities/user.entity';
 
@@ -48,6 +48,36 @@ export class UserService {
         throw new ConflictException('Email already registered');
       }
 
+      throw error;
+    }
+  }
+
+  async createWithManager(
+    manager: EntityManager,
+    input: CreateUserBodyDto,
+    options: { isMentor?: boolean } = {},
+  ): Promise<User> {
+    const name = this.normalizeName(input.name);
+    const email = this.normalizeEmail(input.email);
+
+    if (await manager.exists(User, { where: { email } })) {
+      throw new ConflictException('Email already registered');
+    }
+
+    try {
+      return await manager.save(
+        User,
+        manager.create(User, {
+          name,
+          email,
+          passwordHash: await hash(input.password, 10),
+          isMentor: options.isMentor ?? false,
+        }),
+      );
+    } catch (error) {
+      if (this.isDuplicateEmailError(error)) {
+        throw new ConflictException('Email already registered');
+      }
       throw error;
     }
   }

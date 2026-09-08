@@ -17,12 +17,8 @@ describe('MerchantService', () => {
   let service: MerchantService;
 
   const registrationInput = {
-    phone: '+62 812-3456-7890',
-    expertise: 'Frontend engineering',
-    experience_years: 4,
-    education: 'S1 Teknik Informatika',
-    bio: 'Berpengalaman membangun produk web.',
-    terms_accepted: true,
+    store_name: 'Akademi Teknik Raka',
+    store_description: 'Kelas teknik untuk profesional.',
   };
 
   beforeEach(() => {
@@ -67,14 +63,14 @@ describe('MerchantService', () => {
     expect(user.isMerchant).toBe(true);
     expect(manager.query).toHaveBeenCalledWith(
       'SELECT pg_advisory_xact_lock(hashtext($1))',
-      ['raka-wijaya'],
+      ['akademi-teknik-raka'],
     );
     expect(manager.save).toHaveBeenCalledWith(
       Merchant,
       expect.objectContaining({
         userId,
-        storeName: 'Raka Wijaya',
-        storeDescription: registrationInput.bio,
+        storeName: registrationInput.store_name,
+        storeDescription: registrationInput.store_description,
         status: 'active',
       }),
     );
@@ -82,8 +78,7 @@ describe('MerchantService', () => {
       MerchantProfile,
       expect.objectContaining({
         merchantId,
-        slug: 'raka-wijaya',
-        expertise: registrationInput.expertise,
+        slug: 'akademi-teknik-raka',
       }),
     );
   });
@@ -111,8 +106,8 @@ describe('MerchantService', () => {
     manager.query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
-        { slug: 'raka-wijaya' },
-        { slug: 'raka-wijaya-2' },
+        { slug: 'akademi-teknik-raka' },
+        { slug: 'akademi-teknik-raka-2' },
       ]);
     jest.spyOn(service, 'findMyMerchant').mockResolvedValue({
       data: { id: merchantId } as never,
@@ -123,7 +118,7 @@ describe('MerchantService', () => {
 
     expect(manager.save).toHaveBeenCalledWith(
       MerchantProfile,
-      expect.objectContaining({ slug: 'raka-wijaya-3' }),
+      expect.objectContaining({ slug: 'akademi-teknik-raka-3' }),
     );
   });
 

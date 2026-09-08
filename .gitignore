@@ -39,3 +39,6 @@ lerna-debug.log*
 .env.
 *.env
 .env.local
+
+# Private runtime documents (interim local storage adapter)
+/mentor_documents

@@ -20,6 +20,7 @@ import { dataSourceOptions } from './database/database.data-source';
 import { ProfileModule } from './api/profile/profile.module';
 import { HomeModule } from './api/home/home.module';
 import { MerchantModule } from './api/merchant/merchant.module';
+import { MentorModule } from './api/mentor/mentor.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { MerchantModule } from './api/merchant/merchant.module';
     ProfileModule,
     HomeModule,
     MerchantModule,
+    MentorModule,
   ],
   controllers: [AppController],
   providers: [

@@ -11,7 +11,7 @@ import { RedisService } from '~/common/redis/src';
 @Module({
   controllers: [AuthController],
   providers: [AuthService, RedisService],
-  exports: [JwtModule],
+  exports: [AuthService, JwtModule],
   imports: [
     JwtModule.registerAsync({
       imports: [ConfigModule],

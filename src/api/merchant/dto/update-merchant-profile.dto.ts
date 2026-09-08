@@ -11,7 +11,7 @@ import {
   Min,
 } from 'class-validator';
 
-export class UpdateMyMerchantDto {
+export class UpdateMerchantProfileDto {
   @ApiPropertyOptional({ example: 'Akademi Teknik' })
   @IsOptional()
   @IsString()

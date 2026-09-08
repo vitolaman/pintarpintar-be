@@ -12,7 +12,7 @@ import {
   NotificationPreferencesResponseDto,
 } from './dto/merchant-response.dto';
 import { RegisterMerchantDto } from './dto/register-merchant.dto';
-import { UpdateMyMerchantDto } from './dto/update-my-merchant.dto';
+import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { MerchantMember } from './entities/merchant-member.entity';
 import { MerchantProfile } from './entities/merchant-profile.entity';
@@ -83,21 +83,24 @@ export class MerchantService {
       await manager.save(User, user);
     });
 
-    return this.findMyMerchant(userId).then((response) => ({
+    return this.findMerchantProfile(userId).then((response) => ({
       ...response,
       responseMessage: 'Register merchant success',
     }));
   }
 
-  async findMyMerchant(userId: string) {
+  async findMerchantProfile(userId: string) {
     await this.ensureMerchantProfile(userId);
     return {
       data: await this.findMerchantResponse(userId),
-      responseMessage: 'Get my merchant success',
+      responseMessage: 'Get merchant profile success',
     };
   }
 
-  async updateMyMerchant(userId: string, input: UpdateMyMerchantDto) {
+  async updateMerchantProfile(
+    userId: string,
+    input: UpdateMerchantProfileDto,
+  ) {
     await this.dataSource.transaction(async (manager) => {
       const merchant = await this.findOwnedMerchant(manager, userId, true);
       let profile = await manager.findOneBy(MerchantProfile, {
@@ -152,9 +155,9 @@ export class MerchantService {
       await manager.save(MerchantProfile, profile);
     });
 
-    return this.findMyMerchant(userId).then((response) => ({
+    return this.findMerchantProfile(userId).then((response) => ({
       ...response,
-      responseMessage: 'Update my merchant success',
+      responseMessage: 'Update merchant profile success',
     }));
   }
 

@@ -17,7 +17,7 @@ import {
   NotificationPreferencesResponseDto,
 } from './dto/merchant-response.dto';
 import { RegisterMerchantDto } from './dto/register-merchant.dto';
-import { UpdateMyMerchantDto } from './dto/update-my-merchant.dto';
+import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { MerchantService } from './merchant.service';
 
@@ -41,29 +41,29 @@ export class MerchantController {
     return this.merchantService.register(req.user.id, input);
   }
 
-  @Get('get-my-merchant')
+  @Get('get-profile')
   @DefaultResponse(
     MerchantResponseDto,
-    'Get my merchant success',
+    'Get merchant profile success',
     HttpStatus.OK,
     [NotFoundException],
   )
-  findMyMerchant(@Req() req: { user: { id: string } }) {
-    return this.merchantService.findMyMerchant(req.user.id);
+  findProfile(@Req() req: { user: { id: string } }) {
+    return this.merchantService.findMerchantProfile(req.user.id);
   }
 
-  @Patch('update-my-merchant')
+  @Patch('update-profile')
   @DefaultResponse(
     MerchantResponseDto,
-    'Update my merchant success',
+    'Update merchant profile success',
     HttpStatus.OK,
     [BadRequestException, NotFoundException],
   )
-  updateMyMerchant(
+  updateProfile(
     @Req() req: { user: { id: string } },
-    @Body() input: UpdateMyMerchantDto,
+    @Body() input: UpdateMerchantProfileDto,
   ) {
-    return this.merchantService.updateMyMerchant(req.user.id, input);
+    return this.merchantService.updateMerchantProfile(req.user.id, input);
   }
 
   @Get('get-notification-preferences')

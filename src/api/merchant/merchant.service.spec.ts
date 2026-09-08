@@ -50,9 +50,9 @@ describe('MerchantService', () => {
       target === User ? Promise.resolve(user) : Promise.resolve(null),
     );
     manager.findOneBy.mockResolvedValue(null);
-    jest.spyOn(service, 'findMyMerchant').mockResolvedValue({
+    jest.spyOn(service, 'findMerchantProfile').mockResolvedValue({
       data: { id: merchantId } as never,
-      responseMessage: 'Get my merchant success',
+      responseMessage: 'Get merchant profile success',
     });
 
     await expect(service.register(userId, registrationInput)).resolves.toEqual({
@@ -109,9 +109,9 @@ describe('MerchantService', () => {
         { slug: 'akademi-teknik-raka' },
         { slug: 'akademi-teknik-raka-2' },
       ]);
-    jest.spyOn(service, 'findMyMerchant').mockResolvedValue({
+    jest.spyOn(service, 'findMerchantProfile').mockResolvedValue({
       data: { id: merchantId } as never,
-      responseMessage: 'Get my merchant success',
+      responseMessage: 'Get merchant profile success',
     });
 
     await service.register(userId, registrationInput);
@@ -134,12 +134,12 @@ describe('MerchantService', () => {
     } as MerchantProfile;
     manager.findOne.mockResolvedValue(merchant);
     manager.findOneBy.mockResolvedValue(profile);
-    jest.spyOn(service, 'findMyMerchant').mockResolvedValue({
+    jest.spyOn(service, 'findMerchantProfile').mockResolvedValue({
       data: { id: merchantId } as never,
-      responseMessage: 'Get my merchant success',
+      responseMessage: 'Get merchant profile success',
     });
 
-    await service.updateMyMerchant(userId, {
+    await service.updateMerchantProfile(userId, {
       store_name: 'Akademi Teknik',
     });
 

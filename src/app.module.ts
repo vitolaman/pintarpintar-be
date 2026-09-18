@@ -21,6 +21,7 @@ import { ProfileModule } from './api/profile/profile.module';
 import { HomeModule } from './api/home/home.module';
 import { MerchantModule } from './api/merchant/merchant.module';
 import { MentorModule } from './api/mentor/mentor.module';
+import { VoucherModule } from './api/voucher/voucher.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { MentorModule } from './api/mentor/mentor.module';
     HomeModule,
     MerchantModule,
     MentorModule,
+    VoucherModule,
   ],
   controllers: [AppController],
   providers: [

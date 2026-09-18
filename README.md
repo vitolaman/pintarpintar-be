@@ -65,6 +65,16 @@ $ yarn db:local:migrate
 - `PATCH /mentors/v1/update-profile`
 - `GET /mentors/v1/get-assignments`
 
+### Voucher
+
+- `POST /vouchers/v1/create-voucher`
+- `GET /vouchers/v1/get-vouchers`
+- `GET /vouchers/v1/get-voucher/:id`
+- `PATCH /vouchers/v1/update-voucher/:id`
+- `DELETE /vouchers/v1/delete-voucher/:id`
+- `GET /vouchers/v1/get-public-vouchers`
+- `GET /vouchers/v1/get-featured-vouchers`
+
 ### Home
 
 - `GET /home/v1/get-statistics`

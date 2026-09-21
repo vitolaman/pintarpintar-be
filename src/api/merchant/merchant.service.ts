@@ -5,12 +5,14 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import { merchantCategorySlugForLabel } from '~/common/constants/merchant-category';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import {
   MerchantResponseDto,
   NotificationPreferencesResponseDto,
 } from './dto/merchant-response.dto';
+import { PublicMerchantStorefrontResponseDto } from './dto/public-merchant-storefront-response.dto';
 import { RegisterMerchantDto } from './dto/register-merchant.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
@@ -97,10 +99,7 @@ export class MerchantService {
     };
   }
 
-  async updateMerchantProfile(
-    userId: string,
-    input: UpdateMerchantProfileDto,
-  ) {
+  async updateMerchantProfile(userId: string, input: UpdateMerchantProfileDto) {
     await this.dataSource.transaction(async (manager) => {
       const merchant = await this.findOwnedMerchant(manager, userId, true);
       let profile = await manager.findOneBy(MerchantProfile, {
@@ -159,6 +158,91 @@ export class MerchantService {
       ...response,
       responseMessage: 'Update merchant profile success',
     }));
+  }
+
+  async findPublicStorefront(slug: string) {
+    const [row] = (await this.dataSource.query(
+      `
+        SELECT
+          merchant.id, merchant.store_name, merchant.store_description,
+          merchant.created_at,
+          profile.slug, profile.tagline, profile.category_label,
+          profile.city, profile.public_email, profile.public_phone,
+          profile.website_url, profile.instagram_handle, profile.youtube_url,
+          profile.linkedin_url, profile.expertise,
+          profile.avatar_asset_id,
+          avatar_asset.object_key AS avatar_object_key,
+          profile.cover_asset_id,
+          cover_asset.object_key AS cover_object_key,
+          (
+            SELECT COUNT(DISTINCT access.user_id)::integer
+            FROM user_access access
+            INNER JOIN products product ON product.id = access.product_id
+            WHERE product.merchant_id = merchant.id
+              AND product.deleted_at IS NULL
+              AND access.deleted_at IS NULL
+              AND (access.expires_at IS NULL OR access.expires_at > now())
+          ) AS total_students,
+          (
+            SELECT COUNT(DISTINCT product.id)::integer
+            FROM products product
+            LEFT JOIN bootcamps bootcamp ON bootcamp.product_id = product.id
+            LEFT JOIN video_classes video_class
+              ON video_class.product_id = product.id
+            WHERE product.merchant_id = merchant.id
+              AND product.deleted_at IS NULL
+              AND product.is_published = true
+              AND product.publication_status = 'published'
+              AND (bootcamp.id IS NOT NULL OR video_class.id IS NOT NULL)
+          ) AS published_class_count,
+          (
+            SELECT COUNT(DISTINCT product.id)::integer
+            FROM products product
+            INNER JOIN digital_files digital_file
+              ON digital_file.product_id = product.id
+            WHERE product.merchant_id = merchant.id
+              AND product.deleted_at IS NULL
+              AND product.is_published = true
+              AND product.publication_status = 'published'
+          ) AS published_digital_product_count,
+          (
+            SELECT COALESCE(ROUND(AVG(review.rating)::numeric, 1), 0)
+            FROM reviews review
+            INNER JOIN products reviewed ON reviewed.id = review.product_id
+            WHERE reviewed.merchant_id = merchant.id
+              AND reviewed.deleted_at IS NULL
+              AND review.deleted_at IS NULL
+          ) AS average_rating,
+          (
+            SELECT COUNT(*)::integer
+            FROM reviews review
+            INNER JOIN products reviewed ON reviewed.id = review.product_id
+            WHERE reviewed.merchant_id = merchant.id
+              AND reviewed.deleted_at IS NULL
+              AND review.deleted_at IS NULL
+          ) AS review_count
+        FROM merchants merchant
+        INNER JOIN merchant_profiles profile
+          ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
+        LEFT JOIN file_assets avatar_asset
+          ON avatar_asset.id = profile.avatar_asset_id
+          AND avatar_asset.deleted_at IS NULL
+        LEFT JOIN file_assets cover_asset
+          ON cover_asset.id = profile.cover_asset_id
+          AND cover_asset.deleted_at IS NULL
+        WHERE profile.slug = $1
+          AND merchant.deleted_at IS NULL
+          AND merchant.status = 'active'
+        LIMIT 1
+      `,
+      [slug],
+    )) as StorefrontRow[];
+    if (!row) throw new NotFoundException('Merchant not found');
+
+    return {
+      data: this.toStorefrontResponse(row),
+      responseMessage: 'Get public merchant success',
+    };
   }
 
   async findNotificationPreferences(userId: string) {
@@ -351,6 +435,22 @@ export class MerchantService {
     return slug || 'merchant';
   }
 
+  private toStorefrontResponse(
+    row: StorefrontRow,
+  ): PublicMerchantStorefrontResponseDto {
+    return {
+      ...row,
+      category_slug: merchantCategorySlugForLabel(row.category_label),
+      total_students: Number(row.total_students),
+      published_class_count: Number(row.published_class_count),
+      published_digital_product_count: Number(
+        row.published_digital_product_count,
+      ),
+      average_rating: Number(row.average_rating),
+      review_count: Number(row.review_count),
+    };
+  }
+
   private toNotificationPreferences(
     preferences: UserNotificationPreferences | null,
   ): NotificationPreferencesResponseDto {
@@ -369,4 +469,21 @@ export class MerchantService {
 
 interface MerchantRow extends Omit<MerchantResponseDto, 'experience_years'> {
   experience_years: string | null;
+}
+
+interface StorefrontRow
+  extends Omit<
+    PublicMerchantStorefrontResponseDto,
+    | 'category_slug'
+    | 'total_students'
+    | 'published_class_count'
+    | 'published_digital_product_count'
+    | 'average_rating'
+    | 'review_count'
+  > {
+  total_students: number | string;
+  published_class_count: number | string;
+  published_digital_product_count: number | string;
+  average_rating: number | string;
+  review_count: number | string;
 }

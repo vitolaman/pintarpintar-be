@@ -6,16 +6,19 @@ import {
   Get,
   HttpStatus,
   NotFoundException,
+  Param,
   Patch,
   Post,
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { DefaultResponse } from '~/common/decorator/response.decorator';
+import { Public } from '~/common/decorator/public.decorator';
 import {
   MerchantResponseDto,
   NotificationPreferencesResponseDto,
 } from './dto/merchant-response.dto';
+import { PublicMerchantStorefrontResponseDto } from './dto/public-merchant-storefront-response.dto';
 import { RegisterMerchantDto } from './dto/register-merchant.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
@@ -39,6 +42,18 @@ export class MerchantController {
     @Body() input: RegisterMerchantDto,
   ) {
     return this.merchantService.register(req.user.id, input);
+  }
+
+  @Get('get-public-merchant/:slug')
+  @Public()
+  @DefaultResponse(
+    PublicMerchantStorefrontResponseDto,
+    'Get public merchant success',
+    HttpStatus.OK,
+    [NotFoundException],
+  )
+  findPublicStorefront(@Param('slug') slug: string) {
+    return this.merchantService.findPublicStorefront(slug);
   }
 
   @Get('get-profile')

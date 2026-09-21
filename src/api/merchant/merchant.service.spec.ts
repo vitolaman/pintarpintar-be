@@ -13,7 +13,8 @@ describe('MerchantService', () => {
   const userId = '10000000-0000-4000-8000-000000000001';
   const merchantId = '20000000-0000-4000-8000-000000000001';
   let manager: Record<string, jest.Mock>;
-  let dataSource: Pick<DataSource, 'transaction'>;
+  let query: jest.Mock;
+  let dataSource: Pick<DataSource, 'transaction' | 'query'>;
   let merchants: { findOneBy: jest.Mock };
   let preferences: { findOneBy: jest.Mock };
   let service: MerchantService;
@@ -24,6 +25,7 @@ describe('MerchantService', () => {
   };
 
   beforeEach(() => {
+    query = jest.fn();
     manager = {
       create: jest.fn((target, value) => ({
         ...value,
@@ -36,7 +38,8 @@ describe('MerchantService', () => {
     };
     dataSource = {
       transaction: jest.fn((callback) => callback(manager)),
-    } as unknown as Pick<DataSource, 'transaction'>;
+      query: query,
+    } as unknown as Pick<DataSource, 'transaction' | 'query'>;
     merchants = { findOneBy: jest.fn() };
     preferences = { findOneBy: jest.fn() };
     service = new MerchantService(
@@ -197,6 +200,91 @@ describe('MerchantService', () => {
     await service.updateMerchantProfile(userId, { city: 'Bandung' });
 
     expect(profile.categoryLabel).toBe('Desain & Kreatif');
+  });
+
+  it('returns a public storefront with stats and a derived category slug', async () => {
+    query.mockResolvedValueOnce([
+      {
+        id: merchantId,
+        store_name: 'Akademi Teknik Raka',
+        store_description: 'Kelas teknik untuk profesional.',
+        slug: 'akademi-teknik-raka',
+        tagline: 'Belajar teknologi dari praktisi.',
+        category_label: 'Teknik & Arsitektur',
+        city: 'Bandung',
+        public_email: 'contact@akademi.example',
+        public_phone: '+62 812-3456-7890',
+        website_url: null,
+        instagram_handle: null,
+        youtube_url: null,
+        linkedin_url: null,
+        expertise: 'AutoCAD',
+        avatar_asset_id: null,
+        avatar_object_key: null,
+        cover_asset_id: null,
+        cover_object_key: null,
+        created_at: new Date('2026-01-05T00:00:00.000Z'),
+        total_students: '10',
+        published_class_count: '2',
+        published_digital_product_count: '3',
+        average_rating: '4.8',
+        review_count: '45',
+      },
+    ]);
+
+    await expect(
+      service.findPublicStorefront('akademi-teknik-raka'),
+    ).resolves.toEqual({
+      data: {
+        id: merchantId,
+        store_name: 'Akademi Teknik Raka',
+        store_description: 'Kelas teknik untuk profesional.',
+        slug: 'akademi-teknik-raka',
+        tagline: 'Belajar teknologi dari praktisi.',
+        category_label: 'Teknik & Arsitektur',
+        category_slug: 'teknik-arsitektur',
+        city: 'Bandung',
+        public_email: 'contact@akademi.example',
+        public_phone: '+62 812-3456-7890',
+        website_url: null,
+        instagram_handle: null,
+        youtube_url: null,
+        linkedin_url: null,
+        expertise: 'AutoCAD',
+        avatar_asset_id: null,
+        avatar_object_key: null,
+        cover_asset_id: null,
+        cover_object_key: null,
+        created_at: new Date('2026-01-05T00:00:00.000Z'),
+        total_students: 10,
+        published_class_count: 2,
+        published_digital_product_count: 3,
+        average_rating: 4.8,
+        review_count: 45,
+      },
+      responseMessage: 'Get public merchant success',
+    });
+
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('profile.slug = $1'),
+      ['akademi-teknik-raka'],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.not.stringContaining('lifetime_earnings'),
+      expect.anything(),
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.not.stringContaining('balance'),
+      expect.anything(),
+    );
+  });
+
+  it('hides merchants whose slug does not resolve to an active merchant', async () => {
+    query.mockResolvedValueOnce([]);
+
+    await expect(
+      service.findPublicStorefront('unknown-merchant'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('returns safe default notification preferences for a merchant without a row', async () => {

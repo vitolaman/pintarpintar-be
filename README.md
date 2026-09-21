@@ -51,6 +51,7 @@ $ yarn db:local:migrate
 ### Merchant
 
 - `POST /merchants/v1/register`
+- `GET /merchants/v1/get-public-merchant/:slug`
 - `GET /merchants/v1/get-profile`
 - `PATCH /merchants/v1/update-profile`
 - `GET /merchants/v1/get-notification-preferences`

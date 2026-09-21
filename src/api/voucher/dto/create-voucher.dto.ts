@@ -1,9 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
-  ArrayNotEmpty,
-  ArrayUnique,
-  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -11,7 +8,6 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Length,
   Matches,
   Min,
@@ -56,13 +52,6 @@ export class CreateVoucherDto {
   @Min(0.01)
   @Transform(optionalNumber)
   discount_value: number;
-
-  @ApiProperty({ type: [String], format: 'uuid' })
-  @IsArray()
-  @ArrayNotEmpty()
-  @ArrayUnique()
-  @IsUUID('4', { each: true })
-  product_ids: string[];
 
   @ApiPropertyOptional({ example: 'Potongan harga untuk pembeli pertama.' })
   @IsOptional()

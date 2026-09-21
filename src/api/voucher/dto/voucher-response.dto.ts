@@ -1,19 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class VoucherProductResponseDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
-
-  @ApiProperty()
-  title: string;
-
-  @ApiProperty()
-  product_type: string;
-
-  @ApiProperty()
-  is_published: boolean;
-}
-
 export class VoucherResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -65,9 +51,6 @@ export class VoucherResponseDto {
   })
   status: string;
 
-  @ApiProperty({ type: [VoucherProductResponseDto] })
-  products: VoucherProductResponseDto[];
-
   @ApiProperty()
   created_at: Date;
 }
@@ -97,12 +80,6 @@ export class PublicVoucherResponseDto {
   @ApiPropertyOptional()
   expires_at: Date | null;
 
-  @ApiProperty({ type: [String] })
-  categories: string[];
-
-  @ApiProperty({ type: [String] })
-  category_slugs: string[];
-
   @ApiProperty({ format: 'uuid' })
   merchant_id: string;
 
@@ -120,4 +97,10 @@ export class PublicVoucherResponseDto {
 
   @ApiPropertyOptional()
   merchant_category_label: string | null;
+
+  @ApiPropertyOptional({
+    example: 'pemrograman-it',
+    description: 'Slug derived from the merchant category label.',
+  })
+  merchant_category_slug: string | null;
 }

@@ -7,6 +7,10 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { Merchant } from '../merchant/entities/merchant.entity';
+import {
+  merchantCategoryLabelForSlug,
+  merchantCategorySlugForLabel,
+} from '~/common/constants/merchant-category';
 import { CreateVoucherDto } from './dto/create-voucher.dto';
 import { PublicVoucherQueryDto } from './dto/voucher-query.dto';
 import {
@@ -14,7 +18,6 @@ import {
   VoucherResponseDto,
 } from './dto/voucher-response.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
-import { CouponProductScope } from './entities/coupon-product-scope.entity';
 import { Voucher } from './entities/voucher.entity';
 
 @Injectable()
@@ -26,11 +29,11 @@ export class VoucherService {
     const code = this.normalizeCode(input.code);
     this.validateDiscount(input.discount_type, input.discount_value);
     this.validatePeriod(input.starts_at, input.expires_at);
+    this.rejectProductIds(input);
     try {
       await this.dataSource.transaction(async (manager) => {
         const merchant = await this.findOwnedMerchant(manager, userId, true);
         await this.ensureCodeAvailable(manager, code);
-        await this.ensureOwnedProducts(manager, merchant.id, input.product_ids);
 
         const voucher = await manager.save(
           Voucher,
@@ -50,7 +53,6 @@ export class VoucherService {
             isActive: input.is_active ?? true,
           }),
         );
-        await this.replaceProductScopes(manager, voucher.id, input.product_ids);
         voucherId = voucher.id;
       });
     } catch (error) {
@@ -103,6 +105,7 @@ export class VoucherService {
   }
 
   async update(userId: string, id: string, input: UpdateVoucherDto) {
+    this.rejectProductIds(input);
     try {
       await this.dataSource.transaction(async (manager) => {
         const merchant = await this.findOwnedMerchant(manager, userId, true);
@@ -152,18 +155,6 @@ export class VoucherService {
         if (input.expires_at !== undefined) voucher.expiresAt = expiresAt;
         if (input.is_active !== undefined) voucher.isActive = input.is_active;
 
-        if (input.product_ids !== undefined) {
-          await this.ensureOwnedProducts(
-            manager,
-            merchant.id,
-            input.product_ids,
-          );
-          await this.replaceProductScopes(
-            manager,
-            voucher.id,
-            input.product_ids,
-          );
-        }
         await manager.save(Voucher, voucher);
       });
     } catch (error) {
@@ -191,9 +182,24 @@ export class VoucherService {
     const offset = (page - 1) * limit;
     const now = new Date();
     const search = query.search?.trim() ?? '';
+    const merchantSlug = query.merchant_slug ?? null;
+    const categoryLabel = query.category_slug
+      ? merchantCategoryLabelForSlug(query.category_slug)
+      : null;
+    if (query.category_slug && categoryLabel === null) {
+      return this.emptyPublicPage(page, limit);
+    }
+
     const [rows, countRows] = await Promise.all([
-      this.publicVoucherRows(now, search, query.category_slug, limit, offset),
-      this.publicVoucherCount(now, search, query.category_slug),
+      this.publicVoucherRows(
+        now,
+        search,
+        categoryLabel,
+        merchantSlug,
+        limit,
+        offset,
+      ),
+      this.publicVoucherCount(now, search, categoryLabel, merchantSlug),
     ]);
     const total = Number(countRows[0]?.total ?? 0);
 
@@ -205,10 +211,18 @@ export class VoucherService {
   }
 
   async findFeatured() {
-    const rows = await this.publicVoucherRows(new Date(), '', undefined, 3, 0);
+    const rows = await this.publicVoucherRows(new Date(), '', null, null, 3, 0);
     return {
       data: rows.map((row) => this.toPublicVoucherResponse(row)),
       responseMessage: 'Get featured vouchers success',
+    };
+  }
+
+  private emptyPublicPage(page: number, limit: number) {
+    return {
+      data: [] as PublicVoucherResponseDto[],
+      meta: { page, limit, total: 0, totalPage: 0 },
+      responseMessage: 'Get public vouchers success',
     };
   }
 
@@ -244,38 +258,12 @@ export class VoucherService {
     if (rows.length) throw new ConflictException('Voucher code already exists');
   }
 
-  private async ensureOwnedProducts(
-    manager: EntityManager,
-    merchantId: string,
-    productIds: string[],
-  ): Promise<void> {
-    const rows = (await manager.query(
-      `
-        SELECT id
-        FROM products
-        WHERE id = ANY($1::uuid[])
-          AND merchant_id = $2
-          AND deleted_at IS NULL
-      `,
-      [productIds, merchantId],
-    )) as Array<{ id: string }>;
-    if (rows.length !== productIds.length) {
-      throw new BadRequestException('Products must belong to the merchant');
+  private rejectProductIds(input: CreateVoucherDto | UpdateVoucherDto): void {
+    if ((input as { product_ids?: unknown }).product_ids !== undefined) {
+      throw new BadRequestException(
+        'Vouchers apply to the whole store; product_ids is not accepted',
+      );
     }
-  }
-
-  private async replaceProductScopes(
-    manager: EntityManager,
-    voucherId: string,
-    productIds: string[],
-  ): Promise<void> {
-    await manager.softDelete(CouponProductScope, { couponId: voucherId });
-    await manager.save(
-      CouponProductScope,
-      productIds.map((productId) =>
-        manager.create(CouponProductScope, { couponId: voucherId, productId }),
-      ),
-    );
   }
 
   private merchantVoucherRows(
@@ -296,25 +284,12 @@ export class VoucherService {
           coupon.discount_value, coupon.minimum_order_amount,
           coupon.maximum_discount_amount, coupon.max_uses, coupon.starts_at,
           coupon.expires_at, coupon.is_active, coupon.created_at,
-          COUNT(DISTINCT usage.id)::integer AS usage_count,
-          COALESCE(
-            jsonb_agg(DISTINCT jsonb_build_object(
-              'id', product.id,
-              'title', product.title,
-              'product_type', product.product_type,
-              'is_published', product.is_published
-            )) FILTER (WHERE product.id IS NOT NULL),
-            '[]'::jsonb
-          ) AS products
+          COUNT(usage.id)::integer AS usage_count
         FROM coupons coupon
         INNER JOIN merchants merchant
           ON merchant.id = coupon.merchant_id AND merchant.deleted_at IS NULL
         LEFT JOIN coupon_usages usage
           ON usage.coupon_id = coupon.id AND usage.deleted_at IS NULL
-        LEFT JOIN coupon_product_scopes scope
-          ON scope.coupon_id = coupon.id AND scope.deleted_at IS NULL
-        LEFT JOIN products product
-          ON product.id = scope.product_id AND product.deleted_at IS NULL
         WHERE merchant.user_id = $1
           AND coupon.deleted_at IS NULL
           AND ($2::uuid IS NULL OR coupon.id = $2)
@@ -329,14 +304,15 @@ export class VoucherService {
   private publicVoucherRows(
     now: Date,
     search: string,
-    categorySlug: string | undefined,
+    categoryLabel: string | null,
+    merchantSlug: string | null,
     limit: number,
     offset: number,
   ): Promise<PublicVoucherRow[]> {
     return this.dataSource.query(
       `
         WITH visible AS (
-          SELECT coupon.id, COUNT(usage.id)::integer AS usage_count
+          SELECT coupon.id
           FROM coupons coupon
           INNER JOIN merchants merchant
             ON merchant.id = coupon.merchant_id
@@ -350,7 +326,8 @@ export class VoucherService {
             AND (coupon.expires_at IS NULL OR coupon.expires_at > $1)
             AND ($2 = '' OR coupon.name ILIKE '%' || $2 || '%'
               OR coupon.code ILIKE '%' || $2 || '%'
-              OR coupon.description ILIKE '%' || $2 || '%')
+              OR coupon.description ILIKE '%' || $2 || '%'
+              OR merchant.store_name ILIKE '%' || $2 || '%')
           GROUP BY coupon.id
           HAVING coupon.max_uses IS NULL OR COUNT(usage.id) < coupon.max_uses
         )
@@ -362,68 +339,31 @@ export class VoucherService {
           profile.slug AS merchant_slug,
           profile.avatar_asset_id AS merchant_avatar_asset_id,
           profile.tagline AS merchant_tagline,
-          profile.category_label AS merchant_category_label,
-          COALESCE(
-            array_remove(array_agg(DISTINCT category.name), NULL),
-            ARRAY[]::varchar[]
-          ) AS categories,
-          COALESCE(
-            array_remove(array_agg(DISTINCT category.slug), NULL),
-            ARRAY[]::varchar[]
-          ) AS category_slugs
+          profile.category_label AS merchant_category_label
         FROM visible
         INNER JOIN coupons coupon ON coupon.id = visible.id
         INNER JOIN merchants merchant ON merchant.id = coupon.merchant_id
         LEFT JOIN merchant_profiles profile
           ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
-        INNER JOIN coupon_product_scopes scope
-          ON scope.coupon_id = coupon.id AND scope.deleted_at IS NULL
-        INNER JOIN products product
-          ON product.id = scope.product_id
-          AND product.deleted_at IS NULL
-          AND product.is_published = true
-          AND product.publication_status = 'published'
-        LEFT JOIN product_categories product_category
-          ON product_category.product_id = product.id
-          AND product_category.deleted_at IS NULL
-        LEFT JOIN categories category
-          ON category.id = product_category.category_id
-          AND category.deleted_at IS NULL
-        WHERE ($3::varchar IS NULL OR EXISTS (
-          SELECT 1
-          FROM coupon_product_scopes selected_scope
-          INNER JOIN products selected_product
-            ON selected_product.id = selected_scope.product_id
-            AND selected_product.deleted_at IS NULL
-            AND selected_product.is_published = true
-            AND selected_product.publication_status = 'published'
-          INNER JOIN product_categories selected_category_link
-            ON selected_category_link.product_id = selected_product.id
-            AND selected_category_link.deleted_at IS NULL
-          INNER JOIN categories selected_category
-            ON selected_category.id = selected_category_link.category_id
-            AND selected_category.deleted_at IS NULL
-          WHERE selected_scope.coupon_id = coupon.id
-            AND selected_scope.deleted_at IS NULL
-            AND selected_category.slug = $3
-        ))
-        GROUP BY coupon.id, merchant.id, profile.id
+        WHERE ($3::varchar IS NULL OR profile.category_label = $3)
+          AND ($4::varchar IS NULL OR profile.slug = $4)
         ORDER BY coupon.created_at DESC
-        LIMIT $4 OFFSET $5
+        LIMIT $5 OFFSET $6
       `,
-      [now, search, categorySlug ?? null, limit, offset],
+      [now, search, categoryLabel, merchantSlug, limit, offset],
     ) as Promise<PublicVoucherRow[]>;
   }
 
   private publicVoucherCount(
     now: Date,
     search: string,
-    categorySlug?: string,
+    categoryLabel: string | null,
+    merchantSlug: string | null,
   ): Promise<Array<{ total: number }>> {
-    return this.dataSource
-      .query(
-        `
-          SELECT COUNT(*)::integer AS total
+    return this.dataSource.query(
+      `
+        WITH visible AS (
+          SELECT coupon.id
           FROM coupons coupon
           INNER JOIN merchants merchant
             ON merchant.id = coupon.merchant_id
@@ -437,41 +377,22 @@ export class VoucherService {
             AND (coupon.expires_at IS NULL OR coupon.expires_at > $1)
             AND ($2 = '' OR coupon.name ILIKE '%' || $2 || '%'
               OR coupon.code ILIKE '%' || $2 || '%'
-              OR coupon.description ILIKE '%' || $2 || '%')
-            AND EXISTS (
-              SELECT 1
-              FROM coupon_product_scopes scope
-              INNER JOIN products product
-                ON product.id = scope.product_id
-                AND product.deleted_at IS NULL
-                AND product.is_published = true
-                AND product.publication_status = 'published'
-              WHERE scope.coupon_id = coupon.id AND scope.deleted_at IS NULL
-            )
-            AND ($3::varchar IS NULL OR EXISTS (
-              SELECT 1
-              FROM coupon_product_scopes scope
-              INNER JOIN products product
-                ON product.id = scope.product_id
-                AND product.deleted_at IS NULL
-                AND product.is_published = true
-                AND product.publication_status = 'published'
-              INNER JOIN product_categories product_category
-                ON product_category.product_id = product.id
-                AND product_category.deleted_at IS NULL
-              INNER JOIN categories category
-                ON category.id = product_category.category_id
-                AND category.deleted_at IS NULL
-              WHERE scope.coupon_id = coupon.id
-                AND scope.deleted_at IS NULL
-                AND category.slug = $3
-            ))
-          GROUP BY coupon.id, coupon.max_uses
+              OR coupon.description ILIKE '%' || $2 || '%'
+              OR merchant.store_name ILIKE '%' || $2 || '%')
+          GROUP BY coupon.id
           HAVING coupon.max_uses IS NULL OR COUNT(usage.id) < coupon.max_uses
-        `,
-        [now, search, categorySlug ?? null],
-      )
-      .then((rows: Array<{ total: number }>) => [{ total: rows.length }]);
+        )
+        SELECT COUNT(*)::integer AS total
+        FROM visible
+        INNER JOIN coupons coupon ON coupon.id = visible.id
+        INNER JOIN merchants merchant ON merchant.id = coupon.merchant_id
+        LEFT JOIN merchant_profiles profile
+          ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
+        WHERE ($3::varchar IS NULL OR profile.category_label = $3)
+          AND ($4::varchar IS NULL OR profile.slug = $4)
+      `,
+      [now, search, categoryLabel, merchantSlug],
+    ) as Promise<Array<{ total: number }>>;
   }
 
   private toVoucherResponse(row: VoucherRow): VoucherResponseDto {
@@ -494,7 +415,6 @@ export class VoucherService {
       max_uses: this.numberOrNull(row.max_uses),
       usage_count: Number(row.usage_count),
       status,
-      products: row.products ?? [],
     };
   }
 
@@ -505,8 +425,9 @@ export class VoucherService {
       ...row,
       discount_value: Number(row.discount_value),
       minimum_order_amount: this.numberOrNull(row.minimum_order_amount),
-      categories: row.categories ?? [],
-      category_slugs: row.category_slugs ?? [],
+      merchant_category_slug: merchantCategorySlugForLabel(
+        row.merchant_category_label,
+      ),
     };
   }
 
@@ -566,7 +487,6 @@ interface VoucherRow {
   is_active: boolean;
   created_at: Date;
   usage_count: number;
-  products: VoucherResponseDto['products'];
 }
 
 interface PublicVoucherRow {
@@ -584,6 +504,4 @@ interface PublicVoucherRow {
   merchant_avatar_asset_id: string | null;
   merchant_tagline: string | null;
   merchant_category_label: string | null;
-  categories: string[] | null;
-  category_slugs: string[] | null;
 }

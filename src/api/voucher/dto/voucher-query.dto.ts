@@ -7,4 +7,9 @@ export class PublicVoucherQueryDto extends RequestPaginatedQueryWithSearchDto {
   @IsOptional()
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   category_slug?: string;
+
+  @ApiPropertyOptional({ example: 'akademi-teknik-raka' })
+  @IsOptional()
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  merchant_slug?: string;
 }

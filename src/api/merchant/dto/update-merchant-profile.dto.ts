@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -10,6 +11,10 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { merchantCategoryLabels } from '~/common/constants/merchant-category';
+
+const optionalTrim = ({ value }: { value?: string | null }) =>
+  value === null ? null : value?.trim() || undefined;
 
 export class UpdateMerchantProfileDto {
   @ApiPropertyOptional({ example: 'Akademi Teknik' })
@@ -40,12 +45,15 @@ export class UpdateMerchantProfileDto {
   @Transform(({ value }) => value?.trim())
   tagline?: string;
 
-  @ApiPropertyOptional({ example: 'Teknologi' })
+  @ApiPropertyOptional({
+    enum: merchantCategoryLabels,
+    nullable: true,
+    example: 'Teknik & Arsitektur',
+  })
   @IsOptional()
-  @IsString()
-  @Length(1, 120)
-  @Transform(({ value }) => value?.trim())
-  category_label?: string;
+  @IsIn(merchantCategoryLabels)
+  @Transform(optionalTrim)
+  category_label?: string | null;
 
   @ApiPropertyOptional({ example: 'Bandung' })
   @IsOptional()

@@ -1,7 +1,9 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { DataSource, Repository } from 'typeorm';
-import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
+import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { MerchantProfile } from './entities/merchant-profile.entity';
 import { Merchant } from './entities/merchant.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
@@ -147,6 +149,56 @@ describe('MerchantService', () => {
     expect(profile.slug).toBe('raka-wijaya');
   });
 
+  it('stores a canonical category and clears it when null is submitted', async () => {
+    const merchant = {
+      id: merchantId,
+      userId,
+      storeName: 'Raka Wijaya',
+    } as Merchant;
+    const profile = {
+      merchantId,
+      slug: 'raka-wijaya',
+      categoryLabel: 'Bisnis & Manajemen',
+    } as MerchantProfile;
+    manager.findOne.mockResolvedValue(merchant);
+    manager.findOneBy.mockResolvedValue(profile);
+    jest.spyOn(service, 'findMerchantProfile').mockResolvedValue({
+      data: { id: merchantId } as never,
+      responseMessage: 'Get merchant profile success',
+    });
+
+    await service.updateMerchantProfile(userId, {
+      category_label: 'Teknik & Arsitektur',
+    });
+    expect(profile.categoryLabel).toBe('Teknik & Arsitektur');
+
+    await service.updateMerchantProfile(userId, { category_label: null });
+    expect(profile.categoryLabel).toBeNull();
+  });
+
+  it('leaves the stored category unchanged when the field is omitted', async () => {
+    const merchant = {
+      id: merchantId,
+      userId,
+      storeName: 'Raka Wijaya',
+    } as Merchant;
+    const profile = {
+      merchantId,
+      slug: 'raka-wijaya',
+      categoryLabel: 'Desain & Kreatif',
+    } as MerchantProfile;
+    manager.findOne.mockResolvedValue(merchant);
+    manager.findOneBy.mockResolvedValue(profile);
+    jest.spyOn(service, 'findMerchantProfile').mockResolvedValue({
+      data: { id: merchantId } as never,
+      responseMessage: 'Get merchant profile success',
+    });
+
+    await service.updateMerchantProfile(userId, { city: 'Bandung' });
+
+    expect(profile.categoryLabel).toBe('Desain & Kreatif');
+  });
+
   it('returns safe default notification preferences for a merchant without a row', async () => {
     merchants.findOneBy.mockResolvedValue({ id: merchantId } as Merchant);
     preferences.findOneBy.mockResolvedValue(null);
@@ -172,5 +224,27 @@ describe('MerchantService', () => {
     await expect(
       service.findNotificationPreferences(userId),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('UpdateMerchantProfileDto category_label', () => {
+  const build = (value: unknown) =>
+    plainToInstance(UpdateMerchantProfileDto, { category_label: value });
+
+  it('accepts a canonical category label', async () => {
+    const errors = await validate(build('Teknik & Arsitektur'));
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects a category label outside the canonical list', async () => {
+    const errors = await validate(build('Kuliner & Jasa'));
+    expect(errors.some((error) => error.property === 'category_label')).toBe(
+      true,
+    );
+  });
+
+  it('allows null so the merchant can clear its category', async () => {
+    const errors = await validate(build(null));
+    expect(errors).toHaveLength(0);
   });
 });

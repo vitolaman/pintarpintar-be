@@ -13,6 +13,8 @@ import { Profile } from './entities/profile.entity';
 import { StudentProgress } from './entities/student-progress.entity';
 import { UserAccess } from './entities/user-access.entity';
 import { User } from '../user/entities/user.entity';
+import { Merchant } from '../merchant/entities/merchant.entity';
+import { Mentor } from '../mentor/entities/mentor.entity';
 import {
   LearningItemResponseDto,
   ProfileResponseDto,
@@ -198,6 +200,16 @@ export class ProfileService {
         'avatar',
         'avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL',
       )
+      .leftJoin(
+        Mentor,
+        'mentor',
+        'mentor.user_id = user.id AND mentor.deleted_at IS NULL',
+      )
+      .leftJoin(
+        Merchant,
+        'merchant',
+        'merchant.user_id = user.id AND merchant.deleted_at IS NULL',
+      )
       .select([
         'user.id AS id',
         'user.name AS name',
@@ -209,8 +221,10 @@ export class ProfileService {
         'profile.phone AS phone',
         'profile.headline AS headline',
         'profile.bio AS bio',
+        'mentor.id AS mentor_id',
+        'merchant.id AS merchant_id',
       ])
-      .where('user.id = :userId', { userId })
+      .where('user.id = :userId::uuid', { userId })
       .andWhere('user.deleted_at IS NULL')
       .getRawOne<ProfileRow>();
 
@@ -229,6 +243,8 @@ export class ProfileService {
       phone: row.phone,
       headline: row.headline,
       bio: row.bio,
+      mentor_id: row.mentor_id,
+      merchant_id: row.merchant_id,
     };
   }
 
@@ -292,6 +308,8 @@ interface ProfileRow {
   phone: string | null;
   headline: string | null;
   bio: string | null;
+  mentor_id: string | null;
+  merchant_id: string | null;
 }
 
 interface LearningRow {

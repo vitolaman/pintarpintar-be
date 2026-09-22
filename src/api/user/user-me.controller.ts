@@ -7,6 +7,9 @@ import {
 } from '@nestjs/swagger';
 import { UserService } from './user.service';
 
+import { DefaultResponse } from '~/common/decorator/response.decorator';
+import { UserResponseDto } from './dto/user-response.dto';
+
 @Controller('users/me')
 @ApiBearerAuth()
 @ApiTags('User')
@@ -15,6 +18,7 @@ export class UserMeController {
 
   @Get()
   @ApiOperation({ summary: 'Get current user profile' })
+  @DefaultResponse(UserResponseDto, 'Get current user success')
   @ApiResponse({ status: HttpStatus.OK, description: 'Current user profile' })
   findOne(@Req() req: { user: { id: string } }) {
     return this.userService.findCurrentUser(req.user.id);

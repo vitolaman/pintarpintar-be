@@ -28,6 +28,8 @@
     "db:local:status": "cross-env ENV_FILE=.env.local node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d ./src/database/database.data-source.ts migration:show"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1131.0",
+    "@aws-sdk/s3-request-presigner": "^3.1131.0",
     "@nanogiants/nestjs-swagger-api-exception-decorator": "^1.6.11",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/axios": "^3.0.3",

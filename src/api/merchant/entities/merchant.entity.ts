@@ -12,10 +12,10 @@ export class Merchant extends BaseEntity {
   @Column({ name: 'store_description', type: 'text', nullable: true })
   storeDescription: string | null;
 
-  @Column({ name: 'lifetime_earnings', type: 'numeric' })
+  @Column({ name: 'lifetime_earnings', type: 'numeric', default:0 })
   lifetimeEarnings: string;
 
-  @Column({ type: 'numeric' })
+  @Column({ type: 'numeric', default:0 })
   balance: string;
 
   @Column()

@@ -9,8 +9,10 @@ import {
   Patch,
   Post,
   Req,
+  Param,
+  Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { DefaultResponse } from '~/common/decorator/response.decorator';
 import {
   MerchantResponseDto,
@@ -20,12 +22,19 @@ import { RegisterMerchantDto } from './dto/register-merchant.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { MerchantService } from './merchant.service';
+import { ClassService } from '../../class/class.service';
+import { CreateClassDto } from '../../class/dto/create-class.dto';
+import { ClassResponseDto } from '../../class/dto/class-response.dto';
+import { PaginatedResponse } from '~/common/decorator/response.decorator';
 
 @Controller('merchants/v1')
 @ApiBearerAuth()
 @ApiTags('Merchants')
 export class MerchantController {
-  constructor(private readonly merchantService: MerchantService) {}
+  constructor(
+    private readonly merchantService: MerchantService,
+    private readonly classService: ClassService,
+  ) {}
 
   @Post('register')
   @DefaultResponse(
@@ -92,5 +101,28 @@ export class MerchantController {
       req.user.id,
       input,
     );
+  }
+
+  @Post(':merchantId/classes')
+  @DefaultResponse(ClassResponseDto, 'Create class success', HttpStatus.CREATED)
+  createClass(
+    @Param('merchantId') merchantId: string,
+    @Body() dto: CreateClassDto,
+  ) {
+    return this.classService.createClass(merchantId, dto);
+  }
+
+  @Get(':merchantId/classes')
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  @PaginatedResponse(ClassResponseDto, 'Get classes success')
+  getClasses(
+    @Param('merchantId') merchantId: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Query('status') status: string,
+  ) {
+    return this.classService.getClassesByMerchant(merchantId, page || 1, limit || 10, status);
   }
 }

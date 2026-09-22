@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { CronJobService } from './cron-job.service';
-import { Public } from '~/common/decorator/public.decorator';
+import { Public } from '../../common/decorator/public.decorator';
 
 @Controller('cron-job')
 @Public()

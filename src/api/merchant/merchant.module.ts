@@ -8,6 +8,7 @@ import { MerchantMember } from './entities/merchant-member.entity';
 import { MerchantProfile } from './entities/merchant-profile.entity';
 import { Merchant } from './entities/merchant.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
+import { ClassModule } from '../../class/class.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { UserNotificationPreferences } from './entities/user-notification-prefer
       User,
       UserNotificationPreferences,
     ]),
+    ClassModule,
   ],
   controllers: [MerchantController],
   providers: [MerchantService],

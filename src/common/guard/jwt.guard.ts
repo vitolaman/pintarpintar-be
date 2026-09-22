@@ -49,10 +49,12 @@ export class JwtGuard implements CanActivate {
         secret,
       });
 
-      if (
-        !payload?.id ||
-        !(await this.userRepo.exists({ where: { id: payload.id } }))
-      ) {
+      if (!payload?.id) {
+        throw new UnauthorizedException();
+      }
+
+      const user = await this.userRepo.findOne({ where: { id: payload.id } });
+      if (!user) {
         throw new UnauthorizedException();
       }
 

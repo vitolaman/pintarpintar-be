@@ -3,7 +3,7 @@ import { BaseEntity } from '~/common/entities/base-entity';
 
 @Entity({ name: 'user_profiles' })
 export class Profile extends BaseEntity {
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
   @Column({ name: 'avatar_asset_id', type: 'uuid', nullable: true })

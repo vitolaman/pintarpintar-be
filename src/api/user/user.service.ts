@@ -8,7 +8,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { hash } from 'bcryptjs';
 import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { CreateUserBodyDto } from './dto/create-user.req.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 import { User } from './entities/user.entity';
+import { Mentor } from '../mentor/entities/mentor.entity';
+import { Merchant } from '../merchant/entities/merchant.entity';
 
 export interface PublicUser {
   id: string;
@@ -16,6 +19,8 @@ export interface PublicUser {
   email: string;
   is_mentor: boolean;
   is_merchant: boolean;
+  mentor_id: string | null;
+  merchant_id: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -88,8 +93,30 @@ export class UserService {
     });
   }
 
-  async findCurrentUser(id: string): Promise<PublicUser> {
-    return this.toPublicUser(await this.findActiveEntity(id));
+  async findCurrentUser(id: string): Promise<UserResponseDto> {
+    const raw = await this.users.createQueryBuilder('user')
+      .leftJoin(Mentor, 'mentor', 'mentor.user_id = user.id AND mentor.deleted_at IS NULL')
+      .leftJoin(Merchant, 'merchant', 'merchant.user_id = user.id AND merchant.deleted_at IS NULL')
+      .select([
+        'user.id AS id',
+        'user.name AS name',
+        'user.email AS email',
+        'user.isMentor AS is_mentor',
+        'user.isMerchant AS is_merchant',
+        'user.created_at AS created_at',
+        'user.updated_at AS updated_at',
+        'mentor.id AS mentor_id',
+        'merchant.id AS merchant_id'
+      ])
+      .where('user.id = :id', { id })
+      .andWhere('user.deleted_at IS NULL')
+      .getRawOne();
+
+    if (!raw) {
+      throw new NotFoundException('User not found');
+    }
+
+    return raw as UserResponseDto;
   }
 
   async updateCurrentUser(id: string, name: string): Promise<PublicUser> {
@@ -115,6 +142,8 @@ export class UserService {
       email: user.email,
       is_mentor: user.isMentor,
       is_merchant: user.isMerchant,
+      mentor_id: null, // Basic toPublicUser doesn't fetch this unless we join it
+      merchant_id: null,
       created_at: user.created_at,
       updated_at: user.updated_at,
     };

@@ -21,6 +21,13 @@ export class CustomHttpExceptionFilter implements ExceptionFilter {
         ? exception.getResponse()['message'] || exception.message
         : 'Internal server error';
 
+    console.error('[Exception Filter]', {
+      status,
+      message,
+      stack: exception.stack,
+      exception: exception.toString(),
+    });
+
     const errorResponse = {
       responseMessage: Array.isArray(message) ? message : [message],
       error: HttpStatus[status] || 'Internal Server Error',

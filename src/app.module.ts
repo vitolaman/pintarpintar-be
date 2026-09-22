@@ -8,8 +8,8 @@ import { UserModule } from './api/user/user.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtGuard } from './common/guard/jwt.guard';
-import { RedisModule } from './common/redis/src';
-import { RedisHealthIndicator } from './common/redis/src/redis-health-indicator';
+// import { RedisModule } from './common/redis/src';
+// import { RedisHealthIndicator } from './common/redis/src/redis-health-indicator';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import jwtConfig from './config/jwt.config';
@@ -21,6 +21,8 @@ import { ProfileModule } from './api/profile/profile.module';
 import { HomeModule } from './api/home/home.module';
 import { MerchantModule } from './api/merchant/merchant.module';
 import { MentorModule } from './api/mentor/mentor.module';
+import { UploadModule } from './upload/upload.module';
+import { ClassModule } from './class/class.module';
 
 @Module({
   imports: [
@@ -40,13 +42,15 @@ import { MentorModule } from './api/mentor/mentor.module';
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     TypeOrmModule.forFeature([User]),
-    RedisModule,
+    // RedisModule,
     AuthModule,
+    ClassModule,
     UserModule,
     ProfileModule,
     HomeModule,
     MerchantModule,
     MentorModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [
@@ -54,7 +58,7 @@ import { MentorModule } from './api/mentor/mentor.module';
       provide: APP_GUARD,
       useClass: JwtGuard,
     },
-    RedisHealthIndicator,
+    // RedisHealthIndicator,
     AppService,
   ],
 })

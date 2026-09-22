@@ -1,31 +1,26 @@
 # Stage 1: Development
-FROM node:18.18.0-alpine AS development
+FROM node:20.18.0-alpine AS development
 WORKDIR /code
-ENV NODE_ENV development
+ENV NODE_ENV=development
 COPY --chown=node:node package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 COPY --chown=node:node . .
 USER node
 
 # Stage 2: Build
-FROM node:18.18.0-alpine AS build
+FROM node:20.18.0-alpine AS build
 WORKDIR /code
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node --from=development /code/node_modules ./node_modules
 COPY --chown=node:node . .
 RUN npm run build
-ENV NODE_ENV production
-RUN npm ci --only=production --ignore-scripts && npm prune --production
+ENV NODE_ENV=production
+RUN npm ci --only=production --ignore-scripts --legacy-peer-deps && npm prune --production
 USER node
 
 # Stage 3: Production
-FROM node:18.18.0-alpine AS production
+FROM node:20.18.0-alpine AS production
 WORKDIR /code
-
-# Create uploads directory with the right permissions
-RUN mkdir -p /code/profile_pics && chown -R node:node /code/profile_pics
-RUN mkdir -p /code/master_profile_pics && chown -R node:node /code/master_profile_pics
-RUN mkdir -p /code/mentor_documents && chown -R node:node /code/mentor_documents
 
 # Copy necessary files from the build stage
 COPY --chown=node:node --from=build /code/package.json .
@@ -36,7 +31,7 @@ COPY --chown=node:node /master_profile_pics /code/master_profile_pics
 
 # Switch to the node user
 USER node
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 # Define entrypoint and command
 ENTRYPOINT [ "node" ]

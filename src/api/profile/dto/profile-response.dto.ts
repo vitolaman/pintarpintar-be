@@ -30,6 +30,12 @@ export class ProfileResponseDto {
 
   @ApiPropertyOptional()
   bio: string | null;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  mentor_id: string | null;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  merchant_id: string | null;
 }
 
 export class LearningItemResponseDto {

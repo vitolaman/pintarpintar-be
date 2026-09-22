@@ -23,6 +23,7 @@ import { MerchantModule } from './api/merchant/merchant.module';
 import { MentorModule } from './api/mentor/mentor.module';
 import { UploadModule } from './upload/upload.module';
 import { ClassModule } from './class/class.module';
+import { VoucherModule } from './api/voucher/voucher.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { ClassModule } from './class/class.module';
     MerchantModule,
     MentorModule,
     UploadModule,
+    VoucherModule,
   ],
   controllers: [AppController],
   providers: [

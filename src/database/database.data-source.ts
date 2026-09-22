@@ -31,6 +31,7 @@ import { DiscussionThread } from '~/class/entities/discussion-thread.entity';
 import { Comment } from '~/class/entities/comment.entity';
 import { ClassMentor } from '~/class/entities/class-mentor.entity';
 import { Enrollment } from '~/class/entities/enrollment.entity';
+import { Voucher } from '~/api/voucher/entities/voucher.entity';
 
 dotenvExpand.expand(dotenv.config({ path: process.env.ENV_FILE || '.env' }));
 const isProduction = process.env.NODE_ENV == 'production';
@@ -71,6 +72,7 @@ export const dataSourceOptions: DataSourceOptions = {
     Comment,
     ClassMentor,
     Enrollment,
+    Voucher,
   ],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations
   // remain in `migrations/` as reference only and must never run on this database.

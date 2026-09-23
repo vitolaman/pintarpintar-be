@@ -334,7 +334,8 @@ export class VoucherService {
         SELECT
           coupon.id, coupon.name, coupon.code, coupon.description,
           coupon.discount_type, coupon.discount_value,
-          coupon.minimum_order_amount, coupon.expires_at,
+          coupon.minimum_order_amount, coupon.maximum_discount_amount,
+          coupon.expires_at,
           merchant.id AS merchant_id, merchant.store_name AS merchant_name,
           profile.slug AS merchant_slug,
           profile.avatar_asset_id AS merchant_avatar_asset_id,
@@ -425,6 +426,7 @@ export class VoucherService {
       ...row,
       discount_value: Number(row.discount_value),
       minimum_order_amount: this.numberOrNull(row.minimum_order_amount),
+      maximum_discount_amount: this.numberOrNull(row.maximum_discount_amount),
       merchant_category_slug: merchantCategorySlugForLabel(
         row.merchant_category_label,
       ),
@@ -497,6 +499,7 @@ interface PublicVoucherRow {
   discount_type: string;
   discount_value: string;
   minimum_order_amount: string | null;
+  maximum_discount_amount: string | null;
   expires_at: Date | null;
   merchant_id: string;
   merchant_name: string;

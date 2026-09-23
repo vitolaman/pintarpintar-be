@@ -77,6 +77,12 @@ export class PublicVoucherResponseDto {
   @ApiPropertyOptional()
   minimum_order_amount: number | null;
 
+  @ApiPropertyOptional({
+    description:
+      'Maximum discount amount for percentage vouchers; null when uncapped.',
+  })
+  maximum_discount_amount: number | null;
+
   @ApiPropertyOptional()
   expires_at: Date | null;
 

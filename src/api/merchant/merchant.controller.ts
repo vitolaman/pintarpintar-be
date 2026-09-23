@@ -10,7 +10,6 @@ import {
   Patch,
   Post,
   Req,
-  Param,
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
@@ -138,6 +137,11 @@ export class MerchantController {
     @Query('limit') limit: number,
     @Query('status') status: string,
   ) {
-    return this.classService.getClassesByMerchant(merchantId, page || 1, limit || 10, status);
+    return this.classService.getClassesByMerchant(
+      merchantId,
+      page || 1,
+      limit || 10,
+      status,
+    );
   }
 }

@@ -12,7 +12,7 @@ jest.mock('@nestjs/jwt', () => ({
 describe('JwtGuard', () => {
   let reflector: jest.Mocked<Pick<Reflector, 'getAllAndOverride'>>;
   let jwtService: jest.Mocked<Pick<JwtService, 'verifyAsync'>>;
-  let userRepository: jest.Mocked<Pick<Repository<User>, 'exists'>>;
+  let userRepository: jest.Mocked<Pick<Repository<User>, 'findOne'>>;
   let guard: JwtGuard;
 
   const contextFor = (authorization?: string) => {
@@ -29,7 +29,7 @@ describe('JwtGuard', () => {
   beforeEach(() => {
     reflector = { getAllAndOverride: jest.fn().mockReturnValue(false) };
     jwtService = { verifyAsync: jest.fn() };
-    userRepository = { exists: jest.fn() };
+    userRepository = { findOne: jest.fn() };
     guard = new JwtGuard(
       { secret: 'test-secret', expiresIn: '30d' },
       jwtService as unknown as JwtService,
@@ -48,7 +48,7 @@ describe('JwtGuard', () => {
   it('sets the verified active identity on a protected request', async () => {
     const context = contextFor('Bearer valid-token');
     jwtService.verifyAsync.mockResolvedValue({ id: 'user-id' });
-    userRepository.exists.mockResolvedValue(true);
+    userRepository.findOne.mockResolvedValue({ id: 'user-id' } as User);
 
     await expect(guard.canActivate(context as never)).resolves.toBe(true);
 
@@ -61,7 +61,7 @@ describe('JwtGuard', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
     jwtService.verifyAsync.mockResolvedValue({ id: 'deleted-user-id' });
-    userRepository.exists.mockResolvedValue(false);
+    userRepository.findOne.mockResolvedValue(null);
 
     await expect(
       guard.canActivate(contextFor('Bearer expired-user-token') as never),

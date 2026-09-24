@@ -88,8 +88,19 @@ $ yarn db:local:migrate
 ## Swagger
 
 ```bash
-http://localhost:3000/api
+http://localhost:3001/api
 ```
+
+## Required checks before pushing
+
+Run both commands on the merged state of `development` before pushing. `npm test` alone is not sufficient: it does not compile files that no spec imports, so build-only errors can pass tests and fail on `npm run build`.
+
+```bash
+$ npm run build
+$ npm test
+```
+
+Database schema changes require a reviewed TypeORM migration in `src/database/migrations/pintar-pintar/`. Do not rely on entity-level synchronization (`synchronize`) to alter the schema; shared databases are managed by migrations only.
 
 ## Create Migration
 

@@ -42,6 +42,7 @@ describe('VoucherService', () => {
     discount_type: 'percentage',
     discount_value: '15',
     minimum_order_amount: null,
+    maximum_discount_amount: '50000',
     expires_at: null,
     merchant_id: merchantId,
     merchant_name: 'Akademi Teknik Raka',
@@ -143,6 +144,35 @@ describe('VoucherService', () => {
       expect.not.stringContaining('coupon_product_scopes'),
       expect.any(Array),
     );
+  });
+
+  it('exposes the discount cap on public and featured vouchers', async () => {
+    const uncappedRow = {
+      ...publicVoucherRow,
+      id: '11111111-1111-4111-8111-111111111111',
+      maximum_discount_amount: null,
+    };
+    dataSource.query.mockImplementation((sql: string) => {
+      if (sql.includes('WITH visible'))
+        return Promise.resolve([publicVoucherRow, uncappedRow]);
+      return Promise.resolve([{ total: '2' }]);
+    });
+
+    const page = await service.findPublic({});
+
+    expect(page.data[0]).toMatchObject({
+      id: voucherId,
+      maximum_discount_amount: 50000,
+    });
+    expect(page.data[1]).toMatchObject({
+      maximum_discount_amount: null,
+    });
+
+    const featured = await service.findFeatured();
+
+    expect(featured.data[0]).toMatchObject({
+      maximum_discount_amount: 50000,
+    });
   });
 
   it('returns a null category slug for a merchant without a canonical category', () => {

@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { compare } from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -79,7 +83,25 @@ describe('UserService', () => {
   });
 
   it('returns the current user without the password hash', async () => {
-    repository.findOneBy.mockResolvedValue({ ...user });
+    const rawRow = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      is_mentor: false,
+      is_merchant: false,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      mentor_id: null,
+      merchant_id: null,
+    };
+    const builder = {
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue(rawRow),
+    };
+    repository.createQueryBuilder = jest.fn().mockReturnValue(builder);
 
     const result = await service.findCurrentUser(user.id);
 
@@ -88,8 +110,25 @@ describe('UserService', () => {
       name: user.name,
       is_mentor: false,
       is_merchant: false,
+      mentor_id: null,
+      merchant_id: null,
     });
     expect(result).not.toHaveProperty('passwordHash');
+  });
+
+  it('reports a missing current user as not found', async () => {
+    const builder = {
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue(null),
+    };
+    repository.createQueryBuilder = jest.fn().mockReturnValue(builder);
+
+    await expect(service.findCurrentUser(user.id)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('updates only the current user name after normalization', async () => {

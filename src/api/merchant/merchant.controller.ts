@@ -6,7 +6,6 @@ import {
   Get,
   HttpStatus,
   NotFoundException,
-  Param,
   Patch,
   Post,
   Req,

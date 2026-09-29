@@ -10,6 +10,7 @@ import {
   Post,
   Req,
   Query,
+  Param,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { DefaultResponse } from '~/common/decorator/response.decorator';

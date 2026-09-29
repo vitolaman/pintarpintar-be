@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare } from 'bcryptjs';
+import { DataSource } from 'typeorm';
+import { Profile } from '../profile/entities/profile.entity';
 import { UserService } from '../user/user.service';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignInResDto } from './dto/sign-in.res.dto';
@@ -11,10 +13,22 @@ export class AuthService {
   constructor(
     private jwtService: JwtService,
     private userService: UserService,
+    private dataSource: DataSource,
   ) {}
 
   async signUp(body: SignUpBodyDto): Promise<SignInResDto> {
-    const user = await this.userService.create(body);
+    const user = await this.dataSource.transaction(async (manager) => {
+      const createdUser = await this.userService.createWithManager(manager, body);
+
+      await manager.save(
+        Profile,
+        manager.create(Profile, {
+          userId: createdUser.id,
+        }),
+      );
+
+      return createdUser;
+    });
 
     return this.createTokenResponse('Account Created!', user.id);
   }

@@ -91,6 +91,33 @@ $ yarn db:local:migrate
 http://localhost:3001/api
 ```
 
+## Observability (OpenTelemetry + Jaeger)
+
+Tracing is initialized in [src/tracing.ts](src/tracing.ts) and loaded before Nest bootstrap from [src/main.ts](src/main.ts).
+
+1. Start local dependencies and Jaeger:
+
+```bash
+$ docker compose --env-file .env.local up -d postgres redis jaeger
+```
+
+2. Make sure your env points to Jaeger's OTLP HTTP endpoint:
+
+```bash
+OTEL_ENABLED=true
+OTEL_SERVICE_NAME=pintar-pintar-be
+OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318/v1/traces
+```
+
+3. Run API and open Jaeger UI:
+
+```bash
+$ yarn start:local
+# http://localhost:16686
+```
+
+4. Hit any API endpoint (for example from Swagger), then search traces in Jaeger with service `pintar-pintar-be`.
+
 ## Required checks before pushing
 
 Run both commands on the merged state of `development` before pushing. `npm test` alone is not sufficient: it does not compile files that no spec imports, so build-only errors can pass tests and fail on `npm run build`.

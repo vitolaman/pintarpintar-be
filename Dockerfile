@@ -27,7 +27,6 @@ COPY --chown=node:node --from=build /code/package.json .
 COPY --chown=node:node --from=build /code/node_modules ./node_modules
 COPY --chown=node:node --from=build /code/dist ./dist
 COPY --chown=node:node .env .env
-COPY --chown=node:node /master_profile_pics /code/master_profile_pics
 
 # Switch to the node user
 USER node

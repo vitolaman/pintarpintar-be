@@ -33,5 +33,12 @@ services:
       retries: 12
       start_period: 5s
 
+  jaeger:
+    image: ${LOCAL_JAEGER_IMAGE:-jaegertracing/all-in-one:1.59.0}
+    ports:
+      - '${LOCAL_JAEGER_UI_PORT:-16686}:16686'
+      - '${LOCAL_JAEGER_OTLP_GRPC_PORT:-4317}:4317'
+      - '${LOCAL_JAEGER_OTLP_HTTP_PORT:-4318}:4318'
+
 volumes:
   pintar-pintar-postgres:

@@ -64,6 +64,9 @@ export class MerchantResponseDto {
   @ApiPropertyOptional()
   digital_license: string | null;
 
+  @ApiPropertyOptional({ nullable: true, default: false })
+  need_change_password: boolean | null;
+
   @ApiPropertyOptional()
   terms_accepted_at: Date | null;
 }

@@ -68,4 +68,7 @@ export class MerchantProfile extends BaseEntity {
 
   @Column({ name: 'digital_license', type: 'text', nullable: true })
   digitalLicense: string | null;
+
+  @Column({ name: 'need_change_password', nullable: true, default: false })
+  needChangePassword: boolean | null;
 }

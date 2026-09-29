@@ -78,7 +78,7 @@ export const dataSourceOptions: DataSourceOptions = {
   // remain in `migrations/` as reference only and must never run on this database.
   migrations: [`${__dirname}/migrations/pintar-pintar/*.{js,ts}`],
   synchronize: true,
-  migrationsRun: true,
+  migrationsRun: false,
   migrationsTransactionMode: 'each',
   logging: true,
   logger: isProduction

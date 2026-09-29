@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsString, Length } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
 
 export class RegisterMerchantDto {
   @ApiProperty({ example: 'Akademi Teknik Nusantara' })
@@ -14,4 +14,15 @@ export class RegisterMerchantDto {
   @Length(1, 2_000)
   @Transform(({ value }) => value?.trim())
   store_description: string;
+
+  @ApiPropertyOptional({ nullable: true, default: false, example: false })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined || value === '') return value;
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  need_change_password?: boolean | null;
 }

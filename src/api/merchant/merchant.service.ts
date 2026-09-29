@@ -58,6 +58,10 @@ export class MerchantService {
         manager.create(MerchantProfile, {
           merchantId: merchant.id,
           slug: await this.nextAvailableSlug(manager, input.store_name),
+          needChangePassword:
+            input.need_change_password === undefined
+              ? false
+              : input.need_change_password,
         }),
       );
       await manager.save(
@@ -357,6 +361,7 @@ export class MerchantService {
         'profile.portfolio_url AS portfolio_url',
         'profile.refund_policy AS refund_policy',
         'profile.digital_license AS digital_license',
+        'profile.need_change_password AS need_change_password',
         'profile.terms_accepted_at AS terms_accepted_at',
       ])
       .where('merchant.user_id = :userId', { userId })

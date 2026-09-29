@@ -18,7 +18,8 @@ import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { MerchantMember } from './entities/merchant-member.entity';
 import { MerchantProfile } from './entities/merchant-profile.entity';
-import { Merchant } from './entities/merchant.entity';
+import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
+import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 
 @Injectable()
@@ -27,6 +28,8 @@ export class MerchantService {
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectRepository(Merchant)
     private readonly merchants: Repository<Merchant>,
+    @InjectRepository(MerchantWallet)
+    private readonly wallets: Repository<MerchantWallet>,
     @InjectRepository(UserNotificationPreferences)
     private readonly notificationPreferences: Repository<UserNotificationPreferences>,
   ) {}
@@ -49,9 +52,18 @@ export class MerchantService {
         userId,
         storeName: input.store_name,
         storeDescription: input.store_description,
+        storageLevel: MerchantStorageLevel.BASIC,
         status: 'active',
       });
       await manager.save(Merchant, merchant);
+
+      await manager.save(
+        MerchantWallet,
+        manager.create(MerchantWallet, {
+          merchantId: merchant.id,
+          balance: '0',
+        }),
+      );
 
       await manager.save(
         MerchantProfile,
@@ -100,6 +112,22 @@ export class MerchantService {
     return {
       data: await this.findMerchantResponse(userId),
       responseMessage: 'Get merchant profile success',
+    };
+  }
+
+  async findWallet(userId: string) {
+    const merchant = await this.merchants.findOneBy({ userId });
+    if (!merchant) throw new NotFoundException('Merchant not found');
+
+    const wallet = await this.wallets.findOneBy({ merchantId: merchant.id });
+    if (!wallet) throw new NotFoundException('Merchant wallet not found');
+
+    return {
+      data: {
+        merchant_id: merchant.id,
+        balance: Number(wallet.balance),
+      },
+      responseMessage: 'Get merchant wallet success',
     };
   }
 
@@ -344,6 +372,7 @@ export class MerchantService {
         'merchant.store_name AS store_name',
         'merchant.store_description AS store_description',
         'merchant.status AS status',
+        'merchant.storage_level AS storage_level',
         'profile.slug AS slug',
         'user_profile.phone AS phone',
         'profile.tagline AS tagline',

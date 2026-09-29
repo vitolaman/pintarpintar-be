@@ -13,6 +13,9 @@ export class MerchantResponseDto {
   @ApiProperty()
   status: string;
 
+  @ApiProperty({ enum: ['basic', 'silver', 'gold'] })
+  storage_level: string;
+
   @ApiProperty()
   slug: string;
 

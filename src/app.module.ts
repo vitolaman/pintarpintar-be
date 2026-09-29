@@ -34,6 +34,7 @@ import { MerchantDashboardModule } from './api/merchant-dashboard/merchant-dashb
 import { FileAssetModule } from './api/file-asset/file-asset.module';
 import { WishlistModule } from './api/wishlist/wishlist.module';
 import { CartModule } from './api/cart/cart.module';
+import { FaqModule } from './api/faq/faq.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { CartModule } from './api/cart/cart.module';
     FileAssetModule,
     WishlistModule,
     CartModule,
+    FaqModule,
   ],
   controllers: [AppController],
   providers: [

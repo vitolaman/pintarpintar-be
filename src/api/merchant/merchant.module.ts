@@ -7,6 +7,7 @@ import { MerchantController } from './merchant.controller';
 import { MerchantMember } from './entities/merchant-member.entity';
 import { MerchantProfile } from './entities/merchant-profile.entity';
 import { Merchant } from './entities/merchant.entity';
+import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 import { ClassModule } from '../../class/class.module';
 
@@ -14,6 +15,7 @@ import { ClassModule } from '../../class/class.module';
   imports: [
     TypeOrmModule.forFeature([
       Merchant,
+      MerchantWallet,
       MerchantMember,
       MerchantProfile,
       Profile,

@@ -13,6 +13,7 @@ import { UserAccess } from '~/api/profile/entities/user-access.entity';
 import { MerchantMember } from '~/api/merchant/entities/merchant-member.entity';
 import { MerchantProfile } from '~/api/merchant/entities/merchant-profile.entity';
 import { Merchant } from '~/api/merchant/entities/merchant.entity';
+import { MerchantWallet } from '~/api/merchant/entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from '~/api/merchant/entities/user-notification-preferences.entity';
 import { Mentor } from '~/api/mentor/entities/mentor.entity';
 import { MentorProfile } from '~/api/mentor/entities/mentor-profile.entity';
@@ -48,6 +49,7 @@ export const dataSourceOptions: DataSourceOptions = {
     FileAsset,
     IssuedCertificate,
     Merchant,
+    MerchantWallet,
     MerchantMember,
     MerchantProfile,
     Mentor,

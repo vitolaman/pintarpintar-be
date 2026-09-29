@@ -5,7 +5,8 @@ import { DataSource, Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { MerchantProfile } from './entities/merchant-profile.entity';
-import { Merchant } from './entities/merchant.entity';
+import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
+import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 import { MerchantService } from './merchant.service';
 
@@ -16,6 +17,7 @@ describe('MerchantService', () => {
   let query: jest.Mock;
   let dataSource: Pick<DataSource, 'transaction' | 'query'>;
   let merchants: { findOneBy: jest.Mock };
+  let wallets: { findOneBy: jest.Mock };
   let preferences: { findOneBy: jest.Mock };
   let service: MerchantService;
 
@@ -41,10 +43,12 @@ describe('MerchantService', () => {
       query: query,
     } as unknown as Pick<DataSource, 'transaction' | 'query'>;
     merchants = { findOneBy: jest.fn() };
+    wallets = { findOneBy: jest.fn() };
     preferences = { findOneBy: jest.fn() };
     service = new MerchantService(
       dataSource as DataSource,
       merchants as unknown as Repository<Merchant>,
+      wallets as unknown as Repository<MerchantWallet>,
       preferences as unknown as Repository<UserNotificationPreferences>,
     );
   });
@@ -76,8 +80,13 @@ describe('MerchantService', () => {
         userId,
         storeName: registrationInput.store_name,
         storeDescription: registrationInput.store_description,
+        storageLevel: MerchantStorageLevel.BASIC,
         status: 'active',
       }),
+    );
+    expect(manager.save).toHaveBeenCalledWith(
+      MerchantWallet,
+      expect.objectContaining({ merchantId, balance: '0' }),
     );
     expect(manager.save).toHaveBeenCalledWith(
       MerchantProfile,
@@ -85,6 +94,60 @@ describe('MerchantService', () => {
         merchantId,
         slug: 'akademi-teknik-raka',
       }),
+    );
+  });
+
+  it('returns only the authenticated merchant wallet balance', async () => {
+    merchants.findOneBy.mockResolvedValue({ id: merchantId, userId });
+    wallets.findOneBy.mockResolvedValue({ merchantId, balance: '125000.50' });
+
+    await expect(service.findWallet(userId)).resolves.toEqual({
+      data: { merchant_id: merchantId, balance: 125000.5 },
+      responseMessage: 'Get merchant wallet success',
+    });
+
+    expect(wallets.findOneBy).toHaveBeenCalledWith({ merchantId });
+  });
+
+  it('rejects wallet access for a user without a merchant', async () => {
+    merchants.findOneBy.mockResolvedValue(null);
+
+    await expect(service.findWallet(userId)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(wallets.findOneBy).not.toHaveBeenCalled();
+  });
+
+  it('includes the storage tier in the merchant profile response', async () => {
+    const row = {
+      id: merchantId,
+      store_name: registrationInput.store_name,
+      store_description: registrationInput.store_description,
+      status: 'active',
+      storage_level: MerchantStorageLevel.SILVER,
+      slug: 'akademi-teknik-raka',
+      experience_years: null,
+    };
+    const queryBuilder = {
+      innerJoin: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue(row),
+    };
+    (merchants as Record<string, jest.Mock>).createQueryBuilder = jest
+      .fn()
+      .mockReturnValue(queryBuilder);
+
+    await expect(
+      (
+        service as unknown as { findMerchantResponse: Function }
+      ).findMerchantResponse(userId),
+    ).resolves.toEqual({ ...row, experience_years: null });
+
+    expect(queryBuilder.select).toHaveBeenCalledWith(
+      expect.arrayContaining(['merchant.storage_level AS storage_level']),
     );
   });
 

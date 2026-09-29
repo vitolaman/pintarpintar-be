@@ -85,6 +85,12 @@ $ yarn db:local:migrate
 - `GET /home/v1/get-merchants`
 - `GET /home/v1/get-testimonials`
 
+### Help Tickets
+
+- `POST /help-tickets/v1/create-help-ticket`
+- `GET /help-tickets/v1/get-help-tickets`
+- `GET /help-tickets/v1/get-help-ticket/:id`
+
 ## Swagger
 
 ```bash

@@ -24,6 +24,7 @@ import { MentorModule } from './api/mentor/mentor.module';
 import { UploadModule } from './upload/upload.module';
 import { ClassModule } from './class/class.module';
 import { VoucherModule } from './api/voucher/voucher.module';
+import { HelpTicketModule } from './api/help-ticket/help-ticket.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { VoucherModule } from './api/voucher/voucher.module';
     MentorModule,
     UploadModule,
     VoucherModule,
+    HelpTicketModule,
   ],
   controllers: [AppController],
   providers: [

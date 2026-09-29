@@ -12,8 +12,8 @@ export class Product extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  @Column({ type: 'numeric' })
-  price: string;
+  @Column({name: 'discount_price', type: 'numeric' })
+  discountPrice: string;
 
   @Column()
   currency: string;

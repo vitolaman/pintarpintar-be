@@ -3,8 +3,10 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiQuery, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { DefaultResponse, PaginatedResponse } from '../common/decorator/response.decorator';
@@ -95,8 +97,12 @@ export class ClassController {
   }
 
   @Post(':classId/mentors')
-  inviteMentor(@Param('classId') classId: string, @Body() dto: InviteMentorDto) {
-    return this.classService.inviteMentor(classId, dto);
+  inviteMentor(
+    @Req() req: { user: { id: string } },
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Body() dto: InviteMentorDto,
+  ) {
+    return this.classService.inviteMentor(req.user.id, classId, dto);
   }
 
   @Get(':classId/mentors')

@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { CatalogService } from '../catalog/catalog.service';
-import { VoucherService } from '../voucher/voucher.service';
+import {
+  FEATURED_VOUCHER_COUNT,
+  VoucherService,
+} from '../voucher/voucher.service';
 import { PromoItemsQueryDto, PromoVouchersQueryDto } from './dto/promo.dto';
 
 @Injectable()
@@ -24,9 +27,22 @@ export class PromoService {
     };
   }
 
+  // One random draw keeps the featured strip and the voucher list disjoint
+  // whenever enough vouchers exist; a short list is topped up with the
+  // featured vouchers so it still shows as many as possible.
   async findVouchers(query: PromoVouchersQueryDto) {
+    const picked = await this.voucherService.findRandomPublic(
+      FEATURED_VOUCHER_COUNT + query.limit,
+    );
+    const featured = picked.slice(0, FEATURED_VOUCHER_COUNT);
+    const others = picked.slice(FEATURED_VOUCHER_COUNT);
+    const topUpCount = Math.max(0, query.limit - others.length);
+
     return {
-      data: await this.voucherService.findRandomPublic(query.limit),
+      data: {
+        featured,
+        vouchers: [...others, ...featured.slice(0, topUpCount)],
+      },
       responseMessage: 'Get promo vouchers success',
     };
   }

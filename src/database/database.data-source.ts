@@ -48,6 +48,7 @@ import { ClassCertificateSettings } from '~/class/entities/class-certificate-set
 import { Discount } from '~/api/discount/entities/discount.entity';
 import { DiscountCode } from '~/api/discount/entities/discount-code.entity';
 import { DiscountProduct } from '~/api/discount/entities/discount-product.entity';
+import { CouponUsage } from '~/api/voucher/entities/coupon-usage.entity';
 import { Voucher } from '~/api/voucher/entities/voucher.entity';
 import { HelpTicket } from '~/api/help-ticket/entities/help-ticket.entity';
 import { FaqCategory } from '~/api/faq/entities/faq-category.entity';
@@ -108,6 +109,7 @@ export const dataSourceOptions: DataSourceOptions = {
     VideoCompletion,
     ClassCertificateSettings,
     Voucher,
+    CouponUsage,
     Discount,
     DiscountProduct,
     DiscountCode,

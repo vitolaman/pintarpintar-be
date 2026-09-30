@@ -1,11 +1,16 @@
-import { Body, Controller, HttpStatus, Patch, Req } from '@nestjs/common';
 import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+  BadRequestException,
+  Body,
+  Controller,
+  HttpStatus,
+  NotFoundException,
+  Patch,
+  Req,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { UpdateCurrentUserBodyDto } from './dto/update-current-user.req.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 import { UserService } from './user.service';
 
 @Controller('users')
@@ -15,14 +20,20 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Patch('me')
-  @ApiOperation({
-    summary: 'Update current user name',
-  })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Updated current user' })
-  updateCurrentUser(
+  @ApiOperation({ summary: 'Update current user name' })
+  @DefaultResponse(
+    UserResponseDto,
+    'Update current user success',
+    HttpStatus.OK,
+    [BadRequestException, NotFoundException],
+  )
+  async updateCurrentUser(
     @Req() req: { user: { id: string } },
     @Body() body: UpdateCurrentUserBodyDto,
   ) {
-    return this.userService.updateCurrentUser(req.user.id, body.name);
+    return {
+      data: await this.userService.updateCurrentUser(req.user.id, body.name),
+      responseMessage: 'Update current user success',
+    };
   }
 }

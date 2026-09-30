@@ -31,7 +31,7 @@ const CARD_SQL = `
   ), items AS (
     SELECT class.id,
            CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END AS type,
-           class.title, class_cover.object_key AS image, NULL::varchar AS category, NULL::varchar AS level,
+           class.title, class_cover.object_key AS image, class.category, class.level,
            (CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric AS price,
            COALESCE(class."originalPrice", 0)::numeric AS list_price,
            class.created_at, class.merchant_id, class.description,
@@ -76,6 +76,7 @@ const CARD_SQL = `
   WHERE ($1::text[] IS NULL OR items.type = ANY($1::text[]))
     AND ($2::text IS NULL OR items.title ILIKE '%' || $2 || '%' ESCAPE '\\'
       OR merchant.store_name ILIKE '%' || $2 || '%' ESCAPE '\\'
+      OR items.category ILIKE '%' || $2 || '%' ESCAPE '\\'
       OR EXISTS (
         SELECT 1 FROM product_categories link
         INNER JOIN categories category ON category.id = link.category_id AND category.deleted_at IS NULL
@@ -86,11 +87,13 @@ const CARD_SQL = `
         WHERE file.product_id = items.id AND file.deleted_at IS NULL
           AND file.file_format ILIKE $2 ESCAPE '\\'))
     AND ($3::text IS NULL OR items.level = $3)
-    AND ($4::text IS NULL OR EXISTS (
-      SELECT 1 FROM product_categories link
-      INNER JOIN categories category ON category.id = link.category_id AND category.deleted_at IS NULL
-      WHERE link.product_id = items.id AND link.deleted_at IS NULL
-        AND (category.slug = $4 OR lower(category.name) = lower($4))))
+    AND ($4::text IS NULL
+      OR (items.type IN ('kelas', 'bootcamp') AND lower(items.category) = lower($4))
+      OR EXISTS (
+        SELECT 1 FROM product_categories link
+        INNER JOIN categories category ON category.id = link.category_id AND category.deleted_at IS NULL
+        WHERE link.product_id = items.id AND link.deleted_at IS NULL
+          AND (category.slug = $4 OR lower(category.name) = lower($4))))
     AND (NOT $5::boolean OR (items.list_price > 0 AND items.price < items.list_price))
     AND ($6::uuid IS NULL OR items.id = $6)
     AND ($7::uuid IS NULL OR items.merchant_id = $7)
@@ -237,7 +240,7 @@ export class CatalogService {
 
   async findClass(id: string, viewerId?: string) {
     const row = await this.findCardRow(id, ['kelas', 'bootcamp']);
-    const [mentors, chapters, videos, files, meetings, [ownership]] =
+    const [mentors, chapters, videos, files, meetings, [ownership], [details]] =
       await Promise.all([
         this.dataSource.query(
           `SELECT mentor.id, mentor_user.name, profile.headline, avatar.object_key AS avatar_object_key, link.role
@@ -285,13 +288,23 @@ export class CatalogService {
            WHERE class_id = $1 AND user_id = $2 AND deleted_at IS NULL) AS owned`,
           [id, viewerId ?? null],
         ),
+        this.dataSource.query(
+          'SELECT duration, prerequisites, learning_outcomes FROM classes WHERE id = $1',
+          [id],
+        ),
       ]);
 
     const detail: CatalogClassDetailDto = {
       ...toCard(row),
       description: row.description,
-      duration: null,
-      requirements: [],
+      duration: details.duration,
+      // One requirement per non-empty line of the prerequisites text.
+      requirements: (details.prerequisites ?? '')
+        .split('\n')
+        .map((line: string) => line.trim())
+        .filter(Boolean),
+      prerequisites: details.prerequisites,
+      learning_outcomes: details.learning_outcomes ?? [],
       mentors,
       chapters: chapters.map((chapter) => ({
         id: chapter.id,

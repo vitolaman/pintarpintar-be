@@ -2,6 +2,7 @@ import {
   BadGatewayException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { plainToInstance } from 'class-transformer';
@@ -16,7 +17,8 @@ import {
   purposeVisibility,
 } from './asset-purpose-rules';
 
-const KEY = 'uploads/1790900000000-logo.png';
+const USER_ID = '30000000-0000-4000-8000-000000000001';
+const KEY = `uploads/${USER_ID}/1790900000000-logo.png`;
 const MB = 1024 * 1024;
 
 describe('RegisterUploadDto', () => {
@@ -24,6 +26,7 @@ describe('RegisterUploadDto', () => {
     [{ key: KEY, purpose: 'merchant_logo' }, 0],
     [{ key: 'private/secret.png', purpose: 'merchant_logo' }, 1],
     [{ key: 'uploads/a/b.png', purpose: 'merchant_logo' }, 1],
+    [{ key: 'uploads/1790900000000-logo.png', purpose: 'merchant_logo' }, 1],
     [{ key: KEY, purpose: 'product_cover' }, 0],
     [{ key: KEY, purpose: 'course_video' }, 1],
   ])('validates %j', async (input, errorCount) => {
@@ -66,7 +69,7 @@ describe('FileAssetService', () => {
   const register = (
     purpose: RegisterUploadDto['purpose'] = 'merchant_logo',
     key = KEY,
-  ) => service.registerUpload('user-id', { key, purpose });
+  ) => service.registerUpload(USER_ID, { key, purpose });
 
   it('records a public image asset from the stored metadata', async () => {
     send.mockResolvedValue({
@@ -79,7 +82,7 @@ describe('FileAssetService', () => {
     expect(manager.save).toHaveBeenCalledWith(
       FileAsset,
       expect.objectContaining({
-        uploadedByUserId: 'user-id',
+        uploadedByUserId: USER_ID,
         storageProvider: 's3',
         objectKey: KEY,
         originalFilename: 'logo.png',
@@ -131,11 +134,21 @@ describe('FileAssetService', () => {
     await expect(register()).rejects.toBeInstanceOf(BadGatewayException);
   });
 
+  it("rejects registering another user's upload key", async () => {
+    await expect(
+      service.registerUpload('30000000-0000-4000-8000-000000000002', {
+        key: KEY,
+        purpose: 'merchant_logo',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it('returns the existing asset for its owner and rejects other users', async () => {
     send.mockResolvedValue({ ContentType: 'image/png', ContentLength: 1000 });
     manager.findOne.mockResolvedValue({
       id: 'existing',
-      uploadedByUserId: 'user-id',
+      uploadedByUserId: USER_ID,
       objectKey: KEY,
       sizeBytes: '1000',
       visibility: 'public',
@@ -158,7 +171,7 @@ describe('FileAssetService', () => {
     send.mockResolvedValue({ ContentType: 'image/png', ContentLength: 1000 });
     manager.findOne.mockResolvedValue({
       id: 'existing',
-      uploadedByUserId: 'user-id',
+      uploadedByUserId: USER_ID,
       visibility: 'public',
       deleted_at: null,
     });
@@ -200,7 +213,10 @@ describe('FileAssetService', () => {
   ])('stores %s as private', async (_name, purpose, filename, type, size) => {
     send.mockResolvedValue({ ContentType: type, ContentLength: size });
 
-    await register(purpose as never, `uploads/1790900000000-${filename}`);
+    await register(
+      purpose as never,
+      `uploads/${USER_ID}/1790900000000-${filename}`,
+    );
 
     expect(manager.save).toHaveBeenCalledWith(
       FileAsset,
@@ -265,7 +281,10 @@ describe('FileAssetService', () => {
     send.mockResolvedValue({ ContentType: type, ContentLength: size });
 
     await expect(
-      register(purpose as never, `uploads/1790900000000-${filename}`),
+      register(
+        purpose as never,
+        `uploads/${USER_ID}/1790900000000-${filename}`,
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(manager.save).not.toHaveBeenCalled();
   });
@@ -316,7 +335,7 @@ describe('learning file purposes', () => {
 describe('assertOwnedAsset', () => {
   const asset = {
     id: 'asset-id',
-    uploadedByUserId: 'user-id',
+    uploadedByUserId: USER_ID,
     status: 'active',
     visibility: 'public',
     originalFilename: 'banner.png',
@@ -330,12 +349,7 @@ describe('assertOwnedAsset', () => {
 
   it('accepts an owned banner within 4 MB', async () => {
     await expect(
-      assertOwnedAsset(
-        manager(asset),
-        'user-id',
-        'asset-id',
-        'merchant_banner',
-      ),
+      assertOwnedAsset(manager(asset), USER_ID, 'asset-id', 'merchant_banner'),
     ).resolves.toMatchObject({ id: 'asset-id' });
   });
 
@@ -350,7 +364,7 @@ describe('assertOwnedAsset', () => {
     await expect(
       assertOwnedAsset(
         manager(privateFile),
-        'user-id',
+        USER_ID,
         'asset-id',
         'digital_file',
       ),
@@ -367,7 +381,7 @@ describe('assertOwnedAsset', () => {
     ],
   ])('rejects %s', async (_name, value, purpose) => {
     await expect(
-      assertOwnedAsset(manager(value), 'user-id', 'asset-id', purpose as never),
+      assertOwnedAsset(manager(value), USER_ID, 'asset-id', purpose as never),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -384,7 +398,7 @@ describe('assertOwnedAsset', () => {
     ['missing', null, 'merchant_logo'],
   ])('rejects %s', async (_name, value, purpose) => {
     await expect(
-      assertOwnedAsset(manager(value), 'user-id', 'asset-id', purpose as never),
+      assertOwnedAsset(manager(value), USER_ID, 'asset-id', purpose as never),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

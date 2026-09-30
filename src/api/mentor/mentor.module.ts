@@ -23,5 +23,6 @@ import { MentorProfile } from './entities/mentor-profile.entity';
     MentorService,
     MentorWorkspaceService,
   ],
+  exports: [MentorWorkspaceService],
 })
 export class MentorModule {}

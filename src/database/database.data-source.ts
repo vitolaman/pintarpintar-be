@@ -17,6 +17,7 @@ import { UserAccess } from '~/api/profile/entities/user-access.entity';
 import { MerchantMember } from '~/api/merchant/entities/merchant-member.entity';
 import { MerchantProfile } from '~/api/merchant/entities/merchant-profile.entity';
 import { Merchant } from '~/api/merchant/entities/merchant.entity';
+import { MerchantPayout } from '~/api/merchant/entities/merchant-payout.entity';
 import { MerchantWallet } from '~/api/merchant/entities/merchant-wallet.entity';
 import { Bundle } from '~/api/bundle/entities/bundle.entity';
 import { BundleItem } from '~/api/bundle/entities/bundle-item.entity';
@@ -70,6 +71,7 @@ export const dataSourceOptions: DataSourceOptions = {
     IssuedCertificate,
     Merchant,
     MerchantWallet,
+    MerchantPayout,
     Order,
     OrderItem,
     Bundle,

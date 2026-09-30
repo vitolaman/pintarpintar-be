@@ -1,4 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  classCategories,
+  learningLevels,
+} from '../../common/catalog/class-details';
 import { ClassStatus, ClassType } from '../entities/class.entity';
 import { ResourceType } from '../entities/file-resource.entity';
 
@@ -19,6 +23,13 @@ export class ClassResponseDto {
   cover_url: string | null;
   @ApiPropertyOptional({ nullable: true })
   post_purchase_instructions: string | null;
+  @ApiPropertyOptional({ nullable: true, enum: classCategories })
+  category: string | null;
+  @ApiPropertyOptional({ nullable: true, enum: learningLevels })
+  level: string | null;
+  @ApiPropertyOptional({ nullable: true }) duration: string | null;
+  @ApiPropertyOptional({ nullable: true }) prerequisites: string | null;
+  @ApiProperty({ type: [String] }) learning_outcomes: string[];
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date;
 }
@@ -65,7 +76,8 @@ export class ChapterResponseDto {
   @ApiPropertyOptional() description: string;
   @ApiProperty() order: number;
   @ApiProperty({ type: [VideoResponseDto] }) videos: VideoResponseDto[];
-  @ApiProperty({ type: [FileResourceResponseDto] }) files: FileResourceResponseDto[];
+  @ApiProperty({ type: [FileResourceResponseDto] })
+  files: FileResourceResponseDto[];
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date;
 }

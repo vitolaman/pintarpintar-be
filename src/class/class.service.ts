@@ -36,6 +36,11 @@ const LEAD_TUTOR_CLASS_FIELDS = [
   'description',
   'cover_asset_id',
   'post_purchase_instructions',
+  'category',
+  'level',
+  'duration',
+  'prerequisites',
+  'learning_outcomes',
 ] as const;
 
 const CLASS_UPDATE_FIELDS = [
@@ -94,6 +99,11 @@ export class ClassService {
           discountedPrice: dto.discountedPrice,
           cover_asset_id: dto.cover_asset_id ?? null,
           post_purchase_instructions: dto.post_purchase_instructions ?? null,
+          category: dto.category ?? null,
+          level: dto.level ?? null,
+          duration: dto.duration ?? null,
+          prerequisites: dto.prerequisites ?? null,
+          learning_outcomes: dto.learning_outcomes ?? null,
         }),
       );
       const [data] = await this.toClassResponses([saved], manager);
@@ -502,6 +512,11 @@ export class ClassService {
       cover_asset_id: cls.cover_asset_id,
       cover_url: assetUrl(coverKeys.get(cls.cover_asset_id ?? '')),
       post_purchase_instructions: cls.post_purchase_instructions,
+      category: cls.category,
+      level: cls.level,
+      duration: cls.duration,
+      prerequisites: cls.prerequisites,
+      learning_outcomes: cls.learning_outcomes ?? [],
       created_at: cls.created_at,
       updated_at: cls.updated_at,
     }));

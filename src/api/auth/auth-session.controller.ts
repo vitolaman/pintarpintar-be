@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   HttpCode,
@@ -7,15 +8,11 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { AuthService } from './auth.service';
 import { ChangePasswordDto } from '../user/dto/change-password.dto';
-import { SignInResDto } from './dto/sign-in.res.dto';
+import { AuthTokenDto } from './dto/auth-token.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
 
@@ -29,12 +26,11 @@ export class AuthSessionController {
 
   @Post('end-other-sessions')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Sign out every other device' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    type: SignInResDto,
+  @ApiOperation({
+    summary: 'Sign out every other device',
     description: 'data.token replaces the token of this device',
   })
+  @DefaultResponse(AuthTokenDto, 'Other sessions ended', HttpStatus.OK, [])
   endOtherSessions(@Req() req: AuthenticatedRequest) {
     return this.authService.endOtherSessions(req.user.id);
   }
@@ -42,16 +38,12 @@ export class AuthSessionController {
   @Patch('change-password')
   @ApiOperation({
     summary: 'Change the password; other devices are signed out',
+    description:
+      'data.token replaces the token of this device. 400 for a wrong current password or a weak new password',
   })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    type: SignInResDto,
-    description: 'data.token replaces the token of this device',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Wrong current password or a weak new password',
-  })
+  @DefaultResponse(AuthTokenDto, 'Password changed', HttpStatus.OK, [
+    BadRequestException,
+  ])
   changePassword(
     @Req() req: AuthenticatedRequest,
     @Body() input: ChangePasswordDto,

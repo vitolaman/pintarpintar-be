@@ -13,6 +13,7 @@ import {
   Post,
   Query,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
@@ -69,7 +70,10 @@ export class VoucherController {
   @DefaultResponse(VoucherResponseDto, 'Get voucher success', HttpStatus.OK, [
     NotFoundException,
   ])
-  findOne(@Req() req: { user: { id: string } }, @Param('id') id: string) {
+  findOne(
+    @Req() req: { user: { id: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.voucherService.findOne(req.user.id, id);
   }
 
@@ -83,7 +87,7 @@ export class VoucherController {
   )
   update(
     @Req() req: { user: { id: string } },
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() input: UpdateVoucherDto,
   ) {
     return this.voucherService.update(req.user.id, id, input);
@@ -93,7 +97,10 @@ export class VoucherController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([NotFoundException])
-  remove(@Req() req: { user: { id: string } }, @Param('id') id: string) {
+  remove(
+    @Req() req: { user: { id: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.voucherService.remove(req.user.id, id);
   }
 

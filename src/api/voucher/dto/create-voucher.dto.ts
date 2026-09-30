@@ -12,12 +12,11 @@ import {
   Matches,
   Min,
 } from 'class-validator';
+import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
+import { trimOptionalText, trimText } from '~/common/dto/text-transforms';
 
 export const voucherDiscountTypes = ['percentage', 'nominal'] as const;
 
-const trim = ({ value }: { value?: string }) => value?.trim();
-const optionalTrim = ({ value }: { value?: string | null }) =>
-  value === null ? null : value?.trim() || undefined;
 const optionalNumber = ({ value }: { value?: unknown }) =>
   value === '' || value === undefined
     ? undefined
@@ -33,14 +32,14 @@ export class CreateVoucherDto {
   @ApiProperty({ example: 'Voucher Pengguna Baru' })
   @IsString()
   @Length(1, 160)
-  @Transform(trim)
+  @Transform(trimText)
   name: string;
 
   @ApiProperty({ example: 'NEWSTUDENT15' })
   @IsString()
   @Length(1, 64)
   @Matches(/^[A-Za-z0-9_-]+$/)
-  @Transform(trim)
+  @Transform(trimText)
   code: string;
 
   @ApiProperty({ enum: voucherDiscountTypes, example: 'percentage' })
@@ -57,14 +56,14 @@ export class CreateVoucherDto {
   @IsOptional()
   @IsString()
   @Length(1, 2_000)
-  @Transform(optionalTrim)
+  @Transform(trimOptionalText)
   description?: string;
 
   @ApiPropertyOptional({ example: 'Berlaku untuk produk yang dipilih.' })
   @IsOptional()
   @IsString()
   @Length(1, 2_000)
-  @Transform(optionalTrim)
+  @Transform(trimOptionalText)
   terms?: string;
 
   @ApiPropertyOptional({ example: 50000 })
@@ -99,7 +98,7 @@ export class CreateVoucherDto {
   expires_at?: string | null;
 
   @ApiPropertyOptional({ default: true })
-  @IsOptional()
+  @OptionalNotNull()
   @IsBoolean()
   is_active?: boolean;
 }

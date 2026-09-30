@@ -238,12 +238,28 @@ describe('CatalogService', () => {
   it('passes the signed-in visitor to the ownership check', async () => {
     dataSource.query.mockImplementation(async (sql: string) => {
       if (sql.includes('AS owned')) return [{ owned: true }];
+      if (sql.includes('learning_outcomes FROM classes')) {
+        return [
+          {
+            duration: '8 minggu',
+            prerequisites: 'Laptop\n\n Dasar AutoCAD ',
+            learning_outcomes: ['Membuat denah'],
+          },
+        ];
+      }
       if (sql.includes('FROM ('))
         return [{ ...cardRow, type: 'kelas', id: classId }];
       return [];
     });
 
     const { data } = await service.findClass(classId, 'viewer-id');
+
+    expect(data).toMatchObject({
+      duration: '8 minggu',
+      prerequisites: 'Laptop\n\n Dasar AutoCAD ',
+      requirements: ['Laptop', 'Dasar AutoCAD'],
+      learning_outcomes: ['Membuat denah'],
+    });
 
     const ownershipCall = dataSource.query.mock.calls.find(([sql]) =>
       String(sql).includes('AS owned'),

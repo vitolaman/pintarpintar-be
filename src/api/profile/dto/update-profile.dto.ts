@@ -1,34 +1,36 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, IsUUID, Length } from 'class-validator';
+import { trimText } from '~/common/dto/text-transforms';
+import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Budi Santoso' })
-  @IsOptional()
+  @OptionalNotNull()
   @IsString()
   @Length(1, 120)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   name?: string;
 
   @ApiPropertyOptional({ example: '+62 812-3456-7890' })
-  @IsOptional()
+  @OptionalNotNull()
   @IsString()
   @Length(1, 32)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   phone?: string;
 
   @ApiPropertyOptional({ example: 'Belajar skill teknik praktis' })
-  @IsOptional()
+  @OptionalNotNull()
   @IsString()
   @Length(1, 160)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   headline?: string;
 
   @ApiPropertyOptional({ example: 'Sedang memperdalam desain dan otomasi.' })
-  @IsOptional()
+  @OptionalNotNull()
   @IsString()
   @Length(1, 2_000)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   bio?: string;
 
   @ApiPropertyOptional({ format: 'uuid' })

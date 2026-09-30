@@ -20,6 +20,7 @@ import {
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { Voucher } from './entities/voucher.entity';
 import { isPromoCodeAvailable } from '~/common/promo-code/promo-code-namespace';
+import { escapeLike } from '~/common/util/escape-like';
 
 // Presentation labels from the voucher pages, assigned per voucher so a
 // voucher keeps the same tag across requests.
@@ -198,7 +199,8 @@ export class VoucherService {
     const limit = query.limit ?? 10;
     const offset = (page - 1) * limit;
     const now = new Date();
-    const search = query.search?.trim() ?? '';
+    // Wildcards in the search text match literally.
+    const search = escapeLike(query.search?.trim() ?? '');
     const merchant: MerchantScope = {
       slug: query.merchant_slug ?? null,
       id: query.merchant_id ?? null,

@@ -16,16 +16,15 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { merchantCategoryLabels } from '~/common/constants/merchant-category';
-
-const optionalTrim = ({ value }: { value?: string | null }) =>
-  value === null ? null : value?.trim() || undefined;
+import { trimOptionalText, trimText } from '~/common/dto/text-transforms';
+import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 
 export class UpdateMerchantProfileDto {
   @ApiPropertyOptional({ example: 'Akademi Teknik' })
-  @IsOptional()
+  @OptionalNotNull()
   @IsString()
   @Length(1, 120)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   store_name?: string;
 
   @ApiPropertyOptional({
@@ -36,21 +35,21 @@ export class UpdateMerchantProfileDto {
   @IsOptional()
   @IsString()
   @Length(1, 10_000)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   store_description?: string;
 
   @ApiPropertyOptional({ example: '+62 812-3456-7890' })
   @IsOptional()
   @IsString()
   @Length(1, 32)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   phone?: string;
 
   @ApiPropertyOptional({ example: 'Belajar teknologi dari praktisi.' })
   @IsOptional()
   @IsString()
   @Length(1, 160)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   tagline?: string;
 
   @ApiPropertyOptional({
@@ -60,63 +59,65 @@ export class UpdateMerchantProfileDto {
   })
   @IsOptional()
   @IsIn(merchantCategoryLabels)
-  @Transform(optionalTrim)
+  @Transform(trimOptionalText)
   category_label?: string | null;
 
   @ApiPropertyOptional({ example: 'Bandung' })
   @IsOptional()
   @IsString()
   @Length(1, 120)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   city?: string;
 
   @ApiPropertyOptional({ example: 'contact@akademi.example' })
   @IsOptional()
   @IsEmail()
   @Length(1, 255)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   public_email?: string;
 
   @ApiPropertyOptional({ example: '+62 812-3456-7890' })
   @IsOptional()
   @IsString()
   @Length(1, 32)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   public_phone?: string;
 
   @ApiPropertyOptional({ example: 'https://akademi.example' })
   @IsOptional()
   @IsUrl({ require_tld: false })
   @Length(1, 2_048)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   website_url?: string;
 
   @ApiPropertyOptional({ example: 'akademi_teknik' })
   @IsOptional()
   @IsString()
   @Length(1, 120)
-  @Transform(({ value }) => value?.trim().replace(/^@/, ''))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().replace(/^@/, '') : value,
+  )
   instagram_handle?: string;
 
   @ApiPropertyOptional({ example: 'https://youtube.com/@akademi' })
   @IsOptional()
   @IsUrl({ require_tld: false })
   @Length(1, 2_048)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   youtube_url?: string;
 
   @ApiPropertyOptional({ example: 'https://linkedin.com/company/akademi' })
   @IsOptional()
   @IsUrl({ require_tld: false })
   @Length(1, 2_048)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   linkedin_url?: string;
 
   @ApiPropertyOptional({ example: 'Frontend engineering' })
   @IsOptional()
   @IsString()
   @Length(1, 160)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   expertise?: string;
 
   @ApiPropertyOptional({ example: 4, minimum: 0, maximum: 80 })
@@ -130,21 +131,21 @@ export class UpdateMerchantProfileDto {
   @IsOptional()
   @IsString()
   @Length(1, 255)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   education?: string;
 
   @ApiPropertyOptional({ example: 'https://portfolio.example' })
   @IsOptional()
   @IsUrl({ require_tld: false })
   @Length(1, 2_048)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   portfolio_url?: string;
 
   @ApiPropertyOptional({ example: 'Refund tersedia sebelum materi diakses.' })
   @IsOptional()
   @IsString()
   @Length(1, 4_000)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   refund_policy?: string;
 
   @ApiPropertyOptional({
@@ -153,7 +154,7 @@ export class UpdateMerchantProfileDto {
   @IsOptional()
   @IsString()
   @Length(1, 4_000)
-  @Transform(({ value }) => value?.trim())
+  @Transform(trimText)
   digital_license?: string;
 
   @ApiPropertyOptional({
@@ -179,7 +180,7 @@ export class UpdateMerchantProfileDto {
     example: ['AutoCAD', 'Structural Design'],
     description: 'Bidang badges in display order; replaces the current list',
   })
-  @IsOptional()
+  @OptionalNotNull()
   @IsArray()
   @ArrayMaxSize(20)
   @IsString({ each: true })

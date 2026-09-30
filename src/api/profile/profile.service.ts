@@ -12,7 +12,6 @@ import { FileAsset } from './entities/file-asset.entity';
 import { Product } from './entities/product.entity';
 import { Profile } from './entities/profile.entity';
 import { StudentProgress } from './entities/student-progress.entity';
-import { UserAccess } from './entities/user-access.entity';
 import { User } from '../user/entities/user.entity';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import { Mentor } from '../mentor/entities/mentor.entity';
@@ -23,10 +22,13 @@ import {
 } from '../../common/storage/object-storage';
 import { signedDownloadUrl } from '../../common/storage/signed-download-url';
 import { assetUrl } from '../../common/storage/asset-url';
+import { progressSql } from '../../class/learning-progress.service';
+import { MentorWorkspaceService } from '../mentor/mentor-workspace.service';
 import { splitSkills } from '../../common/util/skill-list';
 import {
   LearningItemResponseDto,
   LearningStatisticsResponseDto,
+  PublicProfileResponseDto,
   ProfileResponseDto,
   CertificationItemResponseDto,
 } from './dto/profile-response.dto';
@@ -44,10 +46,9 @@ export class ProfileService {
     private readonly profiles: Repository<Profile>,
     @InjectRepository(StudentProgress)
     private readonly studentProgress: Repository<StudentProgress>,
-    @InjectRepository(UserAccess)
-    private readonly userAccess: Repository<UserAccess>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    private readonly mentorWorkspace: MentorWorkspaceService,
     configService: ConfigService,
   ) {
     this.storage = createObjectStorage(configService);
@@ -124,41 +125,45 @@ export class ProfileService {
     }));
   }
 
+  // Everything the user owns: digital products with unexpired access, and
+  // classes and bootcamps with an active enrollment. The frontend uses this
+  // list for ownership checks and Portal Saya.
   async findLearning(userId: string) {
-    const rows = await this.userAccess
-      .createQueryBuilder('access')
-      .innerJoin(Product, 'product', 'product.id = access.product_id')
-      .leftJoin(
-        StudentProgress,
-        'progress',
-        'progress.access_id = access.id AND progress.deleted_at IS NULL',
-      )
-      .leftJoin(
-        FileAsset,
-        'cover',
-        'cover.id = product.cover_asset_id AND cover.deleted_at IS NULL',
-      )
-      .select([
-        'access.id AS access_id',
-        'access.expires_at AS expires_at',
-        'access.granted_at AS granted_at',
-        'product.id AS product_id',
-        'product.title AS title',
-        'product.product_type AS product_type',
-        'product.level AS level',
-        'product.cover_asset_id AS cover_asset_id',
-        'cover.object_key AS cover_object_key',
-        'COALESCE(progress.completion_percentage, 0) AS completion_percentage',
-        'COALESCE(progress.total_time_spent, 0) AS total_time_spent',
-        'progress.last_accessed_at AS last_accessed_at',
-      ])
-      .where('access.user_id = :userId', { userId })
-      .andWhere('access.deleted_at IS NULL')
-      .andWhere('product.deleted_at IS NULL')
-      .andWhere('(access.expires_at IS NULL OR access.expires_at > now())')
-      .orderBy('progress.last_accessed_at', 'DESC', 'NULLS LAST')
-      .addOrderBy('access.granted_at', 'DESC')
-      .getRawMany<LearningRow>();
+    const rows: LearningRow[] = await this.dataSource.query(
+      `SELECT * FROM (
+         SELECT access.id AS access_id, access.expires_at, access.granted_at AS acquired_at,
+                product.id AS product_id, product.title, product.product_type, product.level,
+                product.cover_asset_id, cover.object_key AS cover_object_key,
+                COALESCE(progress.completion_percentage, 0) AS completion_percentage,
+                COALESCE(progress.total_time_spent, 0) AS total_time_spent,
+                progress.last_accessed_at
+         FROM user_access access
+         INNER JOIN products product ON product.id = access.product_id AND product.deleted_at IS NULL
+         LEFT JOIN student_progress progress
+           ON progress.access_id = access.id AND progress.deleted_at IS NULL
+         LEFT JOIN file_assets cover ON cover.id = product.cover_asset_id AND cover.deleted_at IS NULL
+         WHERE access.user_id = $1 AND access.deleted_at IS NULL
+           AND (access.expires_at IS NULL OR access.expires_at > now())
+
+         UNION ALL
+
+         SELECT enrollment.id, NULL::timestamp, enrollment.created_at,
+                class.id, class.title,
+                CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END,
+                class.level, class.cover_asset_id, cover.object_key,
+                ${progressSql('$1::uuid', 'class.id')},
+                0,
+                (SELECT max(completion.completed_at) FROM video_completions completion
+                 WHERE completion.user_id = $1 AND completion.class_id = class.id
+                   AND completion.deleted_at IS NULL)
+         FROM enrollments enrollment
+         INNER JOIN classes class ON class.id = enrollment.class_id AND class.deleted_at IS NULL
+         LEFT JOIN file_assets cover ON cover.id = class.cover_asset_id AND cover.deleted_at IS NULL
+         WHERE enrollment.user_id = $1 AND enrollment.deleted_at IS NULL
+       ) learning
+       ORDER BY last_accessed_at DESC NULLS LAST, acquired_at DESC, product_id`,
+      [userId],
+    );
 
     return {
       data: rows.map((row) => this.toLearningItem(row)),
@@ -234,6 +239,82 @@ export class ProfileService {
       data: await Promise.all(rows.map((row) => this.toCertificationItem(row))),
       responseMessage: 'Get certifications success',
     };
+  }
+
+  // Anyone may view a profile; only public fields leave this method.
+  async findPublicProfile(userId: string) {
+    const identity = await this.findProfileResponse(userId);
+    const [merchant] = identity.merchant_id
+      ? await this.dataSource.query(
+          `SELECT merchant.id, merchant.store_name, profile.slug
+           FROM merchants merchant
+           LEFT JOIN merchant_profiles profile
+             ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
+           WHERE merchant.id = $1`,
+          [identity.merchant_id],
+        )
+      : [];
+    const [{ data: learningStatistics }, { data: certificates }] =
+      await Promise.all([
+        this.findStatistics(userId),
+        this.findCertifications(userId),
+      ]);
+    const teachingClasses = identity.mentor_id
+      ? (await this.mentorWorkspace.findTeachingClasses(userId)).data
+      : [];
+    const [teaching] = identity.mentor_id
+      ? await this.dataSource.query(
+          `SELECT count(DISTINCT enrollment.user_id)::integer AS students_count
+           FROM class_mentors link
+           INNER JOIN classes class ON class.id = link.class_id AND class.deleted_at IS NULL
+           INNER JOIN enrollments enrollment
+             ON enrollment.class_id = class.id AND enrollment.deleted_at IS NULL
+           WHERE link.mentor_id = $1 AND link.deleted_at IS NULL`,
+          [identity.mentor_id],
+        )
+      : [];
+
+    const data: PublicProfileResponseDto = {
+      id: identity.id,
+      name: identity.name,
+      avatar_url: identity.avatar_url,
+      headline: identity.headline,
+      bio: identity.bio,
+      member_since: identity.member_since,
+      is_mentor: identity.is_mentor,
+      is_merchant: identity.is_merchant,
+      merchant: merchant
+        ? {
+            id: merchant.id,
+            slug: merchant.slug,
+            store_name: merchant.store_name,
+          }
+        : null,
+      mentor: identity.mentor_id
+        ? { id: identity.mentor_id, expertise_list: identity.expertise_list }
+        : null,
+      learning_statistics: learningStatistics,
+      teaching_statistics: identity.mentor_id
+        ? {
+            classes_count: teachingClasses.length,
+            active_classes_count: teachingClasses.filter(
+              (item) => item.status === 'active',
+            ).length,
+            students_count: teaching.students_count,
+          }
+        : null,
+      teaching_classes: teachingClasses,
+      certificates: certificates.map((certificate) => ({
+        id: certificate.id,
+        class_id: certificate.class_id,
+        class_title: certificate.class_title,
+        certificate_number: certificate.certificate_number,
+        issued_on: certificate.issued_on,
+        issuer_name: certificate.issuer_name,
+        mentor_name: certificate.mentor_name,
+      })),
+    };
+    return { data, responseMessage: 'Get public profile success' };
   }
 
   private async findProfileResponse(
@@ -320,6 +401,7 @@ export class ProfileService {
       level: row.level,
       cover_asset_id: row.cover_asset_id,
       cover_object_key: row.cover_object_key,
+      cover_url: assetUrl(row.cover_object_key),
       completion_percentage: completionPercentage,
       progress_status:
         completionPercentage >= 100

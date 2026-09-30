@@ -8,6 +8,10 @@ import { ClassMentor } from './class-mentor.entity';
 import { Enrollment } from './enrollment.entity';
 import { DiscussionThread } from './discussion-thread.entity';
 import { Certificate } from './certificate.entity';
+import {
+  ClassCategory,
+  LearningLevel,
+} from '../../common/catalog/class-details';
 
 export enum ClassStatus {
   DRAFT = 'draft',
@@ -52,6 +56,24 @@ export class Class extends AuditedBaseEntity {
 
   @Column({ name: 'post_purchase_instructions', type: 'text', nullable: true })
   post_purchase_instructions: string | null;
+
+  // Bidang; constrained by `chk_classes_category` to `classCategories`.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  category: ClassCategory | null;
+
+  // Constrained by `chk_classes_level` to `learningLevels`.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  level: LearningLevel | null;
+
+  // Free text such as "8 minggu" or "20 jam".
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  duration: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  prerequisites: string | null;
+
+  @Column({ name: 'learning_outcomes', type: 'jsonb', nullable: true })
+  learning_outcomes: string[] | null;
 
   @OneToMany(() => Chapter, (chapter) => chapter.class_entity)
   chapters: Chapter[];

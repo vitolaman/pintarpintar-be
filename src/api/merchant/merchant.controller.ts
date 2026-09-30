@@ -30,6 +30,11 @@ import { RegisterMerchantDto } from './dto/register-merchant.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { MerchantService } from './merchant.service';
+import { MerchantWithdrawalService } from './merchant-withdrawal.service';
+import {
+  RequestWithdrawalDto,
+  WithdrawalResponseDto,
+} from './dto/withdrawal.dto';
 import { ClassService } from '../../class/class.service';
 import { ClassListQueryDto } from '../../class/dto/class-list-query.dto';
 import { CreateClassDto } from '../../class/dto/create-class.dto';
@@ -43,6 +48,7 @@ export class MerchantController {
   constructor(
     private readonly merchantService: MerchantService,
     private readonly classService: ClassService,
+    private readonly withdrawals: MerchantWithdrawalService,
   ) {}
 
   @Post('register')
@@ -98,6 +104,21 @@ export class MerchantController {
   )
   findWallet(@Req() req: { user: { id: string } }) {
     return this.merchantService.findWallet(req.user.id);
+  }
+
+  // "Tarik Saldo": minimum Rp100.000, Rp5.000 fee, processed manually.
+  @Post('request-withdrawal')
+  @DefaultResponse(
+    WithdrawalResponseDto,
+    'Request withdrawal success',
+    HttpStatus.CREATED,
+    [BadRequestException, NotFoundException],
+  )
+  requestWithdrawal(
+    @Req() req: { user: { id: string } },
+    @Body() body: RequestWithdrawalDto,
+  ) {
+    return this.withdrawals.request(req.user.id, body);
   }
 
   @Get('get-balance-history')

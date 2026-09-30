@@ -1,3 +1,4 @@
+import { learningLevels } from '~/common/catalog/class-details';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -16,7 +17,7 @@ import {
 export const catalogCardTypes = ['kelas', 'bootcamp', 'digital'] as const;
 // `kelas-live` is an FE filter value with no class type behind it yet.
 export const catalogTypeFilters = [...catalogCardTypes, 'kelas-live'] as const;
-export const catalogLevels = ['Pemula', 'Menengah', 'Mahir'] as const;
+export const catalogLevels = learningLevels;
 export const catalogSorts = [
   'terbaru',
   'terlama',
@@ -86,7 +87,8 @@ export class CatalogQueryDto {
 
   @ApiPropertyOptional({
     example: 'template-canva',
-    description: 'Category slug or name (ignoring case), e.g. Template Canva',
+    description:
+      'Digital category slug or name, or class Bidang (ignoring case), e.g. Template Canva or Sipil',
   })
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -337,11 +339,20 @@ export class CatalogClassDetailDto extends CatalogCardDto {
   @ApiProperty({ nullable: true })
   description: string | null;
 
-  @ApiProperty({ nullable: true, description: 'Not modelled yet' })
+  @ApiProperty({ nullable: true, example: '8 minggu' })
   duration: string | null;
 
-  @ApiProperty({ type: [String], description: 'Not modelled yet' })
+  @ApiProperty({
+    type: [String],
+    description: 'The prerequisites text split into lines',
+  })
   requirements: string[];
+
+  @ApiProperty({ nullable: true, description: 'Prasyarat' })
+  prerequisites: string | null;
+
+  @ApiProperty({ type: [String], description: 'Hasil Pembelajaran' })
+  learning_outcomes: string[];
 
   @ApiProperty({ type: [CatalogMentorDto] })
   mentors: CatalogMentorDto[];

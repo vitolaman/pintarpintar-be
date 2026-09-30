@@ -4,13 +4,13 @@ import { AssetPurpose, assetPurposes } from '../asset-purpose-rules';
 
 export class RegisterUploadDto {
   @ApiProperty({
-    example: 'uploads/1790900000000-logo.png',
-    description: 'Key returned by the completed multipart upload',
+    example: 'uploads/<userId>/1790900000000-logo.png',
+    description: 'Key returned by your own completed multipart upload',
   })
   @IsString()
   @MaxLength(512)
-  @Matches(/^uploads\/[^/]+$/, {
-    message: 'key must be an uploads/ object key',
+  @Matches(/^uploads\/[0-9a-f-]{36}\/[^/]+$/, {
+    message: 'key must be an uploads/<userId>/ object key',
   })
   key: string;
 

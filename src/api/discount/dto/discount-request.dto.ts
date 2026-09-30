@@ -29,6 +29,7 @@ import {
   DiscountCodeType,
 } from '../entities/discount-code.entity';
 import { discountTypes, DiscountType } from '../entities/discount.entity';
+import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 
 export const discountTargetTypes = ['kelas', 'digital'] as const;
 
@@ -107,7 +108,7 @@ export class CreateDiscountDto {
   ends_at?: string | null;
 
   @ApiPropertyOptional({ default: true })
-  @IsOptional()
+  @OptionalNotNull()
   @IsBoolean()
   is_active?: boolean;
 
@@ -115,7 +116,7 @@ export class CreateDiscountDto {
     type: [DiscountTargetInputDto],
     description: 'Empty or omitted = all of the merchant products',
   })
-  @IsOptional()
+  @OptionalNotNull()
   @IsArray()
   @ArrayMaxSize(200)
   @ValidateNested({ each: true })
@@ -131,8 +132,10 @@ export class CreateDiscountDto {
   codes?: DiscountCodeInputDto[];
 }
 
+// Null is validated, so it is rejected for fields that cannot be cleared.
 export class UpdateDiscountDto extends PartialType(
   OmitType(CreateDiscountDto, ['codes'] as const),
+  { skipNullProperties: false },
 ) {}
 
 export class AddDiscountCodesDto {

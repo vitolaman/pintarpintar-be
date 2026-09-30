@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TeachingClassResponseDto } from '../../mentor/dto/mentor-workspace.dto';
 
 export class ProfileResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -63,7 +64,11 @@ export class LearningItemResponseDto {
   @ApiProperty()
   title: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    example: 'kelas',
+    description:
+      "`kelas` (video class), `bootcamp` (live bootcamp), or the digital product's type",
+  })
   product_type: string;
 
   @ApiPropertyOptional()
@@ -74,6 +79,9 @@ export class LearningItemResponseDto {
 
   @ApiPropertyOptional()
   cover_object_key: string | null;
+
+  @ApiPropertyOptional({ description: 'Public cover URL' })
+  cover_url: string | null;
 
   @ApiProperty({ example: 70 })
   completion_percentage: number;
@@ -152,4 +160,102 @@ export class LearningStatisticsResponseDto {
 
   @ApiProperty({ description: 'Sertifikat Diperoleh' })
   certificate_count: number;
+}
+
+export class PublicProfileMerchantDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  slug: string | null;
+
+  @ApiProperty()
+  store_name: string;
+}
+
+export class PublicProfileMentorDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ type: [String] })
+  expertise_list: string[];
+}
+
+export class TeachingStatisticsDto {
+  @ApiProperty({ example: 3 })
+  classes_count: number;
+
+  @ApiProperty({ example: 2 })
+  active_classes_count: number;
+
+  @ApiProperty({ example: 120 })
+  students_count: number;
+}
+
+export class PublicCertificateDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ format: 'uuid' })
+  class_id: string;
+
+  @ApiProperty()
+  class_title: string;
+
+  @ApiPropertyOptional({ example: 'PP-CERT-2026-0001' })
+  certificate_number: string | null;
+
+  @ApiPropertyOptional({ example: '2026-09-25' })
+  issued_on: string | null;
+
+  @ApiPropertyOptional()
+  issuer_name: string | null;
+
+  @ApiPropertyOptional()
+  mentor_name: string | null;
+}
+
+// Public view of any user; never carries email, phone, or file links.
+export class PublicProfileResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  avatar_url: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  headline: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  bio: string | null;
+
+  @ApiProperty()
+  member_since: Date;
+
+  @ApiProperty()
+  is_mentor: boolean;
+
+  @ApiProperty()
+  is_merchant: boolean;
+
+  @ApiPropertyOptional({ type: PublicProfileMerchantDto, nullable: true })
+  merchant: PublicProfileMerchantDto | null;
+
+  @ApiPropertyOptional({ type: PublicProfileMentorDto, nullable: true })
+  mentor: PublicProfileMentorDto | null;
+
+  @ApiProperty({ type: LearningStatisticsResponseDto })
+  learning_statistics: LearningStatisticsResponseDto;
+
+  @ApiPropertyOptional({ type: TeachingStatisticsDto, nullable: true })
+  teaching_statistics: TeachingStatisticsDto | null;
+
+  @ApiProperty({ type: [TeachingClassResponseDto] })
+  teaching_classes: TeachingClassResponseDto[];
+
+  @ApiProperty({ type: [PublicCertificateDto] })
+  certificates: PublicCertificateDto[];
 }

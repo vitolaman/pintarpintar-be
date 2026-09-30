@@ -5,6 +5,8 @@ import {
   Get,
   HttpStatus,
   NotFoundException,
+  Param,
+  ParseUUIDPipe,
   Patch,
   Req,
 } from '@nestjs/common';
@@ -13,6 +15,7 @@ import {
   ArrayResponse,
   DefaultResponse,
 } from '~/common/decorator/response.decorator';
+import { Public } from '~/common/decorator/public.decorator';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
@@ -20,6 +23,7 @@ import {
   LearningItemResponseDto,
   ProfileResponseDto,
   LearningStatisticsResponseDto,
+  PublicProfileResponseDto,
 } from './dto/profile-response.dto';
 
 @Controller('profile/v1')
@@ -48,6 +52,19 @@ export class ProfileController {
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
     return this.profileService.updateCurrent(req.user.id, updateProfileDto);
+  }
+
+  // Public profile page (/profile/{id}); no email or phone.
+  @Public()
+  @Get('get-public-profile/:userId')
+  @DefaultResponse(
+    PublicProfileResponseDto,
+    'Get public profile success',
+    HttpStatus.OK,
+    [BadRequestException, NotFoundException],
+  )
+  findPublicProfile(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.profileService.findPublicProfile(userId);
   }
 
   @Get('get-learning')

@@ -1,4 +1,5 @@
 import { Repository } from 'typeorm';
+import { CatalogService } from '../catalog/catalog.service';
 import { Product } from '../profile/entities/product.entity';
 import { HomeService } from './home.service';
 
@@ -43,42 +44,24 @@ describe('HomeService', () => {
               user_name: 'Alya Pratama',
               user_avatar_asset_id: null,
               user_avatar_object_key: null,
-              product_id: 'video-class-id',
-              product_title: 'Video class title',
+              class_id: 'class-id',
+              class_title: 'Revit Architecture untuk Pemula',
             },
           ]);
         }
 
-        const subtype = sql.includes('INNER JOIN bootcamps')
-          ? 'bootcamp'
-          : sql.includes('INNER JOIN video_classes')
-            ? 'video_class'
-            : 'digital_product';
-
-        return Promise.resolve([
-          {
-            id: `${subtype}-id`,
-            title: `${subtype} title`,
-            product_type: subtype,
-            level: 'Pemula',
-            price: '249000',
-            currency: 'IDR',
-            original_price: null,
-            cover_asset_id: null,
-            cover_object_key: null,
-            categories: ['Desain'],
-            rating: '4.8',
-            review_count: '12',
-            merchant_id: 'merchant-id',
-            merchant_name: 'Pintar CAD',
-            merchant_slug: 'pintar-cad',
-            merchant_avatar_asset_id: null,
-            merchant_avatar_object_key: null,
-          },
-        ]);
+        return Promise.reject(new Error(`Unexpected query: ${sql}`));
       }),
     };
-    const service = new HomeService(products as Repository<Product>);
+    const catalogService = {
+      findCards: jest.fn(({ types }: { types: string[] }) =>
+        Promise.resolve([{ id: `${types[0]}-id`, type: types[0] }]),
+      ),
+    };
+    const service = new HomeService(
+      products as Repository<Product>,
+      catalogService as unknown as CatalogService,
+    );
 
     await expect(service.getStatistics()).resolves.toEqual({
       responseMessage: 'Get home statistics success',
@@ -91,15 +74,15 @@ describe('HomeService', () => {
     });
     await expect(service.getBootcamps(10)).resolves.toEqual({
       responseMessage: 'Get bootcamps success',
-      data: [expect.objectContaining({ id: 'bootcamp-id', price: 249000 })],
+      data: [{ id: 'bootcamp-id', type: 'bootcamp' }],
     });
     await expect(service.getVideoClasses(10)).resolves.toEqual({
       responseMessage: 'Get video classes success',
-      data: [expect.objectContaining({ id: 'video_class-id' })],
+      data: [{ id: 'kelas-id', type: 'kelas' }],
     });
     await expect(service.getDigitalProducts(10)).resolves.toEqual({
       responseMessage: 'Get digital products success',
-      data: [expect.objectContaining({ id: 'digital_product-id' })],
+      data: [{ id: 'digital-id', type: 'digital' }],
     });
     await expect(service.getMerchants(10)).resolves.toEqual({
       responseMessage: 'Get merchants success',
@@ -117,29 +100,28 @@ describe('HomeService', () => {
           id: 'review-id',
           rating: 5,
           user_name: 'Alya Pratama',
+          class_id: 'class-id',
+          class_title: 'Revit Architecture untuk Pemula',
         }),
       ],
     });
 
-    expect(products.query).toHaveBeenCalledTimes(6);
-    expect(products.query).toHaveBeenCalledWith(
-      expect.stringContaining('INNER JOIN bootcamps'),
-      ['bootcamp', 10],
-    );
-    expect(products.query).toHaveBeenCalledWith(
-      expect.stringContaining('INNER JOIN video_classes'),
-      ['video_class', 10],
-    );
-    expect(products.query).toHaveBeenCalledWith(
-      expect.stringContaining('INNER JOIN digital_files'),
-      ['digital_product', 10],
-    );
+    expect(products.query).toHaveBeenCalledTimes(3);
+    expect(catalogService.findCards.mock.calls).toEqual([
+      [{ types: ['bootcamp'] }, 'terbaru', 10],
+      [{ types: ['kelas'] }, 'terbaru', 10],
+      [{ types: ['digital'] }, 'terbaru', 10],
+    ]);
     expect(products.query).toHaveBeenCalledWith(
       expect.stringContaining('FROM merchants merchant'),
       [10],
     );
     expect(products.query).toHaveBeenCalledWith(
       expect.stringContaining("NULLIF(BTRIM(review.comment), '') IS NOT NULL"),
+      [10],
+    );
+    expect(products.query).toHaveBeenCalledWith(
+      expect.stringContaining('ON class.id = review.class_id'),
       [10],
     );
   });

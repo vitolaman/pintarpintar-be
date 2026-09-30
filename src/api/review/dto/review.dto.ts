@@ -1,0 +1,78 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+
+export class CreateReviewDto {
+  @ApiProperty({ description: 'Class the caller is enrolled in' })
+  @IsUUID()
+  class_id: string;
+
+  @ApiProperty({ minimum: 1, maximum: 5, example: 5 })
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating: number;
+
+  @ApiPropertyOptional({ maxLength: 2000, nullable: true })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(2000)
+  comment?: string | null;
+}
+
+export class ReviewListQueryDto {
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @ApiPropertyOptional({ default: 10, minimum: 1, maximum: 50 })
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit = 10;
+}
+
+export class ReviewResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ example: 5 })
+  rating: number;
+
+  @ApiProperty({ nullable: true })
+  comment: string | null;
+
+  @ApiProperty()
+  created_at: Date;
+
+  @ApiProperty({ example: 'John Doe' })
+  reviewer_name: string;
+
+  @ApiProperty({ nullable: true })
+  reviewer_avatar_object_key: string | null;
+}
+
+export class ClassReviewSummaryDto {
+  @ApiProperty({ example: 4.5 })
+  average_rating: number;
+
+  @ApiProperty({ example: 2 })
+  review_count: number;
+
+  @ApiProperty({ type: [ReviewResponseDto] })
+  reviews: ReviewResponseDto[];
+}

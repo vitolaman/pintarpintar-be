@@ -36,6 +36,9 @@ export class ProfileResponseDto {
 
   @ApiPropertyOptional({ format: 'uuid' })
   merchant_id: string | null;
+
+  @ApiProperty({ description: 'Account creation time' })
+  member_since: Date;
 }
 
 export class LearningItemResponseDto {
@@ -80,21 +83,24 @@ export class CertificationItemResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
+  @ApiPropertyOptional({ example: 'PP-CERT-2026-0001' })
+  certificate_number: string | null;
+
+  @ApiPropertyOptional({ example: '2026-09-25' })
+  issued_on: string | null;
+
   @ApiProperty({ format: 'uuid' })
-  product_id: string;
+  class_id: string;
 
-  @ApiProperty()
-  product_title: string;
+  @ApiProperty({ example: 'Revit Architecture untuk Pemula' })
+  class_title: string;
 
-  @ApiProperty()
-  certificate_number: string;
+  @ApiPropertyOptional({
+    example: 'Sari Digital Studio',
+    description: 'Class merchant',
+  })
+  issuer_name: string | null;
 
-  @ApiProperty()
-  issued_at: Date;
-
-  @ApiPropertyOptional({ format: 'uuid' })
-  certificate_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  certificate_asset_object_key: string | null;
+  @ApiPropertyOptional({ description: 'Certificate file for the owner' })
+  file_url: string | null;
 }

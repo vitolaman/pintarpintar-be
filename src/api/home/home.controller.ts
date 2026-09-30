@@ -6,9 +6,9 @@ import {
 } from '~/common/decorator/response.decorator';
 import { Public } from '~/common/decorator/public.decorator';
 import { HomeCollectionQueryDto } from './dto/home-collection-query.dto';
+import { CatalogCardDto } from '../catalog/dto/catalog.dto';
 import {
   HomeMerchantCardResponseDto,
-  HomeProductCardResponseDto,
   HomeStatisticsResponseDto,
   HomeTestimonialResponseDto,
 } from './dto/home-response.dto';
@@ -32,21 +32,21 @@ export class HomeController {
 
   @Get('get-bootcamps')
   @Public()
-  @ArrayResponse(HomeProductCardResponseDto, 'Get bootcamps success')
+  @ArrayResponse(CatalogCardDto, 'Get bootcamps success')
   getBootcamps(@Query() query: HomeCollectionQueryDto) {
     return this.homeService.getBootcamps(query.limit);
   }
 
   @Get('get-video-classes')
   @Public()
-  @ArrayResponse(HomeProductCardResponseDto, 'Get video classes success')
+  @ArrayResponse(CatalogCardDto, 'Get video classes success')
   getVideoClasses(@Query() query: HomeCollectionQueryDto) {
     return this.homeService.getVideoClasses(query.limit);
   }
 
   @Get('get-digital-products')
   @Public()
-  @ArrayResponse(HomeProductCardResponseDto, 'Get digital products success')
+  @ArrayResponse(CatalogCardDto, 'Get digital products success')
   getDigitalProducts(@Query() query: HomeCollectionQueryDto) {
     return this.homeService.getDigitalProducts(query.limit);
   }

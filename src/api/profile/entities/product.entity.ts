@@ -12,7 +12,7 @@ export class Product extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  @Column({name: 'discount_price', type: 'numeric' })
+  @Column({ name: 'discount_price', type: 'numeric' })
   discountPrice: string;
 
   @Column()

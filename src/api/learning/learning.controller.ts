@@ -34,6 +34,8 @@ import {
   SubmitQuizDto,
 } from './dto/learning-assignment.dto';
 import { LearningSubmissionService } from './learning-submission.service';
+import { LearningProductService } from './learning-product.service';
+import { OwnedProductDto } from './dto/learning-product.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
 
@@ -49,6 +51,7 @@ export class LearningController {
     private readonly learningAssignment: LearningAssignmentService,
     private readonly learningSubmission: LearningSubmissionService,
     private readonly classAttendance: ClassAttendanceService,
+    private readonly learningProduct: LearningProductService,
   ) {}
 
   @Post('submit-assignment/:assignmentId')
@@ -91,6 +94,20 @@ export class LearningController {
     @Param('classId', ParseUUIDPipe) classId: string,
   ) {
     return this.learningAssignment.findAssignments(req.user.id, classId);
+  }
+
+  @Get('get-digital-product/:id')
+  @DefaultResponse(
+    OwnedProductDto,
+    'Get owned digital product success',
+    HttpStatus.OK,
+    [NotFoundException],
+  )
+  findProduct(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.learningProduct.findProduct(req.user.id, id);
   }
 
   @Get('get-meeting/:meetingId')

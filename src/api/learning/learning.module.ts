@@ -3,6 +3,7 @@ import { ClassModule } from '../../class/class.module';
 import { LearningAssignmentService } from './learning-assignment.service';
 import { LearningClassService } from './learning-class.service';
 import { LearningSubmissionService } from './learning-submission.service';
+import { LearningProductService } from './learning-product.service';
 import { LearningController } from './learning.controller';
 
 @Module({
@@ -12,6 +13,7 @@ import { LearningController } from './learning.controller';
     LearningClassService,
     LearningAssignmentService,
     LearningSubmissionService,
+    LearningProductService,
   ],
 })
 export class LearningModule {}

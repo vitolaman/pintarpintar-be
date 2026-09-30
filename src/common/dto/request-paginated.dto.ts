@@ -1,18 +1,24 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, Max, Min } from 'class-validator';
+
+const toInteger = ({ value }: { value: unknown }) =>
+  value === undefined || value === '' ? undefined : Number(value);
 
 export class RequestPaginatedQueryDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value || 1))
+  @Transform(toInteger)
+  @IsInt()
+  @Min(1)
   page?: number = 1;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ default: 10, minimum: 1, maximum: 100 })
   @IsOptional()
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value || 10))
+  @Transform(toInteger)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   limit?: number = 10;
 }
 

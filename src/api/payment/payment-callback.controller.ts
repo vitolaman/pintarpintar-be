@@ -7,7 +7,13 @@ import {
   NotFoundException,
   Post,
 } from '@nestjs/common';
-import { ApiConsumes, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
 import { DuitkuCallbackDto } from './dto/duitku-callback.dto';
 import { DuitkuClient } from './duitku/duitku.client';
@@ -32,6 +38,12 @@ export class PaymentCallbackController {
   @HttpCode(HttpStatus.OK)
   @ApiConsumes('application/x-www-form-urlencoded')
   @ApiOkResponse({ description: 'Notification processed' })
+  @ApiBadRequestResponse({
+    description: 'Invalid signature, unknown order, or amount mismatch',
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Payment gateway is not configured',
+  })
   async handleDuitkuCallback(@Body() callback: DuitkuCallbackDto) {
     const { merchantCode, apiKey } = this.duitku.requireConfig();
     if (

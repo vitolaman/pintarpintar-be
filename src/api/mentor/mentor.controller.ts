@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   HttpCode,
@@ -14,14 +16,9 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiConsumes,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
+import { AuthTokenDto } from '../auth/dto/auth-token.dto';
 import {
   ArrayResponse,
   DefaultResponse,
@@ -66,7 +63,10 @@ export class MentorController {
   @UseInterceptors(mentorDocuments)
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: MentorSignUpDto })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Account Created!' })
+  @DefaultResponse(AuthTokenDto, 'Account Created!', HttpStatus.OK, [
+    BadRequestException,
+    ConflictException,
+  ])
   signUp(
     @Body() input: MentorSignUpDto,
     @UploadedFiles() files: Record<string, Express.Multer.File[]>,

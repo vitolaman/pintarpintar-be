@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
   Length,
   Max,
   Min,
@@ -147,4 +148,22 @@ export class UpdateMerchantProfileDto {
   @Length(1, 4_000)
   @Transform(({ value }) => value?.trim())
   digital_license?: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Store logo: own registered image asset (max 2 MB), null clears it',
+  })
+  @IsOptional()
+  @IsUUID()
+  avatar_asset_id?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Store banner: own registered image asset (max 4 MB), null clears it',
+  })
+  @IsOptional()
+  @IsUUID()
+  cover_asset_id?: string | null;
 }

@@ -6,6 +6,8 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { merchantCategorySlugForLabel } from '~/common/constants/merchant-category';
+import { assertOwnedImageAsset } from '../file-asset/image-asset-rules';
+import { FileAsset } from '../profile/entities/file-asset.entity';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import {
@@ -263,6 +265,28 @@ export class MerchantService {
         await this.savePrivatePhone(manager, userId, input.phone);
       }
 
+      if (input.avatar_asset_id !== undefined) {
+        if (input.avatar_asset_id !== null) {
+          await assertOwnedImageAsset(
+            manager,
+            userId,
+            input.avatar_asset_id,
+            'merchant_logo',
+          );
+        }
+        profile.avatarAssetId = input.avatar_asset_id;
+      }
+      if (input.cover_asset_id !== undefined) {
+        if (input.cover_asset_id !== null) {
+          await assertOwnedImageAsset(
+            manager,
+            userId,
+            input.cover_asset_id,
+            'merchant_banner',
+          );
+        }
+        profile.coverAssetId = input.cover_asset_id;
+      }
       if (input.tagline !== undefined) profile.tagline = input.tagline;
       if (input.category_label !== undefined)
         profile.categoryLabel = input.category_label;
@@ -478,6 +502,16 @@ export class MerchantService {
         'user_profile',
         'user_profile.user_id = merchant.user_id AND user_profile.deleted_at IS NULL',
       )
+      .leftJoin(
+        FileAsset,
+        'avatar_asset',
+        'avatar_asset.id = profile.avatar_asset_id AND avatar_asset.deleted_at IS NULL',
+      )
+      .leftJoin(
+        FileAsset,
+        'cover_asset',
+        'cover_asset.id = profile.cover_asset_id AND cover_asset.deleted_at IS NULL',
+      )
       .select([
         'merchant.id AS id',
         'merchant.store_name AS store_name',
@@ -503,6 +537,10 @@ export class MerchantService {
         'profile.digital_license AS digital_license',
         'profile.need_change_password AS need_change_password',
         'profile.terms_accepted_at AS terms_accepted_at',
+        'profile.avatar_asset_id AS avatar_asset_id',
+        'avatar_asset.object_key AS avatar_object_key',
+        'profile.cover_asset_id AS cover_asset_id',
+        'cover_asset.object_key AS cover_object_key',
       ])
       .where('merchant.user_id = :userId', { userId })
       .andWhere('merchant.deleted_at IS NULL')

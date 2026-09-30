@@ -31,6 +31,7 @@ import { PayoutAccountModule } from './api/payout-account/payout-account.module'
 import { BundleModule } from './api/bundle/bundle.module';
 import { DiscountModule } from './api/discount/discount.module';
 import { MerchantDashboardModule } from './api/merchant-dashboard/merchant-dashboard.module';
+import { FileAssetModule } from './api/file-asset/file-asset.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { MerchantDashboardModule } from './api/merchant-dashboard/merchant-dashb
     BundleModule,
     DiscountModule,
     MerchantDashboardModule,
+    FileAssetModule,
   ],
   controllers: [AppController],
   providers: [

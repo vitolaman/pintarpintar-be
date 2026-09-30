@@ -12,6 +12,7 @@ describe('ProfileService', () => {
   let service: ProfileService;
   let dataSource: { transaction: jest.Mock; query: jest.Mock };
   let users: jest.Mocked<Partial<Repository<User>>>;
+  const mentorWorkspace = { findTeachingClasses: jest.fn() };
 
   beforeEach(() => {
     dataSource = { transaction: jest.fn(), query: jest.fn() };
@@ -24,6 +25,7 @@ describe('ProfileService', () => {
       {} as Repository<Profile>,
       {} as Repository<StudentProgress>,
       users as Repository<User>,
+      mentorWorkspace as never,
       new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
     );
   });
@@ -93,6 +95,99 @@ describe('ProfileService', () => {
       "WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas'",
     );
     expect(sql).toContain('access.expires_at > now()');
+  });
+
+  it('builds a public profile without contact details', async () => {
+    users.createQueryBuilder.mockReturnValue(
+      chainableSingleQuery({
+        id: userId,
+        name: 'Budi Santoso',
+        email: 'budi@example.com',
+        is_mentor: true,
+        is_merchant: true,
+        avatar_asset_id: null,
+        avatar_object_key: null,
+        phone: '+62 812-3456-7890',
+        headline: 'Structural engineer',
+        bio: null,
+        mentor_id: 'mentor-id',
+        mentor_expertise: 'AutoCAD, SAP2000',
+        merchant_id: 'merchant-id',
+        member_since: new Date('2026-01-15T03:00:00.000Z'),
+      }) as never,
+    );
+    dataSource.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM merchants merchant')) {
+        return [
+          {
+            id: 'merchant-id',
+            store_name: 'Akademi Teknik',
+            slug: 'akademi-teknik',
+          },
+        ];
+      }
+      if (sql.includes('AS bootcamp_count')) {
+        return [
+          {
+            bootcamp_count: 1,
+            video_class_count: 2,
+            digital_product_count: 0,
+            certificate_count: 1,
+          },
+        ];
+      }
+      if (sql.includes('FROM certificates certificate')) {
+        return [
+          {
+            id: 'certificate-id',
+            certificate_number: 'PP-CERT-2026-0001',
+            issued_on: '2026-09-25',
+            file_url: 'https://files.test/private.pdf',
+            file_object_key: null,
+            file_name: null,
+            final_score: '88',
+            class_id: 'class-id',
+            class_title: 'AutoCAD',
+            issuer_name: 'Akademi Teknik',
+            mentor_name: 'Rina',
+          },
+        ];
+      }
+      if (sql.includes('AS students_count')) return [{ students_count: 40 }];
+      return [];
+    });
+    mentorWorkspace.findTeachingClasses.mockResolvedValue({
+      data: [
+        { id: 'c1', title: 'AutoCAD', status: 'active' },
+        { id: 'c2', title: 'Revit', status: 'inactive' },
+      ],
+    });
+
+    const { data } = await service.findPublicProfile(userId);
+
+    expect(data).toMatchObject({
+      name: 'Budi Santoso',
+      merchant: { id: 'merchant-id', slug: 'akademi-teknik' },
+      mentor: { id: 'mentor-id', expertise_list: ['AutoCAD', 'SAP2000'] },
+      learning_statistics: { video_class_count: 2, certificate_count: 1 },
+      teaching_statistics: {
+        classes_count: 2,
+        active_classes_count: 1,
+        students_count: 40,
+      },
+      certificates: [
+        {
+          certificate_number: 'PP-CERT-2026-0001',
+          class_title: 'AutoCAD',
+          mentor_name: 'Rina',
+        },
+      ],
+    });
+    const json = JSON.stringify(data);
+    expect(json).not.toContain('budi@example.com');
+    expect(json).not.toContain('3456');
+    expect(json).not.toContain('private.pdf');
+    expect(json).not.toContain('final_score');
   });
 
   it('returns profile identity and server-side role capabilities', async () => {

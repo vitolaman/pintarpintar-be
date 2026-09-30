@@ -23,10 +23,12 @@ import {
 import { signedDownloadUrl } from '../../common/storage/signed-download-url';
 import { assetUrl } from '../../common/storage/asset-url';
 import { progressSql } from '../../class/learning-progress.service';
+import { MentorWorkspaceService } from '../mentor/mentor-workspace.service';
 import { splitSkills } from '../../common/util/skill-list';
 import {
   LearningItemResponseDto,
   LearningStatisticsResponseDto,
+  PublicProfileResponseDto,
   ProfileResponseDto,
   CertificationItemResponseDto,
 } from './dto/profile-response.dto';
@@ -46,6 +48,7 @@ export class ProfileService {
     private readonly studentProgress: Repository<StudentProgress>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    private readonly mentorWorkspace: MentorWorkspaceService,
     configService: ConfigService,
   ) {
     this.storage = createObjectStorage(configService);
@@ -236,6 +239,82 @@ export class ProfileService {
       data: await Promise.all(rows.map((row) => this.toCertificationItem(row))),
       responseMessage: 'Get certifications success',
     };
+  }
+
+  // Anyone may view a profile; only public fields leave this method.
+  async findPublicProfile(userId: string) {
+    const identity = await this.findProfileResponse(userId);
+    const [merchant] = identity.merchant_id
+      ? await this.dataSource.query(
+          `SELECT merchant.id, merchant.store_name, profile.slug
+           FROM merchants merchant
+           LEFT JOIN merchant_profiles profile
+             ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
+           WHERE merchant.id = $1`,
+          [identity.merchant_id],
+        )
+      : [];
+    const [{ data: learningStatistics }, { data: certificates }] =
+      await Promise.all([
+        this.findStatistics(userId),
+        this.findCertifications(userId),
+      ]);
+    const teachingClasses = identity.mentor_id
+      ? (await this.mentorWorkspace.findTeachingClasses(userId)).data
+      : [];
+    const [teaching] = identity.mentor_id
+      ? await this.dataSource.query(
+          `SELECT count(DISTINCT enrollment.user_id)::integer AS students_count
+           FROM class_mentors link
+           INNER JOIN classes class ON class.id = link.class_id AND class.deleted_at IS NULL
+           INNER JOIN enrollments enrollment
+             ON enrollment.class_id = class.id AND enrollment.deleted_at IS NULL
+           WHERE link.mentor_id = $1 AND link.deleted_at IS NULL`,
+          [identity.mentor_id],
+        )
+      : [];
+
+    const data: PublicProfileResponseDto = {
+      id: identity.id,
+      name: identity.name,
+      avatar_url: identity.avatar_url,
+      headline: identity.headline,
+      bio: identity.bio,
+      member_since: identity.member_since,
+      is_mentor: identity.is_mentor,
+      is_merchant: identity.is_merchant,
+      merchant: merchant
+        ? {
+            id: merchant.id,
+            slug: merchant.slug,
+            store_name: merchant.store_name,
+          }
+        : null,
+      mentor: identity.mentor_id
+        ? { id: identity.mentor_id, expertise_list: identity.expertise_list }
+        : null,
+      learning_statistics: learningStatistics,
+      teaching_statistics: identity.mentor_id
+        ? {
+            classes_count: teachingClasses.length,
+            active_classes_count: teachingClasses.filter(
+              (item) => item.status === 'active',
+            ).length,
+            students_count: teaching.students_count,
+          }
+        : null,
+      teaching_classes: teachingClasses,
+      certificates: certificates.map((certificate) => ({
+        id: certificate.id,
+        class_id: certificate.class_id,
+        class_title: certificate.class_title,
+        certificate_number: certificate.certificate_number,
+        issued_on: certificate.issued_on,
+        issuer_name: certificate.issuer_name,
+        mentor_name: certificate.mentor_name,
+      })),
+    };
+    return { data, responseMessage: 'Get public profile success' };
   }
 
   private async findProfileResponse(

@@ -8,6 +8,7 @@ import { Profile } from './entities/profile.entity';
 import { StudentProgress } from './entities/student-progress.entity';
 import { UserAccess } from './entities/user-access.entity';
 import { User } from '../user/entities/user.entity';
+import { MentorModule } from '../mentor/mentor.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { User } from '../user/entities/user.entity';
       User,
       UserAccess,
     ]),
+    MentorModule,
   ],
   controllers: [ProfileController],
   providers: [ProfileService],

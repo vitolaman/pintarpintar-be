@@ -4,14 +4,13 @@ Backend API for Pintar Pintar.
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+NestJS, TypeORM and PostgreSQL API behind the Pintar Pintar frontend. It covers accounts, the catalog (classes, bootcamps, digital products, bundles), learning, merchant tools, vouchers and discount codes, cart and wishlist, checkout with Duitku POP, and merchant wallets.
 
 ## Installation
 
 ```bash
-$ npm i -g @nest/cli
-$ cp .env.example .env
-$ yarn install
+$ cp .env.example .env   # then fill in the values (see Deployment and environment)
+$ npm ci                 # or: yarn install (both lockfiles are tracked)
 ```
 
 ## Running the app
@@ -38,7 +37,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 - `POST /auth/sign-in` — **public**
 - `PATCH /auth/change-password` — current password required; other devices are signed out; `data.token` replaces this device's token
 - `POST /auth/end-other-sessions` — signs out every other device; `data.token` replaces this device's token
-- `GET /users/me`
+- `GET /users/me` — `{data, responseMessage}` like every other route
 - `PATCH /users/me`
 - `DELETE /users/me` — frees the email for a new sign-up and deactivates the user's merchant (buyers keep access)
 
@@ -91,7 +90,8 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 - `GET /profile/v1/get-profile` — includes `member_since`
 - `PATCH /profile/v1/update-profile`
-- `GET /profile/v1/get-learning`
+- `GET /profile/v1/get-learning` — everything the user owns: enrolled classes (`kelas`) and bootcamps (`bootcamp`) with progress, and digital products with unexpired access; used for ownership checks and Portal Saya
+- `GET /profile/v1/get-public-profile/:userId` — **public** profile page: name, avatar, roles, expertise, learning and teaching statistics, teaching classes, issued certificates; never email or phone
 - `GET /profile/v1/get-certifications` — issued class certificates with the class mentor
 - `GET /profile/v1/get-statistics` — bootcamps, video classes, digital products, and certificates (Statistik Pembelajaran)
 - `GET /portal/v1/get-items` — owned classes, bootcamps, and digital products
@@ -139,6 +139,7 @@ Deployment needs the six `PAYMENT_*` variables in `.env.example`. `PAYMENT_GATEW
 - `GET /merchants/v1/get-customers`
 - `GET /merchants/v1/get-wallet` — earning, settled (withdrawable), and lifetime balances
 - `GET /merchants/v1/get-balance-history`
+- `POST /merchants/v1/request-withdrawal` — "Tarik Saldo": minimum Rp100.000 from the settled balance, Rp5.000 fee, to the primary or a chosen payout account; the amount leaves the balance at once and is transferred manually
 
 ### Merchant payout accounts (Rekening)
 
@@ -184,7 +185,7 @@ Account numbers are always returned masked. They are stored encrypted when `PAYO
 The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderator`) act within their permission matrix (areas `materi`, `meeting`, `tugas`, `nilai`, `sertifikat` × `lihat`, `tambah`, `edit`, `delete`): missing permission is 403, anyone else gets 404. Class status `archived` means unlisted (hidden from lists, open by link). Writes return `{data, responseMessage}`; deletes return 204.
 
 - `GET /merchants/v1/:merchantId/classes` — filter by `status` and `type`; `limit` up to 100
-- `POST /merchants/v1/:merchantId/classes`
+- `POST /merchants/v1/:merchantId/classes` — also accepts Bidang (`category`: Coding/Elektro/Mesin/Desain/Sipil/Kimia), `level` (Pemula/Menengah/Mahir), `duration`, `prerequisites`, and `learning_outcomes` (up to 20); `PATCH /api/v1/classes/:classId` updates them
 - `GET /api/v1/classes/:classId`
 - `PATCH /api/v1/classes/:classId` — details, prices, cover (`class_cover`), post-purchase instructions; a lead tutor may change only title, description, cover, and instructions
 - `GET /api/v1/classes/:classId/chapters` — chapters with videos and resources in order; file resources carry signed download links
@@ -235,6 +236,8 @@ Every route requires an active enrollment or product access and answers 404 othe
 - `GET /learning/v1/get-grades/:classId` — scores, feedback, Partisipasi and average
 - `GET /learning/v1/get-meeting/:meetingId` — the check-in page (`/absensi`)
 - `POST /learning/v1/check-in/:meetingId` — after the start; identity from the account; optional review
+- `GET /learning/v1/get-attendance-session/:classId` — **public** attendance page (`/absensi/{classId}`): class, merchant, mentors, and the latest started meeting (or the next one); never the meeting link
+- `POST /learning/v1/check-in-by-email/:classId` — **public**; `{name, email, feedback?}`; the email must belong to a learner enrolled in the class; checks in to the latest started meeting; 10 per 10 minutes per client
 - `GET /learning/v1/get-digital-product/:id` — owned product with a signed download, also after the merchant deletes it
 
 ### File upload (S3 multipart)
@@ -307,17 +310,46 @@ $ npm run build
 $ npm test
 ```
 
+`npm run test:e2e` fails before running on Node 26 (a dependency uses the removed `SlowBuffer`); run it on Node 20 or 22.
+
 Database schema changes require a reviewed TypeORM migration in `src/database/migrations/pintar-pintar/`. Runtime synchronization is disabled (`synchronize: false`) and must stay disabled: it previously dropped foreign keys, unique constraints, and indexes on the shared database. Pending migrations run automatically when the application starts (`migrationsRun: true`), so every entity change must ship with its migration in the same commit, or the application fails with a missing-column error.
 
 Write migrations so they succeed both on a database built only from migrations and on one where the objects already exist (`IF NOT EXISTS`, catalog checks). Declare identifier columns with an explicit `type: 'uuid'`; an untyped `@Column({ name: 'x_id' })` maps to `varchar`.
 
 ## Create Migration
 
+Write migrations by hand in `src/database/migrations/pintar-pintar/`, named `<timestamp>-<what-it-does>.ts`, idempotent (`IF NOT EXISTS`, catalog checks) and guarded: check existing data before adding a constraint, and abort with a clear message instead of failing halfway. `migration:generate` is not used, because entities describe columns only; constraints and indexes live in the migrations.
+
 ```bash
-$ npx typeorm migration:generate {{name}} -d dist/database/database.data-source.js
+# apply to the local database, then check the status
+$ npm run db:local:migrate
+$ npm run db:local:status
 ```
 
-Then copy the migration file to `src/database/migrations`.
+Verify each migration locally on a database built only from migrations and on a copy of the shared schema. It must converge to the same schema, and a second run must be a no-op. `migration:revert` must restore the previous schema.
+
+## Deployment and environment
+
+Every variable is listed in `.env.example`.
+
+**Required:**
+- `DB_*`.
+- `JWT_ADMIN_KEY`: the application refuses to start without it. Changing it signs every user out.
+- The S3 settings (`AWS_*`) for uploads and private files.
+- `ASSET_PUBLIC_BASE_URL`, or image URLs are `null`.
+- The six `PAYMENT_*` settings, or paid checkout answers 503.
+
+**Optional:**
+- `PAYOUT_ACCOUNT_ENCRYPTION_KEY`: never change or remove it once used.
+- The `OTEL_*` tracing settings.
+- `ENV_FILE`, which selects the env file (default `.env`).
+
+**Deploy steps:**
+1. Before the first deploy to a database, run `openspec/changes/restore-shared-schema-integrity/preconditions.sql` (read-only) against it. Pending migrations then run automatically at startup (`migrationsRun: true`), and a migration whose guard fails stops the startup with its message.
+2. Duitku posts payment notifications to `PAYMENT_CALLBACK_URL`. It must be public on port 80 or 443, and Cloudflare must let `POST /payments/v1/duitku-callback` through without a bot challenge. Unpaid orders expire every minute, and settlement runs every 30 minutes.
+3. Withdrawals are processed manually:
+   - after transferring, set the payout's `status` to `success`;
+   - when a transfer fails, set it to `failed` and add the amount back to the merchant wallet's `earning_balance` and `settled_balance`.
 
 ## License
 

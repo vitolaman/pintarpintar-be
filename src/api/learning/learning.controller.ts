@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -11,7 +12,11 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { LearningProgressService } from '../../class/learning-progress.service';
-import { LearnerProgressResponseDto } from './dto/learning-response.dto';
+import {
+  LearnerProgressResponseDto,
+  LearningClassResponseDto,
+} from './dto/learning-response.dto';
+import { LearningClassService } from './learning-class.service';
 
 type AuthenticatedRequest = { user: { id: string } };
 
@@ -21,7 +26,24 @@ type AuthenticatedRequest = { user: { id: string } };
 @ApiBearerAuth()
 @ApiTags('Learning')
 export class LearningController {
-  constructor(private readonly learningProgress: LearningProgressService) {}
+  constructor(
+    private readonly learningProgress: LearningProgressService,
+    private readonly learningClass: LearningClassService,
+  ) {}
+
+  @Get('get-class/:id')
+  @DefaultResponse(
+    LearningClassResponseDto,
+    'Get learning class success',
+    HttpStatus.OK,
+    [NotFoundException],
+  )
+  findClass(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.learningClass.findClass(req.user.id, id);
+  }
 
   @Post('complete-video/:videoId')
   @HttpCode(HttpStatus.OK)

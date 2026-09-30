@@ -21,3 +21,99 @@ export class LearnerProgressResponseDto {
   })
   next_video: NextVideoDto | null;
 }
+
+export class LearningMerchantDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiPropertyOptional({ nullable: true }) slug: string | null;
+}
+
+export class LearningMentorDto {
+  @ApiProperty({ description: 'Mentor id used by the profile page' })
+  id: string;
+  @ApiProperty() name: string;
+  @ApiPropertyOptional({ nullable: true }) avatar_url: string | null;
+}
+
+export class LearningVideoDto {
+  @ApiProperty() id: string;
+  @ApiProperty() title: string;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
+  @ApiPropertyOptional({ nullable: true }) duration: string | null;
+  @ApiProperty() youtube_url: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Set for YouTube links; null for other embeds',
+  })
+  youtube_id: string | null;
+  @ApiProperty() order: number;
+  @ApiProperty() is_completed: boolean;
+  @ApiProperty() created_at: Date;
+}
+
+export class LearningResourceDto {
+  @ApiProperty() id: string;
+  @ApiProperty() chapter_id: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ example: 'pdf' }) type: string;
+  @ApiPropertyOptional({ nullable: true, description: 'Bytes' })
+  size: string | null;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Link resources and older URL-only files',
+  })
+  url: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Uploaded files: signed link valid 10 minutes',
+  })
+  download_url: string | null;
+  @ApiProperty() created_at: Date;
+}
+
+export class LearningChapterDto {
+  @ApiProperty() id: string;
+  @ApiProperty() title: string;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
+  @ApiProperty() order: number;
+  @ApiProperty({ type: [LearningVideoDto] }) videos: LearningVideoDto[];
+  @ApiProperty({ type: [LearningResourceDto] }) files: LearningResourceDto[];
+}
+
+export class LearningMeetingDto {
+  @ApiProperty() id: string;
+  @ApiProperty() title: string;
+  @ApiPropertyOptional({ nullable: true }) content: string | null;
+  @ApiPropertyOptional({ nullable: true, example: '2026-10-15' })
+  date: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    example: '19:30',
+    description: 'Asia/Jakarta',
+  })
+  time: string | null;
+  @ApiPropertyOptional({ nullable: true }) live_url: string | null;
+  @ApiProperty({
+    enum: ['upcoming', 'completed'],
+    description: 'Completed three hours after the start',
+  })
+  status: string;
+}
+
+export class LearningClassResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() title: string;
+  @ApiProperty({ enum: ['video', 'live-bootcamp'] }) type: string;
+  @ApiProperty() status: string;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
+  @ApiPropertyOptional({ nullable: true }) cover_url: string | null;
+  @ApiProperty({ type: LearningMerchantDto }) merchant: LearningMerchantDto;
+  @ApiProperty() students_count: number;
+  @ApiProperty({ type: [LearningMentorDto] }) mentors: LearningMentorDto[];
+  @ApiProperty({ type: [LearningChapterDto] }) chapters: LearningChapterDto[];
+  @ApiProperty({ type: [LearningMeetingDto] }) meetings: LearningMeetingDto[];
+  @ApiProperty() progress: number;
+  @ApiPropertyOptional({ type: NextVideoDto, nullable: true })
+  next_video: NextVideoDto | null;
+}

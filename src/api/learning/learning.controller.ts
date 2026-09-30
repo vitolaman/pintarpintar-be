@@ -18,6 +18,8 @@ import {
   DefaultResponse,
 } from '~/common/decorator/response.decorator';
 import { LearningProgressService } from '../../class/learning-progress.service';
+import { ClassAttendanceService } from '../../class/class-attendance.service';
+import { CheckInDto, LearnerMeetingDto } from '../../class/dto/attendance.dto';
 import {
   LearnerProgressResponseDto,
   LearningClassResponseDto,
@@ -46,6 +48,7 @@ export class LearningController {
     private readonly learningClass: LearningClassService,
     private readonly learningAssignment: LearningAssignmentService,
     private readonly learningSubmission: LearningSubmissionService,
+    private readonly classAttendance: ClassAttendanceService,
   ) {}
 
   @Post('submit-assignment/:assignmentId')
@@ -88,6 +91,31 @@ export class LearningController {
     @Param('classId', ParseUUIDPipe) classId: string,
   ) {
     return this.learningAssignment.findAssignments(req.user.id, classId);
+  }
+
+  @Get('get-meeting/:meetingId')
+  @DefaultResponse(LearnerMeetingDto, 'Get meeting success', HttpStatus.OK, [
+    NotFoundException,
+  ])
+  findMeeting(
+    @Req() req: AuthenticatedRequest,
+    @Param('meetingId', ParseUUIDPipe) meetingId: string,
+  ) {
+    return this.classAttendance.findMeetingForLearner(req.user.id, meetingId);
+  }
+
+  @Post('check-in/:meetingId')
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(LearnerMeetingDto, 'Check in success', HttpStatus.OK, [
+    BadRequestException,
+    NotFoundException,
+  ])
+  checkIn(
+    @Req() req: AuthenticatedRequest,
+    @Param('meetingId', ParseUUIDPipe) meetingId: string,
+    @Body() input: CheckInDto,
+  ) {
+    return this.classAttendance.checkIn(req.user.id, meetingId, input.review);
   }
 
   @Get('get-grades/:classId')

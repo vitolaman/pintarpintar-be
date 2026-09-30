@@ -23,6 +23,12 @@ import { ClassService } from './class.service';
 import { ClassContentService } from './class-content.service';
 import { ClassAssignmentService } from './class-assignment.service';
 import { ClassGradingService } from './class-grading.service';
+import { ClassAttendanceService } from './class-attendance.service';
+import {
+  AttendanceRecapDto,
+  AttendanceSummaryDto,
+  SetAttendanceStatusDto,
+} from './dto/attendance.dto';
 import {
   GradeSubmissionDto,
   GradeTableDto,
@@ -61,6 +67,7 @@ export class ClassController {
     private readonly classContentService: ClassContentService,
     private readonly classAssignmentService: ClassAssignmentService,
     private readonly classGradingService: ClassGradingService,
+    private readonly classAttendanceService: ClassAttendanceService,
   ) {}
 
   @Get(':classId')
@@ -294,6 +301,47 @@ export class ClassController {
       classId,
       meetingId,
       dto,
+    );
+  }
+
+  @Get(':classId/attendance-summary')
+  @DefaultResponse(AttendanceSummaryDto, 'Get attendance summary success')
+  findAttendanceSummary(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+  ) {
+    return this.classAttendanceService.findSummary(req.user.id, classId);
+  }
+
+  @Get(':classId/meetings/:meetingId/attendances')
+  @DefaultResponse(AttendanceRecapDto, 'Get attendance success')
+  findAttendance(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('meetingId', ParseUUIDPipe) meetingId: string,
+  ) {
+    return this.classAttendanceService.findRecap(
+      req.user.id,
+      classId,
+      meetingId,
+    );
+  }
+
+  @Patch(':classId/meetings/:meetingId/attendances/:userId')
+  @DefaultResponse(AttendanceRecapDto, 'Get attendance success')
+  setAttendanceStatus(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('meetingId', ParseUUIDPipe) meetingId: string,
+    @Param('userId', ParseUUIDPipe) learnerId: string,
+    @Body() dto: SetAttendanceStatusDto,
+  ) {
+    return this.classAttendanceService.setStatus(
+      req.user.id,
+      classId,
+      meetingId,
+      learnerId,
+      dto.status,
     );
   }
 

@@ -20,6 +20,8 @@ import { DiscussionThread } from './entities/discussion-thread.entity';
 import { Comment } from './entities/comment.entity';
 import { ClassMentor } from './entities/class-mentor.entity';
 import { Enrollment } from './entities/enrollment.entity';
+import { VideoCompletion } from './entities/video-completion.entity';
+import { ClassCertificateSettings } from './entities/class-certificate-settings.entity';
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { Enrollment } from './entities/enrollment.entity';
       Comment,
       ClassMentor,
       Enrollment,
+      VideoCompletion,
+      ClassCertificateSettings,
     ]),
   ],
   controllers: [ClassController],

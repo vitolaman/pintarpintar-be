@@ -5,14 +5,14 @@ import { User } from '../../api/user/entities/user.entity';
 
 @Entity({ name: 'enrollments' })
 export class Enrollment extends AuditedBaseEntity {
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   user_id: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'class_id' })
+  @Column({ name: 'class_id', type: 'uuid' })
   class_id: string;
 
   @ManyToOne(() => Class, (cls) => cls.enrollments)

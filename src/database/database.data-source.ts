@@ -43,6 +43,8 @@ import { DiscussionThread } from '~/class/entities/discussion-thread.entity';
 import { Comment } from '~/class/entities/comment.entity';
 import { ClassMentor } from '~/class/entities/class-mentor.entity';
 import { Enrollment } from '~/class/entities/enrollment.entity';
+import { VideoCompletion } from '~/class/entities/video-completion.entity';
+import { ClassCertificateSettings } from '~/class/entities/class-certificate-settings.entity';
 import { Discount } from '~/api/discount/entities/discount.entity';
 import { DiscountCode } from '~/api/discount/entities/discount-code.entity';
 import { DiscountProduct } from '~/api/discount/entities/discount-product.entity';
@@ -103,6 +105,8 @@ export const dataSourceOptions: DataSourceOptions = {
     Comment,
     ClassMentor,
     Enrollment,
+    VideoCompletion,
+    ClassCertificateSettings,
     Voucher,
     Discount,
     DiscountProduct,

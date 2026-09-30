@@ -40,6 +40,7 @@ import { ReviewModule } from './api/review/review.module';
 import { PromoModule } from './api/promo/promo.module';
 import { DiscussionModule } from './api/discussion/discussion.module';
 import { DigitalProductModule } from './api/digital-product/digital-product.module';
+import { LearningModule } from './api/learning/learning.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { DigitalProductModule } from './api/digital-product/digital-product.modu
     PromoModule,
     DiscussionModule,
     DigitalProductModule,
+    LearningModule,
   ],
   controllers: [AppController],
   providers: [

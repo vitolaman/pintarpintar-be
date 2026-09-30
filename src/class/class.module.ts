@@ -5,6 +5,7 @@ import { ClassAccessService } from './class-access.service';
 import { ClassContentService } from './class-content.service';
 import { ClassAssignmentService } from './class-assignment.service';
 import { LearnerAccessService } from './learner-access.service';
+import { LearningProgressService } from './learning-progress.service';
 import { ClassController } from './class.controller';
 import { Class } from './entities/class.entity';
 import { Chapter } from './entities/chapter.entity';
@@ -53,7 +54,13 @@ import { ClassCertificateSettings } from './entities/class-certificate-settings.
     ClassContentService,
     ClassAssignmentService,
     LearnerAccessService,
+    LearningProgressService,
   ],
-  exports: [ClassService, ClassAccessService, LearnerAccessService],
+  exports: [
+    ClassService,
+    ClassAccessService,
+    LearnerAccessService,
+    LearningProgressService,
+  ],
 })
 export class ClassModule {}

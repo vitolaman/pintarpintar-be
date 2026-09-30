@@ -12,7 +12,6 @@ import { FileAsset } from './entities/file-asset.entity';
 import { Product } from './entities/product.entity';
 import { Profile } from './entities/profile.entity';
 import { StudentProgress } from './entities/student-progress.entity';
-import { UserAccess } from './entities/user-access.entity';
 import { User } from '../user/entities/user.entity';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import { Mentor } from '../mentor/entities/mentor.entity';
@@ -23,6 +22,7 @@ import {
 } from '../../common/storage/object-storage';
 import { signedDownloadUrl } from '../../common/storage/signed-download-url';
 import { assetUrl } from '../../common/storage/asset-url';
+import { progressSql } from '../../class/learning-progress.service';
 import { splitSkills } from '../../common/util/skill-list';
 import {
   LearningItemResponseDto,
@@ -44,8 +44,6 @@ export class ProfileService {
     private readonly profiles: Repository<Profile>,
     @InjectRepository(StudentProgress)
     private readonly studentProgress: Repository<StudentProgress>,
-    @InjectRepository(UserAccess)
-    private readonly userAccess: Repository<UserAccess>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
     configService: ConfigService,
@@ -124,41 +122,45 @@ export class ProfileService {
     }));
   }
 
+  // Everything the user owns: digital products with unexpired access, and
+  // classes and bootcamps with an active enrollment. The frontend uses this
+  // list for ownership checks and Portal Saya.
   async findLearning(userId: string) {
-    const rows = await this.userAccess
-      .createQueryBuilder('access')
-      .innerJoin(Product, 'product', 'product.id = access.product_id')
-      .leftJoin(
-        StudentProgress,
-        'progress',
-        'progress.access_id = access.id AND progress.deleted_at IS NULL',
-      )
-      .leftJoin(
-        FileAsset,
-        'cover',
-        'cover.id = product.cover_asset_id AND cover.deleted_at IS NULL',
-      )
-      .select([
-        'access.id AS access_id',
-        'access.expires_at AS expires_at',
-        'access.granted_at AS granted_at',
-        'product.id AS product_id',
-        'product.title AS title',
-        'product.product_type AS product_type',
-        'product.level AS level',
-        'product.cover_asset_id AS cover_asset_id',
-        'cover.object_key AS cover_object_key',
-        'COALESCE(progress.completion_percentage, 0) AS completion_percentage',
-        'COALESCE(progress.total_time_spent, 0) AS total_time_spent',
-        'progress.last_accessed_at AS last_accessed_at',
-      ])
-      .where('access.user_id = :userId', { userId })
-      .andWhere('access.deleted_at IS NULL')
-      .andWhere('product.deleted_at IS NULL')
-      .andWhere('(access.expires_at IS NULL OR access.expires_at > now())')
-      .orderBy('progress.last_accessed_at', 'DESC', 'NULLS LAST')
-      .addOrderBy('access.granted_at', 'DESC')
-      .getRawMany<LearningRow>();
+    const rows: LearningRow[] = await this.dataSource.query(
+      `SELECT * FROM (
+         SELECT access.id AS access_id, access.expires_at, access.granted_at AS acquired_at,
+                product.id AS product_id, product.title, product.product_type, product.level,
+                product.cover_asset_id, cover.object_key AS cover_object_key,
+                COALESCE(progress.completion_percentage, 0) AS completion_percentage,
+                COALESCE(progress.total_time_spent, 0) AS total_time_spent,
+                progress.last_accessed_at
+         FROM user_access access
+         INNER JOIN products product ON product.id = access.product_id AND product.deleted_at IS NULL
+         LEFT JOIN student_progress progress
+           ON progress.access_id = access.id AND progress.deleted_at IS NULL
+         LEFT JOIN file_assets cover ON cover.id = product.cover_asset_id AND cover.deleted_at IS NULL
+         WHERE access.user_id = $1 AND access.deleted_at IS NULL
+           AND (access.expires_at IS NULL OR access.expires_at > now())
+
+         UNION ALL
+
+         SELECT enrollment.id, NULL::timestamp, enrollment.created_at,
+                class.id, class.title,
+                CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END,
+                class.level, class.cover_asset_id, cover.object_key,
+                ${progressSql('$1::uuid', 'class.id')},
+                0,
+                (SELECT max(completion.completed_at) FROM video_completions completion
+                 WHERE completion.user_id = $1 AND completion.class_id = class.id
+                   AND completion.deleted_at IS NULL)
+         FROM enrollments enrollment
+         INNER JOIN classes class ON class.id = enrollment.class_id AND class.deleted_at IS NULL
+         LEFT JOIN file_assets cover ON cover.id = class.cover_asset_id AND cover.deleted_at IS NULL
+         WHERE enrollment.user_id = $1 AND enrollment.deleted_at IS NULL
+       ) learning
+       ORDER BY last_accessed_at DESC NULLS LAST, acquired_at DESC, product_id`,
+      [userId],
+    );
 
     return {
       data: rows.map((row) => this.toLearningItem(row)),
@@ -320,6 +322,7 @@ export class ProfileService {
       level: row.level,
       cover_asset_id: row.cover_asset_id,
       cover_object_key: row.cover_object_key,
+      cover_url: assetUrl(row.cover_object_key),
       completion_percentage: completionPercentage,
       progress_status:
         completionPercentage >= 100

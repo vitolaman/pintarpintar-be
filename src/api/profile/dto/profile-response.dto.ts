@@ -63,7 +63,11 @@ export class LearningItemResponseDto {
   @ApiProperty()
   title: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    example: 'kelas',
+    description:
+      "`kelas` (video class), `bootcamp` (live bootcamp), or the digital product's type",
+  })
   product_type: string;
 
   @ApiPropertyOptional()
@@ -74,6 +78,9 @@ export class LearningItemResponseDto {
 
   @ApiPropertyOptional()
   cover_object_key: string | null;
+
+  @ApiPropertyOptional({ description: 'Public cover URL' })
+  cover_url: string | null;
 
   @ApiProperty({ example: 70 })
   completion_percentage: number;

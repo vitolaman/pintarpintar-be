@@ -5,18 +5,15 @@ import { FileAsset } from './entities/file-asset.entity';
 import { Product } from './entities/product.entity';
 import { Profile } from './entities/profile.entity';
 import { StudentProgress } from './entities/student-progress.entity';
-import { UserAccess } from './entities/user-access.entity';
 import { User } from '../user/entities/user.entity';
 
 describe('ProfileService', () => {
   const userId = '06f7152e-7cc9-42f6-a4f0-8a84eb31e384';
   let service: ProfileService;
   let dataSource: { transaction: jest.Mock; query: jest.Mock };
-  let userAccess: jest.Mocked<Partial<Repository<UserAccess>>>;
   let users: jest.Mocked<Partial<Repository<User>>>;
 
   beforeEach(() => {
-    userAccess = { createQueryBuilder: jest.fn() };
     dataSource = { transaction: jest.fn(), query: jest.fn() };
     users = { createQueryBuilder: jest.fn() };
 
@@ -26,20 +23,32 @@ describe('ProfileService', () => {
       {} as Repository<Product>,
       {} as Repository<Profile>,
       {} as Repository<StudentProgress>,
-      userAccess as Repository<UserAccess>,
       users as Repository<User>,
       new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
     );
   });
 
-  it('returns active learning records with deterministic progress states', async () => {
-    const query = chainableQuery([
+  it('lists digital access and class enrollments with progress states', async () => {
+    dataSource.query.mockResolvedValueOnce([
+      {
+        access_id: 'enrollment-id',
+        product_id: 'class-id',
+        title: 'Bootcamp Revit',
+        product_type: 'bootcamp',
+        level: 'Pemula',
+        cover_asset_id: 'asset-id',
+        cover_object_key: 'uploads/revit.png',
+        completion_percentage: 40,
+        total_time_spent: '0',
+        last_accessed_at: new Date('2026-09-08T01:00:00.000Z'),
+        expires_at: null,
+      },
       {
         access_id: 'access-not-started',
         product_id: 'product-not-started',
-        title: 'PLC Programming',
-        product_type: 'video_class',
-        level: 'Pemula',
+        title: 'Template RAB',
+        product_type: 'digital',
+        level: null,
         cover_asset_id: null,
         cover_object_key: null,
         completion_percentage: '0',
@@ -51,40 +60,39 @@ describe('ProfileService', () => {
         access_id: 'access-complete',
         product_id: 'product-complete',
         title: 'AutoCAD',
-        product_type: 'video_class',
+        product_type: 'digital',
         level: 'Menengah',
-        cover_asset_id: 'asset-id',
-        cover_object_key: 'course-covers/autocad.png',
+        cover_asset_id: null,
+        cover_object_key: null,
         completion_percentage: '100',
         total_time_spent: '7200',
-        last_accessed_at: new Date('2026-09-07T01:00:00.000Z'),
+        last_accessed_at: null,
         expires_at: null,
       },
     ]);
-    userAccess.createQueryBuilder.mockReturnValue(query as never);
 
     const response = await service.findLearning(userId);
 
-    expect(response).toEqual({
-      responseMessage: 'Get learning success',
-      data: [
-        expect.objectContaining({
-          access_id: 'access-not-started',
-          progress_status: 'not_started',
-          completion_percentage: 0,
-        }),
-        expect.objectContaining({
-          access_id: 'access-complete',
-          progress_status: 'completed',
-          completion_percentage: 100,
-          total_time_spent: 7200,
-        }),
-      ],
+    expect(
+      response.data.map((item) => [item.product_type, item.progress_status]),
+    ).toEqual([
+      ['bootcamp', 'in_progress'],
+      ['digital', 'not_started'],
+      ['digital', 'completed'],
+    ]);
+    expect(response.data[0]).toMatchObject({
+      product_id: 'class-id',
+      completion_percentage: 40,
+      cover_object_key: 'uploads/revit.png',
     });
-    expect(query.where).toHaveBeenCalledWith('access.user_id = :userId', {
-      userId,
-    });
-    expect(query.leftJoin).toHaveBeenCalledTimes(2);
+    expect(response.data[2].total_time_spent).toBe(7200);
+    const [sql, params] = dataSource.query.mock.calls[0];
+    expect(params).toEqual([userId]);
+    expect(sql).toContain('FROM enrollments enrollment');
+    expect(sql).toContain(
+      "WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas'",
+    );
+    expect(sql).toContain('access.expires_at > now()');
   });
 
   it('returns profile identity and server-side role capabilities', async () => {
@@ -259,27 +267,6 @@ describe('ProfileService', () => {
     );
   });
 });
-
-function chainableQuery(rows: unknown[]) {
-  const query = {
-    innerJoin: jest.fn(),
-    leftJoin: jest.fn(),
-    select: jest.fn(),
-    where: jest.fn(),
-    andWhere: jest.fn(),
-    orderBy: jest.fn(),
-    addOrderBy: jest.fn(),
-    getRawMany: jest.fn().mockResolvedValue(rows),
-  };
-
-  Object.entries(query).forEach(([key, value]) => {
-    if (key !== 'getRawMany') {
-      (value as jest.Mock).mockReturnValue(query);
-    }
-  });
-
-  return query;
-}
 
 function chainableSingleQuery(row: unknown) {
   const query = {

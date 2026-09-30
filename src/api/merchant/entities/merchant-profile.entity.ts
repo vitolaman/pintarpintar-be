@@ -1,4 +1,9 @@
 import { Column, Entity } from 'typeorm';
+
+export interface LandingLayout {
+  section_order: string[];
+  item_order: Record<string, string[]>;
+}
 import { BaseEntity } from '~/common/entities/base-entity';
 
 @Entity({ name: 'merchant_profiles' })
@@ -68,6 +73,12 @@ export class MerchantProfile extends BaseEntity {
 
   @Column({ name: 'digital_license', type: 'text', nullable: true })
   digitalLicense: string | null;
+
+  @Column({ name: 'landing_background_asset_id', type: 'uuid', nullable: true })
+  landingBackgroundAssetId: string | null;
+
+  @Column({ name: 'landing_layout', type: 'jsonb', nullable: true })
+  landingLayout: LandingLayout | null;
 
   @Column({ name: 'need_change_password', nullable: true, default: false })
   needChangePassword: boolean | null;

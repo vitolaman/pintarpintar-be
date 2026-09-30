@@ -28,6 +28,9 @@ export class MentorResponseDto {
   @ApiProperty()
   expertise: string;
 
+  @ApiProperty({ type: [String], example: ['AutoCAD', 'SAP2000'] })
+  expertise_list: string[];
+
   @ApiProperty()
   experience_years: number;
 
@@ -74,6 +77,9 @@ export class PublicMentorResponseDto {
   @ApiProperty()
   expertise: string;
 
+  @ApiProperty({ type: [String], example: ['AutoCAD', 'SAP2000'] })
+  expertise_list: string[];
+
   @ApiProperty()
   experience_years: number;
 
@@ -85,4 +91,30 @@ export class PublicMentorResponseDto {
 
   @ApiProperty()
   linkedin_url: string;
+}
+
+export class MentorDocumentResponseDto {
+  @ApiProperty({ enum: ['cv', 'skill_certificate'] })
+  kind: 'cv' | 'skill_certificate';
+
+  @ApiProperty({ format: 'uuid' })
+  asset_id: string;
+
+  @ApiProperty()
+  filename: string;
+
+  @ApiProperty()
+  mime_type: string;
+
+  @ApiProperty()
+  size_bytes: number;
+
+  @ApiProperty()
+  uploaded_at: Date;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed download URL valid for 10 minutes; null for documents stored before S3 storage.',
+  })
+  download_url: string | null;
 }

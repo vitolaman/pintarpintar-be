@@ -1,27 +1,54 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createHash, randomUUID } from 'crypto';
-import { mkdir, rm, writeFile } from 'fs/promises';
-import { join } from 'path';
+import {
+  ObjectStorage,
+  createObjectStorage,
+} from '../../common/storage/object-storage';
+
+export const MENTOR_DOCUMENT_PROVIDER = 's3';
+const DOWNLOAD_URL_TTL_SECONDS = 600;
 
 export interface StoredMentorDocument {
   assetId: string;
   objectKey: string;
-  absolutePath: string;
   originalFilename: string;
   mimeType: string;
   sizeBytes: number;
   checksumSha256: string;
 }
 
+export type MentorDocumentFiles = {
+  cv?: Express.Multer.File[];
+  skill_certificate?: Express.Multer.File[];
+};
+
+// Mentor CVs and certificates are private objects in the shared bucket; a
+// container's local disk does not survive redeploys.
 @Injectable()
 export class MentorDocumentStorageService {
-  private readonly root = join(process.cwd(), 'mentor_documents');
+  private readonly logger = new Logger(MentorDocumentStorageService.name);
   private readonly maxBytes = 5 * 1024 * 1024;
+  private readonly storage: ObjectStorage;
 
-  async storeRequiredDocuments(files: {
-    cv?: Express.Multer.File[];
-    skill_certificate?: Express.Multer.File[];
-  }): Promise<{ cv: StoredMentorDocument; certificate: StoredMentorDocument }> {
+  constructor(configService: ConfigService) {
+    this.storage = createObjectStorage(configService);
+  }
+
+  async storeRequiredDocuments(
+    files: MentorDocumentFiles,
+  ): Promise<{ cv: StoredMentorDocument; certificate: StoredMentorDocument }> {
     const cv = this.singleFile(files.cv, 'CV');
     const certificate = this.singleFile(
       files.skill_certificate,
@@ -44,11 +71,65 @@ export class MentorDocumentStorageService {
     }
   }
 
-  async remove(documents: StoredMentorDocument[]): Promise<void> {
+  // Replacement accepts either document; at least one is required.
+  async storeReplacementDocuments(files: MentorDocumentFiles): Promise<{
+    cv?: StoredMentorDocument;
+    certificate?: StoredMentorDocument;
+  }> {
+    const cv = files.cv?.[0];
+    const certificate = files.skill_certificate?.[0];
+    if (!cv && !certificate) {
+      throw new BadRequestException(
+        'Provide a CV and/or a Skill Certificate file',
+      );
+    }
+    if (cv) this.validate(cv, 'cv');
+    if (certificate) this.validate(certificate, 'certificate');
+
+    const stored: StoredMentorDocument[] = [];
+    try {
+      const storedCv = cv ? await this.store(cv) : undefined;
+      if (storedCv) stored.push(storedCv);
+      const storedCertificate = certificate
+        ? await this.store(certificate)
+        : undefined;
+      if (storedCertificate) stored.push(storedCertificate);
+      return { cv: storedCv, certificate: storedCertificate };
+    } catch (error) {
+      await this.remove(stored);
+      throw error;
+    }
+  }
+
+  async remove(documents: { objectKey: string }[]): Promise<void> {
     await Promise.all(
       documents.map((document) =>
-        rm(document.absolutePath, { force: true }).catch(() => undefined),
+        this.storage.client
+          .send(
+            new DeleteObjectCommand({
+              Bucket: this.storage.bucket,
+              Key: document.objectKey,
+            }),
+          )
+          .catch((error) =>
+            this.logger.warn(
+              `Could not delete mentor document ${document.objectKey}: ${error}`,
+            ),
+          ),
       ),
+    );
+  }
+
+  signedDownloadUrl(objectKey: string, filename: string): Promise<string> {
+    const safeName = filename.replace(/["\\\r\n]/g, '_');
+    return getSignedUrl(
+      this.storage.client,
+      new GetObjectCommand({
+        Bucket: this.storage.bucket,
+        Key: objectKey,
+        ResponseContentDisposition: `attachment; filename="${safeName}"`,
+      }),
+      { expiresIn: DOWNLOAD_URL_TTL_SECONDS },
     );
   }
 
@@ -84,17 +165,30 @@ export class MentorDocumentStorageService {
     }
   }
 
-  private async store(file: Express.Multer.File): Promise<StoredMentorDocument> {
+  private async store(
+    file: Express.Multer.File,
+  ): Promise<StoredMentorDocument> {
     const assetId = randomUUID();
-    const extension = this.extensionFor(file.mimetype);
-    const objectKey = `mentor-documents/${assetId}${extension}`;
-    const absolutePath = join(this.root, `${assetId}${extension}`);
-    await mkdir(this.root, { recursive: true });
-    await writeFile(absolutePath, file.buffer, { flag: 'wx' });
+    const objectKey = `mentor-documents/${assetId}${this.extensionFor(file.mimetype)}`;
+    try {
+      await this.storage.client.send(
+        new PutObjectCommand({
+          Bucket: this.storage.bucket,
+          Key: objectKey,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        }),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not store mentor document ${objectKey}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new BadGatewayException('Document storage is unavailable');
+    }
     return {
       assetId,
       objectKey,
-      absolutePath,
       originalFilename: file.originalname.slice(0, 255),
       mimeType: file.mimetype,
       sizeBytes: file.size,
@@ -120,13 +214,14 @@ export class MentorDocumentStorageService {
     const signatures: Record<string, number[]> = {
       'application/pdf': [0x25, 0x50, 0x44, 0x46, 0x2d],
       'application/msword': [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [
-        0x50, 0x4b, 0x03, 0x04,
-      ],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        [0x50, 0x4b, 0x03, 0x04],
       'image/jpeg': [0xff, 0xd8, 0xff],
       'image/png': [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
     };
     const signature = signatures[mimeType];
-    return !!signature && signature.every((byte, index) => buffer[index] === byte);
+    return (
+      !!signature && signature.every((byte, index) => buffer[index] === byte)
+    );
   }
 }

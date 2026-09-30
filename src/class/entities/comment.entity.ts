@@ -11,7 +11,7 @@ export class Comment extends AuditedBaseEntity {
   @JoinColumn({ name: 'thread_id' })
   thread: DiscussionThread;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'uuid' })
   author_id: string;
 
   @Column({ type: 'varchar', nullable: true })

@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEmail,
   IsIn,
   IsInt,
@@ -11,6 +13,7 @@ import {
   Length,
   Max,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { merchantCategoryLabels } from '~/common/constants/merchant-category';
 
@@ -25,10 +28,14 @@ export class UpdateMerchantProfileDto {
   @Transform(({ value }) => value?.trim())
   store_name?: string;
 
-  @ApiPropertyOptional({ example: 'Kelas teknologi praktis.' })
+  @ApiPropertyOptional({
+    example: '<p><b>Kelas</b> teknologi praktis.</p>',
+    description:
+      'Rich text; sanitized to bold, italic, underline, lists, alignment, and font sizes 10–32px',
+  })
   @IsOptional()
   @IsString()
-  @Length(1, 2_000)
+  @Length(1, 10_000)
   @Transform(({ value }) => value?.trim())
   store_description?: string;
 
@@ -166,4 +173,38 @@ export class UpdateMerchantProfileDto {
   @IsOptional()
   @IsUUID()
   cover_asset_id?: string | null;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['AutoCAD', 'Structural Design'],
+    description: 'Bidang badges in display order; replaces the current list',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @Length(1, 60, { each: true })
+  skills?: string[];
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Registered upload with purpose merchant_landing_background',
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  landing_background_asset_id?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: {
+      section_order: ['best_seller', 'bootcamp', 'kelas', 'digital', 'bundles'],
+      item_order: { best_seller: ['3fa85f64-5717-4562-b3fc-2c963f66afa6'] },
+    },
+    description:
+      'Landing page section order and per-section item order; null resets to the default',
+  })
+  @IsOptional()
+  landing_layout?: Record<string, unknown> | null;
 }

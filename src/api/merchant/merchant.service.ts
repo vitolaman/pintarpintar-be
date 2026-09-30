@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -6,11 +7,18 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { merchantCategorySlugForLabel } from '~/common/constants/merchant-category';
+import {
+  RICH_TEXT_MAX_LENGTH,
+  sanitizeRichText,
+} from '../../common/html/sanitize-rich-text';
+import { assetUrl } from '../../common/storage/asset-url';
+import { uniqueSkills } from '../../common/util/skill-list';
 import { assertOwnedImageAsset } from '../file-asset/image-asset-rules';
 import { FileAsset } from '../profile/entities/file-asset.entity';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import {
+  MerchantLandingResponseDto,
   MerchantResponseDto,
   NotificationPreferencesResponseDto,
 } from './dto/merchant-response.dto';
@@ -22,8 +30,16 @@ import {
   BalanceHistoryQueryDto,
   BalanceHistoryType,
 } from './dto/balance-history.dto';
+import {
+  LANDING_SECTIONS,
+  assertLayoutItemsOwned,
+  normalizeLandingLayout,
+} from './merchant-landing';
 import { MerchantMember } from './entities/merchant-member.entity';
-import { MerchantProfile } from './entities/merchant-profile.entity';
+import {
+  LandingLayout,
+  MerchantProfile,
+} from './entities/merchant-profile.entity';
 import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
@@ -78,6 +94,9 @@ interface BalanceHistoryRow {
   occurred_at: Date;
   status: string;
 }
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class MerchantService {
@@ -259,7 +278,9 @@ export class MerchantService {
 
       if (input.store_name !== undefined) merchant.storeName = input.store_name;
       if (input.store_description !== undefined) {
-        merchant.storeDescription = input.store_description;
+        merchant.storeDescription = this.sanitizeDescription(
+          input.store_description,
+        );
       }
       if (input.phone !== undefined) {
         await this.savePrivatePhone(manager, userId, input.phone);
@@ -317,8 +338,32 @@ export class MerchantService {
         profile.digitalLicense = input.digital_license;
       }
 
+      if (input.landing_background_asset_id !== undefined) {
+        if (input.landing_background_asset_id !== null) {
+          await assertOwnedImageAsset(
+            manager,
+            userId,
+            input.landing_background_asset_id,
+            'merchant_landing_background',
+          );
+        }
+        profile.landingBackgroundAssetId = input.landing_background_asset_id;
+      }
+      if (input.landing_layout !== undefined) {
+        if (input.landing_layout === null) {
+          profile.landingLayout = null;
+        } else {
+          const layout = normalizeLandingLayout(input.landing_layout);
+          await assertLayoutItemsOwned(manager, merchant.id, layout);
+          profile.landingLayout = layout;
+        }
+      }
+
       await manager.save(Merchant, merchant);
       await manager.save(MerchantProfile, profile);
+      if (input.skills !== undefined) {
+        await this.replaceSkills(manager, merchant.id, input.skills);
+      }
     });
 
     return this.findMerchantProfile(userId).then((response) => ({
@@ -327,87 +372,88 @@ export class MerchantService {
     }));
   }
 
-  async findPublicStorefront(slug: string) {
+  // The frontend opens the page by merchant id; older links use the slug.
+  async findPublicStorefront(merchantKey: string, viewerId?: string) {
+    const byId = UUID_PATTERN.test(merchantKey);
     const [row] = (await this.dataSource.query(
       `
         SELECT
-          merchant.id, merchant.store_name, merchant.store_description,
-          merchant.created_at,
+          merchant.id, merchant.user_id AS owner_user_id,
+          merchant.store_name, merchant.store_description, merchant.created_at,
           profile.slug, profile.tagline, profile.category_label,
           profile.city, profile.public_email, profile.public_phone,
           profile.website_url, profile.instagram_handle, profile.youtube_url,
           profile.linkedin_url, profile.expertise,
-          profile.avatar_asset_id,
-          avatar_asset.object_key AS avatar_object_key,
-          profile.cover_asset_id,
-          cover_asset.object_key AS cover_object_key,
+          profile.avatar_asset_id, avatar_asset.object_key AS avatar_object_key,
+          profile.cover_asset_id, cover_asset.object_key AS cover_object_key,
+          profile.landing_background_asset_id,
+          landing_asset.object_key AS landing_background_object_key,
+          profile.landing_layout,
+          COALESCE((
+            SELECT json_agg(skill.name ORDER BY skill.sort_order, skill.created_at)
+            FROM merchant_skills skill
+            WHERE skill.merchant_id = merchant.id AND skill.deleted_at IS NULL
+          ), '[]'::json) AS skills,
           (
-            SELECT COUNT(DISTINCT access.user_id)::integer
-            FROM user_access access
-            INNER JOIN products product ON product.id = access.product_id
-            WHERE product.merchant_id = merchant.id
-              AND product.deleted_at IS NULL
-              AND access.deleted_at IS NULL
-              AND (access.expires_at IS NULL OR access.expires_at > now())
+            SELECT count(DISTINCT learner.user_id)::integer FROM (
+              SELECT enrollment.user_id FROM enrollments enrollment
+              INNER JOIN classes class ON class.id = enrollment.class_id
+              WHERE class.merchant_id = merchant.id AND class.deleted_at IS NULL
+                AND class.status = 'published' AND enrollment.deleted_at IS NULL
+              UNION
+              SELECT access.user_id FROM user_access access
+              INNER JOIN products product ON product.id = access.product_id
+              WHERE product.merchant_id = merchant.id AND product.deleted_at IS NULL
+                AND product.is_published = true AND product.publication_status = 'published'
+                AND access.deleted_at IS NULL
+                AND (access.expires_at IS NULL OR access.expires_at > now())
+            ) learner
           ) AS total_students,
           (
-            SELECT COUNT(DISTINCT product.id)::integer
-            FROM products product
-            LEFT JOIN bootcamps bootcamp ON bootcamp.product_id = product.id
-            LEFT JOIN video_classes video_class
-              ON video_class.product_id = product.id
-            WHERE product.merchant_id = merchant.id
-              AND product.deleted_at IS NULL
-              AND product.is_published = true
-              AND product.publication_status = 'published'
-              AND (bootcamp.id IS NOT NULL OR video_class.id IS NOT NULL)
+            SELECT count(*)::integer FROM classes class
+            WHERE class.merchant_id = merchant.id AND class.deleted_at IS NULL
+              AND class.status = 'published'
           ) AS published_class_count,
           (
-            SELECT COUNT(DISTINCT product.id)::integer
-            FROM products product
-            INNER JOIN digital_files digital_file
-              ON digital_file.product_id = product.id
-            WHERE product.merchant_id = merchant.id
-              AND product.deleted_at IS NULL
-              AND product.is_published = true
-              AND product.publication_status = 'published'
+            SELECT count(*)::integer FROM products product
+            WHERE product.merchant_id = merchant.id AND product.deleted_at IS NULL
+              AND product.is_published = true AND product.publication_status = 'published'
           ) AS published_digital_product_count,
-          (
-            SELECT COALESCE(ROUND(AVG(review.rating)::numeric, 1), 0)
-            FROM reviews review
-            INNER JOIN products reviewed ON reviewed.id = review.product_id
-            WHERE reviewed.merchant_id = merchant.id
-              AND reviewed.deleted_at IS NULL
-              AND review.deleted_at IS NULL
-          ) AS average_rating,
-          (
-            SELECT COUNT(*)::integer
-            FROM reviews review
-            INNER JOIN products reviewed ON reviewed.id = review.product_id
-            WHERE reviewed.merchant_id = merchant.id
-              AND reviewed.deleted_at IS NULL
-              AND review.deleted_at IS NULL
-          ) AS review_count
+          reviewed.average_rating, reviewed.review_count
         FROM merchants merchant
         INNER JOIN merchant_profiles profile
           ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
         LEFT JOIN file_assets avatar_asset
-          ON avatar_asset.id = profile.avatar_asset_id
-          AND avatar_asset.deleted_at IS NULL
+          ON avatar_asset.id = profile.avatar_asset_id AND avatar_asset.deleted_at IS NULL
         LEFT JOIN file_assets cover_asset
-          ON cover_asset.id = profile.cover_asset_id
-          AND cover_asset.deleted_at IS NULL
-        WHERE profile.slug = $1
+          ON cover_asset.id = profile.cover_asset_id AND cover_asset.deleted_at IS NULL
+        LEFT JOIN file_assets landing_asset
+          ON landing_asset.id = profile.landing_background_asset_id
+          AND landing_asset.deleted_at IS NULL
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(round(avg(review.rating)::numeric, 1), 0) AS average_rating,
+                 count(*)::integer AS review_count
+          FROM reviews review
+          LEFT JOIN classes class ON class.id = review.class_id
+            AND class.deleted_at IS NULL AND class.status = 'published'
+          LEFT JOIN products product ON product.id = review.product_id
+            AND product.deleted_at IS NULL AND product.is_published = true
+            AND product.publication_status = 'published'
+          WHERE review.deleted_at IS NULL
+            AND (class.merchant_id = merchant.id OR product.merchant_id = merchant.id)
+        ) reviewed ON true
+        WHERE ${byId ? 'merchant.id = $1::uuid' : 'profile.slug = $1'}
           AND merchant.deleted_at IS NULL
           AND merchant.status = 'active'
         LIMIT 1
       `,
-      [slug],
+      [merchantKey],
     )) as StorefrontRow[];
     if (!row) throw new NotFoundException('Merchant not found');
 
+    const layout = await this.visibleLandingLayout(row.id, row.landing_layout);
     return {
-      data: this.toStorefrontResponse(row),
+      data: this.toStorefrontResponse(row, layout, viewerId),
       responseMessage: 'Get public merchant success',
     };
   }
@@ -512,6 +558,11 @@ export class MerchantService {
         'cover_asset',
         'cover_asset.id = profile.cover_asset_id AND cover_asset.deleted_at IS NULL',
       )
+      .leftJoin(
+        FileAsset,
+        'landing_asset',
+        'landing_asset.id = profile.landing_background_asset_id AND landing_asset.deleted_at IS NULL',
+      )
       .select([
         'merchant.id AS id',
         'merchant.store_name AS store_name',
@@ -541,16 +592,123 @@ export class MerchantService {
         'avatar_asset.object_key AS avatar_object_key',
         'profile.cover_asset_id AS cover_asset_id',
         'cover_asset.object_key AS cover_object_key',
+        'profile.landing_background_asset_id AS landing_background_asset_id',
+        'landing_asset.object_key AS landing_background_object_key',
+        'profile.landing_layout AS landing_layout',
       ])
       .where('merchant.user_id = :userId', { userId })
       .andWhere('merchant.deleted_at IS NULL')
       .getRawOne<MerchantRow>();
     if (!row) throw new NotFoundException('Merchant not found');
 
+    const {
+      landing_background_asset_id,
+      landing_background_object_key,
+      landing_layout,
+      ...merchant
+    } = row;
     return {
-      ...row,
+      ...merchant,
       experience_years:
         row.experience_years === null ? null : Number(row.experience_years),
+      avatar_url: assetUrl(row.avatar_object_key),
+      cover_url: assetUrl(row.cover_object_key),
+      skills: await this.findSkills(row.id),
+      landing: this.toLanding(
+        landing_background_asset_id,
+        landing_background_object_key,
+        landing_layout,
+      ),
+    };
+  }
+
+  private sanitizeDescription(description: string): string {
+    const sanitized = sanitizeRichText(description);
+    if (!sanitized) {
+      throw new BadRequestException('store_description must contain text');
+    }
+    if (sanitized.length > RICH_TEXT_MAX_LENGTH) {
+      throw new BadRequestException(
+        `store_description must not exceed ${RICH_TEXT_MAX_LENGTH} characters`,
+      );
+    }
+    return sanitized;
+  }
+
+  // Runs inside the merchant-row transaction, so concurrent edits serialize.
+  private async replaceSkills(
+    manager: EntityManager,
+    merchantId: string,
+    skills: string[],
+  ): Promise<void> {
+    await manager.query('DELETE FROM merchant_skills WHERE merchant_id = $1', [
+      merchantId,
+    ]);
+    const names = uniqueSkills(skills);
+    if (names.length === 0) return;
+    await manager.query(
+      `INSERT INTO merchant_skills (merchant_id, name, sort_order)
+       SELECT $1, skill.name, skill.position - 1
+       FROM unnest($2::varchar[]) WITH ORDINALITY AS skill(name, position)`,
+      [merchantId, names],
+    );
+  }
+
+  private async findSkills(merchantId: string): Promise<string[]> {
+    const rows: Array<{ name: string }> = await this.dataSource.query(
+      `SELECT name FROM merchant_skills
+       WHERE merchant_id = $1 AND deleted_at IS NULL
+       ORDER BY sort_order, created_at`,
+      [merchantId],
+    );
+    return rows.map((row) => row.name);
+  }
+
+  // Drops ordered items that were deleted or unpublished after being saved.
+  private async visibleLandingLayout(
+    merchantId: string,
+    layout: LandingLayout | null,
+  ): Promise<LandingLayout | null> {
+    const ids = Object.values(layout?.item_order ?? {}).flat();
+    if (!layout || ids.length === 0) return layout;
+
+    const visible: Array<{ id: string }> = await this.dataSource.query(
+      `SELECT id FROM classes
+       WHERE merchant_id = $1 AND id = ANY($2::uuid[])
+         AND deleted_at IS NULL AND status = 'published'
+       UNION ALL
+       SELECT id FROM products
+       WHERE merchant_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL
+         AND is_published = true AND publication_status = 'published'
+       UNION ALL
+       SELECT id FROM bundles
+       WHERE merchant_id = $1 AND id = ANY($2::uuid[])
+         AND deleted_at IS NULL AND status = 'published'`,
+      [merchantId, ids],
+    );
+    const visibleIds = new Set(visible.map((row) => row.id));
+    return {
+      section_order: layout.section_order,
+      item_order: Object.fromEntries(
+        Object.entries(layout.item_order).map(([section, sectionIds]) => [
+          section,
+          sectionIds.filter((id) => visibleIds.has(id)),
+        ]),
+      ),
+    };
+  }
+
+  private toLanding(
+    backgroundAssetId: string | null,
+    backgroundObjectKey: string | null,
+    layout: LandingLayout | null,
+  ): MerchantLandingResponseDto {
+    return {
+      background_asset_id: backgroundAssetId,
+      background_object_key: backgroundObjectKey,
+      background_url: assetUrl(backgroundObjectKey),
+      section_order: layout?.section_order ?? [...LANDING_SECTIONS],
+      item_order: layout?.item_order ?? {},
     };
   }
 
@@ -620,10 +778,28 @@ export class MerchantService {
 
   private toStorefrontResponse(
     row: StorefrontRow,
+    layout: LandingLayout | null,
+    viewerId: string | undefined,
   ): PublicMerchantStorefrontResponseDto {
+    const {
+      owner_user_id,
+      landing_background_asset_id,
+      landing_background_object_key,
+      landing_layout,
+      ...storefront
+    } = row;
     return {
-      ...row,
+      ...storefront,
       category_slug: merchantCategorySlugForLabel(row.category_label),
+      avatar_url: assetUrl(row.avatar_object_key),
+      cover_url: assetUrl(row.cover_object_key),
+      skills: row.skills ?? [],
+      landing: this.toLanding(
+        landing_background_asset_id,
+        landing_background_object_key,
+        layout ?? landing_layout,
+      ),
+      is_owner: !!viewerId && viewerId === owner_user_id,
       total_students: Number(row.total_students),
       published_class_count: Number(row.published_class_count),
       published_digital_product_count: Number(
@@ -650,20 +826,35 @@ export class MerchantService {
   }
 }
 
-interface MerchantRow extends Omit<MerchantResponseDto, 'experience_years'> {
+interface MerchantRow
+  extends Omit<
+    MerchantResponseDto,
+    'experience_years' | 'avatar_url' | 'cover_url' | 'skills' | 'landing'
+  > {
   experience_years: string | null;
+  landing_background_asset_id: string | null;
+  landing_background_object_key: string | null;
+  landing_layout: LandingLayout | null;
 }
 
 interface StorefrontRow
   extends Omit<
     PublicMerchantStorefrontResponseDto,
     | 'category_slug'
+    | 'avatar_url'
+    | 'cover_url'
+    | 'landing'
+    | 'is_owner'
     | 'total_students'
     | 'published_class_count'
     | 'published_digital_product_count'
     | 'average_rating'
     | 'review_count'
   > {
+  owner_user_id: string;
+  landing_background_asset_id: string | null;
+  landing_background_object_key: string | null;
+  landing_layout: LandingLayout | null;
   total_students: number | string;
   published_class_count: number | string;
   published_digital_product_count: number | string;

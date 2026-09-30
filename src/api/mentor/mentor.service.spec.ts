@@ -22,7 +22,6 @@ describe('MentorService', () => {
     cv: {
       assetId: '30000000-0000-4000-8000-000000000001',
       objectKey: 'mentor-documents/cv.pdf',
-      absolutePath: '/private/cv.pdf',
       originalFilename: 'cv.pdf',
       mimeType: 'application/pdf',
       sizeBytes: 100,
@@ -31,7 +30,6 @@ describe('MentorService', () => {
     certificate: {
       assetId: '30000000-0000-4000-8000-000000000002',
       objectKey: 'mentor-documents/certificate.pdf',
-      absolutePath: '/private/certificate.pdf',
       originalFilename: 'certificate.pdf',
       mimeType: 'application/pdf',
       sizeBytes: 100,
@@ -122,7 +120,7 @@ describe('MentorService', () => {
         expect.objectContaining({
           uploadedByUserId: userId,
           visibility: 'private',
-          storageProvider: 'local',
+          storageProvider: 's3',
         }),
       ]),
     );

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MerchantLandingResponseDto } from './merchant-response.dto';
 
 export class PublicMerchantStorefrontResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -78,4 +79,29 @@ export class PublicMerchantStorefrontResponseDto {
 
   @ApiProperty()
   review_count: number;
+
+  @ApiPropertyOptional({
+    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+  })
+  avatar_url: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+  })
+  cover_url: string | null;
+
+  @ApiProperty({
+    type: [String],
+    example: ['AutoCAD', 'SAP2000'],
+    description: 'Bidang',
+  })
+  skills: string[];
+
+  @ApiProperty({ type: MerchantLandingResponseDto })
+  landing: MerchantLandingResponseDto;
+
+  @ApiProperty({
+    description: 'True only when the signed-in caller owns this merchant',
+  })
+  is_owner: boolean;
 }

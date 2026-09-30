@@ -13,7 +13,7 @@ import {
   Param,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiParam, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { Public } from '~/common/decorator/public.decorator';
 import {
@@ -58,16 +58,23 @@ export class MerchantController {
     return this.merchantService.register(req.user.id, input);
   }
 
-  @Get('get-public-merchant/:slug')
+  @Get('get-public-merchant/:merchant')
   @Public()
+  @ApiParam({
+    name: 'merchant',
+    description: 'Merchant id (used by the frontend) or store slug',
+  })
   @DefaultResponse(
     PublicMerchantStorefrontResponseDto,
     'Get public merchant success',
     HttpStatus.OK,
     [NotFoundException],
   )
-  findPublicStorefront(@Param('slug') slug: string) {
-    return this.merchantService.findPublicStorefront(slug);
+  findPublicStorefront(
+    @Req() req: { user?: { id: string } },
+    @Param('merchant') merchant: string,
+  ) {
+    return this.merchantService.findPublicStorefront(merchant, req.user?.id);
   }
 
   @Get('get-profile')

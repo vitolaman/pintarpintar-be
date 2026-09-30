@@ -97,6 +97,7 @@ describe('ProfileService', () => {
       phone: '+62 812-3456-7890',
       headline: null,
       bio: null,
+      mentor_expertise: 'AutoCAD, SAP2000',
       member_since: new Date('2026-01-15T03:00:00.000Z'),
     });
     users.createQueryBuilder.mockReturnValue(query as never);
@@ -115,6 +116,8 @@ describe('ProfileService', () => {
         headline: null,
         bio: null,
         member_since: new Date('2026-01-15T03:00:00.000Z'),
+        avatar_url: null,
+        expertise_list: ['AutoCAD', 'SAP2000'],
       },
     });
   });
@@ -129,6 +132,7 @@ describe('ProfileService', () => {
         class_id: 'class-id',
         class_title: 'Arduino untuk Pemula',
         issuer_name: 'Sari Digital Studio',
+        mentor_name: 'Budi Santoso',
       },
     ]);
 
@@ -143,6 +147,9 @@ describe('ProfileService', () => {
           class_title: 'Arduino untuk Pemula',
           issuer_name: 'Sari Digital Studio',
           file_url: 'https://files.example.com/PP-2026-0001.pdf',
+          mentor_name: 'Budi Santoso',
+          skills: [],
+          grade: null,
         },
       ],
     });
@@ -151,6 +158,28 @@ describe('ProfileService', () => {
     expect(sql).toContain('certificate.status = $2');
     expect(sql).toContain('certificate.deleted_at IS NULL');
     expect(params).toEqual([userId, 'issued']);
+  });
+
+  it('counts enrolled classes by type, digital products, and issued certificates', async () => {
+    dataSource.query.mockResolvedValue([
+      {
+        bootcamp_count: 2,
+        video_class_count: 1,
+        digital_product_count: 3,
+        certificate_count: 1,
+      },
+    ]);
+
+    await expect(service.findStatistics(userId)).resolves.toEqual({
+      responseMessage: 'Get learning statistics success',
+      data: {
+        bootcamp_count: 2,
+        video_class_count: 1,
+        digital_product_count: 3,
+        certificate_count: 1,
+      },
+    });
+    expect(dataSource.query.mock.calls[0][1]).toEqual([userId, 'issued']);
   });
 
   it('creates a profile record while updating authenticated user-owned fields', async () => {

@@ -39,6 +39,18 @@ export class ProfileResponseDto {
 
   @ApiProperty({ description: 'Account creation time' })
   member_since: Date;
+
+  @ApiPropertyOptional({
+    description: 'Avatar URL built from ASSET_PUBLIC_BASE_URL; null when unset',
+  })
+  avatar_url: string | null;
+
+  @ApiProperty({
+    type: [String],
+    example: ['AutoCAD', 'Structural Design'],
+    description: 'Mentor skills (Keahlian Saya); empty for non-mentors',
+  })
+  expertise_list: string[];
 }
 
 export class LearningItemResponseDto {
@@ -103,4 +115,27 @@ export class CertificationItemResponseDto {
 
   @ApiPropertyOptional({ description: 'Certificate file for the owner' })
   file_url: string | null;
+
+  @ApiPropertyOptional({ description: "The class's first assigned mentor" })
+  mentor_name: string | null;
+
+  @ApiProperty({ type: [String], example: [] })
+  skills: string[];
+
+  @ApiPropertyOptional({ example: null })
+  grade: string | null;
+}
+
+export class LearningStatisticsResponseDto {
+  @ApiProperty({ description: 'Kelas Bootcamp Diikuti' })
+  bootcamp_count: number;
+
+  @ApiProperty({ description: 'Kelas Video Diikuti' })
+  video_class_count: number;
+
+  @ApiProperty({ description: 'Produk Digital Dibeli' })
+  digital_product_count: number;
+
+  @ApiProperty({ description: 'Sertifikat Diperoleh' })
+  certificate_count: number;
 }

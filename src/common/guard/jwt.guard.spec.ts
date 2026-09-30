@@ -45,6 +45,25 @@ describe('JwtGuard', () => {
     expect(jwtService.verifyAsync).not.toHaveBeenCalled();
   });
 
+  it('identifies the caller on a public route when the token is valid', async () => {
+    reflector.getAllAndOverride.mockReturnValue(true);
+    const context = contextFor('Bearer valid-token');
+    jwtService.verifyAsync.mockResolvedValue({ id: 'user-id' });
+    userRepository.findOne.mockResolvedValue({ id: 'user-id' } as User);
+
+    await expect(guard.canActivate(context as never)).resolves.toBe(true);
+    expect(context.request).toMatchObject({ user: { id: 'user-id' } });
+  });
+
+  it('keeps a public route open when the token is invalid', async () => {
+    reflector.getAllAndOverride.mockReturnValue(true);
+    const context = contextFor('Bearer invalid-token');
+    jwtService.verifyAsync.mockRejectedValue(new Error('invalid signature'));
+
+    await expect(guard.canActivate(context as never)).resolves.toBe(true);
+    expect(context.request).not.toHaveProperty('user');
+  });
+
   it('sets the verified active identity on a protected request', async () => {
     const context = contextFor('Bearer valid-token');
     jwtService.verifyAsync.mockResolvedValue({ id: 'user-id' });

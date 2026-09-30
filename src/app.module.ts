@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './api/auth/auth.module';
 import { User } from './api/user/entities/user.entity';
@@ -41,6 +43,7 @@ import { PromoModule } from './api/promo/promo.module';
 import { DiscussionModule } from './api/discussion/discussion.module';
 import { DigitalProductModule } from './api/digital-product/digital-product.module';
 import { LearningModule } from './api/learning/learning.module';
+import { PaymentModule } from './api/payment/payment.module';
 
 @Module({
   imports: [
@@ -60,6 +63,9 @@ import { LearningModule } from './api/learning/learning.module';
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     TypeOrmModule.forFeature([User]),
+    // Limits are set per route with @Throttle; no guard applies globally.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
+    ScheduleModule.forRoot(),
     // RedisModule,
     AuthModule,
     ClassModule,
@@ -87,6 +93,7 @@ import { LearningModule } from './api/learning/learning.module';
     DiscussionModule,
     DigitalProductModule,
     LearningModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [

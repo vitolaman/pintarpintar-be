@@ -17,6 +17,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { bundleStatuses, BundleStatus } from '../entities/bundle.entity';
+import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 
 export const bundleItemTypes = ['kelas', 'digital'] as const;
 
@@ -73,7 +74,7 @@ export class CreateBundleDto {
   post_purchase_instructions?: string | null;
 
   @ApiPropertyOptional({ enum: bundleStatuses, default: 'published' })
-  @IsOptional()
+  @OptionalNotNull()
   @IsIn(bundleStatuses)
   status?: BundleStatus;
 
@@ -86,7 +87,10 @@ export class CreateBundleDto {
   items: BundleItemInputDto[];
 }
 
-export class UpdateBundleDto extends PartialType(CreateBundleDto) {}
+// Null is validated, so it is rejected for fields that cannot be cleared.
+export class UpdateBundleDto extends PartialType(CreateBundleDto, {
+  skipNullProperties: false,
+}) {}
 
 export class BundleListQueryDto {
   @ApiPropertyOptional({ enum: bundleStatuses })

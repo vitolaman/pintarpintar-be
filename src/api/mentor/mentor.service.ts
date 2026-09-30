@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import { joinSkills, splitSkills } from '../../common/util/skill-list';
 import { AuthService } from '../auth/auth.service';
 import { FileAsset } from '../profile/entities/file-asset.entity';
 import { Profile } from '../profile/entities/profile.entity';
@@ -12,6 +14,7 @@ import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import {
   MentorAssignmentsResponseDto,
+  MentorDocumentResponseDto,
   MentorResponseDto,
   PublicMentorResponseDto,
 } from './dto/mentor-response.dto';
@@ -19,6 +22,7 @@ import { MentorRegistrationDto } from './dto/mentor-registration.dto';
 import { MentorSignUpInput } from './dto/mentor-sign-up.dto';
 import { UpdateMentorDto } from './dto/update-mentor.dto';
 import {
+  MENTOR_DOCUMENT_PROVIDER,
   MentorDocumentStorageService,
   StoredMentorDocument,
 } from './mentor-document-storage.service';
@@ -29,6 +33,8 @@ type MentorFiles = {
   cv?: Express.Multer.File[];
   skill_certificate?: Express.Multer.File[];
 };
+
+const EXPERTISE_MAX_LENGTH = 160;
 
 @Injectable()
 export class MentorService {
@@ -98,18 +104,25 @@ export class MentorService {
       const mentorProfile = await manager.findOneBy(MentorProfile, {
         mentorId: mentor.id,
       });
-      if (!mentorProfile) throw new NotFoundException('Mentor profile not found');
+      if (!mentorProfile)
+        throw new NotFoundException('Mentor profile not found');
 
       let profile = await manager.findOneBy(Profile, { userId });
       if (!profile) profile = manager.create(Profile, { userId });
       if (input.phone !== undefined) profile.phone = input.phone;
-      if (input.headline !== undefined) profile.headline = input.headline ?? null;
+      if (input.headline !== undefined)
+        profile.headline = input.headline ?? null;
       if (input.bio !== undefined) profile.bio = input.bio ?? null;
-      if (input.expertise !== undefined) mentorProfile.expertise = input.expertise;
+      if (input.expertise_list !== undefined) {
+        mentorProfile.expertise = this.expertiseFromList(input.expertise_list);
+      } else if (input.expertise !== undefined) {
+        mentorProfile.expertise = input.expertise;
+      }
       if (input.experience_years !== undefined) {
         mentorProfile.experienceYears = input.experience_years;
       }
-      if (input.education !== undefined) mentorProfile.education = input.education;
+      if (input.education !== undefined)
+        mentorProfile.education = input.education;
       if (input.portfolio_url !== undefined) {
         mentorProfile.portfolioUrl = input.portfolio_url ?? null;
       }
@@ -124,6 +137,108 @@ export class MentorService {
       ...response,
       responseMessage: 'Update mentor profile success',
     }));
+  }
+
+  async updateDocuments(userId: string, files: MentorFiles) {
+    const documents =
+      await this.documentStorage.storeReplacementDocuments(files);
+    const stored = [documents.cv, documents.certificate].filter(
+      (document): document is StoredMentorDocument => !!document,
+    );
+    let replaced: FileAsset[] = [];
+    try {
+      replaced = await this.dataSource.transaction(async (manager) => {
+        const mentor = await this.findOwnedMentor(manager, userId, true);
+        const mentorProfile = await manager.findOneBy(MentorProfile, {
+          mentorId: mentor.id,
+        });
+        if (!mentorProfile) {
+          throw new NotFoundException('Mentor profile not found');
+        }
+
+        await this.saveDocuments(manager, userId, stored);
+        const previousIds: string[] = [];
+        if (documents.cv) {
+          previousIds.push(mentorProfile.cvAssetId);
+          mentorProfile.cvAssetId = documents.cv.assetId;
+        }
+        if (documents.certificate) {
+          previousIds.push(mentorProfile.skillCertificateAssetId);
+          mentorProfile.skillCertificateAssetId = documents.certificate.assetId;
+        }
+        await manager.save(MentorProfile, mentorProfile);
+
+        const previous = await manager.findByIds(FileAsset, previousIds);
+        if (previous.length > 0) {
+          await manager.update(FileAsset, previousIds, { status: 'deleted' });
+          await manager.softDelete(FileAsset, previousIds);
+        }
+        return previous;
+      });
+    } catch (error) {
+      await this.documentStorage.remove(stored);
+      throw error;
+    }
+
+    // Old objects are removed only after the profile points at the new ones.
+    await this.documentStorage.remove(
+      replaced.filter(
+        (asset) => asset.storageProvider === MENTOR_DOCUMENT_PROVIDER,
+      ),
+    );
+    return this.findDocuments(userId).then((response) => ({
+      ...response,
+      responseMessage: 'Update mentor documents success',
+    }));
+  }
+
+  async findDocuments(userId: string) {
+    const rows: Array<{
+      kind: 'cv' | 'skill_certificate';
+      asset_id: string;
+      filename: string;
+      mime_type: string;
+      size_bytes: string;
+      uploaded_at: Date;
+      storage_provider: string;
+      object_key: string;
+    }> = await this.dataSource.query(
+      `SELECT document.kind, asset.id AS asset_id,
+              asset.original_filename AS filename, asset.mime_type,
+              asset.size_bytes, asset.created_at AS uploaded_at,
+              asset.storage_provider, asset.object_key
+       FROM mentors mentor
+       INNER JOIN mentor_profiles profile
+         ON profile.mentor_id = mentor.id AND profile.deleted_at IS NULL
+       CROSS JOIN LATERAL (VALUES
+         ('cv', profile.cv_asset_id),
+         ('skill_certificate', profile.skill_certificate_asset_id)
+       ) AS document(kind, asset_id)
+       INNER JOIN file_assets asset ON asset.id = document.asset_id
+       WHERE mentor.user_id = $1 AND mentor.deleted_at IS NULL
+       ORDER BY document.kind`,
+      [userId],
+    );
+    if (rows.length === 0) throw new NotFoundException('Mentor not found');
+
+    const data: MentorDocumentResponseDto[] = await Promise.all(
+      rows.map(async (row) => ({
+        kind: row.kind,
+        asset_id: row.asset_id,
+        filename: row.filename,
+        mime_type: row.mime_type,
+        size_bytes: Number(row.size_bytes),
+        uploaded_at: row.uploaded_at,
+        download_url:
+          row.storage_provider === MENTOR_DOCUMENT_PROVIDER
+            ? await this.documentStorage.signedDownloadUrl(
+                row.object_key,
+                row.filename,
+              )
+            : null,
+      })),
+    );
+    return { data, responseMessage: 'Get mentor documents success' };
   }
 
   async findAssignments(userId: string) {
@@ -191,7 +306,11 @@ export class MentorService {
       .getRawOne<PublicMentorResponseDto & { experience_years: string }>();
     if (!row) throw new NotFoundException('Mentor not found');
     return {
-      data: { ...row, experience_years: Number(row.experience_years) },
+      data: {
+        ...row,
+        experience_years: Number(row.experience_years),
+        expertise_list: splitSkills(row.expertise),
+      },
       responseMessage: 'Get mentor success',
     };
   }
@@ -208,9 +327,15 @@ export class MentorService {
     });
     if (existing) throw new ConflictException('User is already a mentor');
 
-    const mentor = manager.create(Mentor, { userId: user.id, status: 'active' });
+    const mentor = manager.create(Mentor, {
+      userId: user.id,
+      status: 'active',
+    });
     await manager.save(Mentor, mentor);
-    await this.saveDocuments(manager, user.id, documents);
+    await this.saveDocuments(manager, user.id, [
+      documents.cv,
+      documents.certificate,
+    ]);
     await manager.save(
       MentorProfile,
       manager.create(MentorProfile, {
@@ -239,15 +364,15 @@ export class MentorService {
   private async saveDocuments(
     manager: EntityManager,
     userId: string,
-    documents: { cv: StoredMentorDocument; certificate: StoredMentorDocument },
+    documents: StoredMentorDocument[],
   ): Promise<void> {
     await manager.save(
       FileAsset,
-      [documents.cv, documents.certificate].map((document) =>
+      documents.map((document) =>
         manager.create(FileAsset, {
           id: document.assetId,
           uploadedByUserId: userId,
-          storageProvider: 'local',
+          storageProvider: MENTOR_DOCUMENT_PROVIDER,
           objectKey: document.objectKey,
           originalFilename: document.originalFilename,
           mimeType: document.mimeType,
@@ -276,22 +401,59 @@ export class MentorService {
   private async findMentorResponse(userId: string): Promise<MentorResponseDto> {
     const row = await this.mentors
       .createQueryBuilder('mentor')
-      .innerJoin(User, 'user', 'user.id = mentor.user_id AND user.deleted_at IS NULL')
-      .innerJoin(MentorProfile, 'mentor_profile', 'mentor_profile.mentor_id = mentor.id AND mentor_profile.deleted_at IS NULL')
-      .innerJoin(Profile, 'profile', 'profile.user_id = user.id AND profile.deleted_at IS NULL')
+      .innerJoin(
+        User,
+        'user',
+        'user.id = mentor.user_id AND user.deleted_at IS NULL',
+      )
+      .innerJoin(
+        MentorProfile,
+        'mentor_profile',
+        'mentor_profile.mentor_id = mentor.id AND mentor_profile.deleted_at IS NULL',
+      )
+      .innerJoin(
+        Profile,
+        'profile',
+        'profile.user_id = user.id AND profile.deleted_at IS NULL',
+      )
       .select([
-        'mentor.id AS id', 'mentor.user_id AS user_id', 'mentor.status AS status',
-        'user.name AS name', 'user.email AS email', 'profile.phone AS phone',
-        'profile.headline AS headline', 'profile.bio AS bio',
-        'mentor_profile.expertise AS expertise', 'mentor_profile.experience_years AS experience_years',
-        'mentor_profile.education AS education', 'mentor_profile.portfolio_url AS portfolio_url',
-        'mentor_profile.linkedin_url AS linkedin_url', 'mentor_profile.cv_asset_id AS cv_asset_id',
+        'mentor.id AS id',
+        'mentor.user_id AS user_id',
+        'mentor.status AS status',
+        'user.name AS name',
+        'user.email AS email',
+        'profile.phone AS phone',
+        'profile.headline AS headline',
+        'profile.bio AS bio',
+        'mentor_profile.expertise AS expertise',
+        'mentor_profile.experience_years AS experience_years',
+        'mentor_profile.education AS education',
+        'mentor_profile.portfolio_url AS portfolio_url',
+        'mentor_profile.linkedin_url AS linkedin_url',
+        'mentor_profile.cv_asset_id AS cv_asset_id',
         'mentor_profile.skill_certificate_asset_id AS skill_certificate_asset_id',
       ])
       .where('mentor.user_id = :userId', { userId })
       .andWhere('mentor.deleted_at IS NULL')
       .getRawOne<MentorResponseDto & { experience_years: string }>();
     if (!row) throw new NotFoundException('Mentor not found');
-    return { ...row, experience_years: Number(row.experience_years) };
+    return {
+      ...row,
+      experience_years: Number(row.experience_years),
+      expertise_list: splitSkills(row.expertise),
+    };
+  }
+
+  private expertiseFromList(skills: string[]): string {
+    const expertise = joinSkills(skills);
+    if (!expertise) {
+      throw new BadRequestException('expertise_list must contain a skill');
+    }
+    if (expertise.length > EXPERTISE_MAX_LENGTH) {
+      throw new BadRequestException(
+        `expertise_list must fit in ${EXPERTISE_MAX_LENGTH} characters`,
+      );
+    }
+    return expertise;
   }
 }

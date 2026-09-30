@@ -7,6 +7,7 @@ import { UserModule } from '../user/user.module';
 import { MentorService } from './mentor.service';
 import { MentorController } from './mentor.controller';
 import { MentorDocumentStorageService } from './mentor-document-storage.service';
+import { MentorWorkspaceService } from './mentor-workspace.service';
 import { Mentor } from './entities/mentor.entity';
 import { MentorProfile } from './entities/mentor-profile.entity';
 
@@ -17,6 +18,10 @@ import { MentorProfile } from './entities/mentor-profile.entity';
     TypeOrmModule.forFeature([FileAsset, Mentor, MentorProfile, Profile]),
   ],
   controllers: [MentorController],
-  providers: [MentorDocumentStorageService, MentorService],
+  providers: [
+    MentorDocumentStorageService,
+    MentorService,
+    MentorWorkspaceService,
+  ],
 })
 export class MentorModule {}

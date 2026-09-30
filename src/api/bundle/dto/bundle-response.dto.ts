@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { bundleStatuses, BundleStatus } from '../entities/bundle.entity';
 import { bundleItemTypes, BundleItemType } from './bundle-request.dto';
 
@@ -73,4 +73,29 @@ export class BundleResponseDto {
 
   @ApiProperty()
   created_at: Date;
+}
+
+export class PublicBundleMerchantDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiPropertyOptional()
+  slug: string | null;
+}
+
+// Public view of a published bundle; post-purchase instructions stay private.
+export class PublicBundleResponseDto extends OmitType(BundleResponseDto, [
+  'post_purchase_instructions',
+  'status',
+] as const) {
+  @ApiPropertyOptional({
+    description: 'Null without ASSET_PUBLIC_BASE_URL or a cover',
+  })
+  cover_url: string | null;
+
+  @ApiProperty({ type: PublicBundleMerchantDto })
+  merchant: PublicBundleMerchantDto;
 }

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { assetUrl } from '../../common/storage/asset-url';
 import {
   CatalogCardDto,
   CatalogCardType,
@@ -76,6 +77,46 @@ const CARD_SQL = `
       WHERE link.product_id = items.id AND link.deleted_at IS NULL AND category.slug = $4))
     AND (NOT $5::boolean OR (items.list_price > 0 AND items.price < items.list_price))
     AND ($6::uuid IS NULL OR items.id = $6)
+    AND ($7::uuid IS NULL OR items.merchant_id = $7)
+    AND ($8::text[] IS NULL OR EXISTS (
+      SELECT 1 FROM digital_files file
+      WHERE file.product_id = items.id AND file.deleted_at IS NULL
+        AND lower(file.file_format) = ANY($8::text[])))
+`;
+
+// Mentor and file details for already filtered, sorted, and paged cards; kept
+// out of CARD_SQL so they are looked up for one page instead of every item.
+const PAGE_DETAILS_SQL = (page: string) => `
+  SELECT page.*, card_mentor.id AS mentor_id, card_mentor.name AS mentor_name,
+         card_mentor.avatar_object_key AS mentor_avatar_object_key,
+         card_files.file_format, card_files.file_size
+  FROM (${page}) page
+  LEFT JOIN LATERAL (
+    SELECT mentor.id, mentor_user.name, mentor_avatar.object_key AS avatar_object_key,
+           link.created_at AS assigned_at
+    FROM class_mentors link
+    INNER JOIN mentors mentor ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
+    INNER JOIN users mentor_user ON mentor_user.id = mentor.user_id AND mentor_user.deleted_at IS NULL
+    LEFT JOIN user_profiles mentor_profile ON mentor_profile.user_id = mentor_user.id AND mentor_profile.deleted_at IS NULL
+    LEFT JOIN file_assets mentor_avatar ON mentor_avatar.id = mentor_profile.avatar_asset_id AND mentor_avatar.deleted_at IS NULL
+    WHERE page.type <> 'digital' AND link.class_id = page.id AND link.deleted_at IS NULL
+    UNION ALL
+    SELECT mentor.id, mentor_user.name, mentor_avatar.object_key, assignment.created_at
+    FROM product_mentors assignment
+    INNER JOIN users mentor_user ON mentor_user.id = assignment.mentor_user_id AND mentor_user.deleted_at IS NULL
+    LEFT JOIN mentors mentor ON mentor.user_id = mentor_user.id AND mentor.deleted_at IS NULL
+    LEFT JOIN user_profiles mentor_profile ON mentor_profile.user_id = mentor_user.id AND mentor_profile.deleted_at IS NULL
+    LEFT JOIN file_assets mentor_avatar ON mentor_avatar.id = mentor_profile.avatar_asset_id AND mentor_avatar.deleted_at IS NULL
+    WHERE page.type = 'digital' AND assignment.product_id = page.id AND assignment.deleted_at IS NULL
+    ORDER BY assigned_at
+    LIMIT 1
+  ) card_mentor ON true
+  LEFT JOIN LATERAL (
+    SELECT upper(string_agg(DISTINCT lower(file.file_format), ', ')) AS file_format,
+           sum(file.file_size)::bigint AS file_size
+    FROM digital_files file
+    WHERE page.type = 'digital' AND file.product_id = page.id AND file.deleted_at IS NULL
+  ) card_files ON true
 `;
 
 const SORT_SQL: Record<CatalogSort | 'random', string> = {
@@ -97,6 +138,8 @@ export interface CardFilter {
   category?: string;
   discountedOnly?: boolean;
   id?: string;
+  merchantId?: string;
+  fileFormats?: string[];
 }
 
 interface CardRow {
@@ -117,6 +160,11 @@ interface CardRow {
   merchant_name: string;
   merchant_slug: string | null;
   merchant_avatar_object_key: string | null;
+  mentor_id: string | null;
+  mentor_name: string | null;
+  mentor_avatar_object_key: string | null;
+  file_format: string | null;
+  file_size: string | null;
 }
 
 @Injectable()
@@ -130,6 +178,8 @@ export class CatalogService {
       search: query.search,
       level: query.level,
       category: query.category,
+      merchantId: query.merchant_id,
+      fileFormats: query.file_format,
     };
     const [countRow] = await this.dataSource.query(
       `SELECT count(*)::integer AS total FROM (${CARD_SQL}) cards`,
@@ -155,8 +205,13 @@ export class CatalogService {
     offset = 0,
   ): Promise<CatalogCardDto[]> {
     const rows: CardRow[] = await this.dataSource.query(
-      `SELECT * FROM (${CARD_SQL}) cards ORDER BY ${SORT_SQL[sort]}, cards.id
-       LIMIT $7 OFFSET $8`,
+      `${PAGE_DETAILS_SQL(
+        `SELECT cards.*, row_number() OVER (ORDER BY ${SORT_SQL[sort]}, cards.id) AS position
+         FROM (${CARD_SQL}) cards
+         ORDER BY position
+         LIMIT $9 OFFSET $10`,
+      )}
+       ORDER BY page.position`,
       [...cardParams(filter), limit, offset],
     );
     return rows.map(toCard);
@@ -254,7 +309,7 @@ export class CatalogService {
 
   private async findCardRow(id: string, types: string[]): Promise<CardRow> {
     const [row] = await this.dataSource.query(
-      `SELECT * FROM (${CARD_SQL}) cards`,
+      PAGE_DETAILS_SQL(`SELECT * FROM (${CARD_SQL}) cards`),
       cardParams({ types, id }),
     );
     if (!row) throw new NotFoundException('Catalog item not found');
@@ -270,6 +325,8 @@ function cardParams(filter: CardFilter): unknown[] {
     filter.category ?? null,
     filter.discountedOnly ?? false,
     filter.id ?? null,
+    filter.merchantId ?? null,
+    filter.fileFormats?.length ? filter.fileFormats : null,
   ];
 }
 
@@ -299,6 +356,16 @@ function toCard(row: CardRow): CatalogCardDto {
       slug: row.merchant_slug,
       avatar_object_key: row.merchant_avatar_object_key,
     },
+    image_url: assetUrl(row.image),
+    mentor: row.mentor_name
+      ? {
+          id: row.mentor_id,
+          name: row.mentor_name,
+          avatar_url: assetUrl(row.mentor_avatar_object_key),
+        }
+      : null,
+    file_format: row.file_format,
+    file_size: row.file_size === null ? null : Number(row.file_size),
   };
 }
 

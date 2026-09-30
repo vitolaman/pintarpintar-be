@@ -231,4 +231,56 @@ describe('BundleService', () => {
       merchantId: 'merchant-id',
     });
   });
+
+  it('lists published bundles publicly without post-purchase instructions', async () => {
+    const merchantId = '20000000-0000-4000-8000-000000000001';
+    dataSourceQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('count(*)::integer AS total FROM bundles bundle')) {
+        return [{ total: 1 }];
+      }
+      if (sql.includes('bundle_row.*')) {
+        return [
+          {
+            id: BUNDLE_ID,
+            merchant_id: merchantId,
+            merchant_name: 'Akademi Teknik Budi',
+            merchant_slug: 'akademi-teknik-budi',
+            title: 'Paket AutoCAD',
+            description: 'Paket hemat',
+            cover_asset_id: null,
+            cover_object_key: null,
+            bundle_price: '349000',
+            status: 'published',
+            post_purchase_instructions: 'Rahasia pembeli',
+            created_at: new Date('2026-09-30T00:00:00Z'),
+          },
+        ];
+      }
+      if (sql.includes('FROM bundle_items item')) {
+        return [
+          { bundle_id: BUNDLE_ID, ...catalog.autocad },
+          { bundle_id: BUNDLE_ID, ...catalog.template },
+        ];
+      }
+      return [];
+    });
+
+    const response = await service.findPublic({
+      merchant_id: merchantId,
+      page: 1,
+      limit: 12,
+    });
+
+    expect(response.meta.total).toBe(1);
+    expect(response.data[0]).toMatchObject({
+      id: BUNDLE_ID,
+      cover_url: null,
+      merchant: { id: merchantId, name: 'Akademi Teknik Budi' },
+    });
+    expect(response.data[0]).not.toHaveProperty('post_purchase_instructions');
+    expect(response.data[0]).not.toHaveProperty('status');
+    const [countSql, countParams] = dataSourceQuery.mock.calls[0];
+    expect(countSql).toContain("bundle.status = 'published'");
+    expect(countParams).toEqual([merchantId]);
+  });
 });

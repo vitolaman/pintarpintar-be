@@ -19,6 +19,7 @@ import { DefaultResponse } from '~/common/decorator/response.decorator';
 import {
   ClassReviewSummaryDto,
   CreateReviewDto,
+  MerchantReviewSummaryDto,
   ReviewListQueryDto,
   ReviewResponseDto,
 } from './dto/review.dto';
@@ -59,5 +60,20 @@ export class ReviewController {
     @Query() query: ReviewListQueryDto,
   ) {
     return this.reviewService.findClassReviews(classId, query);
+  }
+
+  @Get('get-merchant-reviews/:merchantId')
+  @Public()
+  @DefaultResponse(
+    MerchantReviewSummaryDto,
+    'Get merchant reviews success',
+    HttpStatus.OK,
+    [BadRequestException, NotFoundException],
+  )
+  findMerchantReviews(
+    @Param('merchantId', ParseUUIDPipe) merchantId: string,
+    @Query() query: ReviewListQueryDto,
+  ) {
+    return this.reviewService.findMerchantReviews(merchantId, query);
   }
 }

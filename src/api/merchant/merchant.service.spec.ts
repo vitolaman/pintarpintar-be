@@ -216,12 +216,32 @@ describe('MerchantService', () => {
     (merchants as Record<string, jest.Mock>).createQueryBuilder = jest
       .fn()
       .mockReturnValue(queryBuilder);
+    query.mockResolvedValueOnce([{ name: 'AutoCAD' }, { name: 'SAP2000' }]);
 
     await expect(
       (
         service as unknown as { findMerchantResponse: Function }
       ).findMerchantResponse(userId),
-    ).resolves.toEqual({ ...row, experience_years: null });
+    ).resolves.toEqual({
+      ...row,
+      experience_years: null,
+      avatar_url: null,
+      cover_url: null,
+      skills: ['AutoCAD', 'SAP2000'],
+      landing: {
+        background_asset_id: undefined,
+        background_object_key: undefined,
+        background_url: null,
+        section_order: [
+          'best_seller',
+          'bootcamp',
+          'kelas',
+          'digital',
+          'bundles',
+        ],
+        item_order: {},
+      },
+    });
 
     expect(queryBuilder.select).toHaveBeenCalledWith(
       expect.arrayContaining(['merchant.storage_level AS storage_level']),
@@ -364,6 +384,11 @@ describe('MerchantService', () => {
         cover_asset_id: null,
         cover_object_key: null,
         created_at: new Date('2026-01-05T00:00:00.000Z'),
+        owner_user_id: userId,
+        landing_background_asset_id: null,
+        landing_background_object_key: null,
+        landing_layout: null,
+        skills: ['AutoCAD'],
         total_students: '10',
         published_class_count: '2',
         published_digital_product_count: '3',
@@ -396,6 +421,23 @@ describe('MerchantService', () => {
         cover_asset_id: null,
         cover_object_key: null,
         created_at: new Date('2026-01-05T00:00:00.000Z'),
+        avatar_url: null,
+        cover_url: null,
+        skills: ['AutoCAD'],
+        landing: {
+          background_asset_id: null,
+          background_object_key: null,
+          background_url: null,
+          section_order: [
+            'best_seller',
+            'bootcamp',
+            'kelas',
+            'digital',
+            'bundles',
+          ],
+          item_order: {},
+        },
+        is_owner: false,
         total_students: 10,
         published_class_count: 2,
         published_digital_product_count: 3,
@@ -417,6 +459,49 @@ describe('MerchantService', () => {
       expect.not.stringContaining('balance'),
       expect.anything(),
     );
+  });
+
+  it('resolves the storefront by id and flags the signed-in owner', async () => {
+    query.mockResolvedValueOnce([
+      {
+        id: merchantId,
+        owner_user_id: userId,
+        category_label: null,
+        landing_layout: null,
+        skills: [],
+        total_students: 0,
+        published_class_count: 0,
+        published_digital_product_count: 0,
+        average_rating: '0',
+        review_count: 0,
+      },
+    ]);
+
+    const response = await service.findPublicStorefront(merchantId, userId);
+
+    expect(response.data.is_owner).toBe(true);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('merchant.id = $1::uuid'),
+      [merchantId],
+    );
+  });
+
+  it('never marks another signed-in user as the owner', async () => {
+    query.mockResolvedValueOnce([
+      {
+        id: merchantId,
+        owner_user_id: userId,
+        landing_layout: null,
+        skills: [],
+      },
+    ]);
+
+    const response = await service.findPublicStorefront(
+      merchantId,
+      '99999999-0000-4000-8000-000000000009',
+    );
+
+    expect(response.data.is_owner).toBe(false);
   });
 
   it('hides merchants whose slug does not resolve to an active merchant', async () => {

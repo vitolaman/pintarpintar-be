@@ -15,8 +15,12 @@ import { UserAccess } from './entities/user-access.entity';
 import { User } from '../user/entities/user.entity';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import { Mentor } from '../mentor/entities/mentor.entity';
+import { MentorProfile } from '../mentor/entities/mentor-profile.entity';
+import { assetUrl } from '../../common/storage/asset-url';
+import { splitSkills } from '../../common/util/skill-list';
 import {
   LearningItemResponseDto,
+  LearningStatisticsResponseDto,
   ProfileResponseDto,
   CertificationItemResponseDto,
 } from './dto/profile-response.dto';
@@ -151,15 +155,53 @@ export class ProfileService {
     };
   }
 
+  async findStatistics(userId: string) {
+    const [row] = await this.dataSource.query(
+      `SELECT
+         (SELECT count(DISTINCT enrollment.class_id) FROM enrollments enrollment
+            INNER JOIN classes class ON class.id = enrollment.class_id AND class.deleted_at IS NULL
+            WHERE enrollment.user_id = $1 AND enrollment.deleted_at IS NULL
+              AND class.type = 'live-bootcamp')::integer AS bootcamp_count,
+         (SELECT count(DISTINCT enrollment.class_id) FROM enrollments enrollment
+            INNER JOIN classes class ON class.id = enrollment.class_id AND class.deleted_at IS NULL
+            WHERE enrollment.user_id = $1 AND enrollment.deleted_at IS NULL
+              AND class.type <> 'live-bootcamp')::integer AS video_class_count,
+         (SELECT count(DISTINCT access.product_id) FROM user_access access
+            INNER JOIN products product ON product.id = access.product_id AND product.deleted_at IS NULL
+            WHERE access.user_id = $1 AND access.deleted_at IS NULL
+              AND (access.expires_at IS NULL OR access.expires_at > now()))::integer AS digital_product_count,
+         (SELECT count(*) FROM certificates certificate
+            WHERE certificate.user_id = $1 AND certificate.status = $2
+              AND certificate.deleted_at IS NULL)::integer AS certificate_count`,
+      [userId, CertificateStatus.ISSUED],
+    );
+    const data: LearningStatisticsResponseDto = {
+      bootcamp_count: row.bootcamp_count,
+      video_class_count: row.video_class_count,
+      digital_product_count: row.digital_product_count,
+      certificate_count: row.certificate_count,
+    };
+    return { data, responseMessage: 'Get learning statistics success' };
+  }
+
   async findCertifications(userId: string) {
     const rows: CertificationRow[] = await this.dataSource.query(
       `SELECT certificate.id, certificate."certNo" AS certificate_number,
               certificate."issueDate"::text AS issued_on, certificate."fileUrl" AS file_url,
               class.id AS class_id, class.title AS class_title,
-              merchant.store_name AS issuer_name
+              merchant.store_name AS issuer_name, lead_mentor.name AS mentor_name
        FROM certificates certificate
        INNER JOIN classes class ON class.id = certificate.class_id
        LEFT JOIN merchants merchant ON merchant.id = class.merchant_id
+       LEFT JOIN LATERAL (
+         SELECT mentor_user.name
+         FROM class_mentors link
+         INNER JOIN mentors mentor ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
+         INNER JOIN users mentor_user ON mentor_user.id = mentor.user_id AND mentor_user.deleted_at IS NULL
+         WHERE link.class_id = class.id AND link.deleted_at IS NULL
+         ORDER BY link.created_at, link.id
+         LIMIT 1
+       ) lead_mentor ON true
        WHERE certificate.user_id = $1 AND certificate.status = $2
          AND certificate.deleted_at IS NULL
        ORDER BY certificate."issueDate" DESC NULLS LAST, certificate.created_at DESC, certificate.id DESC`,
@@ -193,6 +235,11 @@ export class ProfileService {
         'mentor.user_id = user.id AND mentor.deleted_at IS NULL',
       )
       .leftJoin(
+        MentorProfile,
+        'mentor_profile',
+        'mentor_profile.mentor_id = mentor.id AND mentor_profile.deleted_at IS NULL',
+      )
+      .leftJoin(
         Merchant,
         'merchant',
         'merchant.user_id = user.id AND merchant.deleted_at IS NULL',
@@ -209,6 +256,7 @@ export class ProfileService {
         'profile.headline AS headline',
         'profile.bio AS bio',
         'mentor.id AS mentor_id',
+        'mentor_profile.expertise AS mentor_expertise',
         'merchant.id AS merchant_id',
         'user.created_at AS member_since',
       ])
@@ -228,12 +276,14 @@ export class ProfileService {
       is_merchant: row.is_merchant,
       avatar_asset_id: row.avatar_asset_id,
       avatar_object_key: row.avatar_object_key,
+      avatar_url: assetUrl(row.avatar_object_key),
       phone: row.phone,
       headline: row.headline,
       bio: row.bio,
       mentor_id: row.mentor_id,
       merchant_id: row.merchant_id,
       member_since: row.member_since,
+      expertise_list: splitSkills(row.mentor_expertise),
     };
   }
 
@@ -272,6 +322,10 @@ export class ProfileService {
       class_title: row.class_title,
       issuer_name: row.issuer_name,
       file_url: row.file_url,
+      mentor_name: row.mentor_name,
+      // No grading or skills source exists for certificates yet.
+      skills: [],
+      grade: null,
     };
   }
 
@@ -298,6 +352,7 @@ interface ProfileRow {
   headline: string | null;
   bio: string | null;
   mentor_id: string | null;
+  mentor_expertise: string | null;
   merchant_id: string | null;
   member_since: Date;
 }
@@ -324,4 +379,5 @@ interface CertificationRow {
   class_id: string;
   class_title: string;
   issuer_name: string | null;
+  mentor_name: string | null;
 }

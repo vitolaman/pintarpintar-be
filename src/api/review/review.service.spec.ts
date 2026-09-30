@@ -118,4 +118,58 @@ describe('ReviewService', () => {
       service.findClassReviews(classId, { page: 1, limit: 10 } as never),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it("lists a merchant's class and product reviews with the item", async () => {
+    const merchantId = '20000000-0000-4000-8000-000000000001';
+    dataSource.query
+      .mockResolvedValueOnce([{ found: true, average: '4.5', total: 2 }])
+      .mockResolvedValueOnce([
+        {
+          id: 'review-1',
+          rating: 5,
+          comment: 'Mantap',
+          created_at: new Date('2026-09-30T00:00:00.000Z'),
+          reviewer_name: 'John Doe',
+          reviewer_avatar_object_key: null,
+          item_id: classId,
+          item_type: 'bootcamp',
+          item_title: 'PLC Programming Bootcamp',
+        },
+      ]);
+
+    const response = await service.findMerchantReviews(merchantId, {
+      page: 1,
+      limit: 10,
+    } as never);
+
+    expect(response.data.average_rating).toBe(4.5);
+    expect(response.data.reviews[0]).toMatchObject({
+      reviewer_name: 'John Doe',
+      reviewer_avatar_url: null,
+      item: {
+        id: classId,
+        type: 'bootcamp',
+        title: 'PLC Programming Bootcamp',
+      },
+    });
+    expect(response.meta).toEqual({
+      page: 1,
+      limit: 10,
+      total: 2,
+      totalPage: 1,
+    });
+  });
+
+  it('returns 404 for reviews of an unknown merchant', async () => {
+    dataSource.query.mockResolvedValueOnce([
+      { found: false, average: '0', total: 0 },
+    ]);
+
+    await expect(
+      service.findMerchantReviews('20000000-0000-4000-8000-000000000009', {
+        page: 1,
+        limit: 10,
+      } as never),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
 });

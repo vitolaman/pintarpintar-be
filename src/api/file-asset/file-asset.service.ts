@@ -13,6 +13,7 @@ import {
   FileAssetResponseDto,
   RegisterUploadDto,
 } from './dto/register-upload.dto';
+import { createObjectStorage } from '../../common/storage/object-storage';
 import { assertImageWithinLimit } from './image-asset-rules';
 
 const STORAGE_PROVIDER = 's3';
@@ -22,27 +23,13 @@ export class FileAssetService {
   private readonly s3Client: S3Client;
   private readonly bucketName: string;
 
-  // Mirrors the upload service configuration so both read the same bucket.
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     configService: ConfigService,
   ) {
-    this.bucketName =
-      configService.get<string>('AWS_S3_BUCKET_NAME') || 'default-bucket';
-    const accessKeyId = configService.get<string>('AWS_ACCESS_KEY_ID');
-    const secretAccessKey = configService.get<string>('AWS_SECRET_ACCESS_KEY');
-    const endpoint = configService.get<string>('AWS_S3_ENDPOINT');
-
-    this.s3Client = new S3Client({
-      region: configService.get<string>('AWS_REGION') || 'auto',
-      endpoint: endpoint || undefined,
-      forcePathStyle:
-        configService.get<string>('AWS_S3_FORCE_PATH_STYLE') === 'true',
-      credentials:
-        accessKeyId && secretAccessKey
-          ? { accessKeyId, secretAccessKey }
-          : undefined,
-    });
+    const storage = createObjectStorage(configService);
+    this.s3Client = storage.client;
+    this.bucketName = storage.bucket;
   }
 
   async registerUpload(userId: string, input: RegisterUploadDto) {

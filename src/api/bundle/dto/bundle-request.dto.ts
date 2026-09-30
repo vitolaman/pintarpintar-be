@@ -109,3 +109,28 @@ export class BundleListQueryDto {
   @Max(100)
   limit = 20;
 }
+
+export class PublicBundleQueryDto {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: "Only this merchant's bundles",
+  })
+  @IsOptional()
+  @IsUUID()
+  merchant_id?: string;
+
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @ApiPropertyOptional({ default: 12, minimum: 1, maximum: 50 })
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit = 12;
+}

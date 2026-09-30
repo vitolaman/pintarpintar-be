@@ -21,15 +21,18 @@ import {
   EmptyResponse,
   PaginatedResponse,
 } from '~/common/decorator/response.decorator';
+import { Public } from '~/common/decorator/public.decorator';
 import { BundleService } from './bundle.service';
 import {
   BundleListQueryDto,
   CreateBundleDto,
+  PublicBundleQueryDto,
   UpdateBundleDto,
 } from './dto/bundle-request.dto';
 import {
   BundleItemResponseDto,
   BundleResponseDto,
+  PublicBundleResponseDto,
 } from './dto/bundle-response.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
@@ -39,6 +42,15 @@ type AuthenticatedRequest = { user: { id: string } };
 @ApiTags('Merchant Bundles')
 export class BundleController {
   constructor(private readonly bundleService: BundleService) {}
+
+  @Get('get-public-bundles')
+  @Public()
+  @PaginatedResponse(PublicBundleResponseDto, 'Get public bundles success', [
+    BadRequestException,
+  ])
+  findPublic(@Query() query: PublicBundleQueryDto) {
+    return this.bundleService.findPublic(query);
+  }
 
   @Get('get-eligible-items')
   @ArrayResponse(BundleItemResponseDto, 'Get eligible bundle items success', [

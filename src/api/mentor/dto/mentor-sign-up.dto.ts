@@ -6,7 +6,6 @@ export class MentorSignUpDto extends IntersectionType(
   CreateUserBodyDto,
   MentorRegistrationDto,
 ) {
-
   @ApiProperty({ type: 'string', format: 'binary' })
   cv: unknown;
 

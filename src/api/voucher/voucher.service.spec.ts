@@ -192,8 +192,8 @@ describe('VoucherService', () => {
       dataSource.query.mock.calls;
     expect(featuredSql).toContain('ORDER BY random()');
     expect(featuredSql).toContain('hashtext(coupon.id::text)');
-    expect(featuredParams.slice(4)).toEqual([3, 0]);
-    expect(promoParams.slice(4)).toEqual([6, 0]);
+    expect(featuredParams.slice(4)).toEqual([3, 0, null]);
+    expect(promoParams.slice(4)).toEqual([6, 0, null]);
   });
 
   it('returns a null category slug for a merchant without a canonical category', () => {
@@ -250,6 +250,25 @@ describe('VoucherService', () => {
     expect(dataSource.query).toHaveBeenCalledWith(
       expect.stringContaining('profile.slug = $4'),
       expect.arrayContaining(['akademi-teknik-raka']),
+    );
+  });
+
+  it('filters public vouchers by the merchant id', async () => {
+    dataSource.query.mockImplementation((sql: string) => {
+      if (sql.includes('WITH visible'))
+        return Promise.resolve([publicVoucherRow]);
+      return Promise.resolve([{ total: '1' }]);
+    });
+
+    await service.findPublic({ merchant_id: merchantId });
+
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('merchant.id = $7'),
+      expect.arrayContaining([merchantId]),
+    );
+    expect(dataSource.query).toHaveBeenCalledWith(
+      expect.stringContaining('merchant.id = $5'),
+      expect.arrayContaining([merchantId]),
     );
   });
 

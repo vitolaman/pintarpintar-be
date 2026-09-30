@@ -5,6 +5,7 @@ import { Comment } from './comment.entity';
 
 export enum ThreadBadge {
   PENGUMUMAN = 'Pengumuman',
+  DISKUSI = 'Diskusi',
   TANYA_JAWAB = 'Tanya Jawab',
 }
 
@@ -17,7 +18,7 @@ export class DiscussionThread extends AuditedBaseEntity {
   @JoinColumn({ name: 'class_id' })
   class_entity: Class;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'uuid' })
   author_id: string;
 
   @Column({ type: 'varchar', nullable: true })

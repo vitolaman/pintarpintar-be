@@ -19,6 +19,7 @@ import {
   CertificationItemResponseDto,
   LearningItemResponseDto,
   ProfileResponseDto,
+  LearningStatisticsResponseDto,
 } from './dto/profile-response.dto';
 
 @Controller('profile/v1')
@@ -63,5 +64,14 @@ export class ProfileController {
   ])
   findCertifications(@Req() req: { user: { id: string } }) {
     return this.profileService.findCertifications(req.user.id);
+  }
+
+  @Get('get-statistics')
+  @DefaultResponse(
+    LearningStatisticsResponseDto,
+    'Get learning statistics success',
+  )
+  findStatistics(@Req() req: { user: { id: string } }) {
+    return this.profileService.findStatistics(req.user.id);
   }
 }

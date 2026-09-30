@@ -64,7 +64,18 @@ describe('CatalogService', () => {
     expect(cards[1].discount_percent).toBeNull();
     const [sql, params] = dataSource.query.mock.calls[0];
     expect(sql).toContain('ORDER BY created_at DESC, cards.id');
-    expect(params).toEqual([['bootcamp'], null, null, null, false, null, 6, 0]);
+    expect(params).toEqual([
+      ['bootcamp'],
+      null,
+      null,
+      null,
+      false,
+      null,
+      null,
+      null,
+      6,
+      0,
+    ]);
   });
 
   it('escapes LIKE wildcards and pages the catalog list', async () => {
@@ -89,7 +100,43 @@ describe('CatalogService', () => {
     const [sql, params] = dataSource.query.mock.calls[1];
     expect(sql).toContain('ORDER BY price ASC, cards.id');
     expect(params.slice(0, 2)).toEqual([['kelas', 'bootcamp'], '50\\%\\_off']);
-    expect(params.slice(6)).toEqual([10, 10]);
+    expect(params.slice(8)).toEqual([10, 10]);
+  });
+
+  it('filters by merchant and file type and maps mentor and file fields', async () => {
+    const merchantId = '20000000-0000-4000-8000-000000000001';
+    dataSource.query
+      .mockResolvedValueOnce([{ total: 1 }])
+      .mockResolvedValueOnce([
+        {
+          ...cardRow,
+          type: 'digital',
+          mentor_id: null,
+          mentor_name: 'Budi Santoso',
+          mentor_avatar_object_key: null,
+          file_format: 'PDF, DWG',
+          file_size: '15728640',
+        },
+      ]);
+
+    const response = await service.findItems({
+      merchant_id: merchantId,
+      file_format: ['pdf', 'dwg'],
+      page: 1,
+      limit: 12,
+      sort: 'terbaru',
+    } as never);
+
+    expect(response.data[0]).toMatchObject({
+      mentor: { id: null, name: 'Budi Santoso', avatar_url: null },
+      file_format: 'PDF, DWG',
+      file_size: 15728640,
+      image_url: null,
+    });
+    expect(dataSource.query.mock.calls[0][1].slice(6)).toEqual([
+      merchantId,
+      ['pdf', 'dwg'],
+    ]);
   });
 
   it('skips the page query when nothing matches', async () => {
@@ -107,7 +154,8 @@ describe('CatalogService', () => {
 
   it('returns class detail without video, file, or meeting links', async () => {
     dataSource.query.mockImplementation((sql: string) => {
-      if (sql.includes('FROM class_mentors')) return Promise.resolve([]);
+      if (sql.includes('SELECT mentor_user.name, profile.headline'))
+        return Promise.resolve([]);
       if (sql.includes('SELECT id, title, description FROM chapters'))
         return Promise.resolve([
           { id: 'chapter-id', title: 'Dasar', description: null },
@@ -175,6 +223,8 @@ describe('CatalogService', () => {
       null,
       false,
       classId,
+      null,
+      null,
     ]);
   });
 });

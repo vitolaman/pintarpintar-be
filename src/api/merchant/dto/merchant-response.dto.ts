@@ -1,5 +1,34 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class MerchantLandingResponseDto {
+  @ApiPropertyOptional({ format: 'uuid' })
+  background_asset_id: string | null;
+
+  @ApiPropertyOptional()
+  background_object_key: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+  })
+  background_url: string | null;
+
+  @ApiProperty({
+    type: [String],
+    example: ['best_seller', 'bootcamp', 'kelas', 'digital', 'bundles'],
+  })
+  section_order: string[];
+
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: {
+      type: 'array',
+      items: { type: 'string', format: 'uuid' },
+    },
+    example: { best_seller: ['3fa85f64-5717-4562-b3fc-2c963f66afa6'] },
+  })
+  item_order: Record<string, string[]>;
+}
+
 export class MerchantResponseDto {
   @ApiProperty()
   id: string;
@@ -84,6 +113,22 @@ export class MerchantResponseDto {
 
   @ApiPropertyOptional({ nullable: true })
   cover_object_key: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+  })
+  avatar_url: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+  })
+  cover_url: string | null;
+
+  @ApiProperty({ type: [String], example: ['AutoCAD', 'SAP2000'] })
+  skills: string[];
+
+  @ApiProperty({ type: MerchantLandingResponseDto })
+  landing: MerchantLandingResponseDto;
 }
 
 export class NotificationPreferencesResponseDto {

@@ -7,6 +7,7 @@ const MEBIBYTE = 1024 * 1024;
 export const imagePurposes = [
   'merchant_logo',
   'merchant_banner',
+  'merchant_landing_background',
   'user_avatar',
 ] as const;
 
@@ -15,6 +16,7 @@ export type ImagePurpose = (typeof imagePurposes)[number];
 export const IMAGE_SIZE_LIMITS: Record<ImagePurpose, number> = {
   merchant_logo: 2 * MEBIBYTE,
   merchant_banner: 4 * MEBIBYTE,
+  merchant_landing_background: 4 * MEBIBYTE,
   user_avatar: 2 * MEBIBYTE,
 };
 

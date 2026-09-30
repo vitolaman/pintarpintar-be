@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 
 jest.mock('@nestjs/jwt', () => ({
@@ -22,7 +22,6 @@ describe('MentorService', () => {
     cv: {
       assetId: '30000000-0000-4000-8000-000000000001',
       objectKey: 'mentor-documents/cv.pdf',
-      absolutePath: '/private/cv.pdf',
       originalFilename: 'cv.pdf',
       mimeType: 'application/pdf',
       sizeBytes: 100,
@@ -31,7 +30,6 @@ describe('MentorService', () => {
     certificate: {
       assetId: '30000000-0000-4000-8000-000000000002',
       objectKey: 'mentor-documents/certificate.pdf',
-      absolutePath: '/private/certificate.pdf',
       originalFilename: 'certificate.pdf',
       mimeType: 'application/pdf',
       sizeBytes: 100,
@@ -57,10 +55,7 @@ describe('MentorService', () => {
   let mentorRepository: { findOneBy: jest.Mock; createQueryBuilder: jest.Mock };
   let users: { createWithManager: jest.Mock };
   let auth: { createTokenResponse: jest.Mock };
-  let storage: {
-    storeRequiredDocuments: jest.Mock;
-    remove: jest.Mock;
-  };
+  let storage: Record<string, jest.Mock>;
   let service: MentorService;
 
   beforeEach(() => {
@@ -85,7 +80,11 @@ describe('MentorService', () => {
     auth = { createTokenResponse: jest.fn() };
     storage = {
       storeRequiredDocuments: jest.fn().mockResolvedValue(documents),
+      storeReplacementDocuments: jest.fn(),
       remove: jest.fn().mockResolvedValue(undefined),
+      signedDownloadUrl: jest
+        .fn()
+        .mockResolvedValue('https://signed.example/cv'),
     };
     service = new MentorService(
       dataSource as DataSource,
@@ -111,18 +110,16 @@ describe('MentorService', () => {
       data: { token: 'token' },
     });
 
-    expect(users.createWithManager).toHaveBeenCalledWith(
-      manager,
-      input,
-      { isMentor: true },
-    );
+    expect(users.createWithManager).toHaveBeenCalledWith(manager, input, {
+      isMentor: true,
+    });
     expect(manager.save).toHaveBeenCalledWith(
       FileAsset,
       expect.arrayContaining([
         expect.objectContaining({
           uploadedByUserId: userId,
           visibility: 'private',
-          storageProvider: 'local',
+          storageProvider: 's3',
         }),
       ]),
     );
@@ -166,5 +163,114 @@ describe('MentorService', () => {
       documents.certificate,
     ]);
     expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('replaces the CV, soft-deletes the old asset, and removes it from storage after commit', async () => {
+    storage.storeReplacementDocuments.mockResolvedValue({ cv: documents.cv });
+    manager.findOne.mockResolvedValue({ id: mentorId, userId });
+    const mentorProfile = {
+      mentorId,
+      cvAssetId: 'old-cv-id',
+      skillCertificateAssetId: 'old-cert-id',
+    };
+    manager.findOneBy.mockResolvedValue(mentorProfile);
+    manager.findByIds = jest
+      .fn()
+      .mockResolvedValue([
+        {
+          id: 'old-cv-id',
+          storageProvider: 's3',
+          objectKey: 'mentor-documents/old.pdf',
+        },
+      ]);
+    manager.update = jest.fn().mockResolvedValue(undefined);
+    manager.softDelete = jest.fn().mockResolvedValue(undefined);
+    (dataSource.query as jest.Mock).mockResolvedValue([
+      {
+        kind: 'cv',
+        asset_id: documents.cv.assetId,
+        filename: 'cv.pdf',
+        mime_type: 'application/pdf',
+        size_bytes: '100',
+        uploaded_at: new Date('2026-09-30T00:00:00.000Z'),
+        storage_provider: 's3',
+        object_key: documents.cv.objectKey,
+      },
+    ]);
+
+    const response = await service.updateDocuments(userId, {
+      cv: [{} as Express.Multer.File],
+    });
+
+    expect(mentorProfile.cvAssetId).toBe(documents.cv.assetId);
+    expect(mentorProfile.skillCertificateAssetId).toBe('old-cert-id');
+    expect(manager.softDelete).toHaveBeenCalledWith(expect.anything(), [
+      'old-cv-id',
+    ]);
+    expect(storage.remove).toHaveBeenCalledWith([
+      expect.objectContaining({ objectKey: 'mentor-documents/old.pdf' }),
+    ]);
+    expect(response.data).toEqual([
+      expect.objectContaining({
+        kind: 'cv',
+        size_bytes: 100,
+        download_url: 'https://signed.example/cv',
+      }),
+    ]);
+  });
+
+  it('removes the new upload when the replacement transaction fails', async () => {
+    storage.storeReplacementDocuments.mockResolvedValue({ cv: documents.cv });
+    manager.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.updateDocuments(userId, { cv: [{} as Express.Multer.File] }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(storage.remove).toHaveBeenCalledWith([documents.cv]);
+  });
+
+  it('gives no download URL for documents stored before S3 storage', async () => {
+    (dataSource.query as jest.Mock).mockResolvedValue([
+      {
+        kind: 'skill_certificate',
+        asset_id: 'legacy-id',
+        filename: 'sertifikat.pdf',
+        mime_type: 'application/pdf',
+        size_bytes: '200',
+        uploaded_at: new Date('2026-09-01T00:00:00.000Z'),
+        storage_provider: 'local',
+        object_key: 'mentor-documents/legacy.pdf',
+      },
+    ]);
+
+    const response = await service.findDocuments(userId);
+
+    expect(response.data[0].download_url).toBeNull();
+    expect(storage.signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it('stores an expertise list as comma-separated text', async () => {
+    manager.findOne.mockResolvedValue({ id: mentorId, userId });
+    const mentorProfile = { mentorId, expertise: 'Lama' };
+    manager.findOneBy.mockImplementation(async (target) =>
+      target === MentorProfile ? mentorProfile : { userId },
+    );
+    mentorRepository.createQueryBuilder.mockReturnValue({
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        expertise: 'BIM, Revit',
+        experience_years: '5',
+      }),
+    });
+
+    const response = await service.updateMyMentor(userId, {
+      expertise_list: [' BIM ', 'Revit', 'bim'],
+    });
+
+    expect(mentorProfile.expertise).toBe('BIM, Revit');
+    expect(response.data.expertise_list).toEqual(['BIM', 'Revit']);
   });
 });

@@ -1,8 +1,9 @@
 import { Column, Entity } from 'typeorm';
 import { BaseEntity } from '~/common/entities/base-entity';
 
-// `once`: each user may redeem once; `recurring`: the same user may repeat.
-// Both stop at `usage_limit` redemptions in total.
+// Follows the merchant discount page: `once` ("Kode Sekali Pakai") is a
+// single-use code (usage limit 1), and an entry of N generates N of them;
+// `recurring` ("Kode Berulang") is one shared code usable `usage_limit` times.
 export const discountCodeTypes = ['once', 'recurring'] as const;
 
 export type DiscountCodeType = (typeof discountCodeTypes)[number];

@@ -40,7 +40,6 @@ interface VoucherRow {
 interface DiscountCodeRow {
   id: string;
   code: string;
-  code_type: 'once' | 'recurring';
   usage_limit: number;
   used_count: number;
   discount_id: string;
@@ -68,7 +67,6 @@ export class CheckoutQuoteService {
     const items = await this.loadItems(manager, userId, request);
     const rules = await this.loadCodes(
       manager,
-      userId,
       request.codes ?? [],
       options.lockCodes,
     );
@@ -129,7 +127,6 @@ export class CheckoutQuoteService {
 
   private async loadCodes(
     manager: EntityManager,
-    userId: string,
     enteredCodes: string[],
     lockCodes: boolean,
   ): Promise<PromoCodeRule[]> {
@@ -143,7 +140,7 @@ export class CheckoutQuoteService {
     for (const code of codes) {
       const rule =
         (await this.loadVoucher(manager, code, lockCodes)) ??
-        (await this.loadDiscountCode(manager, userId, code, lockCodes));
+        (await this.loadDiscountCode(manager, code, lockCodes));
       if (!rule) {
         throw new BadRequestException(`Code ${code} is invalid or expired`);
       }
@@ -212,12 +209,11 @@ export class CheckoutQuoteService {
 
   private async loadDiscountCode(
     manager: EntityManager,
-    userId: string,
     code: string,
     lock: boolean,
   ): Promise<DiscountCodeRule | null> {
     const [row]: DiscountCodeRow[] = await manager.query(
-      `SELECT code.id, upper(code.code) AS code, code.code_type,
+      `SELECT code.id, upper(code.code) AS code,
               code.usage_limit, code.used_count, discount.id AS discount_id,
               discount.merchant_id, merchant.store_name AS merchant_name,
               discount.discount_type, discount.discount_value, discount.minimum_purchase,
@@ -240,20 +236,6 @@ export class CheckoutQuoteService {
     if (row.used_count >= row.usage_limit) {
       throw new BadRequestException(`Code ${code} has reached its usage limit`);
     }
-    if (row.code_type === 'once') {
-      const [{ used }] = await manager.query(
-        `SELECT EXISTS (
-           SELECT 1 FROM orders
-           WHERE user_id = $1 AND discount_code_id = $2 AND deleted_at IS NULL
-             AND (status = 'paid' OR (status = 'pending' AND expires_at > now()))
-         ) AS used`,
-        [userId, row.id],
-      );
-      if (used) {
-        throw new BadRequestException(`Code ${code} has already been used`);
-      }
-    }
-
     const targets: Array<{
       class_id: string | null;
       product_id: string | null;

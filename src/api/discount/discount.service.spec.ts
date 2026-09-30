@@ -172,7 +172,7 @@ describe('DiscountService', () => {
       ...override,
     }) as CreateDiscountDto;
 
-  it('stores targets and one generated code per entry', async () => {
+  it('generates one shared code per recurring entry and N single-use codes per once entry', async () => {
     await service.create(
       'user-id',
       input({
@@ -190,12 +190,31 @@ describe('DiscountService', () => {
     const savedCodes = manager.save.mock.calls
       .filter(([target]) => target === DiscountCode)
       .map(([, value]) => value);
-    expect(savedCodes).toHaveLength(2);
-    expect(savedCodes.map((code) => code.codeType)).toEqual([
-      'once',
-      'recurring',
+    expect(savedCodes).toHaveLength(101);
+    const singleUse = savedCodes.filter((code) => code.codeType === 'once');
+    expect(singleUse).toHaveLength(100);
+    expect(singleUse.every((code) => code.usageLimit === 1)).toBe(true);
+    expect(savedCodes.filter((code) => code.codeType === 'recurring')).toEqual([
+      expect.objectContaining({ usageLimit: 500 }),
     ]);
-    expect(savedCodes[0].code).not.toBe(savedCodes[1].code);
+    expect(new Set(savedCodes.map((code) => code.code)).size).toBe(101);
+  });
+
+  it('limits single-use codes to 1,000 per request', async () => {
+    await expect(
+      service.create(
+        'user-id',
+        input({
+          codes: [
+            { code_type: 'once', usage_limit: 600 },
+            { code_type: 'once', usage_limit: 401 },
+          ],
+        }),
+      ),
+    ).rejects.toThrow('At most 1000 single-use codes');
+    expect(
+      manager.save.mock.calls.filter(([target]) => target === DiscountCode),
+    ).toHaveLength(0);
   });
 
   it('rejects a percentage above 100 and an inverted period', async () => {

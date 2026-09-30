@@ -119,7 +119,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 Payment grants class enrolments and digital-product access (bundles expanded), removes the items from the cart, and credits each merchant's wallet with the item price minus its code discounts. Income becomes withdrawable on Duitku's settlement date (H+4 when none is reported). Unpaid orders expire every minute; settlement runs every 30 minutes.
 
-Deployment needs the six `PAYMENT_*` variables in `.env.example`. `PAYMENT_GATEWAY_URL` is the POP API base (`https://api-sandbox.duitku.com/api` or `https://api-prod.duitku.com/api`), not the demo page. Set the Duitku project's callback URL to `PAYMENT_CALLBACK_URL`, and allow Duitku's POSTs to `/payments/v1/duitku-callback` through Cloudflare (no bot challenge on that path).
+Deployment needs the six `PAYMENT_*` variables in `.env.example`. `PAYMENT_GATEWAY_URL` is the POP API base (`https://api-sandbox.duitku.com/api` or `https://api-prod.duitku.com/api`), not the demo page. The callback and return URLs are sent with every invoice, so nothing has to be registered in the Duitku dashboard; `PAYMENT_CALLBACK_URL` must be public on port 80 or 443, and Cloudflare must let Duitku's POSTs to `/payments/v1/duitku-callback` through (no bot challenge on that path).
 
 ### Merchant profile and settings
 
@@ -153,7 +153,7 @@ Account numbers are always returned masked. They are stored encrypted when `PAYO
 ### Merchant discounts
 
 - `GET /discounts/v1/get-eligible-products`
-- `POST /discounts/v1/create-discount` — codes are system-generated
+- `POST /discounts/v1/create-discount` — codes are system-generated: a `once` entry of N creates N single-use codes ("Kode Sekali Pakai", at most 1,000 per request); a `recurring` entry creates one code shared up to its limit ("Kode Berulang")
 - `GET /discounts/v1/get-discounts`
 - `GET /discounts/v1/get-discount/:id`
 - `PATCH /discounts/v1/update-discount/:id`

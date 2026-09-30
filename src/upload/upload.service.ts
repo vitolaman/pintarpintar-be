@@ -12,6 +12,7 @@ import {
   CompletedPart,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { buildUploadKey } from '~/common/storage/upload-key';
 
 @Injectable()
 export class UploadService {
@@ -37,8 +38,12 @@ export class UploadService {
     });
   }
 
-  async initiateMultipartUpload(fileName: string, contentType: string) {
-    const key = `uploads/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+  async initiateMultipartUpload(
+    userId: string,
+    fileName: string,
+    contentType: string,
+  ) {
+    const key = buildUploadKey(userId, fileName);
     
     try {
       const command = new CreateMultipartUploadCommand({

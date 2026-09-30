@@ -2,6 +2,7 @@ import {
   BadGatewayException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -18,6 +19,7 @@ import {
   assertFileFitsPurpose,
   purposeVisibility,
 } from './asset-purpose-rules';
+import { isOwnUploadKey } from '~/common/storage/upload-key';
 
 const STORAGE_PROVIDER = 's3';
 
@@ -36,6 +38,9 @@ export class FileAssetService {
   }
 
   async registerUpload(userId: string, input: RegisterUploadDto) {
+    if (!isOwnUploadKey(input.key, userId)) {
+      throw new ForbiddenException('This upload belongs to another user');
+    }
     const { contentType, sizeBytes } = await this.readObject(input.key);
     const filename = originalFilename(input.key);
     assertFileFitsPurpose(input.purpose, {
@@ -117,7 +122,7 @@ export class FileAssetService {
   }
 }
 
-// Upload keys are `uploads/<timestamp>-<sanitized name>`.
+// Upload keys are `uploads/<userId>/<timestamp>-<sanitized name>`.
 export function originalFilename(key: string): string {
   const basename = key.slice(key.lastIndexOf('/') + 1);
   return basename.replace(/^\d+-/, '') || basename;

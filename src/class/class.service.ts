@@ -21,7 +21,8 @@ import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { ClassAccessService } from './class-access.service';
 import { ClassListQueryDto } from './dto/class-list-query.dto';
-import { ClassResponseDto } from './dto/class-response.dto';
+import { ClassResponseDto, MentorResponseDto } from './dto/class-response.dto';
+import { UpdateClassMentorDto } from './dto/update-class-mentor.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import {
   DEFAULT_TUTOR_PERMISSIONS,
@@ -268,7 +269,7 @@ export class ClassService {
         throw new ConflictException('Mentor is already assigned to this class');
       }
 
-      return manager.save(
+      const link = await manager.save(
         ClassMentor,
         manager.create(ClassMentor, {
           class_id: classId,
@@ -277,19 +278,80 @@ export class ClassService {
           permissions: dto.permissions
             ? parsePermissionMatrix(dto.permissions)
             : DEFAULT_TUTOR_PERMISSIONS[dto.role],
+          created_by: userId,
         }),
+      );
+      const [data] = await this.loadTutors(manager, classId, {
+        linkId: link.id,
+      });
+      return { data, responseMessage: 'Invite mentor success' };
+    });
+  }
+
+  // Only the owner changes a tutor; the new role's preset applies unless a
+  // complete matrix is sent.
+  async updateClassMentor(
+    userId: string,
+    classId: string,
+    classMentorId: string,
+    dto: UpdateClassMentorDto,
+  ) {
+    return this.classRepo.manager.transaction(async (manager) => {
+      const link = await this.lockTutorLink(
+        manager,
+        userId,
+        classId,
+        classMentorId,
+      );
+      if (dto.role !== undefined) {
+        link.role = dto.role;
+      }
+      if (dto.permissions !== undefined) {
+        link.permissions = parsePermissionMatrix(dto.permissions);
+      } else if (dto.role !== undefined) {
+        link.permissions = DEFAULT_TUTOR_PERMISSIONS[dto.role];
+      }
+      link.updated_by = userId;
+      await manager.save(link);
+
+      const [data] = await this.loadTutors(manager, classId, {
+        linkId: link.id,
+      });
+      return { data, responseMessage: 'Update class mentor success' };
+    });
+  }
+
+  // A revoked tutor loses access immediately: class access only follows
+  // non-deleted links.
+  async revokeClassMentor(
+    userId: string,
+    classId: string,
+    classMentorId: string,
+  ) {
+    await this.classRepo.manager.transaction(async (manager) => {
+      const link = await this.lockTutorLink(
+        manager,
+        userId,
+        classId,
+        classMentorId,
+      );
+      await manager.update(
+        ClassMentor,
+        { id: link.id },
+        { deleted_at: new Date(), deleted_by: userId },
       );
     });
   }
 
   async getClassMentors(userId: string, classId: string, page = 1, limit = 10) {
     await this.classAccess.requireAssigned(userId, classId);
-    const [data, total] = await this.classMentorRepo.findAndCount({
-      where: { class_id: classId },
-      relations: ['mentor'],
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const manager = this.classRepo.manager;
+    const [{ total }] = await manager.query(
+      `SELECT count(*)::integer AS total FROM class_mentors
+       WHERE class_id = $1 AND deleted_at IS NULL`,
+      [classId],
+    );
+    const data = await this.loadTutors(manager, classId, { page, limit });
     return { data, meta: { total, page, limit } };
   }
 
@@ -339,6 +401,64 @@ export class ClassService {
       },
     }));
     return { data, meta: { total, page, limit } };
+  }
+
+  private async lockTutorLink(
+    manager: EntityManager,
+    userId: string,
+    classId: string,
+    classMentorId: string,
+  ): Promise<ClassMentor> {
+    await this.classAccess.requireOwner(userId, classId, manager);
+    await manager.query('SELECT id FROM classes WHERE id = $1 FOR UPDATE', [
+      classId,
+    ]);
+    const link = await manager.findOne(ClassMentor, {
+      where: { id: classMentorId, class_id: classId },
+    });
+    if (!link) throw new NotFoundException('Class mentor not found');
+    return link;
+  }
+
+  private async loadTutors(
+    manager: EntityManager,
+    classId: string,
+    scope: { linkId: string } | { page: number; limit: number },
+  ): Promise<MentorResponseDto[]> {
+    const byLink = 'linkId' in scope;
+    const rows = await manager.query(
+      `SELECT link.id, link.class_id, link.mentor_id, mentor.user_id,
+              tutor_user.name, tutor_user.email, avatar.object_key AS avatar_object_key,
+              link.role, link.permissions, link.created_at
+       FROM class_mentors link
+       INNER JOIN mentors mentor
+         ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
+       INNER JOIN users tutor_user
+         ON tutor_user.id = mentor.user_id AND tutor_user.deleted_at IS NULL
+       LEFT JOIN user_profiles profile
+         ON profile.user_id = tutor_user.id AND profile.deleted_at IS NULL
+       LEFT JOIN file_assets avatar
+         ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
+       WHERE link.class_id = $1 AND link.deleted_at IS NULL
+         AND ($2::uuid IS NULL OR link.id = $2)
+       ORDER BY link.created_at, link.id
+       LIMIT $3 OFFSET $4`,
+      byLink
+        ? [classId, scope.linkId, 1, 0]
+        : [classId, null, scope.limit, (scope.page - 1) * scope.limit],
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      class_id: row.class_id,
+      mentor_id: row.mentor_id,
+      user_id: row.user_id,
+      name: row.name,
+      email: row.email,
+      avatar_url: assetUrl(row.avatar_object_key),
+      role: row.role,
+      permissions: row.permissions,
+      created_at: row.created_at,
+    }));
   }
 
   private async toClassResponses(

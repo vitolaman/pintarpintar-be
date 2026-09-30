@@ -121,11 +121,19 @@ export class AssignmentResponseDto {
 }
 
 export class MentorResponseDto {
-  @ApiProperty() id: string;
+  @ApiProperty({ description: 'Tutor assignment id (class_mentors.id)' })
+  id: string;
   @ApiProperty() class_id: string;
   @ApiProperty() mentor_id: string;
-  @ApiProperty() role: string;
-  @ApiPropertyOptional() permissions: any;
+  @ApiProperty() user_id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() email: string;
+  @ApiPropertyOptional({ nullable: true }) avatar_url: string | null;
+  @ApiProperty({ enum: ['lead', 'assistant', 'moderator'] }) role: string;
+  @ApiProperty({
+    description: 'Areas × actions (lihat, tambah, edit, delete) booleans',
+  })
+  permissions: Record<string, Record<string, boolean>>;
   @ApiProperty() created_at: Date;
 }
 

@@ -32,6 +32,7 @@ import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
 import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
 import { ReorderChapterItemsDto } from './dto/reorder-chapter-items.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
+import { UpdateClassMentorDto } from './dto/update-class-mentor.dto';
 import { 
   ClassResponseDto, 
   ChapterResponseDto, 
@@ -359,12 +360,48 @@ export class ClassController {
   }
 
   @Post(':classId/mentors')
+  @DefaultResponse(
+    MentorResponseDto,
+    'Invite mentor success',
+    HttpStatus.CREATED,
+  )
   inviteMentor(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
     @Body() dto: InviteMentorDto,
   ) {
     return this.classService.inviteMentor(req.user.id, classId, dto);
+  }
+
+  @Patch(':classId/mentors/:classMentorId')
+  @DefaultResponse(MentorResponseDto, 'Update class mentor success')
+  updateClassMentor(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('classMentorId', ParseUUIDPipe) classMentorId: string,
+    @Body() dto: UpdateClassMentorDto,
+  ) {
+    return this.classService.updateClassMentor(
+      req.user.id,
+      classId,
+      classMentorId,
+      dto,
+    );
+  }
+
+  @Delete(':classId/mentors/:classMentorId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @EmptyResponse()
+  revokeClassMentor(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('classMentorId', ParseUUIDPipe) classMentorId: string,
+  ) {
+    return this.classService.revokeClassMentor(
+      req.user.id,
+      classId,
+      classMentorId,
+    );
   }
 
   @Get(':classId/mentors')

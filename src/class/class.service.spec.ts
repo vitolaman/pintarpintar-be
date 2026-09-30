@@ -24,7 +24,19 @@ describe('ClassService.inviteMentor', () => {
       query: jest
         .fn()
         .mockResolvedValueOnce([{ id: classId }])
-        .mockResolvedValueOnce([{ id: mentorId }]),
+        .mockResolvedValueOnce([{ id: mentorId }])
+        .mockResolvedValueOnce([
+          {
+            id: 'link-id',
+            class_id: classId,
+            mentor_id: mentorId,
+            name: 'Mentor',
+            email: 'mentor@example.com',
+            avatar_object_key: null,
+            role: 'lead',
+            permissions: DEFAULT_TUTOR_PERMISSIONS.lead,
+          },
+        ]),
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((_target, value) => value),
       save: jest.fn(async (_target, value) => ({ ...value, id: 'link-id' })),
@@ -34,19 +46,18 @@ describe('ClassService.inviteMentor', () => {
     } as unknown as Repository<ClassMentor>;
     const unused = {} as never;
 
-    service = new ClassService(
-      unused,
-      unused,
-      classMentors,
-      unused,
-      unused,
-    );
+    service = new ClassService(unused, unused, classMentors, unused, unused);
   });
 
   it('assigns an active mentor found by email to the owner class', async () => {
     await expect(
       service.inviteMentor(ownerId, classId, input),
-    ).resolves.toEqual(
+    ).resolves.toMatchObject({
+      data: { id: 'link-id', email: 'mentor@example.com', avatar_url: null },
+      responseMessage: 'Invite mentor success',
+    });
+    expect(manager.save).toHaveBeenCalledWith(
+      ClassMentor,
       expect.objectContaining({
         class_id: classId,
         mentor_id: mentorId,
@@ -422,5 +433,118 @@ describe('ClassService.updateClass', () => {
       service.updateClass(userId, classId, { cover_asset_id: coverId }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(manager.save).not.toHaveBeenCalled();
+  });
+});
+
+describe('ClassService tutor management', () => {
+  const userId = '10000000-0000-4000-8000-000000000001';
+  const classId = '30000000-0000-4000-8000-000000000001';
+  const linkId = '70000000-0000-4000-8000-000000000001';
+  let access: Record<string, unknown> | null;
+  let manager: Record<string, jest.Mock>;
+  let link: Record<string, unknown>;
+  let service: ClassService;
+
+  beforeEach(() => {
+    access = { is_owner: true };
+    link = {
+      id: linkId,
+      class_id: classId,
+      role: 'moderator',
+      permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+    };
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('AS is_owner')) return access ? [access] : [];
+      if (sql.includes('FROM class_mentors link')) return [{ ...link }];
+      return [];
+    });
+    manager = {
+      query,
+      findOne: jest.fn(async () => link),
+      save: jest.fn(async (value) => value),
+      update: jest.fn(),
+    };
+    manager.transaction = jest.fn((callback) => callback(manager));
+    const unused = {} as never;
+    service = new ClassService(
+      { manager } as never,
+      unused,
+      unused,
+      unused,
+      new ClassAccessService({ manager: { query } } as never),
+    );
+  });
+
+  it('applies the new role preset when no matrix is sent', async () => {
+    await service.updateClassMentor(userId, classId, linkId, {
+      role: 'assistant',
+    });
+
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'assistant',
+        permissions: DEFAULT_TUTOR_PERMISSIONS.assistant,
+      }),
+    );
+  });
+
+  it('stores a sent matrix with missing actions as false', async () => {
+    await service.updateClassMentor(userId, classId, linkId, {
+      permissions: { meeting: { lihat: true } },
+    });
+
+    const saved = manager.save.mock.calls[0][0];
+    expect(saved.role).toBe('moderator');
+    expect(saved.permissions.meeting).toEqual({
+      lihat: true,
+      tambah: false,
+      edit: false,
+      delete: false,
+    });
+  });
+
+  it('rejects an unknown permission area', async () => {
+    await expect(
+      service.updateClassMentor(userId, classId, linkId, {
+        permissions: { keuangan: { lihat: true } },
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('lets only the owner manage tutors', async () => {
+    access = {
+      is_owner: false,
+      role: 'lead',
+      permissions: DEFAULT_TUTOR_PERMISSIONS.lead,
+    };
+    await expect(
+      service.revokeClassMentor(userId, classId, linkId),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    access = null;
+    await expect(
+      service.updateClassMentor(userId, classId, linkId, { role: 'lead' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(manager.update).not.toHaveBeenCalled();
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('revokes a tutor by soft-deleting the link', async () => {
+    await service.revokeClassMentor(userId, classId, linkId);
+
+    expect(manager.update).toHaveBeenCalledWith(
+      ClassMentor,
+      { id: linkId },
+      expect.objectContaining({ deleted_by: userId }),
+    );
+  });
+
+  it('returns 404 for a tutor link of another class', async () => {
+    manager.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.revokeClassMentor(userId, classId, linkId),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

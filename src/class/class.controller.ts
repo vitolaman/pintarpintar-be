@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -15,6 +16,7 @@ import { CreateChapterDto } from './dto/create-chapter.dto';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
+import { UpdateClassDto } from './dto/update-class.dto';
 import { 
   ClassResponseDto, 
   ChapterResponseDto, 
@@ -39,6 +41,16 @@ export class ClassController {
     @Param('classId', ParseUUIDPipe) classId: string,
   ) {
     return this.classService.getClassById(req.user.id, classId);
+  }
+
+  @Patch(':classId')
+  @DefaultResponse(ClassResponseDto, 'Update class success')
+  updateClass(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Body() dto: UpdateClassDto,
+  ) {
+    return this.classService.updateClass(req.user.id, classId, dto);
   }
 
   @Post(':classId/chapters')

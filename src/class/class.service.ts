@@ -1,10 +1,15 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
+import { assertOwnedAsset } from '../api/file-asset/asset-purpose-rules';
+import { assetUrl } from '../common/storage/asset-url';
+
 import { Class } from './entities/class.entity';
 import { Chapter } from './entities/chapter.entity';
 import { FileResource } from './entities/file-resource.entity';
@@ -21,10 +26,32 @@ import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { ClassAccessService } from './class-access.service';
+import { ClassListQueryDto } from './dto/class-list-query.dto';
+import { ClassResponseDto } from './dto/class-response.dto';
+import { UpdateClassDto } from './dto/update-class.dto';
 import {
   DEFAULT_TUTOR_PERMISSIONS,
   parsePermissionMatrix,
 } from './class-permissions';
+
+// A lead tutor may edit the class's presentation; pricing, type, and status
+// stay with the owner.
+const LEAD_TUTOR_CLASS_FIELDS = [
+  'title',
+  'description',
+  'cover_asset_id',
+  'post_purchase_instructions',
+] as const;
+
+const CLASS_UPDATE_FIELDS = [
+  ...LEAD_TUTOR_CLASS_FIELDS,
+  'type',
+  'status',
+  'originalPrice',
+  'discountedPrice',
+] as const;
+
+type ClassUpdateField = (typeof CLASS_UPDATE_FIELDS)[number];
 
 @Injectable()
 export class ClassService {
@@ -42,42 +69,62 @@ export class ClassService {
   ) {}
 
   async createClass(userId: string, merchantId: string, dto: CreateClassDto) {
-    await this.assertOwnsMerchant(userId, merchantId);
-    const newClass = this.classRepo.create({
-      merchant_id: merchantId,
-      title: dto.title,
-      description: dto.description,
-      status: dto.status,
-      type: dto.type,
-      originalPrice: dto.originalPrice,
-      discountedPrice: dto.discountedPrice,
+    assertDiscountWithinPrice(dto.originalPrice, dto.discountedPrice);
+    return this.classRepo.manager.transaction(async (manager) => {
+      await this.assertOwnsMerchant(userId, merchantId, manager);
+      if (dto.cover_asset_id) {
+        await assertOwnedAsset(
+          manager,
+          userId,
+          dto.cover_asset_id,
+          'class_cover',
+        );
+      }
+      const saved = await manager.save(
+        Class,
+        manager.create(Class, {
+          merchant_id: merchantId,
+          title: dto.title,
+          description: dto.description,
+          status: dto.status,
+          type: dto.type,
+          originalPrice: dto.originalPrice,
+          discountedPrice: dto.discountedPrice,
+          cover_asset_id: dto.cover_asset_id ?? null,
+          post_purchase_instructions: dto.post_purchase_instructions ?? null,
+        }),
+      );
+      const [data] = await this.toClassResponses([saved], manager);
+      return { data, responseMessage: 'Create class success' };
     });
-    return this.classRepo.save(newClass);
   }
 
   async getClassesByMerchant(
     userId: string,
     merchantId: string,
-    page: any = 1,
-    limit: any = 10,
-    status?: string,
+    query: ClassListQueryDto,
   ) {
     await this.assertOwnsMerchant(userId, merchantId);
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
-    const query = this.classRepo.createQueryBuilder('class')
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const builder = this.classRepo
+      .createQueryBuilder('class')
       .where('class.merchant_id = :merchantId', { merchantId });
-
-    if (status) {
-      query.andWhere('class.status = :status', { status });
+    if (query.status) {
+      builder.andWhere('class.status = :status', { status: query.status });
     }
-    const [data, total] = await query
-      .skip((pageNum - 1) * limitNum)
-      .take(limitNum)
+    if (query.type) {
+      builder.andWhere('class.type = :type', { type: query.type });
+    }
+    const [classes, total] = await builder
+      .orderBy('class.created_at', 'DESC')
+      .addOrderBy('class.id', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
       .getManyAndCount();
     return {
-      data,
-      meta: { total, page: pageNum, limit: limitNum },
+      data: await this.toClassResponses(classes),
+      meta: { total, page, limit },
     };
   }
 
@@ -85,7 +132,57 @@ export class ClassService {
     await this.classAccess.requireAssigned(userId, classId);
     const cls = await this.classRepo.findOne({ where: { id: classId } });
     if (!cls) throw new NotFoundException('Class not found');
-    return cls;
+    const [data] = await this.toClassResponses([cls]);
+    return { data, responseMessage: 'Get class detail success' };
+  }
+
+  async updateClass(userId: string, classId: string, dto: UpdateClassDto) {
+    const changes = pickDefined(dto, CLASS_UPDATE_FIELDS);
+    return this.classRepo.manager.transaction(async (manager) => {
+      const access = await this.classAccess.resolve(userId, classId, manager);
+      if (access.kind === 'tutor') {
+        const allowed: readonly ClassUpdateField[] =
+          access.role === 'lead' ? LEAD_TUTOR_CLASS_FIELDS : [];
+        const denied = Object.keys(changes).filter(
+          (field) => !allowed.includes(field as ClassUpdateField),
+        );
+        if (access.role !== 'lead' || denied.length > 0) {
+          throw new ForbiddenException(
+            denied.length > 0
+              ? `Only the class owner can change: ${denied.join(', ')}`
+              : 'Only the class owner or a lead tutor can edit the class',
+          );
+        }
+      }
+
+      const cls = await manager.findOne(Class, {
+        where: { id: classId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!cls) throw new NotFoundException('Class not found');
+
+      // Checked only when a price changes, so older rows with inverted prices
+      // can still be renamed or re-published.
+      if ('originalPrice' in changes || 'discountedPrice' in changes) {
+        assertDiscountWithinPrice(
+          changes.originalPrice ?? cls.originalPrice,
+          changes.discountedPrice ?? cls.discountedPrice,
+        );
+      }
+      if (changes.cover_asset_id) {
+        await assertOwnedAsset(
+          manager,
+          userId,
+          changes.cover_asset_id,
+          'class_cover',
+        );
+      }
+
+      Object.assign(cls, changes);
+      const saved = await manager.save(cls);
+      const [data] = await this.toClassResponses([saved], manager);
+      return { data, responseMessage: 'Update class success' };
+    });
   }
 
   async createChapter(userId: string, classId: string, dto: CreateChapterDto) {
@@ -338,12 +435,76 @@ export class ClassService {
     return { data, meta: { total, page, limit } };
   }
 
-  private async assertOwnsMerchant(userId: string, merchantId: string) {
-    const owned = await this.classRepo.manager.query(
+  private async toClassResponses(
+    classes: Class[],
+    manager: EntityManager = this.classRepo.manager,
+  ): Promise<ClassResponseDto[]> {
+    const coverIds = classes
+      .map((cls) => cls.cover_asset_id)
+      .filter((id): id is string => Boolean(id));
+    const covers: { id: string; object_key: string }[] =
+      coverIds.length === 0
+        ? []
+        : await manager.query(
+            `SELECT id, object_key FROM file_assets
+             WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+            [coverIds],
+          );
+    const coverKeys = new Map(
+      covers.map((cover) => [cover.id, cover.object_key]),
+    );
+
+    return classes.map((cls) => ({
+      id: cls.id,
+      merchant_id: cls.merchant_id,
+      title: cls.title,
+      description: cls.description,
+      status: cls.status,
+      type: cls.type,
+      originalPrice: cls.originalPrice,
+      discountedPrice: cls.discountedPrice,
+      cover_asset_id: cls.cover_asset_id,
+      cover_url: assetUrl(coverKeys.get(cls.cover_asset_id ?? '')),
+      post_purchase_instructions: cls.post_purchase_instructions,
+      created_at: cls.created_at,
+      updated_at: cls.updated_at,
+    }));
+  }
+
+  private async assertOwnsMerchant(
+    userId: string,
+    merchantId: string,
+    manager: EntityManager = this.classRepo.manager,
+  ) {
+    const owned = await manager.query(
       `SELECT 1 FROM merchants
        WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
       [merchantId, userId],
     );
     if (owned.length === 0) throw new NotFoundException('Merchant not found');
   }
+}
+
+// originalPrice is the strikethrough price and discountedPrice the selling
+// price, so a set discount may not exceed the list price.
+function assertDiscountWithinPrice(
+  originalPrice: number | null | undefined,
+  discountedPrice: number | null | undefined,
+): void {
+  if (discountedPrice && discountedPrice > (originalPrice ?? 0)) {
+    throw new BadRequestException(
+      'discountedPrice must not exceed originalPrice',
+    );
+  }
+}
+
+function pickDefined<T extends object, K extends keyof T>(
+  source: T,
+  keys: readonly K[],
+): Partial<Pick<T, K>> {
+  const picked: Partial<Pick<T, K>> = {};
+  for (const key of keys) {
+    if (source[key] !== undefined) picked[key] = source[key];
+  }
+  return picked;
 }

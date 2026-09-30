@@ -73,6 +73,7 @@ describe('CatalogService', () => {
       null,
       null,
       null,
+      false,
       6,
       0,
     ]);
@@ -100,7 +101,7 @@ describe('CatalogService', () => {
     const [sql, params] = dataSource.query.mock.calls[1];
     expect(sql).toContain('ORDER BY price ASC, cards.id');
     expect(params.slice(0, 2)).toEqual([['kelas', 'bootcamp'], '50\\%\\_off']);
-    expect(params.slice(8)).toEqual([10, 10]);
+    expect(params.slice(8)).toEqual([false, 10, 10]);
   });
 
   it('filters by merchant and file type and maps mentor and file fields', async () => {
@@ -136,6 +137,7 @@ describe('CatalogService', () => {
     expect(dataSource.query.mock.calls[0][1].slice(6)).toEqual([
       merchantId,
       ['pdf', 'dwg'],
+      false,
     ]);
   });
 
@@ -210,7 +212,7 @@ describe('CatalogService', () => {
     expect(detailSql).not.toMatch(/"?(videoUrl|fileUrl|liveUrl)"?/);
   });
 
-  it('returns 404 for an unpublished or unknown class', async () => {
+  it('reads a class by id including unlisted (archived) classes', async () => {
     dataSource.query.mockResolvedValue([]);
 
     await expect(service.findClass(classId)).rejects.toBeInstanceOf(
@@ -225,6 +227,11 @@ describe('CatalogService', () => {
       classId,
       null,
       null,
+      true,
     ]);
+    const [sql] = dataSource.query.mock.calls[0];
+    expect(sql).toContain(
+      "(class.status = 'published' OR ($9::boolean AND class.status = 'archived'))",
+    );
   });
 });

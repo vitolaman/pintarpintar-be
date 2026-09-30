@@ -83,12 +83,15 @@ export class CatalogItemDetailsDto {
 // live details. Deleted items are included and reported unavailable.
 const CATALOG_DETAILS_SQL = `
   SELECT CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END AS type,
-         class.id, class.title, NULL::varchar AS image,
+         class.id, class.title, class_cover.object_key AS image,
          (CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric AS price,
          COALESCE(class."originalPrice", 0)::numeric AS original_price,
          class.merchant_id,
-         class.status = 'published' AND class.deleted_at IS NULL AS is_available
-  FROM classes class WHERE class.id = ANY($1::uuid[])
+         class.status IN ('published', 'archived') AND class.deleted_at IS NULL AS is_available
+  FROM classes class
+  LEFT JOIN file_assets class_cover
+    ON class_cover.id = class.cover_asset_id AND class_cover.deleted_at IS NULL
+  WHERE class.id = ANY($1::uuid[])
   UNION ALL
   SELECT 'digital', product.id, product.title, cover.object_key,
          (CASE WHEN product.discount_price > 0 THEN product.discount_price ELSE COALESCE(product.original_price, 0) END)::numeric,

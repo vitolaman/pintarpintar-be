@@ -16,13 +16,15 @@ const OWNED_ITEMS_SQL = `
     class.id AS item_id,
     CASE class.type WHEN 'live-bootcamp' THEN 'live-bootcamp' ELSE 'kelas-video' END AS item_type,
     class.title,
-    NULL::varchar AS image,
+    class_cover.object_key AS image,
     COALESCE(enrollment."joinDate"::timestamp, enrollment.created_at) AS acquired_at,
     class.merchant_id,
     enrollment.progress AS raw_progress
   FROM enrollments enrollment
   INNER JOIN classes class
     ON class.id = enrollment.class_id AND class.deleted_at IS NULL
+  LEFT JOIN file_assets class_cover
+    ON class_cover.id = class.cover_asset_id AND class_cover.deleted_at IS NULL
   WHERE enrollment.user_id = $1 AND enrollment.deleted_at IS NULL
 
   UNION ALL

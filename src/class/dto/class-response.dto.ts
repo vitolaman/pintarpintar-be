@@ -11,6 +11,14 @@ export class ClassResponseDto {
   @ApiProperty({ enum: ClassType }) type: ClassType;
   @ApiPropertyOptional() originalPrice: number;
   @ApiPropertyOptional() discountedPrice: number;
+  @ApiPropertyOptional({ nullable: true }) cover_asset_id: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Null when no public asset base URL is configured',
+  })
+  cover_url: string | null;
+  @ApiPropertyOptional({ nullable: true })
+  post_purchase_instructions: string | null;
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date;
 }

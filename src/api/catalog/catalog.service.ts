@@ -29,7 +29,7 @@ const CARD_SQL = `
   ), items AS (
     SELECT class.id,
            CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END AS type,
-           class.title, NULL::varchar AS image, NULL::varchar AS category, NULL::varchar AS level,
+           class.title, class_cover.object_key AS image, NULL::varchar AS category, NULL::varchar AS level,
            (CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric AS price,
            COALESCE(class."originalPrice", 0)::numeric AS list_price,
            class.created_at, class.merchant_id, class.description,
@@ -37,9 +37,12 @@ const CARD_SQL = `
            COALESCE(class_reviews.review_count, 0) AS review_count,
            COALESCE(class_students.students, 0) AS students_count
     FROM classes class
+    LEFT JOIN file_assets class_cover
+      ON class_cover.id = class.cover_asset_id AND class_cover.deleted_at IS NULL
     LEFT JOIN class_reviews ON class_reviews.class_id = class.id
     LEFT JOIN class_students ON class_students.class_id = class.id
-    WHERE class.status = 'published' AND class.deleted_at IS NULL
+    WHERE class.deleted_at IS NULL
+      AND (class.status = 'published' OR ($9::boolean AND class.status = 'archived'))
     UNION ALL
     SELECT product.id, 'digital', product.title, cover.object_key, category.name, product.level,
            (CASE WHEN product.discount_price > 0 THEN product.discount_price ELSE COALESCE(product.original_price, 0) END)::numeric,
@@ -140,6 +143,8 @@ export interface CardFilter {
   id?: string;
   merchantId?: string;
   fileFormats?: string[];
+  // Archived classes are unlisted: shown only when opened by id.
+  includeUnlisted?: boolean;
 }
 
 interface CardRow {
@@ -209,7 +214,7 @@ export class CatalogService {
         `SELECT cards.*, row_number() OVER (ORDER BY ${SORT_SQL[sort]}, cards.id) AS position
          FROM (${CARD_SQL}) cards
          ORDER BY position
-         LIMIT $9 OFFSET $10`,
+         LIMIT $10 OFFSET $11`,
       )}
        ORDER BY page.position`,
       [...cardParams(filter), limit, offset],
@@ -240,14 +245,14 @@ export class CatalogService {
         `SELECT video.id, video.chapter_id, video.title, video.duration
          FROM videos video INNER JOIN chapters chapter ON chapter.id = video.chapter_id
          WHERE chapter.class_id = $1 AND video.deleted_at IS NULL AND chapter.deleted_at IS NULL
-         ORDER BY video.created_at, video.id`,
+         ORDER BY video."order", video.created_at, video.id`,
         [id],
       ),
       this.dataSource.query(
         `SELECT resource.id, resource.chapter_id, resource.name, resource.type, resource.size
          FROM file_resources resource INNER JOIN chapters chapter ON chapter.id = resource.chapter_id
          WHERE chapter.class_id = $1 AND resource.deleted_at IS NULL AND chapter.deleted_at IS NULL
-         ORDER BY resource.created_at, resource.id`,
+         ORDER BY resource."order", resource.created_at, resource.id`,
         [id],
       ),
       row.type === 'bootcamp'
@@ -310,7 +315,7 @@ export class CatalogService {
   private async findCardRow(id: string, types: string[]): Promise<CardRow> {
     const [row] = await this.dataSource.query(
       PAGE_DETAILS_SQL(`SELECT * FROM (${CARD_SQL}) cards`),
-      cardParams({ types, id }),
+      cardParams({ types, id, includeUnlisted: true }),
     );
     if (!row) throw new NotFoundException('Catalog item not found');
     return row;
@@ -327,6 +332,7 @@ function cardParams(filter: CardFilter): unknown[] {
     filter.id ?? null,
     filter.merchantId ?? null,
     filter.fileFormats?.length ? filter.fileFormats : null,
+    filter.includeUnlisted ?? false,
   ];
 }
 

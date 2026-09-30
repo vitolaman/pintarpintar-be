@@ -5,17 +5,20 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
+import { assetUrl } from '../../common/storage/asset-url';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import {
   BundleItemInputDto,
   BundleItemType,
   BundleListQueryDto,
   CreateBundleDto,
+  PublicBundleQueryDto,
   UpdateBundleDto,
 } from './dto/bundle-request.dto';
 import {
   BundleItemResponseDto,
   BundleResponseDto,
+  PublicBundleResponseDto,
 } from './dto/bundle-response.dto';
 import { BundleItem } from './entities/bundle-item.entity';
 import { Bundle, BundleStatus } from './entities/bundle.entity';
@@ -56,7 +59,13 @@ interface BundleItemRow extends CatalogRow {
   bundle_id: string;
 }
 
+interface PublicBundleMerchantRow {
+  merchant_name: string;
+  merchant_slug: string | null;
+}
+
 interface BundleRow {
+  merchant_id: string;
   id: string;
   title: string;
   description: string;
@@ -144,6 +153,61 @@ export class BundleService {
       data: await this.toResponses(rows),
       meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
       responseMessage: 'Get bundles success',
+    };
+  }
+
+  async findPublic(query: PublicBundleQueryDto) {
+    const { page, limit } = query;
+    const merchantId = query.merchant_id ?? null;
+    const visible = `
+      bundle.deleted_at IS NULL AND bundle.status = 'published'
+      AND ($1::uuid IS NULL OR bundle.merchant_id = $1)
+      AND EXISTS (
+        SELECT 1 FROM merchants merchant
+        WHERE merchant.id = bundle.merchant_id AND merchant.deleted_at IS NULL
+          AND merchant.status = 'active'
+      )`;
+
+    const [countRow] = await this.dataSource.query(
+      `SELECT count(*)::integer AS total FROM bundles bundle WHERE ${visible}`,
+      [merchantId],
+    );
+    const total: number = countRow.total;
+    const rows: (BundleRow & PublicBundleMerchantRow)[] =
+      total === 0
+        ? []
+        : await this.dataSource.query(
+            `SELECT bundle_row.*, merchant.store_name AS merchant_name,
+                    profile.slug AS merchant_slug
+             FROM (
+               ${BUNDLE_SELECT_SQL}
+               WHERE ${visible}
+               ORDER BY bundle.created_at DESC, bundle.id DESC
+               LIMIT $2 OFFSET $3
+             ) bundle_row
+             INNER JOIN merchants merchant ON merchant.id = bundle_row.merchant_id
+             LEFT JOIN merchant_profiles profile
+               ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
+             ORDER BY bundle_row.created_at DESC, bundle_row.id DESC`,
+            [merchantId, limit, (page - 1) * limit],
+          );
+
+    const responses = await this.toResponses(rows);
+    const data: PublicBundleResponseDto[] = responses.map(
+      ({ post_purchase_instructions, status, ...bundle }, index) => ({
+        ...bundle,
+        cover_url: assetUrl(bundle.cover_object_key),
+        merchant: {
+          id: rows[index].merchant_id,
+          name: rows[index].merchant_name,
+          slug: rows[index].merchant_slug,
+        },
+      }),
+    );
+    return {
+      data,
+      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      responseMessage: 'Get public bundles success',
     };
   }
 
@@ -421,7 +485,7 @@ export class BundleService {
 }
 
 const BUNDLE_SELECT_SQL = `
-  SELECT bundle.id, bundle.title, bundle.description, bundle.cover_asset_id,
+  SELECT bundle.id, bundle.merchant_id, bundle.title, bundle.description, bundle.cover_asset_id,
          cover.object_key AS cover_object_key, bundle.bundle_price, bundle.status,
          bundle.post_purchase_instructions, bundle.created_at
   FROM bundles bundle

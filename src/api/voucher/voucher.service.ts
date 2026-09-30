@@ -34,6 +34,9 @@ export const VOUCHER_TAGS = [
   'PROMO KREATIF',
 ];
 
+type MerchantScope = { slug: string | null; id: string | null };
+const ANY_MERCHANT: MerchantScope = { slug: null, id: null };
+
 @Injectable()
 export class VoucherService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
@@ -196,7 +199,10 @@ export class VoucherService {
     const offset = (page - 1) * limit;
     const now = new Date();
     const search = query.search?.trim() ?? '';
-    const merchantSlug = query.merchant_slug ?? null;
+    const merchant: MerchantScope = {
+      slug: query.merchant_slug ?? null,
+      id: query.merchant_id ?? null,
+    };
     const categoryLabel = query.category_slug
       ? merchantCategoryLabelForSlug(query.category_slug)
       : null;
@@ -209,11 +215,11 @@ export class VoucherService {
         now,
         search,
         categoryLabel,
-        merchantSlug,
+        merchant,
         limit,
         offset,
       ),
-      this.publicVoucherCount(now, search, categoryLabel, merchantSlug),
+      this.publicVoucherCount(now, search, categoryLabel, merchant),
     ]);
     const total = Number(countRows[0]?.total ?? 0);
 
@@ -229,7 +235,7 @@ export class VoucherService {
       new Date(),
       '',
       null,
-      null,
+      ANY_MERCHANT,
       FEATURED_VOUCHER_COUNT,
       0,
       'random',
@@ -245,7 +251,7 @@ export class VoucherService {
       new Date(),
       '',
       null,
-      null,
+      ANY_MERCHANT,
       limit,
       0,
       'random',
@@ -332,7 +338,7 @@ export class VoucherService {
     now: Date,
     search: string,
     categoryLabel: string | null,
-    merchantSlug: string | null,
+    merchant: MerchantScope,
     limit: number,
     offset: number,
     order: 'newest' | 'random' = 'newest',
@@ -379,10 +385,11 @@ export class VoucherService {
           ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
         WHERE ($3::varchar IS NULL OR profile.category_label = $3)
           AND ($4::varchar IS NULL OR profile.slug = $4)
+          AND ($7::uuid IS NULL OR merchant.id = $7)
         ORDER BY ${order === 'random' ? 'random()' : 'coupon.created_at DESC, coupon.id DESC'}
         LIMIT $5 OFFSET $6
       `,
-      [now, search, categoryLabel, merchantSlug, limit, offset],
+      [now, search, categoryLabel, merchant.slug, limit, offset, merchant.id],
     ) as Promise<PublicVoucherRow[]>;
   }
 
@@ -390,7 +397,7 @@ export class VoucherService {
     now: Date,
     search: string,
     categoryLabel: string | null,
-    merchantSlug: string | null,
+    merchant: MerchantScope,
   ): Promise<Array<{ total: number }>> {
     return this.dataSource.query(
       `
@@ -422,8 +429,9 @@ export class VoucherService {
           ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
         WHERE ($3::varchar IS NULL OR profile.category_label = $3)
           AND ($4::varchar IS NULL OR profile.slug = $4)
+          AND ($5::uuid IS NULL OR merchant.id = $5)
       `,
-      [now, search, categoryLabel, merchantSlug],
+      [now, search, categoryLabel, merchant.slug, merchant.id],
     ) as Promise<Array<{ total: number }>>;
   }
 

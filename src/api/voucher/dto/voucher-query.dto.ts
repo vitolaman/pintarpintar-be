@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, Matches } from 'class-validator';
+import { IsOptional, IsUUID, Matches } from 'class-validator';
 import { RequestPaginatedQueryWithSearchDto } from '~/common/dto/request-paginated.dto';
 
 export class PublicVoucherQueryDto extends RequestPaginatedQueryWithSearchDto {
@@ -12,4 +12,12 @@ export class PublicVoucherQueryDto extends RequestPaginatedQueryWithSearchDto {
   @IsOptional()
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   merchant_slug?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Merchant id; the public merchant page is addressed by id',
+  })
+  @IsOptional()
+  @IsUUID()
+  merchant_id?: string;
 }

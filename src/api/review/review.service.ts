@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, QueryFailedError } from 'typeorm';
-import { CreateReviewDto, ReviewListQueryDto } from './dto/review.dto';
+import { assetUrl } from '../../common/storage/asset-url';
+import {
+  CreateReviewDto,
+  MerchantReviewResponseDto,
+  ReviewListQueryDto,
+} from './dto/review.dto';
 import { Review } from './entities/review.entity';
 
 const UNIQUE_VIOLATION = '23505';
@@ -18,6 +23,24 @@ const REVIEW_ROWS_SQL = `
   INNER JOIN users reviewer ON reviewer.id = review.user_id
   LEFT JOIN user_profiles profile ON profile.user_id = reviewer.id AND profile.deleted_at IS NULL
   LEFT JOIN file_assets avatar ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
+`;
+
+// Visible reviews ($1 = merchant id) of the merchant's published classes and
+// products, with the reviewer.
+const MERCHANT_REVIEWS_SQL = `
+  FROM reviews review
+  INNER JOIN users reviewer ON reviewer.id = review.user_id
+  LEFT JOIN user_profiles profile
+    ON profile.user_id = reviewer.id AND profile.deleted_at IS NULL
+  LEFT JOIN file_assets avatar
+    ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
+  LEFT JOIN classes class ON class.id = review.class_id
+    AND class.deleted_at IS NULL AND class.status = 'published'
+  LEFT JOIN products product ON product.id = review.product_id
+    AND product.deleted_at IS NULL AND product.is_published = true
+    AND product.publication_status = 'published'
+  WHERE review.deleted_at IS NULL
+    AND (class.merchant_id = $1 OR product.merchant_id = $1)
 `;
 
 @Injectable()
@@ -115,6 +138,56 @@ export class ReviewService {
       responseMessage: 'Get class reviews success',
     };
   }
+
+  // Reviews of the merchant's published classes and products (Review tab).
+  async findMerchantReviews(merchantId: string, query: ReviewListQueryDto) {
+    const [summary] = await this.dataSource.query(
+      `SELECT EXISTS (
+                SELECT 1 FROM merchants
+                WHERE id = $1 AND deleted_at IS NULL AND status = 'active'
+              ) AS found,
+              COALESCE(round(avg(review.rating)::numeric, 1), 0) AS average,
+              count(review.id)::integer AS total
+       ${MERCHANT_REVIEWS_SQL}`,
+      [merchantId],
+    );
+    if (!summary.found) throw new NotFoundException('Merchant not found');
+
+    const { page, limit } = query;
+    const rows = await this.dataSource.query(
+      `SELECT review.id, review.rating, review.comment, review.created_at,
+              reviewer.name AS reviewer_name,
+              avatar.object_key AS reviewer_avatar_object_key,
+              COALESCE(class.id, product.id) AS item_id,
+              CASE WHEN class.id IS NULL THEN 'digital'
+                   WHEN class.type = 'live-bootcamp' THEN 'bootcamp'
+                   ELSE 'kelas' END AS item_type,
+              COALESCE(class.title, product.title) AS item_title
+       ${MERCHANT_REVIEWS_SQL}
+       ORDER BY review.created_at DESC, review.id DESC
+       LIMIT $2 OFFSET $3`,
+      [merchantId, limit, (page - 1) * limit],
+    );
+
+    const reviews: MerchantReviewResponseDto[] = rows.map((row) => ({
+      ...toReview(row),
+      item: { id: row.item_id, type: row.item_type, title: row.item_title },
+    }));
+    return {
+      data: {
+        average_rating: Number(summary.average),
+        review_count: summary.total,
+        reviews,
+      },
+      meta: {
+        page,
+        limit,
+        total: summary.total,
+        totalPage: Math.ceil(summary.total / limit),
+      },
+      responseMessage: 'Get merchant reviews success',
+    };
+  }
 }
 
 function toReview(row) {
@@ -125,5 +198,6 @@ function toReview(row) {
     created_at: row.created_at,
     reviewer_name: row.reviewer_name,
     reviewer_avatar_object_key: row.reviewer_avatar_object_key,
+    reviewer_avatar_url: assetUrl(row.reviewer_avatar_object_key),
   };
 }

@@ -64,6 +64,12 @@ export class ReviewResponseDto {
 
   @ApiProperty({ nullable: true })
   reviewer_avatar_object_key: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+  })
+  reviewer_avatar_url: string | null;
 }
 
 export class ClassReviewSummaryDto {
@@ -75,4 +81,31 @@ export class ClassReviewSummaryDto {
 
   @ApiProperty({ type: [ReviewResponseDto] })
   reviews: ReviewResponseDto[];
+}
+
+export class ReviewedItemDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ enum: ['kelas', 'bootcamp', 'digital'] })
+  type: 'kelas' | 'bootcamp' | 'digital';
+
+  @ApiProperty({ example: 'Belajar AutoCAD dari Nol' })
+  title: string;
+}
+
+export class MerchantReviewResponseDto extends ReviewResponseDto {
+  @ApiProperty({ type: ReviewedItemDto })
+  item: ReviewedItemDto;
+}
+
+export class MerchantReviewSummaryDto {
+  @ApiProperty({ example: 4.6 })
+  average_rating: number;
+
+  @ApiProperty({ example: 12 })
+  review_count: number;
+
+  @ApiProperty({ type: [MerchantReviewResponseDto] })
+  reviews: MerchantReviewResponseDto[];
 }

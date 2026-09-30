@@ -2,10 +2,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
+  IsArray,
   IsIn,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -31,6 +33,27 @@ export type CatalogCardType = (typeof catalogCardTypes)[number];
 export type CatalogSort = (typeof catalogSorts)[number];
 
 const toNumber = ({ value }: { value: unknown }) => Number(value);
+
+// Frontend file-type filters and the stored digital_files.file_format values
+// each one matches (compared in lower case).
+export const FILE_FORMAT_ALIASES: Record<string, string[]> = {
+  pdf: ['pdf'],
+  dwg: ['dwg'],
+  excel: ['excel', 'xls', 'xlsx'],
+  powerpoint: ['powerpoint', 'ppt', 'pptx'],
+  word: ['word', 'doc', 'docx'],
+  zip: ['zip'],
+};
+
+function expandFileFormats(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const formats = value
+    .split(',')
+    .map((format) => format.trim().toLowerCase())
+    .filter(Boolean)
+    .flatMap((format) => FILE_FORMAT_ALIASES[format] ?? [format]);
+  return formats.length > 0 ? [...new Set(formats)] : undefined;
+}
 
 export class CatalogQueryDto {
   @ApiPropertyOptional({
@@ -67,6 +90,26 @@ export class CatalogQueryDto {
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   category?: string;
 
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: "Only this merchant's items",
+  })
+  @IsOptional()
+  @IsUUID()
+  merchant_id?: string;
+
+  @ApiPropertyOptional({
+    description: `Comma-separated digital file types: ${Object.keys(FILE_FORMAT_ALIASES).join(', ')}`,
+    type: String,
+    example: 'pdf,dwg',
+  })
+  @IsOptional()
+  @Transform(({ value }) => expandFileFormats(value))
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  file_format?: string[];
+
   @ApiPropertyOptional({ enum: catalogSorts, default: 'terbaru' })
   @IsOptional()
   @IsIn(catalogSorts)
@@ -100,6 +143,21 @@ export class CatalogMerchantDto {
 
   @ApiProperty({ nullable: true })
   avatar_object_key: string | null;
+}
+
+export class CatalogCardMentorDto {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Mentor id; null for a product mentor without a mentor account',
+  })
+  id: string | null;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiPropertyOptional()
+  avatar_url: string | null;
 }
 
 export class CatalogCardDto {
@@ -161,6 +219,26 @@ export class CatalogCardDto {
 
   @ApiProperty({ type: CatalogMerchantDto })
   merchant: CatalogMerchantDto;
+
+  @ApiPropertyOptional({
+    description: 'Image URL; null without ASSET_PUBLIC_BASE_URL or a cover',
+  })
+  image_url: string | null;
+
+  @ApiPropertyOptional({
+    type: () => CatalogCardMentorDto,
+    description: 'First assigned mentor, or null',
+  })
+  mentor: CatalogCardMentorDto | null;
+
+  @ApiPropertyOptional({ example: 'PDF', description: 'Digital products only' })
+  file_format: string | null;
+
+  @ApiPropertyOptional({
+    example: 15728640,
+    description: 'Bytes; digital products only',
+  })
+  file_size: number | null;
 }
 
 export class CatalogMentorDto {

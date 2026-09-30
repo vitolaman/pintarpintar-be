@@ -109,4 +109,17 @@ export class PublicVoucherResponseDto {
     description: 'Slug derived from the merchant category label.',
   })
   merchant_category_slug: string | null;
+
+  @ApiProperty({
+    enum: [
+      'PROMO SUPER',
+      'DISKON TINGGI',
+      'PENGGUNA BARU',
+      'BUNDLING PROMO',
+      'PRODUK DIGITAL',
+      'PROMO KREATIF',
+    ],
+    description: 'Presentation tag, stable per voucher',
+  })
+  tag: string;
 }

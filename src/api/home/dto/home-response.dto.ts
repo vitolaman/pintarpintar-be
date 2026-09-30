@@ -14,59 +14,6 @@ export class HomeStatisticsResponseDto {
   platform_rating: number;
 }
 
-export class HomeProductCardResponseDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
-
-  @ApiProperty()
-  title: string;
-
-  @ApiProperty()
-  product_type: string;
-
-  @ApiPropertyOptional()
-  level: string | null;
-
-  @ApiProperty()
-  price: number;
-
-  @ApiProperty()
-  currency: string;
-
-  @ApiPropertyOptional()
-  original_price: number | null;
-
-  @ApiPropertyOptional({ format: 'uuid' })
-  cover_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  cover_object_key: string | null;
-
-  @ApiProperty({ type: [String] })
-  categories: string[];
-
-  @ApiProperty()
-  rating: number;
-
-  @ApiProperty()
-  review_count: number;
-
-  @ApiProperty({ format: 'uuid' })
-  merchant_id: string;
-
-  @ApiProperty()
-  merchant_name: string;
-
-  @ApiPropertyOptional()
-  merchant_slug: string | null;
-
-  @ApiPropertyOptional({ format: 'uuid' })
-  merchant_avatar_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  merchant_avatar_object_key: string | null;
-}
-
 export class HomeMerchantCardResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -119,8 +66,8 @@ export class HomeTestimonialResponseDto {
   user_avatar_object_key: string | null;
 
   @ApiProperty({ format: 'uuid' })
-  product_id: string;
+  class_id: string;
 
   @ApiProperty()
-  product_title: string;
+  class_title: string;
 }

@@ -5,9 +5,9 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { CertificateStatus } from '../../class/entities/certificate.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { FileAsset } from './entities/file-asset.entity';
-import { IssuedCertificate } from './entities/issued-certificate.entity';
 import { Product } from './entities/product.entity';
 import { Profile } from './entities/profile.entity';
 import { StudentProgress } from './entities/student-progress.entity';
@@ -28,8 +28,6 @@ export class ProfileService {
     private readonly dataSource: DataSource,
     @InjectRepository(FileAsset)
     private readonly fileAssets: Repository<FileAsset>,
-    @InjectRepository(IssuedCertificate)
-    private readonly issuedCertificates: Repository<IssuedCertificate>,
     @InjectRepository(Product)
     private readonly products: Repository<Product>,
     @InjectRepository(Profile)
@@ -154,30 +152,19 @@ export class ProfileService {
   }
 
   async findCertifications(userId: string) {
-    const rows = await this.issuedCertificates
-      .createQueryBuilder('certificate')
-      .innerJoin(Product, 'product', 'product.id = certificate.product_id')
-      .leftJoin(
-        FileAsset,
-        'asset',
-        'asset.id = certificate.certificate_asset_id AND asset.deleted_at IS NULL AND asset.status = :assetStatus',
-        { assetStatus: 'active' },
-      )
-      .select([
-        'certificate.id AS id',
-        'certificate.product_id AS product_id',
-        'certificate.certificate_number AS certificate_number',
-        'certificate.issued_at AS issued_at',
-        'certificate.certificate_asset_id AS certificate_asset_id',
-        'asset.object_key AS certificate_asset_object_key',
-        'product.title AS product_title',
-      ])
-      .where('certificate.user_id = :userId', { userId })
-      .andWhere('certificate.deleted_at IS NULL')
-      .andWhere('certificate.revoked_at IS NULL')
-      .andWhere('product.deleted_at IS NULL')
-      .orderBy('certificate.issued_at', 'DESC')
-      .getRawMany<CertificationRow>();
+    const rows: CertificationRow[] = await this.dataSource.query(
+      `SELECT certificate.id, certificate."certNo" AS certificate_number,
+              certificate."issueDate"::text AS issued_on, certificate."fileUrl" AS file_url,
+              class.id AS class_id, class.title AS class_title,
+              merchant.store_name AS issuer_name
+       FROM certificates certificate
+       INNER JOIN classes class ON class.id = certificate.class_id
+       LEFT JOIN merchants merchant ON merchant.id = class.merchant_id
+       WHERE certificate.user_id = $1 AND certificate.status = $2
+         AND certificate.deleted_at IS NULL
+       ORDER BY certificate."issueDate" DESC NULLS LAST, certificate.created_at DESC, certificate.id DESC`,
+      [userId, CertificateStatus.ISSUED],
+    );
 
     return {
       data: rows.map((row) => this.toCertificationItem(row)),
@@ -223,6 +210,7 @@ export class ProfileService {
         'profile.bio AS bio',
         'mentor.id AS mentor_id',
         'merchant.id AS merchant_id',
+        'user.created_at AS member_since',
       ])
       .where('user.id = :userId::uuid', { userId })
       .andWhere('user.deleted_at IS NULL')
@@ -245,6 +233,7 @@ export class ProfileService {
       bio: row.bio,
       mentor_id: row.mentor_id,
       merchant_id: row.merchant_id,
+      member_since: row.member_since,
     };
   }
 
@@ -277,12 +266,12 @@ export class ProfileService {
   ): CertificationItemResponseDto {
     return {
       id: row.id,
-      product_id: row.product_id,
-      product_title: row.product_title,
       certificate_number: row.certificate_number,
-      issued_at: row.issued_at,
-      certificate_asset_id: row.certificate_asset_id,
-      certificate_asset_object_key: row.certificate_asset_object_key,
+      issued_on: row.issued_on,
+      class_id: row.class_id,
+      class_title: row.class_title,
+      issuer_name: row.issuer_name,
+      file_url: row.file_url,
     };
   }
 
@@ -310,6 +299,7 @@ interface ProfileRow {
   bio: string | null;
   mentor_id: string | null;
   merchant_id: string | null;
+  member_since: Date;
 }
 
 interface LearningRow {
@@ -328,10 +318,10 @@ interface LearningRow {
 
 interface CertificationRow {
   id: string;
-  product_id: string;
-  product_title: string;
-  certificate_number: string;
-  issued_at: Date;
-  certificate_asset_id: string | null;
-  certificate_asset_object_key: string | null;
+  certificate_number: string | null;
+  issued_on: string | null;
+  file_url: string | null;
+  class_id: string;
+  class_title: string;
+  issuer_name: string | null;
 }

@@ -10,5 +10,6 @@ import { Voucher } from './entities/voucher.entity';
   imports: [TypeOrmModule.forFeature([Merchant, MerchantProfile, Voucher])],
   controllers: [VoucherController],
   providers: [VoucherService],
+  exports: [VoucherService],
 })
 export class VoucherModule {}

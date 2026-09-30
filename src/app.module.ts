@@ -34,6 +34,10 @@ import { MerchantDashboardModule } from './api/merchant-dashboard/merchant-dashb
 import { FileAssetModule } from './api/file-asset/file-asset.module';
 import { WishlistModule } from './api/wishlist/wishlist.module';
 import { CartModule } from './api/cart/cart.module';
+import { FaqModule } from './api/faq/faq.module';
+import { CatalogModule } from './api/catalog/catalog.module';
+import { ReviewModule } from './api/review/review.module';
+import { PromoModule } from './api/promo/promo.module';
 
 @Module({
   imports: [
@@ -73,6 +77,10 @@ import { CartModule } from './api/cart/cart.module';
     FileAssetModule,
     WishlistModule,
     CartModule,
+    FaqModule,
+    CatalogModule,
+    ReviewModule,
+    PromoModule,
   ],
   controllers: [AppController],
   providers: [

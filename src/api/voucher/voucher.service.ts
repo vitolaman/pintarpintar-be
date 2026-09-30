@@ -21,6 +21,17 @@ import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { Voucher } from './entities/voucher.entity';
 import { isPromoCodeAvailable } from '~/common/promo-code/promo-code-namespace';
 
+// Presentation labels from the voucher pages, assigned per voucher so a
+// voucher keeps the same tag across requests.
+export const VOUCHER_TAGS = [
+  'PROMO SUPER',
+  'DISKON TINGGI',
+  'PENGGUNA BARU',
+  'BUNDLING PROMO',
+  'PRODUK DIGITAL',
+  'PROMO KREATIF',
+];
+
 @Injectable()
 export class VoucherService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
@@ -212,11 +223,32 @@ export class VoucherService {
   }
 
   async findFeatured() {
-    const rows = await this.publicVoucherRows(new Date(), '', null, null, 3, 0);
+    const rows = await this.publicVoucherRows(
+      new Date(),
+      '',
+      null,
+      null,
+      3,
+      0,
+      'random',
+    );
     return {
       data: rows.map((row) => this.toPublicVoucherResponse(row)),
       responseMessage: 'Get featured vouchers success',
     };
+  }
+
+  async findRandomPublic(limit: number) {
+    const rows = await this.publicVoucherRows(
+      new Date(),
+      '',
+      null,
+      null,
+      limit,
+      0,
+      'random',
+    );
+    return rows.map((row) => this.toPublicVoucherResponse(row));
   }
 
   private emptyPublicPage(page: number, limit: number) {
@@ -301,6 +333,7 @@ export class VoucherService {
     merchantSlug: string | null,
     limit: number,
     offset: number,
+    order: 'newest' | 'random' = 'newest',
   ): Promise<PublicVoucherRow[]> {
     return this.dataSource.query(
       `
@@ -333,7 +366,10 @@ export class VoucherService {
           profile.slug AS merchant_slug,
           profile.avatar_asset_id AS merchant_avatar_asset_id,
           profile.tagline AS merchant_tagline,
-          profile.category_label AS merchant_category_label
+          profile.category_label AS merchant_category_label,
+          (ARRAY[${VOUCHER_TAGS.map((tag) => `'${tag}'`).join(', ')}])[
+            1 + mod(abs(hashtext(coupon.id::text)), ${VOUCHER_TAGS.length})
+          ] AS tag
         FROM visible
         INNER JOIN coupons coupon ON coupon.id = visible.id
         INNER JOIN merchants merchant ON merchant.id = coupon.merchant_id
@@ -341,7 +377,7 @@ export class VoucherService {
           ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
         WHERE ($3::varchar IS NULL OR profile.category_label = $3)
           AND ($4::varchar IS NULL OR profile.slug = $4)
-        ORDER BY coupon.created_at DESC
+        ORDER BY ${order === 'random' ? 'random()' : 'coupon.created_at DESC, coupon.id DESC'}
         LIMIT $5 OFFSET $6
       `,
       [now, search, categoryLabel, merchantSlug, limit, offset],
@@ -486,6 +522,7 @@ interface VoucherRow {
 
 interface PublicVoucherRow {
   id: string;
+  tag: string;
   name: string;
   code: string;
   description: string | null;

@@ -1,7 +1,6 @@
 import { Repository } from 'typeorm';
 import { ProfileService } from './profile.service';
 import { FileAsset } from './entities/file-asset.entity';
-import { IssuedCertificate } from './entities/issued-certificate.entity';
 import { Product } from './entities/product.entity';
 import { Profile } from './entities/profile.entity';
 import { StudentProgress } from './entities/student-progress.entity';
@@ -11,19 +10,18 @@ import { User } from '../user/entities/user.entity';
 describe('ProfileService', () => {
   const userId = '06f7152e-7cc9-42f6-a4f0-8a84eb31e384';
   let service: ProfileService;
-  let issuedCertificates: jest.Mocked<Partial<Repository<IssuedCertificate>>>;
+  let dataSource: { transaction: jest.Mock; query: jest.Mock };
   let userAccess: jest.Mocked<Partial<Repository<UserAccess>>>;
   let users: jest.Mocked<Partial<Repository<User>>>;
 
   beforeEach(() => {
     userAccess = { createQueryBuilder: jest.fn() };
-    issuedCertificates = { createQueryBuilder: jest.fn() };
+    dataSource = { transaction: jest.fn(), query: jest.fn() };
     users = { createQueryBuilder: jest.fn() };
 
     service = new ProfileService(
-      { transaction: jest.fn() } as never,
+      dataSource as never,
       {} as Repository<FileAsset>,
-      issuedCertificates as Repository<IssuedCertificate>,
       {} as Repository<Product>,
       {} as Repository<Profile>,
       {} as Repository<StudentProgress>,
@@ -99,6 +97,7 @@ describe('ProfileService', () => {
       phone: '+62 812-3456-7890',
       headline: null,
       bio: null,
+      member_since: new Date('2026-01-15T03:00:00.000Z'),
     });
     users.createQueryBuilder.mockReturnValue(query as never);
 
@@ -115,45 +114,43 @@ describe('ProfileService', () => {
         phone: '+62 812-3456-7890',
         headline: null,
         bio: null,
+        member_since: new Date('2026-01-15T03:00:00.000Z'),
       },
     });
   });
 
-  it('returns only active issued certificates for the authenticated user', async () => {
-    const query = chainableCertificateQuery([
+  it('lists only issued class certificates for the authenticated user', async () => {
+    dataSource.query.mockResolvedValue([
       {
         id: 'certificate-id',
-        product_id: 'product-id',
-        product_title: 'Arduino untuk Pemula',
         certificate_number: 'PP-2026-0001',
-        issued_at: new Date('2026-09-07T01:00:00.000Z'),
-        certificate_asset_id: 'certificate-asset-id',
-        certificate_asset_object_key: 'certificates/PP-2026-0001.pdf',
+        issued_on: '2026-09-07',
+        file_url: 'https://files.example.com/PP-2026-0001.pdf',
+        class_id: 'class-id',
+        class_title: 'Arduino untuk Pemula',
+        issuer_name: 'Sari Digital Studio',
       },
     ]);
-    issuedCertificates.createQueryBuilder.mockReturnValue(query as never);
 
     await expect(service.findCertifications(userId)).resolves.toEqual({
       responseMessage: 'Get certifications success',
       data: [
         {
           id: 'certificate-id',
-          product_id: 'product-id',
-          product_title: 'Arduino untuk Pemula',
           certificate_number: 'PP-2026-0001',
-          issued_at: new Date('2026-09-07T01:00:00.000Z'),
-          certificate_asset_id: 'certificate-asset-id',
-          certificate_asset_object_key: 'certificates/PP-2026-0001.pdf',
+          issued_on: '2026-09-07',
+          class_id: 'class-id',
+          class_title: 'Arduino untuk Pemula',
+          issuer_name: 'Sari Digital Studio',
+          file_url: 'https://files.example.com/PP-2026-0001.pdf',
         },
       ],
     });
-    expect(query.where).toHaveBeenCalledWith('certificate.user_id = :userId', {
-      userId,
-    });
-    expect(query.andWhere).toHaveBeenCalledWith(
-      'certificate.revoked_at IS NULL',
-    );
-    expect(query.orderBy).toHaveBeenCalledWith('certificate.issued_at', 'DESC');
+
+    const [sql, params] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('certificate.status = $2');
+    expect(sql).toContain('certificate.deleted_at IS NULL');
+    expect(params).toEqual([userId, 'issued']);
   });
 
   it('creates a profile record while updating authenticated user-owned fields', async () => {
@@ -263,26 +260,6 @@ function chainableSingleQuery(row: unknown) {
 
   Object.entries(query).forEach(([key, value]) => {
     if (key !== 'getRawOne') {
-      (value as jest.Mock).mockReturnValue(query);
-    }
-  });
-
-  return query;
-}
-
-function chainableCertificateQuery(rows: unknown[]) {
-  const query = {
-    innerJoin: jest.fn(),
-    leftJoin: jest.fn(),
-    select: jest.fn(),
-    where: jest.fn(),
-    andWhere: jest.fn(),
-    orderBy: jest.fn(),
-    getRawMany: jest.fn().mockResolvedValue(rows),
-  };
-
-  Object.entries(query).forEach(([key, value]) => {
-    if (key !== 'getRawMany') {
       (value as jest.Mock).mockReturnValue(query);
     }
   });

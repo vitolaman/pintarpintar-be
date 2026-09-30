@@ -175,6 +175,27 @@ describe('VoucherService', () => {
     });
   });
 
+  it('picks featured and promo vouchers randomly with their tag', async () => {
+    dataSource.query.mockResolvedValue([
+      { ...publicVoucherRow, tag: 'PROMO SUPER' },
+    ]);
+
+    const featured = await service.findFeatured();
+    const promo = await service.findRandomPublic(6);
+
+    expect(featured.data[0]).toMatchObject({
+      id: voucherId,
+      tag: 'PROMO SUPER',
+    });
+    expect(promo[0]).toMatchObject({ tag: 'PROMO SUPER' });
+    const [[featuredSql, featuredParams], [, promoParams]] =
+      dataSource.query.mock.calls;
+    expect(featuredSql).toContain('ORDER BY random()');
+    expect(featuredSql).toContain('hashtext(coupon.id::text)');
+    expect(featuredParams.slice(4)).toEqual([3, 0]);
+    expect(promoParams.slice(4)).toEqual([6, 0]);
+  });
+
   it('returns a null category slug for a merchant without a canonical category', () => {
     const response = (
       service as unknown as {

@@ -47,6 +47,13 @@ const UNIQUE_INDEXES: Array<{
   },
 ];
 
+// Chapter content is read per class through chapters; progress and the
+// learner view join videos and resources by chapter.
+const CHAPTER_INDEXES: Array<[name: string, table: string]> = [
+  ['idx_videos_chapter', 'videos'],
+  ['idx_file_resources_chapter', 'file_resources'],
+];
+
 const FOREIGN_KEYS: Array<[table: string, column: string, target: string]> = [
   ['submissions', 'file_asset_id', 'file_assets'],
   ['submissions', 'graded_by', 'users'],
@@ -118,6 +125,12 @@ export class AddLearningLoopFields1791200000000 implements MigrationInterface {
       `);
     }
 
+    for (const [name, table] of CHAPTER_INDEXES) {
+      await queryRunner.query(
+        `CREATE INDEX IF NOT EXISTS ${name} ON ${table} (chapter_id) WHERE deleted_at IS NULL`,
+      );
+    }
+
     for (const index of UNIQUE_INDEXES) {
       const [{ duplicates }] = await queryRunner.query(`
         SELECT count(*)::integer AS duplicates FROM (
@@ -141,6 +154,9 @@ export class AddLearningLoopFields1791200000000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     for (const index of [...UNIQUE_INDEXES].reverse()) {
       await queryRunner.query(`DROP INDEX IF EXISTS ${index.name}`);
+    }
+    for (const [name] of CHAPTER_INDEXES) {
+      await queryRunner.query(`DROP INDEX IF EXISTS ${name}`);
     }
     for (const [table, column] of [...FOREIGN_KEYS].reverse()) {
       await queryRunner.query(

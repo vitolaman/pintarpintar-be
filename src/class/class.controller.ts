@@ -24,6 +24,8 @@ import {
   StudentResponseDto 
 } from './dto/class-response.dto';
 
+type AuthenticatedRequest = { user: { id: string } };
+
 @ApiTags('Classes')
 @ApiBearerAuth()
 @Controller('api/v1/classes')
@@ -32,13 +34,20 @@ export class ClassController {
 
   @Get(':classId')
   @DefaultResponse(ClassResponseDto, 'Get class detail success')
-  getClassDetail(@Param('classId') classId: string) {
-    return this.classService.getClassById(classId);
+  getClassDetail(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+  ) {
+    return this.classService.getClassById(req.user.id, classId);
   }
 
   @Post(':classId/chapters')
-  createChapter(@Param('classId') classId: string, @Body() dto: CreateChapterDto) {
-    return this.classService.createChapter(classId, dto);
+  createChapter(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Body() dto: CreateChapterDto,
+  ) {
+    return this.classService.createChapter(req.user.id, classId, dto);
   }
 
   @Get(':classId/chapters')
@@ -46,25 +55,41 @@ export class ClassController {
   @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(ChapterResponseDto, 'Get class chapters success')
   getClassChapters(
-    @Param('classId') classId: string,
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
     @Query('page') page: number,
     @Query('limit') limit: number,
   ) {
-    return this.classService.getClassChapters(classId, page || 1, limit || 10);
+    return this.classService.getClassChapters(
+      req.user.id,
+      classId,
+      page || 1,
+      limit || 10,
+    );
   }
 
   @Post(':classId/chapters/:chapterId/resources')
   uploadResources(
-    @Param('classId') classId: string,
-    @Param('chapterId') chapterId: string,
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('chapterId', ParseUUIDPipe) chapterId: string,
     @Body('resources') resources: { type: string; name: string; url: string }[],
   ) {
-    return this.classService.addResources(chapterId, resources || []);
+    return this.classService.addResources(
+      req.user.id,
+      classId,
+      chapterId,
+      resources || [],
+    );
   }
 
   @Post(':classId/meetings')
-  createMeeting(@Param('classId') classId: string, @Body() dto: CreateMeetingDto) {
-    return this.classService.createMeeting(classId, dto);
+  createMeeting(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Body() dto: CreateMeetingDto,
+  ) {
+    return this.classService.createMeeting(req.user.id, classId, dto);
   }
 
   @Get(':classId/meetings')
@@ -72,16 +97,26 @@ export class ClassController {
   @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(MeetingResponseDto, 'Get class meetings success')
   getClassMeetings(
-    @Param('classId') classId: string,
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
     @Query('page') page: number,
     @Query('limit') limit: number,
   ) {
-    return this.classService.getClassMeetings(classId, page || 1, limit || 10);
+    return this.classService.getClassMeetings(
+      req.user.id,
+      classId,
+      page || 1,
+      limit || 10,
+    );
   }
 
   @Post(':classId/assignments')
-  createAssignment(@Param('classId') classId: string, @Body() dto: CreateAssignmentDto) {
-    return this.classService.createAssignment(classId, dto);
+  createAssignment(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Body() dto: CreateAssignmentDto,
+  ) {
+    return this.classService.createAssignment(req.user.id, classId, dto);
   }
 
   @Get(':classId/assignments')
@@ -89,16 +124,22 @@ export class ClassController {
   @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(AssignmentResponseDto, 'Get class assignments success')
   getClassAssignments(
-    @Param('classId') classId: string,
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
     @Query('page') page: number,
     @Query('limit') limit: number,
   ) {
-    return this.classService.getClassAssignments(classId, page || 1, limit || 10);
+    return this.classService.getClassAssignments(
+      req.user.id,
+      classId,
+      page || 1,
+      limit || 10,
+    );
   }
 
   @Post(':classId/mentors')
   inviteMentor(
-    @Req() req: { user: { id: string } },
+    @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
     @Body() dto: InviteMentorDto,
   ) {
@@ -110,11 +151,17 @@ export class ClassController {
   @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(MentorResponseDto, 'Get class mentors success')
   getClassMentors(
-    @Param('classId') classId: string,
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
     @Query('page') page: number,
     @Query('limit') limit: number,
   ) {
-    return this.classService.getClassMentors(classId, page || 1, limit || 10);
+    return this.classService.getClassMentors(
+      req.user.id,
+      classId,
+      page || 1,
+      limit || 10,
+    );
   }
 
   @Get(':classId/students')
@@ -122,10 +169,16 @@ export class ClassController {
   @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(StudentResponseDto, 'Get class students success')
   getClassStudents(
-    @Param('classId') classId: string,
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
     @Query('page') page: number,
     @Query('limit') limit: number,
   ) {
-    return this.classService.getClassStudents(classId, page || 1, limit || 10);
+    return this.classService.getClassStudents(
+      req.user.id,
+      classId,
+      page || 1,
+      limit || 10,
+    );
   }
 }

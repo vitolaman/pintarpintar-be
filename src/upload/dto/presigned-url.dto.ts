@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsString, Max, Min } from 'class-validator';
 
 export class PresignedUrlDto {
   @ApiProperty()
@@ -12,8 +12,10 @@ export class PresignedUrlDto {
   @IsNotEmpty()
   key: string;
 
-  @ApiProperty()
-  @IsNumber()
+  // S3 accepts at most 10,000 parts per multipart upload.
+  @ApiProperty({ minimum: 1, maximum: 10000 })
+  @IsInt()
   @Min(1)
+  @Max(10000)
   partsCount: number;
 }

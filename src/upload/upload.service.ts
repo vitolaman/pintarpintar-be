@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -11,6 +15,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
 export class UploadService {
+  private readonly logger = new Logger(UploadService.name);
   private s3Client: S3Client;
   private bucketName: string;
 
@@ -49,7 +54,13 @@ export class UploadService {
         key: response.Key,
       };
     } catch (error) {
-      throw new InternalServerErrorException('Failed to initiate multipart upload: ' + error.message);
+      this.logger.error(
+        `Failed to initiate multipart upload`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException(
+        'Failed to initiate multipart upload',
+      );
     }
   }
 
@@ -75,7 +86,13 @@ export class UploadService {
 
       return urls;
     } catch (error) {
-      throw new InternalServerErrorException('Failed to generate presigned URLs: ' + error.message);
+      this.logger.error(
+        `Failed to generate presigned URLs`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException(
+        'Failed to generate presigned URLs',
+      );
     }
   }
 
@@ -101,7 +118,13 @@ export class UploadService {
         bucket: response.Bucket,
       };
     } catch (error) {
-      throw new InternalServerErrorException('Failed to complete multipart upload: ' + error.message);
+      this.logger.error(
+        `Failed to complete multipart upload`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException(
+        'Failed to complete multipart upload',
+      );
     }
   }
 }

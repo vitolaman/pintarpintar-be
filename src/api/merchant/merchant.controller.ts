@@ -11,6 +11,7 @@ import {
   Req,
   Query,
   Param,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { DefaultResponse } from '~/common/decorator/response.decorator';
@@ -149,10 +150,11 @@ export class MerchantController {
   @Post(':merchantId/classes')
   @DefaultResponse(ClassResponseDto, 'Create class success', HttpStatus.CREATED)
   createClass(
-    @Param('merchantId') merchantId: string,
+    @Req() req: { user: { id: string } },
+    @Param('merchantId', ParseUUIDPipe) merchantId: string,
     @Body() dto: CreateClassDto,
   ) {
-    return this.classService.createClass(merchantId, dto);
+    return this.classService.createClass(req.user.id, merchantId, dto);
   }
 
   @Get(':merchantId/classes')
@@ -161,12 +163,14 @@ export class MerchantController {
   @ApiQuery({ name: 'status', required: false, type: String })
   @PaginatedResponse(ClassResponseDto, 'Get classes success')
   getClasses(
-    @Param('merchantId') merchantId: string,
+    @Req() req: { user: { id: string } },
+    @Param('merchantId', ParseUUIDPipe) merchantId: string,
     @Query('page') page: number,
     @Query('limit') limit: number,
     @Query('status') status: string,
   ) {
     return this.classService.getClassesByMerchant(
+      req.user.id,
       merchantId,
       page || 1,
       limit || 10,

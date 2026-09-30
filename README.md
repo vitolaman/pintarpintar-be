@@ -74,6 +74,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 - `POST /reviews/v1/create-review` — enrolled learners only, one review per class
 - `GET /reviews/v1/get-class-reviews/:classId` — **public**; average, count, and paged reviews
+- `GET /reviews/v1/get-product-reviews/:productId` — **public**; reviews of a published digital product
 - `GET /reviews/v1/get-merchant-reviews/:merchantId` — **public**; reviews of a merchant's classes and products (Review tab)
 
 ### Pusat Bantuan
@@ -111,7 +112,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 - `PATCH /merchants/v1/update-profile` — includes logo (`avatar_asset_id`), banner (`cover_asset_id`), sanitized rich-text description, skills, and landing background and layout
 - `GET /merchants/v1/get-notification-preferences`
 - `PATCH /merchants/v1/update-notification-preferences`
-- `POST /file-assets/v1/register-upload` — registers an uploaded S3 object for a purpose: public images (`merchant_logo`, `merchant_banner`, `merchant_landing_background`, `user_avatar`, `class_cover`, `product_cover`) or private files (`class_resource`, `assignment_resource` up to 100 MB; `digital_file` up to 200 MB). Private files are only served through signed links that expire after 10 minutes
+- `POST /file-assets/v1/register-upload` — registers an uploaded S3 object for a purpose: public images (`merchant_logo`, `merchant_banner`, `merchant_landing_background`, `user_avatar`, `class_cover`, `product_cover`) or private files (`class_resource`, `assignment_resource` up to 100 MB; `digital_file` up to 200 MB; `submission_file` PDF/DWG/ZIP up to 20 MB; `certificate_file` PDF/PNG/JPG up to 10 MB). Private files are only served through signed links that expire after 10 minutes
 
 ### Merchant dashboard
 
@@ -191,6 +192,33 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `GET /api/v1/classes/:classId/assignments` — submission counts; correct answers only for the owner and tutors with `tugas` or `nilai` permission
 - `POST /api/v1/classes/:classId/assignments` — future `due`, `file_upload` or `quiz` (2–4 options per multiple-choice question), optional `assignment_resource`
 - `DELETE /api/v1/classes/:classId/assignments/:assignmentId`
+- `GET /api/v1/classes/:classId/assignments/:assignmentId/submissions` — `nilai.lihat`; latest submission per learner with file link and answers
+- `PATCH /api/v1/classes/:classId/submissions/:submissionId/grade` — `nilai.edit`; file score 0–100, or essay scores up to each weight; feedback
+- `GET /api/v1/classes/:classId/grades` — `nilai.lihat`; scores per learner and assignment, learner and class averages
+- `GET /api/v1/classes/:classId/attendance-summary` — `meeting.lihat`
+- `GET /api/v1/classes/:classId/meetings/:meetingId/attendances` — `meeting.lihat`; no record counts as `alpa`
+- `PATCH /api/v1/classes/:classId/meetings/:meetingId/attendances/:userId` — `meeting.edit`; `hadir`, `izin` or `alpa`
+- `GET /api/v1/classes/:classId/certificate-settings` — defaults: manual, attendance 80, score 75
+- `PATCH /api/v1/classes/:classId/certificate-settings` — `sertifikat.edit`
+- `GET /api/v1/classes/:classId/certificates` — `sertifikat.lihat`; status `issued`, `pending` or `ineligible` per learner
+- `POST /api/v1/classes/:classId/certificates/:userId/issue` — `sertifikat.tambah`; eligible learners only; numbers `PP-CERT-YYYY-NNNN`
+- `PUT /api/v1/classes/:classId/certificates/:userId/file` — `sertifikat.edit`; a `certificate_file` upload
+- `DELETE /api/v1/classes/:classId/certificates/:userId` — `sertifikat.delete`; withdraws the certificate
+
+### Learning (enrolled learners and buyers)
+
+Every route requires an active enrollment or product access and answers 404 otherwise.
+
+- `GET /learning/v1/get-class/:id` — chapters, videos (with YouTube id and completion), files as signed links, meetings with live links, progress, next video, certificate
+- `POST /learning/v1/complete-video/:videoId` — idempotent; returns progress and the next video
+- `GET /learning/v1/get-assignments/:classId` — without answer keys; own latest submission
+- `GET /learning/v1/get-quiz/:assignmentId`
+- `POST /learning/v1/submit-assignment/:assignmentId` — a `submission_file` upload; replaces before the due time, late first submission accepted
+- `POST /learning/v1/submit-quiz/:assignmentId` — every question answered; multiple choice scored at once
+- `GET /learning/v1/get-grades/:classId` — scores, feedback, Partisipasi and average
+- `GET /learning/v1/get-meeting/:meetingId` — the check-in page (`/absensi`)
+- `POST /learning/v1/check-in/:meetingId` — after the start; identity from the account; optional review
+- `GET /learning/v1/get-digital-product/:id` — owned product with a signed download, also after the merchant deletes it
 
 ### File upload (S3 multipart)
 

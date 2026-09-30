@@ -167,7 +167,7 @@ export class ProfileService {
             WHERE enrollment.user_id = $1 AND enrollment.deleted_at IS NULL
               AND class.type <> 'live-bootcamp')::integer AS video_class_count,
          (SELECT count(DISTINCT access.product_id) FROM user_access access
-            INNER JOIN products product ON product.id = access.product_id AND product.deleted_at IS NULL
+            INNER JOIN products product ON product.id = access.product_id
             WHERE access.user_id = $1 AND access.deleted_at IS NULL
               AND (access.expires_at IS NULL OR access.expires_at > now()))::integer AS digital_product_count,
          (SELECT count(*) FROM certificates certificate

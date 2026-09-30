@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -9,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { assertOwnedAsset } from '../api/file-asset/asset-purpose-rules';
 import { assetUrl } from '../common/storage/asset-url';
+import { assertDiscountWithinPrice } from '../common/pricing/discount-rule';
 
 import { Class } from './entities/class.entity';
 import { Meeting } from './entities/meeting.entity';
@@ -48,6 +48,11 @@ const CLASS_UPDATE_FIELDS = [
 
 type ClassUpdateField = (typeof CLASS_UPDATE_FIELDS)[number];
 
+const CLASS_PRICE_FIELDS = {
+  list: 'originalPrice',
+  discount: 'discountedPrice',
+};
+
 @Injectable()
 export class ClassService {
   constructor(
@@ -62,7 +67,11 @@ export class ClassService {
   ) {}
 
   async createClass(userId: string, merchantId: string, dto: CreateClassDto) {
-    assertDiscountWithinPrice(dto.originalPrice, dto.discountedPrice);
+    assertDiscountWithinPrice(
+      dto.originalPrice,
+      dto.discountedPrice,
+      CLASS_PRICE_FIELDS,
+    );
     return this.classRepo.manager.transaction(async (manager) => {
       await this.assertOwnsMerchant(userId, merchantId, manager);
       if (dto.cover_asset_id) {
@@ -160,6 +169,7 @@ export class ClassService {
         assertDiscountWithinPrice(
           changes.originalPrice ?? cls.originalPrice,
           changes.discountedPrice ?? cls.discountedPrice,
+          CLASS_PRICE_FIELDS,
         );
       }
       if (changes.cover_asset_id) {
@@ -508,19 +518,6 @@ export class ClassService {
       [merchantId, userId],
     );
     if (owned.length === 0) throw new NotFoundException('Merchant not found');
-  }
-}
-
-// originalPrice is the strikethrough price and discountedPrice the selling
-// price, so a set discount may not exceed the list price.
-function assertDiscountWithinPrice(
-  originalPrice: number | null | undefined,
-  discountedPrice: number | null | undefined,
-): void {
-  if (discountedPrice && discountedPrice > (originalPrice ?? 0)) {
-    throw new BadRequestException(
-      'discountedPrice must not exceed originalPrice',
-    );
   }
 }
 

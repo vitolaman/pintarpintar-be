@@ -38,8 +38,9 @@ const OWNED_ITEMS_SQL = `
     product.merchant_id,
     NULL
   FROM user_access access
+  -- A deleted product stays in its buyers' library.
   INNER JOIN products product
-    ON product.id = access.product_id AND product.deleted_at IS NULL
+    ON product.id = access.product_id
   LEFT JOIN file_assets cover
     ON cover.id = product.cover_asset_id AND cover.deleted_at IS NULL
   WHERE access.user_id = $1

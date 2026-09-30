@@ -71,9 +71,13 @@ export class ClassAssignmentService {
           created_by: userId,
         }),
       );
+      // Questions have no order column; they are listed by created_at, and
+      // rows inserted in one transaction would share now(). Stamping them 1 ms
+      // apart keeps the author's order.
+      const createdAt = Date.now();
       await manager.save(
         AssignmentQuestion,
-        questions.map((question) =>
+        questions.map((question, index) =>
           manager.create(AssignmentQuestion, {
             assignment_id: assignment.id,
             question_text: question.question_text,
@@ -84,6 +88,7 @@ export class ClassAssignmentService {
                 : null,
             correct_answer: question.correct_answer ?? null,
             score_weight: question.score_weight ?? 0,
+            created_at: new Date(createdAt + index),
             created_by: userId,
           }),
         ),

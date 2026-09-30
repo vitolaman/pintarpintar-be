@@ -104,6 +104,21 @@ describe('ClassAssignmentService', () => {
     });
   });
 
+  it('keeps the author order of questions', async () => {
+    await service.createAssignment(
+      userId,
+      classId,
+      quiz([choice, { question_text: 'Jelaskan', type: QuestionType.ESSAY }]),
+    );
+
+    const [, saved] = manager.save.mock.calls.find(
+      ([entity]) => entity === AssignmentQuestion,
+    );
+    expect(saved[1].created_at.getTime() - saved[0].created_at.getTime()).toBe(
+      1,
+    );
+  });
+
   it.each([
     ['a quiz without questions', quiz([])],
     [

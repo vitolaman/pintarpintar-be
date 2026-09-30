@@ -15,9 +15,9 @@ export class HelpTicketService {
     private readonly users: Repository<User>,
   ) {}
 
-  async create(userId: string, input: CreateHelpTicketDto) {
-    const user = await this.users.findOneBy({ id: userId });
-    if (!user) {
+  async create(userId: string | null, input: CreateHelpTicketDto) {
+    const user = userId ? await this.users.findOneBy({ id: userId }) : null;
+    if (userId && !user) {
       throw new NotFoundException('User not found');
     }
 
@@ -29,7 +29,7 @@ export class HelpTicketService {
       }),
     );
 
-    const data = this.toResponse(created, user.name);
+    const data = this.toResponse(created, user?.name ?? null);
 
     return {
       data,
@@ -82,7 +82,10 @@ export class HelpTicketService {
     };
   }
 
-  private toResponse(ticket: HelpTicket, userName: string): HelpTicketResponseDto {
+  private toResponse(
+    ticket: HelpTicket,
+    userName: string | null,
+  ): HelpTicketResponseDto {
     return {
       id: ticket.id,
       user_id: ticket.userId,

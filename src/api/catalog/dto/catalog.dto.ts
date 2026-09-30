@@ -1,3 +1,4 @@
+import { learningLevels } from '~/common/catalog/class-details';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -16,7 +17,7 @@ import {
 export const catalogCardTypes = ['kelas', 'bootcamp', 'digital'] as const;
 // `kelas-live` is an FE filter value with no class type behind it yet.
 export const catalogTypeFilters = [...catalogCardTypes, 'kelas-live'] as const;
-export const catalogLevels = ['Pemula', 'Menengah', 'Mahir'] as const;
+export const catalogLevels = learningLevels;
 export const catalogSorts = [
   'terbaru',
   'terlama',

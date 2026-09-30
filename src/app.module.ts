@@ -29,6 +29,7 @@ import { PortalModule } from './api/portal/portal.module';
 import { OrderModule } from './api/order/order.module';
 import { PayoutAccountModule } from './api/payout-account/payout-account.module';
 import { BundleModule } from './api/bundle/bundle.module';
+import { DiscountModule } from './api/discount/discount.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { BundleModule } from './api/bundle/bundle.module';
     OrderModule,
     PayoutAccountModule,
     BundleModule,
+    DiscountModule,
   ],
   controllers: [AppController],
   providers: [

@@ -37,6 +37,9 @@ import { DiscussionThread } from '~/class/entities/discussion-thread.entity';
 import { Comment } from '~/class/entities/comment.entity';
 import { ClassMentor } from '~/class/entities/class-mentor.entity';
 import { Enrollment } from '~/class/entities/enrollment.entity';
+import { Discount } from '~/api/discount/entities/discount.entity';
+import { DiscountCode } from '~/api/discount/entities/discount-code.entity';
+import { DiscountProduct } from '~/api/discount/entities/discount-product.entity';
 import { Voucher } from '~/api/voucher/entities/voucher.entity';
 import { HelpTicket } from '~/api/help-ticket/entities/help-ticket.entity';
 
@@ -86,6 +89,9 @@ export const dataSourceOptions: DataSourceOptions = {
     ClassMentor,
     Enrollment,
     Voucher,
+    Discount,
+    DiscountProduct,
+    DiscountCode,
     HelpTicket,
   ],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations

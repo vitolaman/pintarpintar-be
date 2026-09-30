@@ -47,7 +47,7 @@ export class VoucherResponseDto {
   is_active: boolean;
 
   @ApiProperty({
-    enum: ['inactive', 'scheduled', 'expired', 'quota_reached', 'active'],
+    enum: ['inactive', 'scheduled', 'expired', 'limit_reached', 'active'],
   })
   status: string;
 

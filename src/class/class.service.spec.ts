@@ -7,7 +7,7 @@ describe('ClassService.inviteMentor', () => {
   const ownerId = '10000000-0000-4000-8000-000000000001';
   const classId = '30000000-0000-4000-8000-000000000001';
   const mentorId = '50000000-0000-4000-8000-000000000001';
-  const input = { email: ' Mentor@Example.com ', role: 'mentor' };
+  const input = { email: ' Mentor@Example.com ', role: 'lead' as const };
   let manager: Record<string, jest.Mock>;
   let service: ClassService;
 
@@ -46,7 +46,10 @@ describe('ClassService.inviteMentor', () => {
       expect.objectContaining({
         class_id: classId,
         mentor_id: mentorId,
-        role: 'mentor',
+        role: 'lead',
+        permissions: expect.objectContaining({
+          materi: { lihat: true, tambah: true, edit: true, delete: true },
+        }),
       }),
     );
     expect(manager.query.mock.calls[0][0]).toContain('FOR UPDATE OF class');

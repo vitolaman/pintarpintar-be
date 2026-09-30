@@ -8,11 +8,13 @@ export enum ResourceType {
   ZIP = 'zip',
   LINK = 'link',
   IMAGE = 'image',
+  ARCHIVE = 'archive',
+  FILE = 'file',
 }
 
 @Entity({ name: 'file_resources' })
 export class FileResource extends AuditedBaseEntity {
-  @Column({ name: 'chapter_id' })
+  @Column({ name: 'chapter_id', type: 'uuid' })
   chapter_id: string;
 
   @ManyToOne(() => Chapter, (chapter) => chapter.resources)
@@ -30,4 +32,13 @@ export class FileResource extends AuditedBaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   size: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  @Column({ name: 'asset_id', type: 'uuid', nullable: true })
+  asset_id: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  order: number;
 }

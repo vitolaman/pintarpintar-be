@@ -22,7 +22,7 @@ export enum ClassType {
 
 @Entity({ name: 'classes' })
 export class Class extends AuditedBaseEntity {
-  @Column({ name: 'merchant_id' })
+  @Column({ name: 'merchant_id', type: 'uuid' })
   merchant_id: string;
 
   @ManyToOne(() => Merchant, { eager: false })
@@ -46,6 +46,12 @@ export class Class extends AuditedBaseEntity {
 
   @Column({ type: 'float', nullable: true })
   discountedPrice: number;
+
+  @Column({ name: 'cover_asset_id', type: 'uuid', nullable: true })
+  cover_asset_id: string | null;
+
+  @Column({ name: 'post_purchase_instructions', type: 'text', nullable: true })
+  post_purchase_instructions: string | null;
 
   @OneToMany(() => Chapter, (chapter) => chapter.class_entity)
   chapters: Chapter[];

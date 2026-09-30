@@ -30,6 +30,9 @@ export class Product extends BaseEntity {
   @Column({ name: 'cover_asset_id', type: 'uuid', nullable: true })
   coverAssetId: string | null;
 
+  @Column({ name: 'post_purchase_instructions', type: 'text', nullable: true })
+  postPurchaseInstructions: string | null;
+
   @Column({ nullable: true })
   level: string | null;
 

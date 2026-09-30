@@ -20,6 +20,10 @@ import { CreateChapterDto } from './dto/create-chapter.dto';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
+import {
+  DEFAULT_TUTOR_PERMISSIONS,
+  parsePermissionMatrix,
+} from './class-permissions';
 
 @Injectable()
 export class ClassService {
@@ -265,7 +269,9 @@ export class ClassService {
           class_id: classId,
           mentor_id: mentor.id,
           role: dto.role,
-          permissions: dto.permissions ?? null,
+          permissions: dto.permissions
+            ? parsePermissionMatrix(dto.permissions)
+            : DEFAULT_TUTOR_PERMISSIONS[dto.role],
         }),
       );
     });

@@ -36,6 +36,7 @@ import {
   normalizeLandingLayout,
 } from './merchant-landing';
 import { MerchantMember } from './entities/merchant-member.entity';
+import { MerchantSkill } from './entities/merchant-skill.entity';
 import {
   LandingLayout,
   MerchantProfile,
@@ -636,32 +637,32 @@ export class MerchantService {
   }
 
   // Runs inside the merchant-row transaction, so concurrent edits serialize.
+  // The list is replaced as a whole; old rows are removed because
+  // (merchant_id, name) stays unique across soft-deleted rows.
   private async replaceSkills(
     manager: EntityManager,
     merchantId: string,
     skills: string[],
   ): Promise<void> {
-    await manager.query('DELETE FROM merchant_skills WHERE merchant_id = $1', [
-      merchantId,
-    ]);
+    await manager.delete(MerchantSkill, { merchantId });
     const names = uniqueSkills(skills);
     if (names.length === 0) return;
-    await manager.query(
-      `INSERT INTO merchant_skills (merchant_id, name, sort_order)
-       SELECT $1, skill.name, skill.position - 1
-       FROM unnest($2::varchar[]) WITH ORDINALITY AS skill(name, position)`,
-      [merchantId, names],
+    await manager.insert(
+      MerchantSkill,
+      names.map((name, position) => ({
+        merchantId,
+        name,
+        sortOrder: position,
+      })),
     );
   }
 
   private async findSkills(merchantId: string): Promise<string[]> {
-    const rows: Array<{ name: string }> = await this.dataSource.query(
-      `SELECT name FROM merchant_skills
-       WHERE merchant_id = $1 AND deleted_at IS NULL
-       ORDER BY sort_order, created_at`,
-      [merchantId],
-    );
-    return rows.map((row) => row.name);
+    const skills = await this.dataSource.manager.find(MerchantSkill, {
+      where: { merchantId },
+      order: { sortOrder: 'ASC', created_at: 'ASC' },
+    });
+    return skills.map((skill) => skill.name);
   }
 
   // Drops ordered items that were deleted or unpublished after being saved.

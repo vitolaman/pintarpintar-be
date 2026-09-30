@@ -16,7 +16,7 @@ describe('MerchantService', () => {
   const merchantId = '20000000-0000-4000-8000-000000000001';
   let manager: Record<string, jest.Mock>;
   let query: jest.Mock;
-  let dataSource: Pick<DataSource, 'transaction' | 'query'>;
+  let dataSource: Pick<DataSource, 'transaction' | 'query' | 'manager'>;
   let merchants: { findOneBy: jest.Mock };
   let wallets: { findOneBy: jest.Mock; query: jest.Mock };
   let preferences: { findOneBy: jest.Mock };
@@ -42,7 +42,8 @@ describe('MerchantService', () => {
     dataSource = {
       transaction: jest.fn((callback) => callback(manager)),
       query: query,
-    } as unknown as Pick<DataSource, 'transaction' | 'query'>;
+      manager: { find: jest.fn().mockResolvedValue([]) },
+    } as unknown as Pick<DataSource, 'transaction' | 'query' | 'manager'>;
     merchants = { findOneBy: jest.fn() };
     wallets = { findOneBy: jest.fn(), query: jest.fn() };
     preferences = { findOneBy: jest.fn() };
@@ -216,7 +217,10 @@ describe('MerchantService', () => {
     (merchants as Record<string, jest.Mock>).createQueryBuilder = jest
       .fn()
       .mockReturnValue(queryBuilder);
-    query.mockResolvedValueOnce([{ name: 'AutoCAD' }, { name: 'SAP2000' }]);
+    (dataSource.manager.find as jest.Mock).mockResolvedValueOnce([
+      { name: 'AutoCAD' },
+      { name: 'SAP2000' },
+    ]);
 
     await expect(
       (

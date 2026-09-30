@@ -268,4 +268,53 @@ describe('CatalogService', () => {
     expect(ownershipCall[1]).toEqual([classId, null]);
     expect(data.is_owned).toBe(false);
   });
+
+  it('searches titles, merchant names, category names and file formats', async () => {
+    dataSource.query.mockResolvedValueOnce([{ total: 0 }]);
+
+    await service.findItems({ search: 'dwg', page: 1, limit: 12 } as never);
+
+    const [sql] = dataSource.query.mock.calls[0];
+    expect(sql).toContain("merchant.store_name ILIKE '%' || $2 || '%'");
+    expect(sql).toContain("category.name ILIKE '%' || $2 || '%'");
+    expect(sql).toContain('file.file_format ILIKE $2');
+  });
+
+  it('filters by category slug or name', async () => {
+    dataSource.query.mockResolvedValueOnce([{ total: 0 }]);
+
+    await service.findItems({
+      category: 'Template Canva',
+      page: 1,
+      limit: 12,
+    } as never);
+
+    const [sql, params] = dataSource.query.mock.calls[0];
+    expect(sql).toContain(
+      'category.slug = $4 OR lower(category.name) = lower($4)',
+    );
+    expect(params[3]).toBe('Template Canva');
+  });
+
+  it('nests categories under their parent', async () => {
+    (dataSource as unknown as { manager: unknown }).manager = {
+      find: jest.fn(async () => [
+        {
+          id: 'design',
+          name: 'Desain Grafis',
+          slug: 'desain-grafis',
+          parentId: null,
+        },
+        { id: 'excel', name: 'Excel', slug: 'excel', parentId: null },
+        { id: 'figma', name: 'Figma', slug: 'figma', parentId: 'design' },
+      ]),
+    };
+
+    const { data } = await service.findCategories();
+
+    expect(data.map((node) => node.slug)).toEqual(['desain-grafis', 'excel']);
+    expect(data[0].children).toEqual([
+      { id: 'figma', name: 'Figma', slug: 'figma', children: [] },
+    ]);
+  });
 });

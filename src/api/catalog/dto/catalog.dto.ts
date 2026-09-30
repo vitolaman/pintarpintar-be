@@ -8,7 +8,6 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  Matches,
   Max,
   MaxLength,
   Min,
@@ -85,9 +84,14 @@ export class CatalogQueryDto {
   @IsIn(catalogLevels)
   level?: string;
 
-  @ApiPropertyOptional({ example: 'desain', description: 'Category slug' })
+  @ApiPropertyOptional({
+    example: 'template-canva',
+    description: 'Category slug or name (ignoring case), e.g. Template Canva',
+  })
   @IsOptional()
-  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(100)
   category?: string;
 
   @ApiPropertyOptional({
@@ -379,4 +383,11 @@ export class CatalogDigitalDetailDto extends CatalogCardDto {
     description: 'True when the signed-in visitor has access',
   })
   is_owned: boolean;
+}
+
+export class CategoryNodeDto {
+  @ApiProperty() id: string;
+  @ApiProperty({ example: 'Desain Grafis' }) name: string;
+  @ApiProperty({ example: 'desain-grafis' }) slug: string;
+  @ApiProperty({ type: () => [CategoryNodeDto] }) children: CategoryNodeDto[];
 }

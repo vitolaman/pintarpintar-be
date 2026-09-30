@@ -12,6 +12,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
 import {
+  ArrayResponse,
   DefaultResponse,
   PaginatedResponse,
 } from '~/common/decorator/response.decorator';
@@ -21,6 +22,7 @@ import {
   CatalogClassDetailDto,
   CatalogDigitalDetailDto,
   CatalogQueryDto,
+  CategoryNodeDto,
 } from './dto/catalog.dto';
 
 // Public routes still read a valid token when one is sent.
@@ -38,6 +40,13 @@ export class CatalogController {
   ])
   findItems(@Query() query: CatalogQueryDto) {
     return this.catalogService.findItems(query);
+  }
+
+  @Get('get-categories')
+  @Public()
+  @ArrayResponse(CategoryNodeDto, 'Get categories success')
+  findCategories() {
+    return this.catalogService.findCategories();
   }
 
   @Get('get-class/:id')

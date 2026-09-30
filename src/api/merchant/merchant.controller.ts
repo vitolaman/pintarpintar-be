@@ -19,6 +19,10 @@ import {
   MerchantResponseDto,
   NotificationPreferencesResponseDto,
 } from './dto/merchant-response.dto';
+import {
+  BalanceHistoryItemResponseDto,
+  BalanceHistoryQueryDto,
+} from './dto/balance-history.dto';
 import { MerchantWalletResponseDto } from './dto/merchant-wallet-response.dto';
 import { PublicMerchantStorefrontResponseDto } from './dto/public-merchant-storefront-response.dto';
 import { RegisterMerchantDto } from './dto/register-merchant.dto';
@@ -85,6 +89,19 @@ export class MerchantController {
   )
   findWallet(@Req() req: { user: { id: string } }) {
     return this.merchantService.findWallet(req.user.id);
+  }
+
+  @Get('get-balance-history')
+  @PaginatedResponse(
+    BalanceHistoryItemResponseDto,
+    'Get balance history success',
+    [BadRequestException, NotFoundException],
+  )
+  findBalanceHistory(
+    @Req() req: { user: { id: string } },
+    @Query() query: BalanceHistoryQueryDto,
+  ) {
+    return this.merchantService.findBalanceHistory(req.user.id, query);
   }
 
   @Patch('update-profile')

@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { DataSource, Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
+import { BalanceHistoryQueryDto } from './dto/balance-history.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { MerchantProfile } from './entities/merchant-profile.entity';
 import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
@@ -17,7 +18,7 @@ describe('MerchantService', () => {
   let query: jest.Mock;
   let dataSource: Pick<DataSource, 'transaction' | 'query'>;
   let merchants: { findOneBy: jest.Mock };
-  let wallets: { findOneBy: jest.Mock };
+  let wallets: { findOneBy: jest.Mock; query: jest.Mock };
   let preferences: { findOneBy: jest.Mock };
   let service: MerchantService;
 
@@ -43,7 +44,7 @@ describe('MerchantService', () => {
       query: query,
     } as unknown as Pick<DataSource, 'transaction' | 'query'>;
     merchants = { findOneBy: jest.fn() };
-    wallets = { findOneBy: jest.fn() };
+    wallets = { findOneBy: jest.fn(), query: jest.fn() };
     preferences = { findOneBy: jest.fn() };
     service = new MerchantService(
       dataSource as DataSource,
@@ -86,7 +87,12 @@ describe('MerchantService', () => {
     );
     expect(manager.save).toHaveBeenCalledWith(
       MerchantWallet,
-      expect.objectContaining({ merchantId, balance: '0' }),
+      expect.objectContaining({
+        merchantId,
+        earningBalance: '0',
+        settledBalance: '0',
+        lifetimeEarnings: '0',
+      }),
     );
     expect(manager.save).toHaveBeenCalledWith(
       MerchantProfile,
@@ -97,16 +103,38 @@ describe('MerchantService', () => {
     );
   });
 
-  it('returns only the authenticated merchant wallet balance', async () => {
-    merchants.findOneBy.mockResolvedValue({ id: merchantId, userId });
-    wallets.findOneBy.mockResolvedValue({ merchantId, balance: '125000.50' });
+  it('returns only the authenticated merchant wallet amounts', async () => {
+    merchants.findOneBy.mockResolvedValue({
+      id: merchantId,
+      userId,
+      storageLevel: MerchantStorageLevel.SILVER,
+    });
+    wallets.findOneBy.mockResolvedValue({
+      merchantId,
+      earningBalance: '13700000.50',
+      settledBalance: '12500000',
+      lifetimeEarnings: '58700000',
+    });
+    wallets.query.mockResolvedValue([{ total: '45000000' }]);
 
     await expect(service.findWallet(userId)).resolves.toEqual({
-      data: { merchant_id: merchantId, balance: 125000.5 },
+      data: {
+        merchant_id: merchantId,
+        storage_level: MerchantStorageLevel.SILVER,
+        earning_balance: 13700000.5,
+        settled_balance: 12500000,
+        clearing_balance: 1200000.5,
+        lifetime_earnings: 58700000,
+        total_withdrawn: 45000000,
+      },
       responseMessage: 'Get merchant wallet success',
     });
 
     expect(wallets.findOneBy).toHaveBeenCalledWith({ merchantId });
+    expect(wallets.query).toHaveBeenCalledWith(
+      expect.stringContaining("status = 'success'"),
+      [merchantId],
+    );
   });
 
   it('rejects wallet access for a user without a merchant', async () => {
@@ -116,6 +144,52 @@ describe('MerchantService', () => {
       NotFoundException,
     );
     expect(wallets.findOneBy).not.toHaveBeenCalled();
+  });
+
+  it('returns the merchant balance history with paging metadata', async () => {
+    merchants.findOneBy.mockResolvedValue({ id: merchantId, userId });
+    query.mockResolvedValueOnce([{ total: 3 }]).mockResolvedValueOnce([
+      {
+        id: 'payout-id',
+        type: 'withdraw',
+        amount: '5000000',
+        description: 'Bank BCA •••• 8912',
+        occurred_at: new Date('2026-09-28T03:00:00Z'),
+        status: 'success',
+      },
+    ]);
+
+    const result = await service.findBalanceHistory(userId, {
+      type: 'all',
+      page: 2,
+      limit: 2,
+    });
+
+    expect(query.mock.calls[0][1]).toEqual([merchantId, 'all']);
+    expect(query.mock.calls[1][1]).toEqual([merchantId, 'all', 2, 2]);
+    expect(query.mock.calls[1][0]).toContain("purchase.status = 'paid'");
+    expect(result).toEqual({
+      data: [
+        {
+          id: 'payout-id',
+          type: 'withdraw',
+          amount: 5000000,
+          description: 'Bank BCA •••• 8912',
+          occurred_at: new Date('2026-09-28T03:00:00Z'),
+          status: 'success',
+        },
+      ],
+      meta: { page: 2, limit: 2, total: 3, totalPage: 2 },
+      responseMessage: 'Get balance history success',
+    });
+  });
+
+  it('rejects balance history for a user without a merchant', async () => {
+    merchants.findOneBy.mockResolvedValue(null);
+    await expect(
+      service.findBalanceHistory(userId, { type: 'all', page: 1, limit: 20 }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(query).not.toHaveBeenCalled();
   });
 
   it('includes the storage tier in the merchant profile response', async () => {
@@ -398,4 +472,16 @@ describe('UpdateMerchantProfileDto category_label', () => {
     const errors = await validate(build(null));
     expect(errors).toHaveLength(0);
   });
+});
+
+describe('BalanceHistoryQueryDto', () => {
+  it.each([[{ type: 'refund' }], [{ page: '0' }], [{ limit: '101' }]])(
+    'rejects %j',
+    async (query) => {
+      const errors = await validate(
+        plainToInstance(BalanceHistoryQueryDto, query),
+      );
+      expect(errors).not.toHaveLength(0);
+    },
+  );
 });

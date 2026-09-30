@@ -242,6 +242,9 @@ export class CatalogCardDto {
 }
 
 export class CatalogMentorDto {
+  @ApiProperty({ description: 'Mentor id used by the profile page' })
+  id: string;
+
   @ApiProperty()
   name: string;
 
@@ -264,6 +267,12 @@ export class CatalogVideoDto {
 
   @ApiProperty({ nullable: true })
   duration: string | null;
+
+  @ApiProperty({ nullable: true })
+  description: string | null;
+
+  @ApiProperty({ description: 'Date added' })
+  created_at: Date;
 }
 
 export class CatalogFileDto {
@@ -278,6 +287,12 @@ export class CatalogFileDto {
 
   @ApiProperty({ nullable: true, example: '2.5 MB' })
   size: string | null;
+
+  @ApiProperty({ nullable: true })
+  description: string | null;
+
+  @ApiProperty({ description: 'Date added' })
+  created_at: Date;
 }
 
 export class CatalogChapterDto {
@@ -330,6 +345,11 @@ export class CatalogClassDetailDto extends CatalogCardDto {
   @ApiProperty({ type: [CatalogChapterDto] })
   chapters: CatalogChapterDto[];
 
+  @ApiProperty({
+    description: 'True when the signed-in visitor is enrolled',
+  })
+  is_owned: boolean;
+
   @ApiProperty({ type: [CatalogMeetingDto], description: 'Bootcamps only' })
   meetings: CatalogMeetingDto[];
 }
@@ -337,6 +357,9 @@ export class CatalogClassDetailDto extends CatalogCardDto {
 export class CatalogDigitalFileDto {
   @ApiProperty()
   id: string;
+
+  @ApiProperty({ example: 'template-rab.xlsx' })
+  name: string;
 
   @ApiProperty({ example: 'xlsx' })
   format: string;
@@ -351,4 +374,9 @@ export class CatalogDigitalDetailDto extends CatalogCardDto {
 
   @ApiProperty({ type: [CatalogDigitalFileDto] })
   files: CatalogDigitalFileDto[];
+
+  @ApiProperty({
+    description: 'True when the signed-in visitor has access',
+  })
+  is_owned: boolean;
 }

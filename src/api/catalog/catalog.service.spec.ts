@@ -234,4 +234,38 @@ describe('CatalogService', () => {
       "(class.status = 'published' OR ($9::boolean AND class.status = 'archived'))",
     );
   });
+
+  it('passes the signed-in visitor to the ownership check', async () => {
+    dataSource.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('AS owned')) return [{ owned: true }];
+      if (sql.includes('FROM ('))
+        return [{ ...cardRow, type: 'kelas', id: classId }];
+      return [];
+    });
+
+    const { data } = await service.findClass(classId, 'viewer-id');
+
+    const ownershipCall = dataSource.query.mock.calls.find(([sql]) =>
+      String(sql).includes('AS owned'),
+    );
+    expect(ownershipCall[1]).toEqual([classId, 'viewer-id']);
+    expect(data.is_owned).toBe(true);
+  });
+
+  it('treats anonymous visitors as not owning', async () => {
+    dataSource.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('AS owned')) return [{ owned: false }];
+      if (sql.includes('FROM ('))
+        return [{ ...cardRow, type: 'digital', id: classId }];
+      return [];
+    });
+
+    const { data } = await service.findDigitalProduct(classId);
+
+    const ownershipCall = dataSource.query.mock.calls.find(([sql]) =>
+      String(sql).includes('AS owned'),
+    );
+    expect(ownershipCall[1]).toEqual([classId, null]);
+    expect(data.is_owned).toBe(false);
+  });
 });

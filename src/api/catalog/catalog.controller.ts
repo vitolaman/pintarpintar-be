@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
@@ -21,6 +22,9 @@ import {
   CatalogDigitalDetailDto,
   CatalogQueryDto,
 } from './dto/catalog.dto';
+
+// Public routes still read a valid token when one is sent.
+type OptionalAuthRequest = { user?: { id: string } };
 
 @Controller('catalog/v1')
 @ApiTags('Catalog')
@@ -42,8 +46,11 @@ export class CatalogController {
     BadRequestException,
     NotFoundException,
   ])
-  findClass(@Param('id', ParseUUIDPipe) id: string) {
-    return this.catalogService.findClass(id);
+  findClass(
+    @Req() req: OptionalAuthRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.catalogService.findClass(id, req.user?.id);
   }
 
   @Get('get-digital-product/:id')
@@ -54,7 +61,10 @@ export class CatalogController {
     HttpStatus.OK,
     [BadRequestException, NotFoundException],
   )
-  findDigitalProduct(@Param('id', ParseUUIDPipe) id: string) {
-    return this.catalogService.findDigitalProduct(id);
+  findDigitalProduct(
+    @Req() req: OptionalAuthRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.catalogService.findDigitalProduct(id, req.user?.id);
   }
 }

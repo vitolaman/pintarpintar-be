@@ -62,6 +62,21 @@ export class ReviewController {
     return this.reviewService.findClassReviews(classId, query);
   }
 
+  @Get('get-product-reviews/:productId')
+  @Public()
+  @DefaultResponse(
+    ClassReviewSummaryDto,
+    'Get product reviews success',
+    HttpStatus.OK,
+    [BadRequestException, NotFoundException],
+  )
+  findProductReviews(
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Query() query: ReviewListQueryDto,
+  ) {
+    return this.reviewService.findProductReviews(productId, query);
+  }
+
   @Get('get-merchant-reviews/:merchantId')
   @Public()
   @DefaultResponse(

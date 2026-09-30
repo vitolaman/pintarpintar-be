@@ -8,12 +8,24 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateReviewDto {
-  @ApiProperty({ description: 'Class the caller is enrolled in' })
+  @ApiPropertyOptional({
+    description: 'Class the caller is enrolled in; send this or product_id',
+  })
+  @ValidateIf((review) => review.product_id === undefined)
   @IsUUID()
-  class_id: string;
+  class_id?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Digital product the caller has access to; send this or class_id',
+  })
+  @ValidateIf((review) => review.product_id !== undefined)
+  @IsUUID()
+  product_id?: string;
 
   @ApiProperty({ minimum: 1, maximum: 5, example: 5 })
   @IsInt()

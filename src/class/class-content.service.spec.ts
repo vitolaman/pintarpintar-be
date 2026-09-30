@@ -26,6 +26,7 @@ describe('ClassContentService', () => {
   let maxOrder: number | null;
   let liveVideoIds: string[];
   let service: ClassContentService;
+  let progress: { recomputeClass: jest.Mock };
 
   beforeEach(() => {
     access = { is_owner: true };
@@ -59,9 +60,11 @@ describe('ClassContentService', () => {
       manager,
       transaction: jest.fn((callback) => callback(manager)),
     };
+    progress = { recomputeClass: jest.fn() };
     service = new ClassContentService(
       dataSource as never,
       new ClassAccessService(dataSource as never),
+      progress as never,
       new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
     );
   });
@@ -102,6 +105,35 @@ describe('ClassContentService', () => {
         youtubeUrl: 'https://youtu.be/x',
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('recomputes learner progress when videos change', async () => {
+    await service.createVideo(userId, classId, chapterId, {
+      title: 'Intro',
+      youtubeUrl: 'https://youtu.be/x',
+    });
+    await service.deleteChapter(userId, classId, chapterId);
+    manager.findOne.mockImplementation(async (entity) =>
+      entity === Chapter
+        ? { id: chapterId, class_id: classId }
+        : { id: 'video-id', chapter_id: chapterId },
+    );
+    await service.deleteVideo(userId, classId, chapterId, 'video-id');
+
+    expect(progress.recomputeClass).toHaveBeenCalledTimes(3);
+    expect(progress.recomputeClass).toHaveBeenCalledWith(manager, classId);
+  });
+
+  it('leaves progress alone when only a resource is deleted', async () => {
+    manager.findOne.mockImplementation(async (entity) =>
+      entity === Chapter
+        ? { id: chapterId, class_id: classId }
+        : { id: 'resource-id', chapter_id: chapterId },
+    );
+
+    await service.deleteResource(userId, classId, chapterId, 'resource-id');
+
+    expect(progress.recomputeClass).not.toHaveBeenCalled();
   });
 
   it('places a new video last in the chapter', async () => {

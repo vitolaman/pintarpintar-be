@@ -222,11 +222,12 @@ export class CatalogService {
     return rows.map(toCard);
   }
 
-  async findClass(id: string) {
+  async findClass(id: string, viewerId?: string) {
     const row = await this.findCardRow(id, ['kelas', 'bootcamp']);
-    const [mentors, chapters, videos, files, meetings] = await Promise.all([
-      this.dataSource.query(
-        `SELECT mentor_user.name, profile.headline, avatar.object_key AS avatar_object_key, link.role
+    const [mentors, chapters, videos, files, meetings, [ownership]] =
+      await Promise.all([
+        this.dataSource.query(
+          `SELECT mentor.id, mentor_user.name, profile.headline, avatar.object_key AS avatar_object_key, link.role
          FROM class_mentors link
          INNER JOIN mentors mentor ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
          INNER JOIN users mentor_user ON mentor_user.id = mentor.user_id AND mentor_user.deleted_at IS NULL
@@ -234,36 +235,44 @@ export class CatalogService {
          LEFT JOIN file_assets avatar ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
          WHERE link.class_id = $1 AND link.deleted_at IS NULL
          ORDER BY link.created_at, link.id`,
-        [id],
-      ),
-      this.dataSource.query(
-        `SELECT id, title, description FROM chapters
+          [id],
+        ),
+        this.dataSource.query(
+          `SELECT id, title, description FROM chapters
          WHERE class_id = $1 AND deleted_at IS NULL ORDER BY "order", created_at, id`,
-        [id],
-      ),
-      this.dataSource.query(
-        `SELECT video.id, video.chapter_id, video.title, video.duration
+          [id],
+        ),
+        this.dataSource.query(
+          `SELECT video.id, video.chapter_id, video.title, video.duration, video.description,
+                video.created_at
          FROM videos video INNER JOIN chapters chapter ON chapter.id = video.chapter_id
          WHERE chapter.class_id = $1 AND video.deleted_at IS NULL AND chapter.deleted_at IS NULL
          ORDER BY video."order", video.created_at, video.id`,
-        [id],
-      ),
-      this.dataSource.query(
-        `SELECT resource.id, resource.chapter_id, resource.name, resource.type, resource.size
+          [id],
+        ),
+        this.dataSource.query(
+          `SELECT resource.id, resource.chapter_id, resource.name, resource.type, resource.size,
+                resource.description, resource.created_at
          FROM file_resources resource INNER JOIN chapters chapter ON chapter.id = resource.chapter_id
          WHERE chapter.class_id = $1 AND resource.deleted_at IS NULL AND chapter.deleted_at IS NULL
          ORDER BY resource."order", resource.created_at, resource.id`,
-        [id],
-      ),
-      row.type === 'bootcamp'
-        ? this.dataSource.query(
-            `SELECT id, title, "date"::text AS date, to_char("time", 'HH24:MI') AS time, status
+          [id],
+        ),
+        row.type === 'bootcamp'
+          ? this.dataSource.query(
+              `SELECT id, title, "date"::text AS date, to_char("time", 'HH24:MI') AS time, status
              FROM meetings WHERE class_id = $1 AND deleted_at IS NULL
              ORDER BY "date" NULLS LAST, "time" NULLS LAST, id`,
-            [id],
-          )
-        : [],
-    ]);
+              [id],
+            )
+          : [],
+        this.dataSource.query(
+          `SELECT EXISTS (
+           SELECT 1 FROM enrollments
+           WHERE class_id = $1 AND user_id = $2 AND deleted_at IS NULL) AS owned`,
+          [id, viewerId ?? null],
+        ),
+      ]);
 
     const detail: CatalogClassDetailDto = {
       ...toCard(row),
@@ -277,37 +286,56 @@ export class CatalogService {
         description: chapter.description,
         videos: videos
           .filter((video) => video.chapter_id === chapter.id)
-          .map(({ id: videoId, title, duration }) => ({
-            id: videoId,
-            title,
-            duration,
+          .map((video) => ({
+            id: video.id,
+            title: video.title,
+            duration: video.duration,
+            description: video.description,
+            created_at: video.created_at,
           })),
         files: files
           .filter((file) => file.chapter_id === chapter.id)
-          .map(({ id: fileId, name, type, size }) => ({
-            id: fileId,
-            name,
-            type,
-            size,
+          .map((file) => ({
+            id: file.id,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            description: file.description,
+            created_at: file.created_at,
           })),
       })),
       meetings,
+      is_owned: ownership.owned,
     };
     return { data: detail, responseMessage: 'Get class success' };
   }
 
-  async findDigitalProduct(id: string) {
+  async findDigitalProduct(id: string, viewerId?: string) {
     const row = await this.findCardRow(id, ['digital']);
-    const files = await this.dataSource.query(
-      `SELECT id, file_format AS format, file_size AS size FROM digital_files
-       WHERE product_id = $1 AND deleted_at IS NULL ORDER BY created_at, id`,
-      [id],
-    );
+    const [files, [ownership]] = await Promise.all([
+      this.dataSource.query(
+        `SELECT file.id, file.file_format AS format, file.file_size AS size,
+                COALESCE(asset.original_filename, regexp_replace(file.file_url, '^.*/', '')) AS name
+         FROM digital_files file
+         LEFT JOIN file_assets asset ON asset.id = file.asset_id AND asset.deleted_at IS NULL
+         WHERE file.product_id = $1 AND file.deleted_at IS NULL
+         ORDER BY file.created_at, file.id`,
+        [id],
+      ),
+      this.dataSource.query(
+        `SELECT EXISTS (
+           SELECT 1 FROM user_access
+           WHERE product_id = $1 AND user_id = $2 AND deleted_at IS NULL
+             AND (expires_at IS NULL OR expires_at > now())) AS owned`,
+        [id, viewerId ?? null],
+      ),
+    ]);
 
     const detail: CatalogDigitalDetailDto = {
       ...toCard(row),
       description: row.description,
       files: files.map((file) => ({ ...file, size: Number(file.size) })),
+      is_owned: ownership.owned,
     };
     return { data: detail, responseMessage: 'Get digital product success' };
   }

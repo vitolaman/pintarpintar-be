@@ -10,7 +10,11 @@ import { DataSource, EntityManager } from 'typeorm';
 import { FileAsset } from '../profile/entities/file-asset.entity';
 import { RegisterUploadDto } from './dto/register-upload.dto';
 import { FileAssetService, originalFilename } from './file-asset.service';
-import { assertOwnedAsset } from './asset-purpose-rules';
+import {
+  assertFileFitsPurpose,
+  assertOwnedAsset,
+  purposeVisibility,
+} from './asset-purpose-rules';
 
 const KEY = 'uploads/1790900000000-logo.png';
 const MB = 1024 * 1024;
@@ -264,6 +268,48 @@ describe('FileAssetService', () => {
       register(purpose as never, `uploads/1790900000000-${filename}`),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(manager.save).not.toHaveBeenCalled();
+  });
+});
+
+describe('learning file purposes', () => {
+  it.each([
+    ['submission_file', 'denah.dwg', 'application/octet-stream', 5 * MB],
+    ['submission_file', 'tugas.pdf', 'application/pdf', 20 * MB],
+    ['submission_file', 'proyek.zip', 'application/zip', MB],
+    ['certificate_file', 'sertifikat.pdf', 'application/pdf', 10 * MB],
+    ['certificate_file', 'sertifikat.jpg', 'image/jpeg', MB],
+    ['certificate_file', 'sertifikat.png', 'image/png', MB],
+  ])('accepts %s %s', (purpose, filename, mimeType, sizeBytes) => {
+    expect(() =>
+      assertFileFitsPurpose(purpose as never, {
+        filename,
+        mimeType,
+        sizeBytes,
+      }),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ['submission_file', 'laporan.docx', 'application/octet-stream', MB],
+    ['submission_file', 'arsip.rar', 'application/vnd.rar', MB],
+    ['submission_file', 'besar.pdf', 'application/pdf', 21 * MB],
+    ['submission_file', 'blob', 'application/pdf', MB],
+    ['certificate_file', 'sertifikat.webp', 'image/webp', MB],
+    ['certificate_file', 'sertifikat.pdf', 'application/pdf', 11 * MB],
+    ['certificate_file', 'palsu.pdf', 'image/png', MB],
+  ])('rejects %s %s', (purpose, filename, mimeType, sizeBytes) => {
+    expect(() =>
+      assertFileFitsPurpose(purpose as never, {
+        filename,
+        mimeType,
+        sizeBytes,
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('stores learning files as private', () => {
+    expect(purposeVisibility('submission_file')).toBe('private');
+    expect(purposeVisibility('certificate_file')).toBe('private');
   });
 });
 

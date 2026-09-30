@@ -89,6 +89,8 @@ type AssetPurposeRule = {
   kinds: FileKind[];
   maxBytes: number;
   visibility: AssetVisibility;
+  // Narrows the kinds to these extensions when set.
+  extensions?: string[];
 };
 
 const IMAGE_ONLY: FileKind[] = ['image'];
@@ -147,6 +149,18 @@ export const ASSET_PURPOSE_RULES = {
     maxBytes: 200 * MEBIBYTE,
     visibility: 'private',
   },
+  submission_file: {
+    kinds: ['document', 'archive', 'cad'],
+    extensions: ['pdf', 'dwg', 'zip'],
+    maxBytes: 20 * MEBIBYTE,
+    visibility: 'private',
+  },
+  certificate_file: {
+    kinds: ['document', 'image'],
+    extensions: ['pdf', 'png', 'jpg', 'jpeg'],
+    maxBytes: 10 * MEBIBYTE,
+    visibility: 'private',
+  },
 } satisfies Record<string, AssetPurposeRule>;
 
 export type AssetPurpose = keyof typeof ASSET_PURPOSE_RULES;
@@ -194,8 +208,14 @@ export function assertFileFitsPurpose(
 ): void {
   const rule: AssetPurposeRule = ASSET_PURPOSE_RULES[purpose];
   const mimeType = (file.mimeType ?? '').toLowerCase();
-  const kind = resolveKind(fileExtension(file.filename), mimeType);
+  const extension = fileExtension(file.filename);
+  const kind = resolveKind(extension, mimeType);
 
+  if (rule.extensions && !rule.extensions.includes(extension)) {
+    throw new BadRequestException(
+      `Only ${rule.extensions.join(', ').toUpperCase()} files are allowed for ${purpose}`,
+    );
+  }
   if (!kind || !rule.kinds.includes(kind)) {
     throw new BadRequestException(
       rule.kinds === IMAGE_ONLY

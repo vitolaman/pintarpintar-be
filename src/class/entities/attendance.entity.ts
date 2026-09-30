@@ -11,14 +11,14 @@ export enum AttendanceStatus {
 
 @Entity({ name: 'attendances' })
 export class Attendance extends AuditedBaseEntity {
-  @Column({ name: 'meeting_id' })
+  @Column({ name: 'meeting_id', type: 'uuid' })
   meeting_id: string;
 
   @ManyToOne(() => Meeting, (meeting) => meeting.attendances)
   @JoinColumn({ name: 'meeting_id' })
   meeting: Meeting;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   user_id: string;
 
   @ManyToOne(() => User)

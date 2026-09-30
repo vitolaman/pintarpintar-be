@@ -5,14 +5,14 @@ import { AssignmentQuestion } from './assignment-question.entity';
 
 @Entity({ name: 'submission_answers' })
 export class SubmissionAnswer extends AuditedBaseEntity {
-  @Column({ name: 'submission_id' })
+  @Column({ name: 'submission_id', type: 'uuid' })
   submission_id: string;
 
   @ManyToOne(() => Submission, (submission) => submission.answers)
   @JoinColumn({ name: 'submission_id' })
   submission: Submission;
 
-  @Column({ name: 'question_id' })
+  @Column({ name: 'question_id', type: 'uuid' })
   question_id: string;
 
   @ManyToOne(() => AssignmentQuestion, (question) => question.answers)

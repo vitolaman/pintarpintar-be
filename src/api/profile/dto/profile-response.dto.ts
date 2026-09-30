@@ -113,7 +113,10 @@ export class CertificationItemResponseDto {
   })
   issuer_name: string | null;
 
-  @ApiPropertyOptional({ description: 'Certificate file for the owner' })
+  @ApiPropertyOptional({
+    description:
+      'Certificate file for the owner; uploaded files are signed links valid 10 minutes',
+  })
   file_url: string | null;
 
   @ApiPropertyOptional({ description: "The class's first assigned mentor" })
@@ -122,7 +125,18 @@ export class CertificationItemResponseDto {
   @ApiProperty({ type: [String], example: [] })
   skills: string[];
 
-  @ApiPropertyOptional({ example: null })
+  @ApiPropertyOptional({
+    example: 88.5,
+    nullable: true,
+    description: 'Average of graded assignments in the class',
+  })
+  final_score: number | null;
+
+  @ApiPropertyOptional({
+    example: '88.5',
+    nullable: true,
+    description: 'final_score as text',
+  })
   grade: string | null;
 }
 

@@ -4,6 +4,11 @@ import { ClassService } from './class.service';
 import { ClassAccessService } from './class-access.service';
 import { ClassContentService } from './class-content.service';
 import { ClassAssignmentService } from './class-assignment.service';
+import { LearnerAccessService } from './learner-access.service';
+import { LearningProgressService } from './learning-progress.service';
+import { ClassGradingService } from './class-grading.service';
+import { ClassAttendanceService } from './class-attendance.service';
+import { ClassCertificateService } from './class-certificate.service';
 import { ClassController } from './class.controller';
 import { Class } from './entities/class.entity';
 import { Chapter } from './entities/chapter.entity';
@@ -20,6 +25,8 @@ import { DiscussionThread } from './entities/discussion-thread.entity';
 import { Comment } from './entities/comment.entity';
 import { ClassMentor } from './entities/class-mentor.entity';
 import { Enrollment } from './entities/enrollment.entity';
+import { VideoCompletion } from './entities/video-completion.entity';
+import { ClassCertificateSettings } from './entities/class-certificate-settings.entity';
 
 @Module({
   imports: [
@@ -39,6 +46,8 @@ import { Enrollment } from './entities/enrollment.entity';
       Comment,
       ClassMentor,
       Enrollment,
+      VideoCompletion,
+      ClassCertificateSettings,
     ]),
   ],
   controllers: [ClassController],
@@ -47,7 +56,19 @@ import { Enrollment } from './entities/enrollment.entity';
     ClassAccessService,
     ClassContentService,
     ClassAssignmentService,
+    LearnerAccessService,
+    LearningProgressService,
+    ClassGradingService,
+    ClassAttendanceService,
+    ClassCertificateService,
   ],
-  exports: [ClassService, ClassAccessService],
+  exports: [
+    ClassService,
+    ClassAccessService,
+    LearnerAccessService,
+    LearningProgressService,
+    ClassAttendanceService,
+    ClassCertificateService,
+  ],
 })
 export class ClassModule {}

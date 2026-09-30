@@ -17,7 +17,7 @@ export class RegisterUploadDto {
   @ApiProperty({
     enum: assetPurposes,
     description:
-      'Covers and profile images are public; class resources, assignment resources, and digital files are private',
+      'Covers and profile images are public; class resources, assignment resources, digital files, submission files, and certificate files are private',
   })
   @IsIn(assetPurposes)
   purpose: AssetPurpose;

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -48,6 +49,10 @@ export class ReviewService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   async create(userId: string, input: CreateReviewDto) {
+    if (input.class_id && input.product_id) {
+      throw new BadRequestException('Review either a class or a product');
+    }
+    if (input.product_id) return this.createProductReview(userId, input);
     try {
       const review = await this.dataSource.transaction(async (manager) => {
         const [target] = await manager.query(
@@ -101,6 +106,103 @@ export class ReviewService {
       }
       throw error;
     }
+  }
+
+  // Buyers with active access review a digital product once.
+  private async createProductReview(userId: string, input: CreateReviewDto) {
+    try {
+      const review = await this.dataSource.transaction(async (manager) => {
+        const [target] = await manager.query(
+          `SELECT product.id,
+                  EXISTS (
+                    SELECT 1 FROM user_access access
+                    WHERE access.product_id = product.id AND access.user_id = $2
+                      AND access.deleted_at IS NULL
+                      AND (access.expires_at IS NULL OR access.expires_at > now())
+                  ) AS owned,
+                  EXISTS (
+                    SELECT 1 FROM reviews review
+                    WHERE review.product_id = product.id AND review.user_id = $2
+                      AND review.deleted_at IS NULL
+                  ) AS reviewed
+           FROM products product
+           WHERE product.id = $1 AND product.deleted_at IS NULL`,
+          [input.product_id, userId],
+        );
+        if (!target) throw new NotFoundException('Digital product not found');
+        if (!target.owned) {
+          throw new ForbiddenException('Only buyers can review this product');
+        }
+        if (target.reviewed) {
+          throw new ConflictException('You have already reviewed this product');
+        }
+        return manager.save(
+          Review,
+          manager.create(Review, {
+            userId,
+            classId: null,
+            productId: input.product_id,
+            orderId: null,
+            rating: input.rating,
+            comment: input.comment || null,
+          }),
+        );
+      });
+
+      const [row] = await this.dataSource.query(
+        `${REVIEW_ROWS_SQL} WHERE review.id = $1`,
+        [review.id],
+      );
+      return { data: toReview(row), responseMessage: 'Create review success' };
+    } catch (error) {
+      if (
+        error instanceof QueryFailedError &&
+        (error as unknown as { code: string }).code === UNIQUE_VIOLATION
+      ) {
+        throw new ConflictException('You have already reviewed this product');
+      }
+      throw error;
+    }
+  }
+
+  // Reviews of a published digital product, newest first.
+  async findProductReviews(productId: string, query: ReviewListQueryDto) {
+    const [summary] = await this.dataSource.query(
+      `SELECT EXISTS (
+                SELECT 1 FROM products
+                WHERE id = $1 AND deleted_at IS NULL AND is_published = true
+                  AND publication_status = 'published') AS found,
+              COALESCE(round(avg(review.rating)::numeric, 1), 0) AS average,
+              count(review.id)::integer AS total
+       FROM reviews review
+       WHERE review.product_id = $1 AND review.deleted_at IS NULL`,
+      [productId],
+    );
+    if (!summary.found)
+      throw new NotFoundException('Digital product not found');
+
+    const { page, limit } = query;
+    const rows = await this.dataSource.query(
+      `${REVIEW_ROWS_SQL}
+       WHERE review.product_id = $1 AND review.deleted_at IS NULL
+       ORDER BY review.created_at DESC, review.id DESC
+       LIMIT $2 OFFSET $3`,
+      [productId, limit, (page - 1) * limit],
+    );
+    return {
+      data: {
+        average_rating: Number(summary.average),
+        review_count: summary.total,
+        reviews: rows.map(toReview),
+      },
+      meta: {
+        page,
+        limit,
+        total: summary.total,
+        totalPage: Math.ceil(summary.total / limit),
+      },
+      responseMessage: 'Get product reviews success',
+    };
   }
 
   async findClassReviews(classId: string, query: ReviewListQueryDto) {

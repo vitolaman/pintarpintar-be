@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import {
   BadRequestException,
   Injectable,
@@ -16,6 +17,11 @@ import { User } from '../user/entities/user.entity';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import { Mentor } from '../mentor/entities/mentor.entity';
 import { MentorProfile } from '../mentor/entities/mentor-profile.entity';
+import {
+  ObjectStorage,
+  createObjectStorage,
+} from '../../common/storage/object-storage';
+import { signedDownloadUrl } from '../../common/storage/signed-download-url';
 import { assetUrl } from '../../common/storage/asset-url';
 import { splitSkills } from '../../common/util/skill-list';
 import {
@@ -42,7 +48,12 @@ export class ProfileService {
     private readonly userAccess: Repository<UserAccess>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
-  ) {}
+    configService: ConfigService,
+  ) {
+    this.storage = createObjectStorage(configService);
+  }
+
+  private readonly storage: ObjectStorage;
 
   async findCurrent(userId: string) {
     const profile = await this.findProfileResponse(userId);
@@ -188,11 +199,22 @@ export class ProfileService {
     const rows: CertificationRow[] = await this.dataSource.query(
       `SELECT certificate.id, certificate."certNo" AS certificate_number,
               certificate."issueDate"::text AS issued_on, certificate."fileUrl" AS file_url,
+              file.object_key AS file_object_key, file.original_filename AS file_name,
+              graded.final_score,
               class.id AS class_id, class.title AS class_title,
               merchant.store_name AS issuer_name, lead_mentor.name AS mentor_name
        FROM certificates certificate
        INNER JOIN classes class ON class.id = certificate.class_id
        LEFT JOIN merchants merchant ON merchant.id = class.merchant_id
+       LEFT JOIN file_assets file ON file.id = certificate.asset_id AND file.deleted_at IS NULL
+       LEFT JOIN LATERAL (
+         SELECT round(avg(submission.total_score), 1) AS final_score
+         FROM submissions submission
+         INNER JOIN assignments assignment
+           ON assignment.id = submission.assignment_id AND assignment.deleted_at IS NULL
+         WHERE assignment.class_id = class.id AND submission.user_id = certificate.user_id
+           AND submission.deleted_at IS NULL AND submission.total_score IS NOT NULL
+       ) graded ON true
        LEFT JOIN LATERAL (
          SELECT mentor_user.name
          FROM class_mentors link
@@ -209,7 +231,7 @@ export class ProfileService {
     );
 
     return {
-      data: rows.map((row) => this.toCertificationItem(row)),
+      data: await Promise.all(rows.map((row) => this.toCertificationItem(row))),
       responseMessage: 'Get certifications success',
     };
   }
@@ -311,9 +333,15 @@ export class ProfileService {
     };
   }
 
-  private toCertificationItem(
+  // Uploaded certificate files are private and served through a short-lived
+  // link; older rows keep their stored URL.
+  private async toCertificationItem(
     row: CertificationRow,
-  ): CertificationItemResponseDto {
+  ): Promise<CertificationItemResponseDto> {
+    const finalScore =
+      row.final_score === null || row.final_score === undefined
+        ? null
+        : Number(row.final_score);
     return {
       id: row.id,
       certificate_number: row.certificate_number,
@@ -321,11 +349,18 @@ export class ProfileService {
       class_id: row.class_id,
       class_title: row.class_title,
       issuer_name: row.issuer_name,
-      file_url: row.file_url,
+      file_url: row.file_object_key
+        ? await signedDownloadUrl(
+            this.storage,
+            row.file_object_key,
+            row.file_name ?? 'certificate',
+          )
+        : row.file_url,
       mentor_name: row.mentor_name,
-      // No grading or skills source exists for certificates yet.
+      // No skills source exists for certificates yet.
       skills: [],
-      grade: null,
+      final_score: finalScore,
+      grade: finalScore === null ? null : String(finalScore),
     };
   }
 
@@ -376,6 +411,9 @@ interface CertificationRow {
   certificate_number: string | null;
   issued_on: string | null;
   file_url: string | null;
+  file_object_key: string | null;
+  file_name: string | null;
+  final_score: string | null;
   class_id: string;
   class_title: string;
   issuer_name: string | null;

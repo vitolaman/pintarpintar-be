@@ -11,14 +11,14 @@ export enum CertificateStatus {
 
 @Entity({ name: 'certificates' })
 export class Certificate extends AuditedBaseEntity {
-  @Column({ name: 'class_id' })
+  @Column({ name: 'class_id', type: 'uuid' })
   class_id: string;
 
   @ManyToOne(() => Class, (cls) => cls.certificates)
   @JoinColumn({ name: 'class_id' })
   class_entity: Class;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   user_id: string;
 
   @ManyToOne(() => User)
@@ -36,4 +36,7 @@ export class Certificate extends AuditedBaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   fileUrl: string;
+
+  @Column({ name: 'asset_id', type: 'uuid', nullable: true })
+  asset_id: string | null;
 }

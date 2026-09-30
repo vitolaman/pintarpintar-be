@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -36,6 +37,58 @@ describe('ReviewService', () => {
       ]),
     };
     service = new ReviewService(dataSource as unknown as DataSource);
+  });
+
+  describe('product reviews', () => {
+    const productId = '40000000-0000-4000-8000-000000000001';
+    const productInput = { product_id: productId, rating: 4 };
+
+    it('creates a product review for a buyer', async () => {
+      manager.query.mockResolvedValue([
+        { id: productId, owned: true, reviewed: false },
+      ]);
+
+      await service.create(userId, productInput);
+
+      expect(manager.query.mock.calls[0][0]).toContain(
+        'access.expires_at IS NULL OR access.expires_at > now()',
+      );
+      expect(manager.save).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ productId, classId: null, rating: 4 }),
+      );
+    });
+
+    it.each([
+      ['a non-buyer', { owned: false, reviewed: false }, ForbiddenException],
+      ['a second review', { owned: true, reviewed: true }, ConflictException],
+    ])('rejects %s', async (_label, flags, error) => {
+      manager.query.mockResolvedValue([{ id: productId, ...flags }]);
+
+      await expect(service.create(userId, productInput)).rejects.toBeInstanceOf(
+        error,
+      );
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects a review naming both a class and a product', async () => {
+      await expect(
+        service.create(userId, { ...productInput, class_id: classId }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('lists reviews of a published product only', async () => {
+      dataSource.query.mockResolvedValueOnce([
+        { found: false, average: 0, total: 0 },
+      ]);
+
+      await expect(
+        service.findProductReviews(productId, { page: 1, limit: 10 }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(dataSource.query.mock.calls[0][0]).toContain(
+        "publication_status = 'published'",
+      );
+    });
   });
 
   it('creates a class review for an enrolled learner', async () => {

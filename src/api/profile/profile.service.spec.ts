@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { ProfileService } from './profile.service';
 import { FileAsset } from './entities/file-asset.entity';
@@ -27,6 +28,7 @@ describe('ProfileService', () => {
       {} as Repository<StudentProgress>,
       userAccess as Repository<UserAccess>,
       users as Repository<User>,
+      new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
     );
   });
 
@@ -149,6 +151,7 @@ describe('ProfileService', () => {
           file_url: 'https://files.example.com/PP-2026-0001.pdf',
           mentor_name: 'Budi Santoso',
           skills: [],
+          final_score: null,
           grade: null,
         },
       ],

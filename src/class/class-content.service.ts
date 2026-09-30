@@ -13,6 +13,7 @@ import {
 } from '../common/storage/object-storage';
 import { signedDownloadUrl } from '../common/storage/signed-download-url';
 import { ClassAccessService } from './class-access.service';
+import { LearningProgressService } from './learning-progress.service';
 import {
   ChapterResponseDto,
   FileResourceResponseDto,
@@ -40,6 +41,7 @@ export class ClassContentService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly classAccess: ClassAccessService,
+    private readonly learningProgress: LearningProgressService,
     configService: ConfigService,
   ) {
     this.storage = createObjectStorage(configService);
@@ -129,6 +131,7 @@ export class ClassContentService {
       await manager.update(Video, liveChildren, deletion);
       await manager.update(FileResource, liveChildren, deletion);
       await manager.update(Chapter, { id: chapterId }, deletion);
+      await this.learningProgress.recomputeClass(manager, classId);
     });
   }
 
@@ -161,6 +164,7 @@ export class ClassContentService {
           created_by: userId,
         }),
       );
+      await this.learningProgress.recomputeClass(manager, classId);
       return {
         data: toVideoResponse(video),
         responseMessage: 'Create video success',
@@ -393,6 +397,9 @@ export class ClassContentService {
         { id },
         { deleted_at: new Date(), deleted_by: userId },
       );
+      if (entity === Video) {
+        await this.learningProgress.recomputeClass(manager, classId);
+      }
     });
   }
 

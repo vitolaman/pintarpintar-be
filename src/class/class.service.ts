@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Class } from './entities/class.entity';
@@ -151,16 +155,54 @@ export class ClassService {
     return { data, meta: { total, page, limit } };
   }
 
-  async inviteMentor(classId: string, dto: InviteMentorDto) {
-    // We ideally look up mentor_id by email here.
-    // Stub mentor_id to 'some-mentor-id' for now.
-    const mentor_id = 'some-mentor-id'; 
-    const mentor = this.classMentorRepo.create({
-      ...dto,
-      class_id: classId,
-      mentor_id,
+  // Only the owner of the class's merchant may invite, and only an active
+  // mentor account. The class row lock serializes concurrent invites so one
+  // mentor cannot be assigned twice.
+  async inviteMentor(userId: string, classId: string, dto: InviteMentorDto) {
+    return this.classMentorRepo.manager.transaction(async (manager) => {
+      const [ownedClass] = await manager.query(
+        `SELECT class.id
+         FROM classes class
+         INNER JOIN merchants merchant
+           ON merchant.id = class.merchant_id AND merchant.deleted_at IS NULL
+         WHERE class.id = $1 AND class.deleted_at IS NULL AND merchant.user_id = $2
+         FOR UPDATE OF class`,
+        [classId, userId],
+      );
+      if (!ownedClass) {
+        throw new NotFoundException('Class not found');
+      }
+
+      const [mentor] = await manager.query(
+        `SELECT mentor.id
+         FROM mentors mentor
+         INNER JOIN users mentor_user
+           ON mentor_user.id = mentor.user_id AND mentor_user.deleted_at IS NULL
+         WHERE lower(mentor_user.email) = lower($1)
+           AND mentor.status = 'active' AND mentor.deleted_at IS NULL`,
+        [dto.email.trim()],
+      );
+      if (!mentor) {
+        throw new NotFoundException('No active mentor account uses this email');
+      }
+
+      const assigned = await manager.findOne(ClassMentor, {
+        where: { class_id: classId, mentor_id: mentor.id },
+      });
+      if (assigned) {
+        throw new ConflictException('Mentor is already assigned to this class');
+      }
+
+      return manager.save(
+        ClassMentor,
+        manager.create(ClassMentor, {
+          class_id: classId,
+          mentor_id: mentor.id,
+          role: dto.role,
+          permissions: dto.permissions ?? null,
+        }),
+      );
     });
-    return this.classMentorRepo.save(mentor);
   }
 
   async getClassMentors(classId: string, page = 1, limit = 10) {

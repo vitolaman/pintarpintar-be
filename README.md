@@ -30,66 +30,156 @@ $ yarn db:local:migrate
 
 ## API
 
-### Authentication
+Every route requires a Bearer token except those marked **public**. The full request and response schemas are in Swagger (below).
 
-- `POST /auth/sign-up`
-- `POST /auth/sign-in`
+### Authentication and user
 
-### User
-
+- `POST /auth/sign-up` — **public**
+- `POST /auth/sign-in` — **public**
 - `GET /users/me`
 - `PATCH /users/me`
 - `DELETE /users/me`
 
-### Profile
+### Beranda (home)
 
-- `GET /profile/v1/get-profile`
-- `PATCH /profile/v1/update-profile`
-- `GET /profile/v1/get-learning`
-- `GET /profile/v1/get-certifications`
+- `GET /home/v1/get-statistics` — **public**; active learners, published classes and digital products, platform rating
+- `GET /home/v1/get-bootcamps` — **public**
+- `GET /home/v1/get-video-classes` — **public**
+- `GET /home/v1/get-digital-products` — **public**
+- `GET /home/v1/get-merchants` — **public**
+- `GET /home/v1/get-testimonials` — **public**; well-rated class reviews
 
-### Merchant
+### Catalog (Kelas, Bootcamp, Produk Digital)
 
-- `POST /merchants/v1/register`
-- `GET /merchants/v1/get-public-merchant/:slug`
-- `GET /merchants/v1/get-profile`
-- `PATCH /merchants/v1/update-profile`
-- `GET /merchants/v1/get-notification-preferences`
-- `PATCH /merchants/v1/update-notification-preferences`
+- `GET /catalog/v1/get-items` — **public**; filter by type, search, level, and category; sort; paginate
+- `GET /catalog/v1/get-class/:id` — **public**; syllabus, mentors, and meeting schedule, without video, file, or meeting links
+- `GET /catalog/v1/get-digital-product/:id` — **public**; file formats and sizes, without download links
 
-### Mentor
+### Promo
 
-- `POST /mentors/v1/sign-up`
-- `POST /mentors/v1/register`
-- `GET /mentors/v1/get-mentor/:id`
-- `GET /mentors/v1/get-profile`
-- `PATCH /mentors/v1/update-profile`
-- `GET /mentors/v1/get-assignments`
+- `GET /promo/v1/get-promo-items` — **public**; random discounted classes (`type=kelas`) or digital products (`type=digital`), up to 6
+- `GET /promo/v1/get-promo-vouchers` — **public**; `featured` (3) and `vouchers` (up to 6) from one random draw, without overlap while enough vouchers exist
 
-### Voucher
+### Vouchers
 
-- `POST /vouchers/v1/create-voucher`
-- `GET /vouchers/v1/get-vouchers`
-- `GET /vouchers/v1/get-voucher/:id`
-- `PATCH /vouchers/v1/update-voucher/:id`
-- `DELETE /vouchers/v1/delete-voucher/:id`
-- `GET /vouchers/v1/get-public-vouchers`
-- `GET /vouchers/v1/get-featured-vouchers`
+- `GET /vouchers/v1/get-public-vouchers` — **public**; search, category, and merchant filters
+- `GET /vouchers/v1/get-featured-vouchers` — **public**; 3 random vouchers with tags
+- `POST /vouchers/v1/create-voucher` — merchant
+- `GET /vouchers/v1/get-vouchers` — merchant
+- `GET /vouchers/v1/get-voucher/:id` — merchant
+- `PATCH /vouchers/v1/update-voucher/:id` — merchant
+- `DELETE /vouchers/v1/delete-voucher/:id` — merchant
 
-### Home
+### Class reviews
 
-- `GET /home/v1/get-statistics`
-- `GET /home/v1/get-bootcamps`
-- `GET /home/v1/get-video-classes`
-- `GET /home/v1/get-digital-products`
-- `GET /home/v1/get-merchants`
-- `GET /home/v1/get-testimonials`
+- `POST /reviews/v1/create-review` — enrolled learners only, one review per class
+- `GET /reviews/v1/get-class-reviews/:classId` — **public**; average, count, and paged reviews
 
-### Help Tickets
+### Pusat Bantuan
 
+- `GET /faqs/v1/get-public-faqs` — **public**
 - `POST /help-tickets/v1/create-help-ticket`
 - `GET /help-tickets/v1/get-help-tickets`
 - `GET /help-tickets/v1/get-help-ticket/:id`
+
+### Profile and Portal Saya
+
+- `GET /profile/v1/get-profile` — includes `member_since`
+- `PATCH /profile/v1/update-profile`
+- `GET /profile/v1/get-learning`
+- `GET /profile/v1/get-certifications` — issued class certificates
+- `GET /portal/v1/get-items` — owned classes, bootcamps, and digital products
+
+### Wishlist, cart, and transactions
+
+- `POST /wishlist/v1/add-to-wishlist`
+- `GET /wishlist/v1/get-wishlist`
+- `DELETE /wishlist/v1/remove-from-wishlist/:id`
+- `POST /cart/v1/add-to-cart` — rejects items the user already owns
+- `GET /cart/v1/get-cart`
+- `DELETE /cart/v1/remove-from-cart/:id`
+- `DELETE /cart/v1/clear-cart`
+- `GET /orders/v1/get-recent-transactions` — last 3 orders
+
+### Merchant profile and settings
+
+- `POST /merchants/v1/register`
+- `GET /merchants/v1/get-public-merchant/:slug` — **public** storefront
+- `GET /merchants/v1/get-profile`
+- `PATCH /merchants/v1/update-profile` — includes logo (`avatar_asset_id`) and banner (`cover_asset_id`)
+- `GET /merchants/v1/get-notification-preferences`
+- `PATCH /merchants/v1/update-notification-preferences`
+- `POST /file-assets/v1/register-upload` — registers an uploaded S3 object as a logo, banner, or avatar
+
+### Merchant dashboard
+
+- `GET /merchants/v1/get-dashboard` — summary and merchant level
+- `GET /merchants/v1/get-sales`
+- `GET /merchants/v1/export-sales` — CSV
+- `GET /merchants/v1/get-customers`
+- `GET /merchants/v1/get-wallet` — earning, settled (withdrawable), and lifetime balances
+- `GET /merchants/v1/get-balance-history`
+
+### Merchant payout accounts (Rekening)
+
+Account numbers are always returned masked. They are stored encrypted when `PAYOUT_ACCOUNT_ENCRYPTION_KEY` is set, and as plain text otherwise.
+
+- `POST /merchants/v1/create-payout-account`
+- `GET /merchants/v1/get-payout-accounts`
+- `PATCH /merchants/v1/update-payout-account/:id`
+- `PATCH /merchants/v1/set-primary-payout-account/:id`
+- `DELETE /merchants/v1/delete-payout-account/:id`
+
+### Merchant discounts
+
+- `GET /discounts/v1/get-eligible-products`
+- `POST /discounts/v1/create-discount` — codes are system-generated
+- `GET /discounts/v1/get-discounts`
+- `GET /discounts/v1/get-discount/:id`
+- `PATCH /discounts/v1/update-discount/:id`
+- `POST /discounts/v1/add-discount-codes/:id`
+- `DELETE /discounts/v1/delete-discount-code/:codeId`
+- `DELETE /discounts/v1/delete-discount/:id`
+
+### Merchant bundles
+
+- `GET /bundles/v1/get-eligible-items`
+- `POST /bundles/v1/create-bundle`
+- `GET /bundles/v1/get-bundles`
+- `GET /bundles/v1/get-bundle/:id`
+- `PATCH /bundles/v1/update-bundle/:id`
+- `DELETE /bundles/v1/delete-bundle/:id`
+
+### Merchant classes and class management
+
+- `GET /merchants/v1/:merchantId/classes`
+- `POST /merchants/v1/:merchantId/classes`
+- `GET /api/v1/classes/:classId`
+- `GET /api/v1/classes/:classId/chapters`
+- `POST /api/v1/classes/:classId/chapters`
+- `POST /api/v1/classes/:classId/chapters/:chapterId/resources`
+- `GET /api/v1/classes/:classId/meetings`
+- `POST /api/v1/classes/:classId/meetings`
+- `GET /api/v1/classes/:classId/mentors`
+- `POST /api/v1/classes/:classId/mentors`
+- `GET /api/v1/classes/:classId/students`
+- `GET /api/v1/classes/:classId/assignments`
+- `POST /api/v1/classes/:classId/assignments`
+
+### File upload (S3 multipart)
+
+- `POST /api/v1/upload/initiate`
+- `POST /api/v1/upload/presigned-urls`
+- `POST /api/v1/upload/complete`
+
+### Mentor
+
+- `POST /mentors/v1/sign-up` — **public**; multipart with CV and skill certificate
+- `POST /mentors/v1/register` — multipart with CV and skill certificate
+- `GET /mentors/v1/get-mentor/:id` — **public**
+- `GET /mentors/v1/get-profile`
+- `PATCH /mentors/v1/update-profile`
+- `GET /mentors/v1/get-assignments`
 
 ## Swagger
 

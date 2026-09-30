@@ -1,5 +1,11 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
+import { ClassAccessService } from './class-access.service';
+import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
 import { ClassService } from './class.service';
 import { ClassMentor } from './entities/class-mentor.entity';
 
@@ -35,6 +41,7 @@ describe('ClassService.inviteMentor', () => {
       unused,
       unused,
       classMentors,
+      unused,
       unused,
     );
   });
@@ -149,11 +156,12 @@ describe('ClassService access control', () => {
       unused,
       unused,
       enrollments as never,
+      new ClassAccessService({ manager: { query } } as never),
     );
   });
 
   it.each([
-    ['an unrelated user', [{ is_owner: false, is_mentor: false }]],
+    ['an unrelated user', [{ is_owner: false, role: null }]],
     ['an unknown class', []],
   ])('hides class detail from %s', async (_label, rows) => {
     query.mockResolvedValue(rows);
@@ -163,15 +171,21 @@ describe('ClassService access control', () => {
     );
   });
 
-  it('lets an assigned mentor view but not manage the class', async () => {
-    query.mockResolvedValue([{ is_owner: false, is_mentor: true }]);
+  it('lets a moderator see the class but not add chapters', async () => {
+    query.mockResolvedValue([
+      {
+        is_owner: false,
+        role: 'moderator',
+        permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+      },
+    ]);
 
     await expect(service.getClassById(userId, classId)).resolves.toEqual({
       id: classId,
     });
     await expect(
       service.createChapter(userId, classId, { title: 'Bab 1' }),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(chapters.save).not.toHaveBeenCalled();
   });
 
@@ -204,7 +218,7 @@ describe('ClassService access control', () => {
   });
 
   it('rejects resources for a chapter of another class', async () => {
-    query.mockResolvedValue([{ is_owner: true, is_mentor: false }]);
+    query.mockResolvedValue([{ is_owner: true }]);
     chapters.findOne.mockResolvedValue(null);
 
     await expect(
@@ -213,7 +227,7 @@ describe('ClassService access control', () => {
   });
 
   it('lists students without any credential field', async () => {
-    query.mockResolvedValue([{ is_owner: true, is_mentor: false }]);
+    query.mockResolvedValue([{ is_owner: true }]);
 
     const response = await service.getClassStudents(userId, classId);
 

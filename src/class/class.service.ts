@@ -20,6 +20,7 @@ import { CreateChapterDto } from './dto/create-chapter.dto';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
+import { ClassAccessService } from './class-access.service';
 import {
   DEFAULT_TUTOR_PERMISSIONS,
   parsePermissionMatrix,
@@ -37,6 +38,7 @@ export class ClassService {
     @InjectRepository(AssignmentQuestion) private readonly assignmentQuestionRepo: Repository<AssignmentQuestion>,
     @InjectRepository(ClassMentor) private readonly classMentorRepo: Repository<ClassMentor>,
     @InjectRepository(Enrollment) private readonly enrollmentRepo: Repository<Enrollment>,
+    private readonly classAccess: ClassAccessService,
   ) {}
 
   async createClass(userId: string, merchantId: string, dto: CreateClassDto) {
@@ -80,14 +82,14 @@ export class ClassService {
   }
 
   async getClassById(userId: string, classId: string) {
-    await this.assertClassAccess(userId, classId, 'view');
+    await this.classAccess.requireAssigned(userId, classId);
     const cls = await this.classRepo.findOne({ where: { id: classId } });
     if (!cls) throw new NotFoundException('Class not found');
     return cls;
   }
 
   async createChapter(userId: string, classId: string, dto: CreateChapterDto) {
-    await this.assertClassAccess(userId, classId, 'manage');
+    await this.classAccess.requireAction(userId, classId, 'materi', 'tambah');
     const chapter = this.chapterRepo.create({
       class_id: classId,
       title: dto.title,
@@ -103,7 +105,7 @@ export class ClassService {
     page = 1,
     limit = 10,
   ) {
-    await this.assertClassAccess(userId, classId, 'view');
+    await this.classAccess.requireAction(userId, classId, 'materi', 'lihat');
     const [data, total] = await this.chapterRepo.findAndCount({
       where: { class_id: classId },
       relations: ['videos', 'resources'],
@@ -128,7 +130,7 @@ export class ClassService {
     chapterId: string,
     resourcesData: { type: string; name: string; url: string }[],
   ) {
-    await this.assertClassAccess(userId, classId, 'manage');
+    await this.classAccess.requireAction(userId, classId, 'materi', 'tambah');
     const chapter = await this.chapterRepo.findOne({
       where: { id: chapterId, class_id: classId },
     });
@@ -148,7 +150,7 @@ export class ClassService {
   }
 
   async createMeeting(userId: string, classId: string, dto: CreateMeetingDto) {
-    await this.assertClassAccess(userId, classId, 'manage');
+    await this.classAccess.requireAction(userId, classId, 'meeting', 'tambah');
     const meeting = this.meetingRepo.create({
       class_id: classId,
       title: dto.title,
@@ -166,7 +168,7 @@ export class ClassService {
     page = 1,
     limit = 10,
   ) {
-    await this.assertClassAccess(userId, classId, 'view');
+    await this.classAccess.requireAction(userId, classId, 'meeting', 'lihat');
     const [data, total] = await this.meetingRepo.findAndCount({ 
       where: { class_id: classId },
       skip: (page - 1) * limit,
@@ -180,7 +182,7 @@ export class ClassService {
     classId: string,
     dto: CreateAssignmentDto,
   ) {
-    await this.assertClassAccess(userId, classId, 'manage');
+    await this.classAccess.requireAction(userId, classId, 'tugas', 'tambah');
     const { questions } = dto;
     const assignment = this.assignmentRepo.create({
       class_id: classId,
@@ -215,7 +217,7 @@ export class ClassService {
     page = 1,
     limit = 10,
   ) {
-    await this.assertClassAccess(userId, classId, 'view');
+    await this.classAccess.requireAssigned(userId, classId);
     const [data, total] = await this.assignmentRepo.findAndCount({
       where: { class_id: classId },
       relations: ['questions'],
@@ -278,7 +280,7 @@ export class ClassService {
   }
 
   async getClassMentors(userId: string, classId: string, page = 1, limit = 10) {
-    await this.assertClassAccess(userId, classId, 'view');
+    await this.classAccess.requireAssigned(userId, classId);
     const [data, total] = await this.classMentorRepo.findAndCount({
       where: { class_id: classId },
       relations: ['mentor'],
@@ -296,7 +298,7 @@ export class ClassService {
     page = 1,
     limit = 10,
   ) {
-    await this.assertClassAccess(userId, classId, 'view');
+    await this.classAccess.requireAssigned(userId, classId);
     const query = this.enrollmentRepo
       .createQueryBuilder('enrollment')
       .innerJoin('enrollment.user', 'student')
@@ -334,34 +336,6 @@ export class ClassService {
       },
     }));
     return { data, meta: { total, page, limit } };
-  }
-
-  // Classes the caller may not access are hidden behind 404: the owner of the
-  // class's merchant may manage it, and its active assigned mentors may view it.
-  private async assertClassAccess(
-    userId: string,
-    classId: string,
-    access: 'manage' | 'view',
-  ) {
-    const [row] = await this.classRepo.manager.query(
-      `SELECT merchant.user_id = $2 AS is_owner,
-              EXISTS (
-                SELECT 1 FROM class_mentors link
-                INNER JOIN mentors mentor
-                  ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
-                  AND mentor.status = 'active'
-                WHERE link.class_id = class.id AND link.deleted_at IS NULL
-                  AND mentor.user_id = $2
-              ) AS is_mentor
-       FROM classes class
-       INNER JOIN merchants merchant
-         ON merchant.id = class.merchant_id AND merchant.deleted_at IS NULL
-       WHERE class.id = $1 AND class.deleted_at IS NULL`,
-      [classId, userId],
-    );
-    const allowed =
-      row && (row.is_owner || (access === 'view' && row.is_mentor));
-    if (!allowed) throw new NotFoundException('Class not found');
   }
 
   private async assertOwnsMerchant(userId: string, merchantId: string) {

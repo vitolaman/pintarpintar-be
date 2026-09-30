@@ -19,9 +19,11 @@ describe('ClassGradingService', () => {
   let answers: Array<Record<string, unknown>>;
   let manager: Record<string, jest.Mock>;
   let service: ClassGradingService;
+  let certificates: { issueEligible: jest.Mock };
 
   beforeEach(() => {
     access = { is_owner: true };
+    certificates = { issueEligible: jest.fn() };
     assignmentType = 'file_upload';
     answers = [];
     manager = {
@@ -35,7 +37,10 @@ describe('ClassGradingService', () => {
         if (sql.includes('FROM submission_answers answer')) return answers;
         return [];
       }),
-      findOneByOrFail: jest.fn(async () => ({ id: submissionId })),
+      findOneByOrFail: jest.fn(async () => ({
+        id: submissionId,
+        user_id: 'learner-id',
+      })),
       save: jest.fn(async (_entity, value) => value),
       update: jest.fn(),
     };
@@ -46,6 +51,7 @@ describe('ClassGradingService', () => {
     service = new ClassGradingService(
       dataSource as never,
       new ClassAccessService(dataSource as never),
+      certificates as never,
       new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
     );
   });
@@ -65,6 +71,9 @@ describe('ClassGradingService', () => {
       graded_by: userId,
       graded_at: expect.any(Date),
     });
+    expect(certificates.issueEligible).toHaveBeenCalledWith(manager, classId, [
+      'learner-id',
+    ]);
   });
 
   it('requires a score for a file submission', async () => {

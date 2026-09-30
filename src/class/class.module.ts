@@ -8,6 +8,7 @@ import { LearnerAccessService } from './learner-access.service';
 import { LearningProgressService } from './learning-progress.service';
 import { ClassGradingService } from './class-grading.service';
 import { ClassAttendanceService } from './class-attendance.service';
+import { ClassCertificateService } from './class-certificate.service';
 import { ClassController } from './class.controller';
 import { Class } from './entities/class.entity';
 import { Chapter } from './entities/chapter.entity';
@@ -59,6 +60,7 @@ import { ClassCertificateSettings } from './entities/class-certificate-settings.
     LearningProgressService,
     ClassGradingService,
     ClassAttendanceService,
+    ClassCertificateService,
   ],
   exports: [
     ClassService,
@@ -66,6 +68,7 @@ import { ClassCertificateSettings } from './entities/class-certificate-settings.
     LearnerAccessService,
     LearningProgressService,
     ClassAttendanceService,
+    ClassCertificateService,
   ],
 })
 export class ClassModule {}

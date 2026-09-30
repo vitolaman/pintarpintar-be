@@ -14,6 +14,7 @@ describe('LearningProgressService', () => {
   let insert: Record<string, jest.Mock>;
   let update: Record<string, jest.Mock>;
   let learnerAccess: { requireEnrollment: jest.Mock };
+  let certificates: { issueEligible: jest.Mock };
   let service: LearningProgressService;
 
   beforeEach(() => {
@@ -46,9 +47,11 @@ describe('LearningProgressService', () => {
       })),
     };
     learnerAccess = { requireEnrollment: jest.fn() };
+    certificates = { issueEligible: jest.fn() };
     service = new LearningProgressService(
       { transaction: jest.fn((callback) => callback(manager)) } as never,
       learnerAccess as never,
+      certificates as never,
     );
   });
 
@@ -67,6 +70,9 @@ describe('LearningProgressService', () => {
       class_id: classId,
     });
     expect(insert.orIgnore).toHaveBeenCalled();
+    expect(certificates.issueEligible).toHaveBeenCalledWith(manager, classId, [
+      userId,
+    ]);
     expect(update.update).toHaveBeenCalledWith(Enrollment);
     expect(update.andWhere).toHaveBeenCalledWith('user_id = :userId', {
       userId,

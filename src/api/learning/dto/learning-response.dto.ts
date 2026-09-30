@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { CertificateViewDto } from '../../../class/dto/certificate.dto';
 
 export class NextVideoDto {
   @ApiProperty() id: string;
@@ -116,4 +117,7 @@ export class LearningClassResponseDto {
   @ApiProperty() progress: number;
   @ApiPropertyOptional({ type: NextVideoDto, nullable: true })
   next_video: NextVideoDto | null;
+
+  @ApiPropertyOptional({ type: CertificateViewDto, nullable: true })
+  certificate: CertificateViewDto | null;
 }

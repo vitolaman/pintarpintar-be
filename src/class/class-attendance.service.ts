@@ -7,6 +7,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { assetUrl } from '../common/storage/asset-url';
 import { ClassAccessService } from './class-access.service';
+import { ClassCertificateService } from './class-certificate.service';
 import { Attendance, AttendanceStatus } from './entities/attendance.entity';
 import { LearnerAccessService } from './learner-access.service';
 import { MEETING_STARTED_SQL, loadLearnerMetrics } from './learner-metrics';
@@ -44,6 +45,7 @@ export class ClassAttendanceService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly classAccess: ClassAccessService,
     private readonly learnerAccess: LearnerAccessService,
+    private readonly certificates: ClassCertificateService,
   ) {}
 
   async findMeetingForLearner(userId: string, meetingId: string) {
@@ -88,6 +90,9 @@ export class ClassAttendanceService {
           }),
         );
       }
+      await this.certificates.issueEligible(manager, meeting.class_id, [
+        userId,
+      ]);
       return {
         data: await this.learnerMeetingView(manager, userId, meeting),
         responseMessage: 'Check in success',
@@ -179,6 +184,7 @@ export class ClassAttendanceService {
           }),
         );
       }
+      await this.certificates.issueEligible(manager, classId, [learnerId]);
     });
     return this.findRecap(userId, classId, meetingId);
   }

@@ -24,6 +24,11 @@ import { ClassContentService } from './class-content.service';
 import { ClassAssignmentService } from './class-assignment.service';
 import { ClassGradingService } from './class-grading.service';
 import { ClassAttendanceService } from './class-attendance.service';
+import { ClassCertificateService } from './class-certificate.service';
+import {
+  CertificateSettingsDto,
+  UpdateCertificateSettingsDto,
+} from './dto/certificate.dto';
 import {
   AttendanceRecapDto,
   AttendanceSummaryDto,
@@ -68,6 +73,7 @@ export class ClassController {
     private readonly classAssignmentService: ClassAssignmentService,
     private readonly classGradingService: ClassGradingService,
     private readonly classAttendanceService: ClassAttendanceService,
+    private readonly classCertificateService: ClassCertificateService,
   ) {}
 
   @Get(':classId')
@@ -300,6 +306,32 @@ export class ClassController {
       req.user.id,
       classId,
       meetingId,
+      dto,
+    );
+  }
+
+  @Get(':classId/certificate-settings')
+  @DefaultResponse(CertificateSettingsDto, 'Get certificate settings success')
+  findCertificateSettings(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+  ) {
+    return this.classCertificateService.findSettings(req.user.id, classId);
+  }
+
+  @Patch(':classId/certificate-settings')
+  @DefaultResponse(
+    CertificateSettingsDto,
+    'Update certificate settings success',
+  )
+  updateCertificateSettings(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Body() dto: UpdateCertificateSettingsDto,
+  ) {
+    return this.classCertificateService.updateSettings(
+      req.user.id,
+      classId,
       dto,
     );
   }

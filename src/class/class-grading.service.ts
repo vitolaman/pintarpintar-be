@@ -13,6 +13,7 @@ import {
 } from '../common/storage/object-storage';
 import { signedDownloadUrl } from '../common/storage/signed-download-url';
 import { ClassAccessService } from './class-access.service';
+import { ClassCertificateService } from './class-certificate.service';
 import { GradeSubmissionDto } from './dto/grading.dto';
 import { Submission } from './entities/submission.entity';
 import { SubmissionAnswer } from './entities/submission-answer.entity';
@@ -58,6 +59,7 @@ export class ClassGradingService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly classAccess: ClassAccessService,
+    private readonly certificates: ClassCertificateService,
     configService: ConfigService,
   ) {
     this.storage = createObjectStorage(configService);
@@ -147,6 +149,9 @@ export class ClassGradingService {
       submission.graded_by = userId;
       submission.updated_by = userId;
       await manager.save(Submission, submission);
+      await this.certificates.issueEligible(manager, classId, [
+        submission.user_id,
+      ]);
 
       const rows: SubmissionRow[] = await manager.query(
         `${SUBMISSIONS_SQL} AND submission.id = $2`,

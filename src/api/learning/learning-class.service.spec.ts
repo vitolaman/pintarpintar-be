@@ -81,6 +81,9 @@ describe('LearningClassService', () => {
           next_video: null,
         })),
       } as never,
+      {
+        findLearnerView: jest.fn(async () => ({ status: 'ineligible' })),
+      } as never,
       new ConfigService({
         AWS_S3_BUCKET_NAME: 'bucket',
         AWS_REGION: 'us-east-1',
@@ -114,7 +117,11 @@ describe('LearningClassService', () => {
       url: 'https://example.com',
       download_url: null,
     });
-    expect(data).toMatchObject({ status: 'archived', progress: 100 });
+    expect(data).toMatchObject({
+      status: 'archived',
+      progress: 100,
+      certificate: { status: 'ineligible' },
+    });
   });
 
   it('derives meeting status from the start time in Asia/Jakarta', () => {

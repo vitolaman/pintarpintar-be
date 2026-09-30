@@ -4,6 +4,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { LearnerAccessService } from '../../class/learner-access.service';
 import { LearningProgressService } from '../../class/learning-progress.service';
+import { ClassCertificateService } from '../../class/class-certificate.service';
 import { assetUrl } from '../../common/storage/asset-url';
 import {
   ObjectStorage,
@@ -44,6 +45,7 @@ export class LearningClassService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly learnerAccess: LearnerAccessService,
     private readonly learningProgress: LearningProgressService,
+    private readonly certificates: ClassCertificateService,
     configService: ConfigService,
   ) {
     this.storage = createObjectStorage(configService);
@@ -53,10 +55,18 @@ export class LearningClassService {
     await this.learnerAccess.requireEnrollment(userId, classId);
     const manager = this.dataSource.manager;
 
-    const [[header], mentors, chapters, videos, resources, meetings, progress] =
-      await Promise.all([
-        manager.query(
-          `SELECT class.id, class.title, class.type, class.status, class.description,
+    const [
+      [header],
+      mentors,
+      chapters,
+      videos,
+      resources,
+      meetings,
+      progress,
+      certificate,
+    ] = await Promise.all([
+      manager.query(
+        `SELECT class.id, class.title, class.type, class.status, class.description,
                   cover.object_key AS cover_object_key,
                   merchant.id AS merchant_id, merchant.store_name AS merchant_name,
                   profile.slug AS merchant_slug,
@@ -69,10 +79,10 @@ export class LearningClassService {
            LEFT JOIN file_assets cover
              ON cover.id = class.cover_asset_id AND cover.deleted_at IS NULL
            WHERE class.id = $1`,
-          [classId],
-        ),
-        manager.query(
-          `SELECT mentor.id, tutor.name, avatar.object_key AS avatar_object_key
+        [classId],
+      ),
+      manager.query(
+        `SELECT mentor.id, tutor.name, avatar.object_key AS avatar_object_key
            FROM class_mentors link
            INNER JOIN mentors mentor ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
            INNER JOIN users tutor ON tutor.id = mentor.user_id AND tutor.deleted_at IS NULL
@@ -80,16 +90,16 @@ export class LearningClassService {
            LEFT JOIN file_assets avatar ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
            WHERE link.class_id = $1 AND link.deleted_at IS NULL
            ORDER BY link.created_at, link.id`,
-          [classId],
-        ),
-        manager.query(
-          `SELECT id, title, description, "order" FROM chapters
+        [classId],
+      ),
+      manager.query(
+        `SELECT id, title, description, "order" FROM chapters
            WHERE class_id = $1 AND deleted_at IS NULL
            ORDER BY "order", created_at, id`,
-          [classId],
-        ),
-        manager.query(
-          `SELECT video.id, video.chapter_id, video.title, video.description, video.duration,
+        [classId],
+      ),
+      manager.query(
+        `SELECT video.id, video.chapter_id, video.title, video.description, video.duration,
                   video."youtubeUrl" AS youtube_url, video."order", video.created_at,
                   EXISTS (SELECT 1 FROM video_completions completion
                           WHERE completion.video_id = video.id AND completion.user_id = $2
@@ -98,10 +108,10 @@ export class LearningClassService {
            INNER JOIN chapters chapter ON chapter.id = video.chapter_id AND chapter.deleted_at IS NULL
            WHERE chapter.class_id = $1 AND video.deleted_at IS NULL
            ORDER BY video."order", video.created_at, video.id`,
-          [classId, userId],
-        ),
-        manager.query(
-          `SELECT resource.id, resource.chapter_id, resource.name, resource.type, resource.size,
+        [classId, userId],
+      ),
+      manager.query(
+        `SELECT resource.id, resource.chapter_id, resource.name, resource.type, resource.size,
                   resource.description, resource.url, resource.created_at,
                   asset.object_key, asset.original_filename
            FROM file_resources resource
@@ -109,19 +119,20 @@ export class LearningClassService {
            LEFT JOIN file_assets asset ON asset.id = resource.asset_id AND asset.deleted_at IS NULL
            WHERE chapter.class_id = $1 AND resource.deleted_at IS NULL
            ORDER BY resource."order", resource.created_at, resource.id`,
-          [classId],
-        ) as Promise<ResourceRow[]>,
-        manager.query(
-          `SELECT meeting.id, meeting.title, meeting.content, meeting."date"::text AS date,
+        [classId],
+      ) as Promise<ResourceRow[]>,
+      manager.query(
+        `SELECT meeting.id, meeting.title, meeting.content, meeting."date"::text AS date,
                   to_char(meeting."time", 'HH24:MI') AS time, meeting."liveUrl" AS live_url,
                   ${MEETING_STATUS_SQL} AS status
            FROM meetings meeting
            WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL
            ORDER BY meeting."date" NULLS LAST, meeting."time" NULLS LAST, meeting.id`,
-          [classId],
-        ),
-        this.learningProgress.findProgress(manager, classId, userId),
-      ]);
+        [classId],
+      ),
+      this.learningProgress.findProgress(manager, classId, userId),
+      this.certificates.findLearnerView(manager, classId, userId),
+    ]);
 
     const files = await Promise.all(
       resources.map((resource) => this.toResource(resource)),
@@ -167,6 +178,7 @@ export class LearningClassService {
       meetings,
       progress: progress.progress,
       next_video: progress.next_video,
+      certificate,
     };
     return { data, responseMessage: 'Get learning class success' };
   }

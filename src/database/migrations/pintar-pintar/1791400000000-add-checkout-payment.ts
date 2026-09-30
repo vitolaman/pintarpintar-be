@@ -54,7 +54,8 @@ export class AddCheckoutPayment1791400000000 implements MigrationInterface {
       WHERE orders.id = numbered.id
     `);
     await queryRunner.query(
-      'CREATE UNIQUE INDEX IF NOT EXISTS uq_orders_order_number ON orders (order_number) WHERE order_number IS NOT NULL',
+      // Pattern ops let the per-day prefix lookup (`LIKE 'ORD-YYYYMMDD-%'`) use it.
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_orders_order_number ON orders (order_number varchar_pattern_ops) WHERE order_number IS NOT NULL',
     );
 
     const unknownStatuses: Array<{ status: string }> = await queryRunner.query(

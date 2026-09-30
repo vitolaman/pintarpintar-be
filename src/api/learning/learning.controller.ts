@@ -26,6 +26,7 @@ import { LearningClassService } from './learning-class.service';
 import { LearningAssignmentService } from './learning-assignment.service';
 import {
   LearnerAssignmentDto,
+  LearnerGradesDto,
   LearnerQuizDto,
   SubmitAssignmentDto,
   SubmitQuizDto,
@@ -87,6 +88,20 @@ export class LearningController {
     @Param('classId', ParseUUIDPipe) classId: string,
   ) {
     return this.learningAssignment.findAssignments(req.user.id, classId);
+  }
+
+  @Get('get-grades/:classId')
+  @DefaultResponse(
+    LearnerGradesDto,
+    'Get learning grades success',
+    HttpStatus.OK,
+    [NotFoundException],
+  )
+  findGrades(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+  ) {
+    return this.learningAssignment.findGrades(req.user.id, classId);
   }
 
   @Get('get-quiz/:assignmentId')

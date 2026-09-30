@@ -6,6 +6,7 @@ import { ClassContentService } from './class-content.service';
 import { ClassAssignmentService } from './class-assignment.service';
 import { LearnerAccessService } from './learner-access.service';
 import { LearningProgressService } from './learning-progress.service';
+import { ClassGradingService } from './class-grading.service';
 import { ClassController } from './class.controller';
 import { Class } from './entities/class.entity';
 import { Chapter } from './entities/chapter.entity';
@@ -55,6 +56,7 @@ import { ClassCertificateSettings } from './entities/class-certificate-settings.
     ClassAssignmentService,
     LearnerAccessService,
     LearningProgressService,
+    ClassGradingService,
   ],
   exports: [
     ClassService,

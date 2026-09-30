@@ -93,3 +93,31 @@ export class SubmitQuizDto {
   @Type(() => QuizAnswerDto)
   answers: QuizAnswerDto[];
 }
+
+export class LearnerGradeDto {
+  @ApiProperty() assignment_id: string;
+  @ApiProperty() title: string;
+  @ApiProperty({ enum: ['file_upload', 'quiz'] }) type: string;
+  @ApiPropertyOptional({ nullable: true }) due: Date | null;
+  @ApiPropertyOptional({ nullable: true, description: '0–100' })
+  score: number | null;
+  @ApiPropertyOptional({ nullable: true }) feedback: string | null;
+  @ApiProperty({ enum: ['not_submitted', 'submitted', 'graded'] })
+  status: string;
+}
+
+export class LearnerGradesDto {
+  @ApiProperty() class_id: string;
+  @ApiProperty({ type: [LearnerGradeDto] }) assignments: LearnerGradeDto[];
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Partisipasi: attendance percentage; null until a meeting has started',
+  })
+  participation: number | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Average of graded assignments',
+  })
+  average_score: number | null;
+}

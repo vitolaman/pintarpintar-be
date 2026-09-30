@@ -22,6 +22,12 @@ import {
 import { ClassService } from './class.service';
 import { ClassContentService } from './class-content.service';
 import { ClassAssignmentService } from './class-assignment.service';
+import { ClassGradingService } from './class-grading.service';
+import {
+  GradeSubmissionDto,
+  GradeTableDto,
+  SubmissionViewDto,
+} from './dto/grading.dto';
 import { CreateChapterDto } from './dto/create-chapter.dto';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
@@ -54,6 +60,7 @@ export class ClassController {
     private readonly classService: ClassService,
     private readonly classContentService: ClassContentService,
     private readonly classAssignmentService: ClassAssignmentService,
+    private readonly classGradingService: ClassGradingService,
   ) {}
 
   @Get(':classId')
@@ -356,6 +363,60 @@ export class ClassController {
       req.user.id,
       classId,
       assignmentId,
+    );
+  }
+
+  @Get(':classId/assignments/:assignmentId/submissions')
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @PaginatedResponse(SubmissionViewDto, 'Get submissions success')
+  findSubmissions(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+  ) {
+    return this.classGradingService.findSubmissions(
+      req.user.id,
+      classId,
+      assignmentId,
+      Math.max(Number(page) || 1, 1),
+      Math.min(Math.max(Number(limit) || 20, 1), 100),
+    );
+  }
+
+  @Patch(':classId/submissions/:submissionId/grade')
+  @DefaultResponse(SubmissionViewDto, 'Grade submission success')
+  gradeSubmission(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('submissionId', ParseUUIDPipe) submissionId: string,
+    @Body() dto: GradeSubmissionDto,
+  ) {
+    return this.classGradingService.gradeSubmission(
+      req.user.id,
+      classId,
+      submissionId,
+      dto,
+    );
+  }
+
+  @Get(':classId/grades')
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @DefaultResponse(GradeTableDto, 'Get class grades success')
+  findGrades(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+  ) {
+    return this.classGradingService.findGradeTable(
+      req.user.id,
+      classId,
+      Math.max(Number(page) || 1, 1),
+      Math.min(Math.max(Number(limit) || 50, 1), 100),
     );
   }
 

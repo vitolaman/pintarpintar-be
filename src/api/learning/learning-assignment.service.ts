@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { LearnerAccessService } from '../../class/learner-access.service';
+import { loadLearnerMetrics } from '../../class/learner-metrics';
 import {
   ObjectStorage,
   createObjectStorage,
@@ -10,6 +11,7 @@ import {
 import { signedDownloadUrl } from '../../common/storage/signed-download-url';
 import {
   LearnerAssignmentDto,
+  LearnerGradesDto,
   LearnerQuizDto,
   LearnerSubmissionDto,
 } from './dto/learning-assignment.dto';
@@ -80,6 +82,40 @@ export class LearningAssignmentService {
       data: await Promise.all(rows.map((row) => this.toAssignment(row))),
       responseMessage: 'Get learning assignments success',
     };
+  }
+
+  // Participation is the attendance percentage, shown only once the class
+  // has a meeting that has started; the average covers graded work only.
+  async findGrades(userId: string, classId: string) {
+    await this.learnerAccess.requireEnrollment(userId, classId);
+    const manager = this.dataSource.manager;
+    const [rows, [metrics]] = await Promise.all([
+      manager.query(
+        `${ASSIGNMENTS_SQL} AND assignment.class_id = $1
+         ORDER BY assignment.due NULLS LAST, assignment.created_at, assignment.id`,
+        [classId, userId],
+      ) as Promise<AssignmentRow[]>,
+      loadLearnerMetrics(manager, classId, [userId]),
+    ]);
+    const data: LearnerGradesDto = {
+      class_id: classId,
+      assignments: rows.map((row) => ({
+        assignment_id: row.id,
+        title: row.title,
+        type: row.type,
+        due: row.due,
+        score: row.total_score,
+        feedback: row.feedback,
+        status: row.submission_id
+          ? row.total_score === null
+            ? 'submitted'
+            : 'graded'
+          : 'not_submitted',
+      })),
+      participation: metrics?.attendance_percent ?? null,
+      average_score: metrics?.average_score ?? null,
+    };
+    return { data, responseMessage: 'Get learning grades success' };
   }
 
   async findQuiz(userId: string, assignmentId: string) {

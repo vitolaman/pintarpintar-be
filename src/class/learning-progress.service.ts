@@ -21,17 +21,22 @@ export interface LearnerProgress {
 // videos of its class, 100 when the class has none. Stored as text in
 // enrollments.progress (refreshed on completions and video changes), whose
 // leading number the list screens parse.
-const PROGRESS_EXPRESSION = `(
-  SELECT CASE WHEN count(video.id) = 0 THEN 100
-              ELSE floor(count(completion.id) * 100.0 / count(video.id)) END
-  FROM videos video
-  INNER JOIN chapters chapter
-    ON chapter.id = video.chapter_id AND chapter.deleted_at IS NULL
-  LEFT JOIN video_completions completion
-    ON completion.video_id = video.id AND completion.user_id = enrollments.user_id
-    AND completion.deleted_at IS NULL
-  WHERE chapter.class_id = enrollments.class_id AND video.deleted_at IS NULL
-)::integer::text`;
+// userRef and classRef are SQL column references of the enclosing query.
+export function progressSql(userRef: string, classRef: string): string {
+  return `(
+    SELECT CASE WHEN count(video.id) = 0 THEN 100
+                ELSE floor(count(completion.id) * 100.0 / count(video.id)) END
+    FROM videos video
+    INNER JOIN chapters chapter
+      ON chapter.id = video.chapter_id AND chapter.deleted_at IS NULL
+    LEFT JOIN video_completions completion
+      ON completion.video_id = video.id AND completion.user_id = ${userRef}
+      AND completion.deleted_at IS NULL
+    WHERE chapter.class_id = ${classRef} AND video.deleted_at IS NULL
+  )::integer`;
+}
+
+const PROGRESS_EXPRESSION = `${progressSql('enrollments.user_id', 'enrollments.class_id')}::text`;
 
 @Injectable()
 export class LearningProgressService {

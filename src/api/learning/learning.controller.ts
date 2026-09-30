@@ -1,4 +1,7 @@
 import {
+  BadRequestException,
+  Body,
+  ConflictException,
   Controller,
   Get,
   HttpCode,
@@ -24,7 +27,10 @@ import { LearningAssignmentService } from './learning-assignment.service';
 import {
   LearnerAssignmentDto,
   LearnerQuizDto,
+  SubmitAssignmentDto,
+  SubmitQuizDto,
 } from './dto/learning-assignment.dto';
+import { LearningSubmissionService } from './learning-submission.service';
 
 type AuthenticatedRequest = { user: { id: string } };
 
@@ -38,7 +44,39 @@ export class LearningController {
     private readonly learningProgress: LearningProgressService,
     private readonly learningClass: LearningClassService,
     private readonly learningAssignment: LearningAssignmentService,
+    private readonly learningSubmission: LearningSubmissionService,
   ) {}
+
+  @Post('submit-assignment/:assignmentId')
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(
+    LearnerAssignmentDto,
+    'Submit assignment success',
+    HttpStatus.OK,
+    [BadRequestException, NotFoundException, ConflictException],
+  )
+  submitAssignment(
+    @Req() req: AuthenticatedRequest,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+    @Body() input: SubmitAssignmentDto,
+  ) {
+    return this.learningSubmission.submitFile(req.user.id, assignmentId, input);
+  }
+
+  @Post('submit-quiz/:assignmentId')
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(LearnerAssignmentDto, 'Submit quiz success', HttpStatus.OK, [
+    BadRequestException,
+    NotFoundException,
+    ConflictException,
+  ])
+  submitQuiz(
+    @Req() req: AuthenticatedRequest,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+    @Body() input: SubmitQuizDto,
+  ) {
+    return this.learningSubmission.submitQuiz(req.user.id, assignmentId, input);
+  }
 
   @Get('get-assignments/:classId')
   @ArrayResponse(LearnerAssignmentDto, 'Get learning assignments success', [

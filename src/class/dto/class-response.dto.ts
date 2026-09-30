@@ -80,6 +80,12 @@ export class MentorResponseDto {
   @ApiProperty() created_at: Date;
 }
 
+export class StudentUserResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() email: string;
+}
+
 export class StudentResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() user_id: string;
@@ -87,4 +93,5 @@ export class StudentResponseDto {
   @ApiPropertyOptional() joinDate: string;
   @ApiPropertyOptional() progress: string;
   @ApiProperty() created_at: Date;
+  @ApiProperty({ type: StudentUserResponseDto }) user: StudentUserResponseDto;
 }

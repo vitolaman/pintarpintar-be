@@ -35,15 +35,28 @@ export class ClassService {
     @InjectRepository(Enrollment) private readonly enrollmentRepo: Repository<Enrollment>,
   ) {}
 
-  async createClass(merchantId: string, dto: CreateClassDto) {
+  async createClass(userId: string, merchantId: string, dto: CreateClassDto) {
+    await this.assertOwnsMerchant(userId, merchantId);
     const newClass = this.classRepo.create({
-      ...dto,
       merchant_id: merchantId,
+      title: dto.title,
+      description: dto.description,
+      status: dto.status,
+      type: dto.type,
+      originalPrice: dto.originalPrice,
+      discountedPrice: dto.discountedPrice,
     });
     return this.classRepo.save(newClass);
   }
 
-  async getClassesByMerchant(merchantId: string, page: any = 1, limit: any = 10, status?: string) {
+  async getClassesByMerchant(
+    userId: string,
+    merchantId: string,
+    page: any = 1,
+    limit: any = 10,
+    status?: string,
+  ) {
+    await this.assertOwnsMerchant(userId, merchantId);
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
     const query = this.classRepo.createQueryBuilder('class')
@@ -52,30 +65,41 @@ export class ClassService {
     if (status) {
       query.andWhere('class.status = :status', { status });
     }
-    console.log('test');
     const [data, total] = await query
       .skip((pageNum - 1) * limitNum)
       .take(limitNum)
       .getManyAndCount();
-    console.log(data)
     return {
       data,
       meta: { total, page: pageNum, limit: limitNum },
     };
   }
 
-  async getClassById(classId: string) {
+  async getClassById(userId: string, classId: string) {
+    await this.assertClassAccess(userId, classId, 'view');
     const cls = await this.classRepo.findOne({ where: { id: classId } });
     if (!cls) throw new NotFoundException('Class not found');
     return cls;
   }
 
-  async createChapter(classId: string, dto: CreateChapterDto) {
-    const chapter = this.chapterRepo.create({ ...dto, class_id: classId });
+  async createChapter(userId: string, classId: string, dto: CreateChapterDto) {
+    await this.assertClassAccess(userId, classId, 'manage');
+    const chapter = this.chapterRepo.create({
+      class_id: classId,
+      title: dto.title,
+      description: dto.description,
+      order: dto.order,
+    });
     return this.chapterRepo.save(chapter);
   }
 
-  async getClassChapters(classId: string, page = 1, limit = 10) {
+  async getClassChapters(
+    userId: string,
+    classId: string,
+    page = 1,
+    limit = 10,
+  ) {
+    await this.assertClassAccess(userId, classId, 'view');
     const [data, total] = await this.chapterRepo.findAndCount({
       where: { class_id: classId },
       relations: ['videos', 'resources'],
@@ -94,7 +118,18 @@ export class ClassService {
     return { data: transformedData, meta: { total, page, limit } };
   }
 
-  async addResources(chapterId: string, resourcesData: { type: string; name: string; url: string }[]) {
+  async addResources(
+    userId: string,
+    classId: string,
+    chapterId: string,
+    resourcesData: { type: string; name: string; url: string }[],
+  ) {
+    await this.assertClassAccess(userId, classId, 'manage');
+    const chapter = await this.chapterRepo.findOne({
+      where: { id: chapterId, class_id: classId },
+    });
+    if (!chapter) throw new NotFoundException('Chapter not found');
+
     const resources = resourcesData.map((res) => {
       return this.fileResourceRepo.create({
         chapter_id: chapterId,
@@ -108,12 +143,26 @@ export class ClassService {
     return resources;
   }
 
-  async createMeeting(classId: string, dto: CreateMeetingDto) {
-    const meeting = this.meetingRepo.create({ ...dto, class_id: classId });
+  async createMeeting(userId: string, classId: string, dto: CreateMeetingDto) {
+    await this.assertClassAccess(userId, classId, 'manage');
+    const meeting = this.meetingRepo.create({
+      class_id: classId,
+      title: dto.title,
+      content: dto.content,
+      date: dto.date,
+      time: dto.time,
+      liveUrl: dto.liveUrl,
+    });
     return this.meetingRepo.save(meeting);
   }
 
-  async getClassMeetings(classId: string, page = 1, limit = 10) {
+  async getClassMeetings(
+    userId: string,
+    classId: string,
+    page = 1,
+    limit = 10,
+  ) {
+    await this.assertClassAccess(userId, classId, 'view');
     const [data, total] = await this.meetingRepo.findAndCount({ 
       where: { class_id: classId },
       skip: (page - 1) * limit,
@@ -122,11 +171,18 @@ export class ClassService {
     return { data, meta: { total, page, limit } };
   }
 
-  async createAssignment(classId: string, dto: CreateAssignmentDto) {
-    const { questions, ...assignmentData } = dto;
+  async createAssignment(
+    userId: string,
+    classId: string,
+    dto: CreateAssignmentDto,
+  ) {
+    await this.assertClassAccess(userId, classId, 'manage');
+    const { questions } = dto;
     const assignment = this.assignmentRepo.create({
-      ...assignmentData,
       class_id: classId,
+      title: dto.title,
+      description: dto.description,
+      type: dto.type,
       due: new Date(dto.due),
     });
 
@@ -135,8 +191,12 @@ export class ClassService {
     if (questions && questions.length > 0) {
       const qs = questions.map((q) =>
         this.assignmentQuestionRepo.create({
-          ...q,
           assignment_id: savedAssignment.id,
+          question_text: q.question_text,
+          type: q.type,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          score_weight: q.score_weight,
         }),
       );
       await this.assignmentQuestionRepo.save(qs);
@@ -145,7 +205,13 @@ export class ClassService {
     return savedAssignment;
   }
 
-  async getClassAssignments(classId: string, page = 1, limit = 10) {
+  async getClassAssignments(
+    userId: string,
+    classId: string,
+    page = 1,
+    limit = 10,
+  ) {
+    await this.assertClassAccess(userId, classId, 'view');
     const [data, total] = await this.assignmentRepo.findAndCount({
       where: { class_id: classId },
       relations: ['questions'],
@@ -205,7 +271,8 @@ export class ClassService {
     });
   }
 
-  async getClassMentors(classId: string, page = 1, limit = 10) {
+  async getClassMentors(userId: string, classId: string, page = 1, limit = 10) {
+    await this.assertClassAccess(userId, classId, 'view');
     const [data, total] = await this.classMentorRepo.findAndCount({
       where: { class_id: classId },
       relations: ['mentor'],
@@ -215,13 +282,88 @@ export class ClassService {
     return { data, meta: { total, page, limit } };
   }
 
-  async getClassStudents(classId: string, page = 1, limit = 10) {
-    const [data, total] = await this.enrollmentRepo.findAndCount({
-      where: { class_id: classId },
-      relations: ['user'],
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+  // Projects only enrollment columns and public user fields; loading the
+  // User entity would serialize its password hash.
+  async getClassStudents(
+    userId: string,
+    classId: string,
+    page = 1,
+    limit = 10,
+  ) {
+    await this.assertClassAccess(userId, classId, 'view');
+    const query = this.enrollmentRepo
+      .createQueryBuilder('enrollment')
+      .innerJoin('enrollment.user', 'student')
+      .where('enrollment.class_id = :classId', { classId });
+    const total = await query.getCount();
+    const rows = await query
+      .select([
+        'enrollment.id AS id',
+        'enrollment.user_id AS user_id',
+        'enrollment.class_id AS class_id',
+        'enrollment."joinDate" AS "joinDate"',
+        'enrollment.progress AS progress',
+        'enrollment.created_at AS created_at',
+        'student.id AS student_id',
+        'student.name AS student_name',
+        'student.email AS student_email',
+      ])
+      .orderBy('enrollment.created_at', 'ASC')
+      .addOrderBy('enrollment.id', 'ASC')
+      .offset((page - 1) * limit)
+      .limit(limit)
+      .getRawMany();
+
+    const data = rows.map((row) => ({
+      id: row.id,
+      user_id: row.user_id,
+      class_id: row.class_id,
+      joinDate: row.joinDate,
+      progress: row.progress,
+      created_at: row.created_at,
+      user: {
+        id: row.student_id,
+        name: row.student_name,
+        email: row.student_email,
+      },
+    }));
     return { data, meta: { total, page, limit } };
+  }
+
+  // Classes the caller may not access are hidden behind 404: the owner of the
+  // class's merchant may manage it, and its active assigned mentors may view it.
+  private async assertClassAccess(
+    userId: string,
+    classId: string,
+    access: 'manage' | 'view',
+  ) {
+    const [row] = await this.classRepo.manager.query(
+      `SELECT merchant.user_id = $2 AS is_owner,
+              EXISTS (
+                SELECT 1 FROM class_mentors link
+                INNER JOIN mentors mentor
+                  ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
+                  AND mentor.status = 'active'
+                WHERE link.class_id = class.id AND link.deleted_at IS NULL
+                  AND mentor.user_id = $2
+              ) AS is_mentor
+       FROM classes class
+       INNER JOIN merchants merchant
+         ON merchant.id = class.merchant_id AND merchant.deleted_at IS NULL
+       WHERE class.id = $1 AND class.deleted_at IS NULL`,
+      [classId, userId],
+    );
+    const allowed =
+      row && (row.is_owner || (access === 'view' && row.is_mentor));
+    if (!allowed) throw new NotFoundException('Class not found');
+  }
+
+  private async assertOwnsMerchant(userId: string, merchantId: string) {
+    const owned = await this.classRepo.manager.query(
+      `SELECT 1 FROM merchants
+       WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+      [merchantId, userId],
+    );
+    if (owned.length === 0) throw new NotFoundException('Merchant not found');
   }
 }

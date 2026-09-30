@@ -28,14 +28,38 @@ describe('AccountNumberCipher', () => {
     expect(cipher.encrypt('8830192841')).not.toBe(envelope);
   });
 
-  it.each([[undefined], ['short'], [randomBytes(16).toString('base64')]])(
-    'rejects a missing or invalid key (%j)',
+  it.each([[undefined], ['']])(
+    'stores the account number as plain text without a key (%j)',
+    (key) => {
+      const cipher = new AccountNumberCipher(key);
+
+      expect(cipher.encrypt('8830192841')).toBe('8830192841');
+      expect(cipher.decrypt('8830192841')).toBe('8830192841');
+    },
+  );
+
+  it('reads plain values stored before a key was configured', () => {
+    expect(new AccountNumberCipher(KEY).decrypt('8830192841')).toBe(
+      '8830192841',
+    );
+  });
+
+  it.each([['short'], [randomBytes(16).toString('base64')]])(
+    'rejects a malformed key (%j)',
     (key) => {
       expect(() => new AccountNumberCipher(key).encrypt('123456')).toThrow(
         InternalServerErrorException,
       );
     },
   );
+
+  it('cannot read an encrypted value without the key', () => {
+    const envelope = new AccountNumberCipher(KEY).encrypt('8830192841');
+
+    expect(() => new AccountNumberCipher(undefined).decrypt(envelope)).toThrow(
+      InternalServerErrorException,
+    );
+  });
 
   it('masks all but the last four digits', () => {
     expect(maskAccountNumber('8830192841')).toBe('•••• 2841');

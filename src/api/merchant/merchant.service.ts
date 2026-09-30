@@ -26,8 +26,8 @@ import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 
-// Income is the merchant's items in paid orders (digital products and classes
-// in separate branches so each uses its index); withdrawals are payouts.
+// Income is the merchant's items in paid orders (digital products, classes, and
+// bundles in separate branches so each uses its index); withdrawals are payouts.
 const BALANCE_HISTORY_SQL = `
   SELECT item.id, 'income' AS type, item.price_at_purchase AS amount,
          'Penjualan ' || product.title AS description,
@@ -47,6 +47,17 @@ const BALANCE_HISTORY_SQL = `
   INNER JOIN classes class ON class.id = item.class_id
   INNER JOIN orders purchase ON purchase.id = item.order_id
   WHERE class.merchant_id = $1 AND purchase.status = 'paid'
+    AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL
+
+  UNION ALL
+
+  SELECT item.id, 'income', item.price_at_purchase,
+         'Penjualan ' || bundle.title,
+         purchase.created_at, 'success'
+  FROM order_items item
+  INNER JOIN bundles bundle ON bundle.id = item.bundle_id
+  INNER JOIN orders purchase ON purchase.id = item.order_id
+  WHERE bundle.merchant_id = $1 AND purchase.status = 'paid'
     AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL
 
   UNION ALL

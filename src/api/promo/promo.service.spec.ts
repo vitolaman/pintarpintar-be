@@ -40,11 +40,41 @@ describe('PromoService', () => {
     );
   });
 
-  it('picks random public vouchers', async () => {
-    await expect(service.findVouchers({ limit: 6 } as never)).resolves.toEqual({
-      data: [],
+  it('keeps the featured strip out of the voucher list when enough vouchers exist', async () => {
+    const picked = voucherIds(9);
+    voucherService.findRandomPublic.mockResolvedValue(picked);
+
+    const response = await service.findVouchers({ limit: 6 } as never);
+
+    expect(voucherService.findRandomPublic).toHaveBeenCalledWith(9);
+    expect(response).toEqual({
+      data: { featured: picked.slice(0, 3), vouchers: picked.slice(3) },
       responseMessage: 'Get promo vouchers success',
     });
-    expect(voucherService.findRandomPublic).toHaveBeenCalledWith(6);
+  });
+
+  it('tops up a short voucher list with featured vouchers', async () => {
+    const picked = voucherIds(7);
+    voucherService.findRandomPublic.mockResolvedValue(picked);
+
+    const { data } = await service.findVouchers({ limit: 6 } as never);
+
+    expect(data.featured).toEqual(picked.slice(0, 3));
+    expect(data.vouchers).toEqual([...picked.slice(3), ...picked.slice(0, 2)]);
+  });
+
+  it('lists every voucher when fewer than the featured count exist', async () => {
+    const picked = voucherIds(2);
+    voucherService.findRandomPublic.mockResolvedValue(picked);
+
+    const { data } = await service.findVouchers({ limit: 6 } as never);
+
+    expect(data).toEqual({ featured: picked, vouchers: picked });
   });
 });
+
+function voucherIds(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `voucher-${index}`,
+  }));
+}

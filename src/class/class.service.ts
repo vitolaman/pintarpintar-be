@@ -11,9 +11,6 @@ import { assertOwnedAsset } from '../api/file-asset/asset-purpose-rules';
 import { assetUrl } from '../common/storage/asset-url';
 
 import { Class } from './entities/class.entity';
-import { Chapter } from './entities/chapter.entity';
-import { FileResource } from './entities/file-resource.entity';
-import { Video } from './entities/video.entity';
 import { Meeting } from './entities/meeting.entity';
 import { Assignment } from './entities/assignment.entity';
 import { AssignmentQuestion } from './entities/assignment-question.entity';
@@ -21,8 +18,8 @@ import { ClassMentor } from './entities/class-mentor.entity';
 import { Enrollment } from './entities/enrollment.entity';
 
 import { CreateClassDto } from './dto/create-class.dto';
-import { CreateChapterDto } from './dto/create-chapter.dto';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
+import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { ClassAccessService } from './class-access.service';
@@ -57,9 +54,6 @@ type ClassUpdateField = (typeof CLASS_UPDATE_FIELDS)[number];
 export class ClassService {
   constructor(
     @InjectRepository(Class) private readonly classRepo: Repository<Class>,
-    @InjectRepository(Chapter) private readonly chapterRepo: Repository<Chapter>,
-    @InjectRepository(FileResource) private readonly fileResourceRepo: Repository<FileResource>,
-    @InjectRepository(Video) private readonly videoRepo: Repository<Video>,
     @InjectRepository(Meeting) private readonly meetingRepo: Repository<Meeting>,
     @InjectRepository(Assignment) private readonly assignmentRepo: Repository<Assignment>,
     @InjectRepository(AssignmentQuestion) private readonly assignmentQuestionRepo: Repository<AssignmentQuestion>,
@@ -185,78 +179,41 @@ export class ClassService {
     });
   }
 
-  async createChapter(userId: string, classId: string, dto: CreateChapterDto) {
-    await this.classAccess.requireAction(userId, classId, 'materi', 'tambah');
-    const chapter = this.chapterRepo.create({
-      class_id: classId,
-      title: dto.title,
-      description: dto.description,
-      order: dto.order,
-    });
-    return this.chapterRepo.save(chapter);
-  }
-
-  async getClassChapters(
-    userId: string,
-    classId: string,
-    page = 1,
-    limit = 10,
-  ) {
-    await this.classAccess.requireAction(userId, classId, 'materi', 'lihat');
-    const [data, total] = await this.chapterRepo.findAndCount({
-      where: { class_id: classId },
-      relations: ['videos', 'resources'],
-      order: { order: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    // Transform resources to files for the response
-    const transformedData = data.map((chapter) => ({
-      ...chapter,
-      files: chapter.resources || [],
-      resources: undefined, // Remove the original resources field
-    }));
-
-    return { data: transformedData, meta: { total, page, limit } };
-  }
-
-  async addResources(
-    userId: string,
-    classId: string,
-    chapterId: string,
-    resourcesData: { type: string; name: string; url: string }[],
-  ) {
-    await this.classAccess.requireAction(userId, classId, 'materi', 'tambah');
-    const chapter = await this.chapterRepo.findOne({
-      where: { id: chapterId, class_id: classId },
-    });
-    if (!chapter) throw new NotFoundException('Chapter not found');
-
-    const resources = resourcesData.map((res) => {
-      return this.fileResourceRepo.create({
-        chapter_id: chapterId,
-        type: res.type as any,
-        name: res.name,
-        url: res.url,
-      });
-    });
-
-    await this.fileResourceRepo.save(resources);
-    return resources;
-  }
-
   async createMeeting(userId: string, classId: string, dto: CreateMeetingDto) {
     await this.classAccess.requireAction(userId, classId, 'meeting', 'tambah');
-    const meeting = this.meetingRepo.create({
-      class_id: classId,
-      title: dto.title,
-      content: dto.content,
-      date: dto.date,
-      time: dto.time,
-      liveUrl: dto.liveUrl,
+    const meeting = await this.meetingRepo.save(
+      this.meetingRepo.create({
+        class_id: classId,
+        title: dto.title,
+        content: dto.content,
+        date: dto.date,
+        time: dto.time,
+        liveUrl: dto.liveUrl,
+        created_by: userId,
+      }),
+    );
+    return { data: meeting, responseMessage: 'Create meeting success' };
+  }
+
+  async updateMeeting(
+    userId: string,
+    classId: string,
+    meetingId: string,
+    dto: UpdateMeetingDto,
+  ) {
+    await this.classAccess.requireAction(userId, classId, 'meeting', 'edit');
+    const meeting = await this.meetingRepo.findOne({
+      where: { id: meetingId, class_id: classId },
     });
-    return this.meetingRepo.save(meeting);
+    if (!meeting) throw new NotFoundException('Meeting not found');
+
+    Object.assign(
+      meeting,
+      pickDefined(dto, ['title', 'content', 'date', 'time', 'liveUrl']),
+    );
+    meeting.updated_by = userId;
+    const saved = await this.meetingRepo.save(meeting);
+    return { data: saved, responseMessage: 'Update meeting success' };
   }
 
   async getClassMeetings(
@@ -268,6 +225,7 @@ export class ClassService {
     await this.classAccess.requireAction(userId, classId, 'meeting', 'lihat');
     const [data, total] = await this.meetingRepo.findAndCount({ 
       where: { class_id: classId },
+      order: { date: 'ASC', time: 'ASC', id: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });

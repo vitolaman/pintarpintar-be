@@ -39,9 +39,6 @@ describe('ClassService.inviteMentor', () => {
       unused,
       unused,
       unused,
-      unused,
-      unused,
-      unused,
       classMentors,
       unused,
       unused,
@@ -103,7 +100,6 @@ describe('ClassService access control', () => {
   let query: jest.Mock;
   let manager: Record<string, jest.Mock>;
   let classes: Record<string, unknown>;
-  let chapters: Record<string, jest.Mock>;
   let enrollments: Record<string, jest.Mock>;
   let service: ClassService;
 
@@ -125,11 +121,6 @@ describe('ClassService access control', () => {
       create: jest.fn((value) => value),
       save: jest.fn(async (value) => ({ ...value, id: 'new-id' })),
       findOne: jest.fn().mockResolvedValue({ id: classId }),
-    };
-    chapters = {
-      create: jest.fn((value) => value),
-      save: jest.fn(async (value) => value),
-      findOne: jest.fn(),
     };
     const builder: Record<string, jest.Mock> = {};
     for (const method of [
@@ -162,9 +153,6 @@ describe('ClassService access control', () => {
 
     service = new ClassService(
       classes as never,
-      chapters as never,
-      unused,
-      unused,
       unused,
       unused,
       unused,
@@ -185,7 +173,7 @@ describe('ClassService access control', () => {
     );
   });
 
-  it('lets a moderator see the class but not add chapters', async () => {
+  it('lets a moderator see the class', async () => {
     query.mockResolvedValue([
       {
         is_owner: false,
@@ -198,10 +186,6 @@ describe('ClassService access control', () => {
       data: { id: classId },
       responseMessage: 'Get class detail success',
     });
-    await expect(
-      service.createChapter(userId, classId, { title: 'Bab 1' }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(chapters.save).not.toHaveBeenCalled();
   });
 
   it('copies only declared fields when the owner creates a class', async () => {
@@ -245,15 +229,6 @@ describe('ClassService access control', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(manager.save).not.toHaveBeenCalled();
-  });
-
-  it('rejects resources for a chapter of another class', async () => {
-    query.mockResolvedValue([{ is_owner: true }]);
-    chapters.findOne.mockResolvedValue(null);
-
-    await expect(
-      service.addResources(userId, classId, 'other-chapter', []),
-    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('lists students without any credential field', async () => {
@@ -324,9 +299,6 @@ describe('ClassService.updateClass', () => {
     const unused = {} as never;
     service = new ClassService(
       { manager } as never,
-      unused,
-      unused,
-      unused,
       unused,
       unused,
       unused,

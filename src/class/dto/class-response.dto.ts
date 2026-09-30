@@ -28,8 +28,20 @@ export class FileResourceResponseDto {
   @ApiProperty() chapter_id: string;
   @ApiProperty() name: string;
   @ApiProperty({ enum: ResourceType }) type: ResourceType;
-  @ApiPropertyOptional() url: string;
-  @ApiPropertyOptional() size: string;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Link resources and older rows only',
+  })
+  url: string | null;
+  @ApiPropertyOptional({ nullable: true }) asset_id: string | null;
+  @ApiPropertyOptional({ description: 'Bytes' }) size: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Signed download link for uploaded files, valid 10 minutes',
+  })
+  download_url: string | null;
+  @ApiProperty() order: number;
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date;
 }
@@ -41,6 +53,7 @@ export class VideoResponseDto {
   @ApiPropertyOptional() description: string;
   @ApiPropertyOptional() youtubeUrl: string;
   @ApiPropertyOptional() duration: string;
+  @ApiProperty() order: number;
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date;
 }

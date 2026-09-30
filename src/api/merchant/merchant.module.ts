@@ -7,7 +7,10 @@ import { MerchantController } from './merchant.controller';
 import { MerchantMember } from './entities/merchant-member.entity';
 import { MerchantProfile } from './entities/merchant-profile.entity';
 import { Merchant } from './entities/merchant.entity';
+import { MerchantPayout } from './entities/merchant-payout.entity';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
+import { MerchantWithdrawalService } from './merchant-withdrawal.service';
+import { MerchantPayoutAccount } from '../payout-account/entities/merchant-payout-account.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 import { ClassModule } from '../../class/class.module';
 
@@ -16,6 +19,8 @@ import { ClassModule } from '../../class/class.module';
     TypeOrmModule.forFeature([
       Merchant,
       MerchantWallet,
+      MerchantPayout,
+      MerchantPayoutAccount,
       MerchantMember,
       MerchantProfile,
       Profile,
@@ -25,6 +30,6 @@ import { ClassModule } from '../../class/class.module';
     ClassModule,
   ],
   controllers: [MerchantController],
-  providers: [MerchantService],
+  providers: [MerchantService, MerchantWithdrawalService],
 })
 export class MerchantModule {}

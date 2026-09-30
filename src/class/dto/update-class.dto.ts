@@ -1,6 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -10,6 +13,13 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import {
+  ClassCategory,
+  LearningLevel,
+  MAX_LEARNING_OUTCOMES,
+  classCategories,
+  learningLevels,
+} from '../../common/catalog/class-details';
 import { ClassStatus, ClassType } from '../entities/class.entity';
 
 // Omitted fields stay unchanged; null clears a nullable field and is
@@ -75,4 +85,48 @@ export class UpdateClassDto {
   @MaxLength(5000)
   @IsOptional()
   post_purchase_instructions?: string | null;
+
+  @ApiPropertyOptional({
+    enum: classCategories,
+    nullable: true,
+    description: 'Bidang',
+  })
+  @ValidateIf((_, value) => value !== null)
+  @IsIn(classCategories)
+  @IsOptional()
+  category?: ClassCategory | null;
+
+  @ApiPropertyOptional({ enum: learningLevels, nullable: true })
+  @ValidateIf((_, value) => value !== null)
+  @IsIn(learningLevels)
+  @IsOptional()
+  level?: LearningLevel | null;
+
+  @ApiPropertyOptional({ nullable: true, maxLength: 60 })
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(60)
+  @IsOptional()
+  duration?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(2000)
+  @IsOptional()
+  prerequisites?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: [String],
+    maxItems: MAX_LEARNING_OUTCOMES,
+  })
+  @ValidateIf((_, value) => value !== null)
+  @IsArray()
+  @ArrayMaxSize(MAX_LEARNING_OUTCOMES)
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  @MaxLength(200, { each: true })
+  @IsOptional()
+  learning_outcomes?: string[] | null;
 }

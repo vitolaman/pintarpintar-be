@@ -19,6 +19,29 @@ describe('class DTO validation', () => {
     [{ cover_asset_id: 'not-a-uuid' }, ['cover_asset_id']],
     [{ description: null, cover_asset_id: null, discountedPrice: null }, []],
     [{ post_purchase_instructions: null, status: 'archived' }, []],
+    [{ category: 'Hukum' }, ['category']],
+    [{ level: 'Expert' }, ['level']],
+    [{ learning_outcomes: ['ok', ''] }, ['learning_outcomes']],
+    [{ learning_outcomes: Array(21).fill('x') }, ['learning_outcomes']],
+    [{ duration: 'x'.repeat(61) }, ['duration']],
+    [
+      {
+        category: null,
+        level: null,
+        duration: null,
+        prerequisites: null,
+        learning_outcomes: null,
+      },
+      [],
+    ],
+    [
+      {
+        category: 'Sipil',
+        level: 'Pemula',
+        learning_outcomes: ['Membuat denah'],
+      },
+      [],
+    ],
     [{}, []],
   ])('update %j fails on %j', async (input, fields) => {
     expect(await errorFields(UpdateClassDto, input)).toEqual(fields);
@@ -29,6 +52,20 @@ describe('class DTO validation', () => {
     [{ title: '' }, ['title']],
     [{ title: 'Kelas', cover_asset_id: 'x' }, ['cover_asset_id']],
     [{ title: 'Kelas', originalPrice: 100000, discountedPrice: 90000 }, []],
+    [
+      {
+        title: 'Kelas',
+        category: 'Coding',
+        level: 'Mahir',
+        duration: '20 jam',
+      },
+      [],
+    ],
+    [{ title: 'Kelas', level: 'pemula' }, ['level']],
+    [
+      { title: 'Kelas', learning_outcomes: 'Membuat denah' },
+      ['learning_outcomes'],
+    ],
   ])('create %j fails on %j', async (input, fields) => {
     expect(await errorFields(CreateClassDto, input)).toEqual(fields);
   });

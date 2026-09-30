@@ -11,8 +11,12 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle, ThrottlerException } from '@nestjs/throttler';
+import { Public } from '~/common/decorator/public.decorator';
+import { ClientAddressThrottlerGuard } from '~/common/guard/client-address-throttler.guard';
 import {
   ArrayResponse,
   DefaultResponse,
@@ -35,6 +39,12 @@ import {
 } from './dto/learning-assignment.dto';
 import { LearningSubmissionService } from './learning-submission.service';
 import { LearningProductService } from './learning-product.service';
+import { LearningAttendanceService } from './learning-attendance.service';
+import {
+  AttendanceSessionDto,
+  CheckInByEmailDto,
+  CheckInByEmailResponseDto,
+} from './dto/public-attendance.dto';
 import { OwnedProductDto } from './dto/learning-product.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
@@ -52,7 +62,35 @@ export class LearningController {
     private readonly learningSubmission: LearningSubmissionService,
     private readonly classAttendance: ClassAttendanceService,
     private readonly learningProduct: LearningProductService,
+    private readonly learningAttendance: LearningAttendanceService,
   ) {}
+
+  // Public attendance page (/absensi/{classId}); never exposes meeting links.
+  @Public()
+  @Get('get-attendance-session/:classId')
+  @DefaultResponse(AttendanceSessionDto, 'Get attendance session success')
+  findAttendanceSession(@Param('classId', ParseUUIDPipe) classId: string) {
+    return this.learningAttendance.findSession(classId);
+  }
+
+  // Check-in without login: the email must belong to an enrolled learner.
+  @Public()
+  @Post('check-in-by-email/:classId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ClientAddressThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 600_000 } })
+  @DefaultResponse(
+    CheckInByEmailResponseDto,
+    'Check in success',
+    HttpStatus.OK,
+    [BadRequestException, NotFoundException, ThrottlerException],
+  )
+  checkInByEmail(
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Body() input: CheckInByEmailDto,
+  ) {
+    return this.learningAttendance.checkInByEmail(classId, input);
+  }
 
   @Post('submit-assignment/:assignmentId')
   @HttpCode(HttpStatus.OK)

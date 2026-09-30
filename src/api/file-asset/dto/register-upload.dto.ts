@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsString, Matches, MaxLength } from 'class-validator';
-import { imagePurposes, ImagePurpose } from '../image-asset-rules';
+import { AssetPurpose, assetPurposes } from '../asset-purpose-rules';
 
 export class RegisterUploadDto {
   @ApiProperty({
@@ -14,9 +14,13 @@ export class RegisterUploadDto {
   })
   key: string;
 
-  @ApiProperty({ enum: imagePurposes })
-  @IsIn(imagePurposes)
-  purpose: ImagePurpose;
+  @ApiProperty({
+    enum: assetPurposes,
+    description:
+      'Covers and profile images are public; class resources, assignment resources, and digital files are private',
+  })
+  @IsIn(assetPurposes)
+  purpose: AssetPurpose;
 }
 
 export class FileAssetResponseDto {

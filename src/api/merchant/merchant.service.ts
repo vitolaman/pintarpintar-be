@@ -13,7 +13,7 @@ import {
 } from '../../common/html/sanitize-rich-text';
 import { assetUrl } from '../../common/storage/asset-url';
 import { uniqueSkills } from '../../common/util/skill-list';
-import { assertOwnedImageAsset } from '../file-asset/image-asset-rules';
+import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
 import { FileAsset } from '../profile/entities/file-asset.entity';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
@@ -288,7 +288,7 @@ export class MerchantService {
 
       if (input.avatar_asset_id !== undefined) {
         if (input.avatar_asset_id !== null) {
-          await assertOwnedImageAsset(
+          await assertOwnedAsset(
             manager,
             userId,
             input.avatar_asset_id,
@@ -299,7 +299,7 @@ export class MerchantService {
       }
       if (input.cover_asset_id !== undefined) {
         if (input.cover_asset_id !== null) {
-          await assertOwnedImageAsset(
+          await assertOwnedAsset(
             manager,
             userId,
             input.cover_asset_id,
@@ -340,7 +340,7 @@ export class MerchantService {
 
       if (input.landing_background_asset_id !== undefined) {
         if (input.landing_background_asset_id !== null) {
-          await assertOwnedImageAsset(
+          await assertOwnedAsset(
             manager,
             userId,
             input.landing_background_asset_id,

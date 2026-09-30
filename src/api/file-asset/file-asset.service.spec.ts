@@ -10,7 +10,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { FileAsset } from '../profile/entities/file-asset.entity';
 import { RegisterUploadDto } from './dto/register-upload.dto';
 import { FileAssetService, originalFilename } from './file-asset.service';
-import { assertOwnedImageAsset } from './image-asset-rules';
+import { assertOwnedAsset } from './asset-purpose-rules';
 
 const KEY = 'uploads/1790900000000-logo.png';
 const MB = 1024 * 1024;
@@ -20,7 +20,8 @@ describe('RegisterUploadDto', () => {
     [{ key: KEY, purpose: 'merchant_logo' }, 0],
     [{ key: 'private/secret.png', purpose: 'merchant_logo' }, 1],
     [{ key: 'uploads/a/b.png', purpose: 'merchant_logo' }, 1],
-    [{ key: KEY, purpose: 'product_cover' }, 1],
+    [{ key: KEY, purpose: 'product_cover' }, 0],
+    [{ key: KEY, purpose: 'course_video' }, 1],
   ])('validates %j', async (input, errorCount) => {
     const errors = await validate(plainToInstance(RegisterUploadDto, input));
     expect(errors.length > 0).toBe(errorCount > 0);
@@ -58,8 +59,10 @@ describe('FileAssetService', () => {
     };
   });
 
-  const register = (purpose: RegisterUploadDto['purpose'] = 'merchant_logo') =>
-    service.registerUpload('user-id', { key: KEY, purpose });
+  const register = (
+    purpose: RegisterUploadDto['purpose'] = 'merchant_logo',
+    key = KEY,
+  ) => service.registerUpload('user-id', { key, purpose });
 
   it('records a public image asset from the stored metadata', async () => {
     send.mockResolvedValue({
@@ -131,6 +134,7 @@ describe('FileAssetService', () => {
       uploadedByUserId: 'user-id',
       objectKey: KEY,
       sizeBytes: '1000',
+      visibility: 'public',
       deleted_at: null,
     });
 
@@ -145,14 +149,131 @@ describe('FileAssetService', () => {
     await expect(register()).rejects.toBeInstanceOf(ConflictException);
     expect(manager.save).not.toHaveBeenCalled();
   });
+
+  it('rejects re-registering a public image as a private file', async () => {
+    send.mockResolvedValue({ ContentType: 'image/png', ContentLength: 1000 });
+    manager.findOne.mockResolvedValue({
+      id: 'existing',
+      uploadedByUserId: 'user-id',
+      visibility: 'public',
+      deleted_at: null,
+    });
+
+    await expect(register('digital_file')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it.each([
+    [
+      'a DWG sent as octet-stream',
+      'class_resource',
+      'plan.dwg',
+      'application/octet-stream',
+      5 * MB,
+    ],
+    [
+      'a 100 MB assignment brief',
+      'assignment_resource',
+      'brief.pdf',
+      'application/pdf',
+      100 * MB,
+    ],
+    [
+      'a 190 MB video product',
+      'digital_file',
+      'course.mp4',
+      'video/mp4',
+      190 * MB,
+    ],
+    [
+      'a spreadsheet product',
+      'digital_file',
+      'budget.xlsx',
+      'application/octet-stream',
+      MB,
+    ],
+  ])('stores %s as private', async (_name, purpose, filename, type, size) => {
+    send.mockResolvedValue({ ContentType: type, ContentLength: size });
+
+    await register(purpose as never, `uploads/1790900000000-${filename}`);
+
+    expect(manager.save).toHaveBeenCalledWith(
+      FileAsset,
+      expect.objectContaining({
+        originalFilename: filename,
+        visibility: 'private',
+      }),
+    );
+  });
+
+  it.each([
+    [
+      'a 150 MB class resource',
+      'class_resource',
+      'big.pdf',
+      'application/pdf',
+      150 * MB,
+    ],
+    [
+      'a 250 MB product file',
+      'digital_file',
+      'big.zip',
+      'application/zip',
+      250 * MB,
+    ],
+    [
+      'a video as a class resource',
+      'class_resource',
+      'clip.mp4',
+      'video/mp4',
+      MB,
+    ],
+    [
+      'an executable',
+      'digital_file',
+      'setup.exe',
+      'application/octet-stream',
+      MB,
+    ],
+    [
+      'a PDF claiming to be an image',
+      'digital_file',
+      'doc.pdf',
+      'image/png',
+      MB,
+    ],
+    [
+      'a cover sent as octet-stream',
+      'class_cover',
+      'cover.png',
+      'application/octet-stream',
+      MB,
+    ],
+    [
+      'a 5 MB product cover',
+      'product_cover',
+      'cover.webp',
+      'image/webp',
+      5 * MB,
+    ],
+  ])('rejects %s', async (_name, purpose, filename, type, size) => {
+    send.mockResolvedValue({ ContentType: type, ContentLength: size });
+
+    await expect(
+      register(purpose as never, `uploads/1790900000000-${filename}`),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(manager.save).not.toHaveBeenCalled();
+  });
 });
 
-describe('assertOwnedImageAsset', () => {
+describe('assertOwnedAsset', () => {
   const asset = {
     id: 'asset-id',
     uploadedByUserId: 'user-id',
     status: 'active',
     visibility: 'public',
+    originalFilename: 'banner.png',
     mimeType: 'image/png',
     sizeBytes: String(3 * MB),
   };
@@ -163,13 +284,45 @@ describe('assertOwnedImageAsset', () => {
 
   it('accepts an owned banner within 4 MB', async () => {
     await expect(
-      assertOwnedImageAsset(
+      assertOwnedAsset(
         manager(asset),
         'user-id',
         'asset-id',
         'merchant_banner',
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ id: 'asset-id' });
+  });
+
+  const privateFile = {
+    ...asset,
+    visibility: 'private',
+    originalFilename: 'plan.dwg',
+    mimeType: 'application/octet-stream',
+  };
+
+  it('accepts an owned private DWG as a product file', async () => {
+    await expect(
+      assertOwnedAsset(
+        manager(privateFile),
+        'user-id',
+        'asset-id',
+        'digital_file',
+      ),
+    ).resolves.toMatchObject({ originalFilename: 'plan.dwg' });
+  });
+
+  it.each([
+    ['a class cover as a product file', asset, 'digital_file'],
+    ['a private file as a product cover', privateFile, 'product_cover'],
+    [
+      'a spreadsheet as a class resource',
+      { ...privateFile, originalFilename: 'sheet.xlsx' },
+      'class_resource',
+    ],
+  ])('rejects %s', async (_name, value, purpose) => {
+    await expect(
+      assertOwnedAsset(manager(value), 'user-id', 'asset-id', purpose as never),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it.each([
@@ -185,12 +338,7 @@ describe('assertOwnedImageAsset', () => {
     ['missing', null, 'merchant_logo'],
   ])('rejects %s', async (_name, value, purpose) => {
     await expect(
-      assertOwnedImageAsset(
-        manager(value),
-        'user-id',
-        'asset-id',
-        purpose as never,
-      ),
+      assertOwnedAsset(manager(value), 'user-id', 'asset-id', purpose as never),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

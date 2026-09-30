@@ -18,9 +18,6 @@ export class Merchant extends BaseEntity {
   @Column({ name: 'store_description', type: 'text', nullable: true })
   storeDescription: string | null;
 
-  @Column({ name: 'lifetime_earnings', type: 'numeric', default: 0 })
-  lifetimeEarnings: string;
-
   @Column({
     name: 'storage_level',
     type: 'enum',

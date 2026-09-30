@@ -26,6 +26,8 @@ import { ClassModule } from './class/class.module';
 import { VoucherModule } from './api/voucher/voucher.module';
 import { HelpTicketModule } from './api/help-ticket/help-ticket.module';
 import { PortalModule } from './api/portal/portal.module';
+import { OrderModule } from './api/order/order.module';
+import { PayoutAccountModule } from './api/payout-account/payout-account.module';
 
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { PortalModule } from './api/portal/portal.module';
     VoucherModule,
     HelpTicketModule,
     PortalModule,
+    OrderModule,
+    PayoutAccountModule,
   ],
   controllers: [AppController],
   providers: [

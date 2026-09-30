@@ -14,6 +14,9 @@ import { MerchantMember } from '~/api/merchant/entities/merchant-member.entity';
 import { MerchantProfile } from '~/api/merchant/entities/merchant-profile.entity';
 import { Merchant } from '~/api/merchant/entities/merchant.entity';
 import { MerchantWallet } from '~/api/merchant/entities/merchant-wallet.entity';
+import { Order } from '~/api/order/entities/order.entity';
+import { OrderItem } from '~/api/order/entities/order-item.entity';
+import { MerchantPayoutAccount } from '~/api/payout-account/entities/merchant-payout-account.entity';
 import { UserNotificationPreferences } from '~/api/merchant/entities/user-notification-preferences.entity';
 import { Mentor } from '~/api/mentor/entities/mentor.entity';
 import { MentorProfile } from '~/api/mentor/entities/mentor-profile.entity';
@@ -50,6 +53,9 @@ export const dataSourceOptions: DataSourceOptions = {
     IssuedCertificate,
     Merchant,
     MerchantWallet,
+    Order,
+    OrderItem,
+    MerchantPayoutAccount,
     MerchantMember,
     MerchantProfile,
     Mentor,

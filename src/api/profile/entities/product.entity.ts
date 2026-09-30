@@ -3,7 +3,7 @@ import { BaseEntity } from '~/common/entities/base-entity';
 
 @Entity({ name: 'products' })
 export class Product extends BaseEntity {
-  @Column({ name: 'merchant_id' })
+  @Column({ name: 'merchant_id', type: 'uuid' })
   merchantId: string;
 
   @Column()

@@ -3,13 +3,13 @@ import { BaseEntity } from '~/common/entities/base-entity';
 
 @Entity({ name: 'issued_certificates' })
 export class IssuedCertificate extends BaseEntity {
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
-  @Column({ name: 'product_id' })
+  @Column({ name: 'product_id', type: 'uuid' })
   productId: string;
 
-  @Column({ name: 'access_id' })
+  @Column({ name: 'access_id', type: 'uuid' })
   accessId: string;
 
   @Column({ name: 'certificate_number' })

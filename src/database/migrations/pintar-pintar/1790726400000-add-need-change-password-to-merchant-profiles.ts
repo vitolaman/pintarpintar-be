@@ -6,14 +6,14 @@ export class AddNeedChangePasswordToMerchantProfiles1790726400000
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE merchant_profiles
-      ADD COLUMN need_change_password boolean DEFAULT false
+      ADD COLUMN IF NOT EXISTS need_change_password boolean DEFAULT false
     `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE merchant_profiles
-      DROP COLUMN need_change_password
+      DROP COLUMN IF EXISTS need_change_password
     `);
   }
 }

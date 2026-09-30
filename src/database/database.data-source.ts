@@ -79,8 +79,10 @@ export const dataSourceOptions: DataSourceOptions = {
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations
   // remain in `migrations/` as reference only and must never run on this database.
   migrations: [`${__dirname}/migrations/pintar-pintar/*.{js,ts}`],
-  synchronize: true,
-  migrationsRun: false,
+  // Schema changes are delivered only through recorded project migrations.
+  // Runtime synchronization reshaped the shared schema and must stay disabled.
+  synchronize: false,
+  migrationsRun: true,
   migrationsTransactionMode: 'each',
   logging: true,
   logger: isProduction

@@ -19,6 +19,7 @@ import {
 } from './dto/voucher-response.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { Voucher } from './entities/voucher.entity';
+import { isPromoCodeAvailable } from '~/common/promo-code/promo-code-namespace';
 
 @Injectable()
 export class VoucherService {
@@ -244,18 +245,10 @@ export class VoucherService {
     code: string,
     excludedId?: string,
   ): Promise<void> {
-    const rows = (await manager.query(
-      `
-        SELECT id
-        FROM coupons
-        WHERE UPPER(code) = UPPER($1)
-          AND deleted_at IS NULL
-          AND ($2::uuid IS NULL OR id <> $2)
-        LIMIT 1
-      `,
-      [code, excludedId ?? null],
-    )) as Array<{ id: string }>;
-    if (rows.length) throw new ConflictException('Voucher code already exists');
+    const available = await isPromoCodeAvailable(manager, code, {
+      voucherId: excludedId,
+    });
+    if (!available) throw new ConflictException('Voucher code already exists');
   }
 
   private rejectProductIds(input: CreateVoucherDto | UpdateVoucherDto): void {
@@ -406,7 +399,7 @@ export class VoucherService {
           ? 'expired'
           : row.max_uses !== null &&
               Number(row.usage_count) >= Number(row.max_uses)
-            ? 'quota_reached'
+            ? 'limit_reached'
             : 'active';
     return {
       ...row,

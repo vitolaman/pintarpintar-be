@@ -236,7 +236,7 @@ describe('VoucherService', () => {
     ['inactive', { is_active: false }],
     ['scheduled', { starts_at: new Date('2999-01-01T00:00:00.000Z') }],
     ['expired', { expires_at: new Date('2000-01-01T00:00:00.000Z') }],
-    ['quota_reached', { max_uses: 1, usage_count: '1' }],
+    ['limit_reached', { max_uses: 1, usage_count: '1' }],
     ['active', {}],
   ])('derives the %s merchant status', (status, changes) => {
     const response = (

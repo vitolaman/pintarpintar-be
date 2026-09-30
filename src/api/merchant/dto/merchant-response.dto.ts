@@ -13,6 +13,9 @@ export class MerchantResponseDto {
   @ApiProperty()
   status: string;
 
+  @ApiProperty({ enum: ['basic', 'silver', 'gold'] })
+  storage_level: string;
+
   @ApiProperty()
   slug: string;
 
@@ -69,6 +72,18 @@ export class MerchantResponseDto {
 
   @ApiPropertyOptional()
   terms_accepted_at: Date | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Store logo asset' })
+  avatar_asset_id: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  avatar_object_key: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Store banner asset' })
+  cover_asset_id: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  cover_object_key: string | null;
 }
 
 export class NotificationPreferencesResponseDto {

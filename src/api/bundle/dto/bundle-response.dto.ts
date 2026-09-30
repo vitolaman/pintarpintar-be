@@ -1,0 +1,76 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { bundleStatuses, BundleStatus } from '../entities/bundle.entity';
+import { bundleItemTypes, BundleItemType } from './bundle-request.dto';
+
+export class BundleItemResponseDto {
+  @ApiProperty({ description: 'Class id or digital product id' })
+  id: string;
+
+  @ApiProperty({ enum: bundleItemTypes })
+  type: BundleItemType;
+
+  @ApiProperty({ enum: ['video', 'live-bootcamp'], nullable: true })
+  class_type: string | null;
+
+  @ApiProperty({ example: 'Belajar AutoCAD dari Nol' })
+  title: string;
+
+  @ApiProperty({ example: 299000, description: 'Current selling price' })
+  price: number;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Cover object key (null for classes)',
+  })
+  image: string | null;
+
+  @ApiProperty({ description: 'Public availability, required for publishing' })
+  is_available: boolean;
+}
+
+export class BundleResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty()
+  description: string;
+
+  @ApiProperty({ nullable: true })
+  cover_asset_id: string | null;
+
+  @ApiProperty({ nullable: true })
+  cover_object_key: string | null;
+
+  @ApiProperty({ type: [BundleItemResponseDto] })
+  items: BundleItemResponseDto[];
+
+  @ApiProperty({
+    example: 424000,
+    description: 'Harga coret: sum of item prices',
+  })
+  original_total: number;
+
+  @ApiProperty({ example: 349000 })
+  bundle_price: number;
+
+  @ApiProperty({ example: 75000 })
+  saving_amount: number;
+
+  @ApiProperty({ example: 18 })
+  saving_percent: number;
+
+  @ApiProperty({ example: 14, description: 'Items of paid orders' })
+  sales_count: number;
+
+  @ApiProperty({ enum: bundleStatuses })
+  status: BundleStatus;
+
+  @ApiProperty({ nullable: true })
+  post_purchase_instructions: string | null;
+
+  @ApiProperty()
+  created_at: Date;
+}

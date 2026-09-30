@@ -13,6 +13,12 @@ import { UserAccess } from '~/api/profile/entities/user-access.entity';
 import { MerchantMember } from '~/api/merchant/entities/merchant-member.entity';
 import { MerchantProfile } from '~/api/merchant/entities/merchant-profile.entity';
 import { Merchant } from '~/api/merchant/entities/merchant.entity';
+import { MerchantWallet } from '~/api/merchant/entities/merchant-wallet.entity';
+import { Bundle } from '~/api/bundle/entities/bundle.entity';
+import { BundleItem } from '~/api/bundle/entities/bundle-item.entity';
+import { Order } from '~/api/order/entities/order.entity';
+import { OrderItem } from '~/api/order/entities/order-item.entity';
+import { MerchantPayoutAccount } from '~/api/payout-account/entities/merchant-payout-account.entity';
 import { UserNotificationPreferences } from '~/api/merchant/entities/user-notification-preferences.entity';
 import { Mentor } from '~/api/mentor/entities/mentor.entity';
 import { MentorProfile } from '~/api/mentor/entities/mentor-profile.entity';
@@ -31,6 +37,9 @@ import { DiscussionThread } from '~/class/entities/discussion-thread.entity';
 import { Comment } from '~/class/entities/comment.entity';
 import { ClassMentor } from '~/class/entities/class-mentor.entity';
 import { Enrollment } from '~/class/entities/enrollment.entity';
+import { Discount } from '~/api/discount/entities/discount.entity';
+import { DiscountCode } from '~/api/discount/entities/discount-code.entity';
+import { DiscountProduct } from '~/api/discount/entities/discount-product.entity';
 import { Voucher } from '~/api/voucher/entities/voucher.entity';
 import { HelpTicket } from '~/api/help-ticket/entities/help-ticket.entity';
 
@@ -48,6 +57,12 @@ export const dataSourceOptions: DataSourceOptions = {
     FileAsset,
     IssuedCertificate,
     Merchant,
+    MerchantWallet,
+    Order,
+    OrderItem,
+    Bundle,
+    BundleItem,
+    MerchantPayoutAccount,
     MerchantMember,
     MerchantProfile,
     Mentor,
@@ -74,6 +89,9 @@ export const dataSourceOptions: DataSourceOptions = {
     ClassMentor,
     Enrollment,
     Voucher,
+    Discount,
+    DiscountProduct,
+    DiscountCode,
     HelpTicket,
   ],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations

@@ -6,6 +6,8 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { merchantCategorySlugForLabel } from '~/common/constants/merchant-category';
+import { assertOwnedImageAsset } from '../file-asset/image-asset-rules';
+import { FileAsset } from '../profile/entities/file-asset.entity';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import {
@@ -16,10 +18,66 @@ import { PublicMerchantStorefrontResponseDto } from './dto/public-merchant-store
 import { RegisterMerchantDto } from './dto/register-merchant.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
+import {
+  BalanceHistoryQueryDto,
+  BalanceHistoryType,
+} from './dto/balance-history.dto';
 import { MerchantMember } from './entities/merchant-member.entity';
 import { MerchantProfile } from './entities/merchant-profile.entity';
-import { Merchant } from './entities/merchant.entity';
+import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
+import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
+
+// Income is the merchant's items in paid orders (digital products, classes, and
+// bundles in separate branches so each uses its index); withdrawals are payouts.
+const BALANCE_HISTORY_SQL = `
+  SELECT item.id, 'income' AS type, item.price_at_purchase AS amount,
+         'Penjualan ' || product.title AS description,
+         purchase.created_at AS occurred_at, 'success' AS status
+  FROM order_items item
+  INNER JOIN products product ON product.id = item.product_id
+  INNER JOIN orders purchase ON purchase.id = item.order_id
+  WHERE product.merchant_id = $1 AND purchase.status = 'paid'
+    AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL
+
+  UNION ALL
+
+  SELECT item.id, 'income', item.price_at_purchase,
+         'Penjualan ' || class.title,
+         purchase.created_at, 'success'
+  FROM order_items item
+  INNER JOIN classes class ON class.id = item.class_id
+  INNER JOIN orders purchase ON purchase.id = item.order_id
+  WHERE class.merchant_id = $1 AND purchase.status = 'paid'
+    AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL
+
+  UNION ALL
+
+  SELECT item.id, 'income', item.price_at_purchase,
+         'Penjualan ' || bundle.title,
+         purchase.created_at, 'success'
+  FROM order_items item
+  INNER JOIN bundles bundle ON bundle.id = item.bundle_id
+  INNER JOIN orders purchase ON purchase.id = item.order_id
+  WHERE bundle.merchant_id = $1 AND purchase.status = 'paid'
+    AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL
+
+  UNION ALL
+
+  SELECT payout.id, 'withdraw', payout.amount, payout.destination_bank_account,
+         payout.requested_at, payout.status
+  FROM merchant_payouts payout
+  WHERE payout.merchant_id = $1 AND payout.deleted_at IS NULL
+`;
+
+interface BalanceHistoryRow {
+  id: string;
+  type: BalanceHistoryType;
+  amount: string;
+  description: string;
+  occurred_at: Date;
+  status: string;
+}
 
 @Injectable()
 export class MerchantService {
@@ -27,6 +85,8 @@ export class MerchantService {
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectRepository(Merchant)
     private readonly merchants: Repository<Merchant>,
+    @InjectRepository(MerchantWallet)
+    private readonly wallets: Repository<MerchantWallet>,
     @InjectRepository(UserNotificationPreferences)
     private readonly notificationPreferences: Repository<UserNotificationPreferences>,
   ) {}
@@ -49,9 +109,20 @@ export class MerchantService {
         userId,
         storeName: input.store_name,
         storeDescription: input.store_description,
+        storageLevel: MerchantStorageLevel.BASIC,
         status: 'active',
       });
       await manager.save(Merchant, merchant);
+
+      await manager.save(
+        MerchantWallet,
+        manager.create(MerchantWallet, {
+          merchantId: merchant.id,
+          earningBalance: '0',
+          settledBalance: '0',
+          lifetimeEarnings: '0',
+        }),
+      );
 
       await manager.save(
         MerchantProfile,
@@ -103,6 +174,76 @@ export class MerchantService {
     };
   }
 
+  async findWallet(userId: string) {
+    const merchant = await this.merchants.findOneBy({ userId });
+    if (!merchant) throw new NotFoundException('Merchant not found');
+
+    const wallet = await this.wallets.findOneBy({ merchantId: merchant.id });
+    if (!wallet) throw new NotFoundException('Merchant wallet not found');
+
+    const [withdrawn] = await this.wallets.query(
+      `SELECT COALESCE(sum(amount), 0) AS total
+       FROM merchant_payouts
+       WHERE merchant_id = $1 AND status = 'success' AND deleted_at IS NULL`,
+      [merchant.id],
+    );
+
+    const earningBalance = Number(wallet.earningBalance);
+    const settledBalance = Number(wallet.settledBalance);
+
+    return {
+      data: {
+        merchant_id: merchant.id,
+        storage_level: merchant.storageLevel,
+        earning_balance: earningBalance,
+        settled_balance: settledBalance,
+        clearing_balance: earningBalance - settledBalance,
+        lifetime_earnings: Number(wallet.lifetimeEarnings),
+        total_withdrawn: Number(withdrawn.total),
+      },
+      responseMessage: 'Get merchant wallet success',
+    };
+  }
+
+  async findBalanceHistory(userId: string, query: BalanceHistoryQueryDto) {
+    const merchant = await this.merchants.findOneBy({ userId });
+    if (!merchant) throw new NotFoundException('Merchant not found');
+
+    const { type, page, limit } = query;
+    const params = [merchant.id, type];
+
+    const [countRow] = await this.dataSource.query(
+      `SELECT count(*)::integer AS total FROM (${BALANCE_HISTORY_SQL}) history
+       WHERE ($2 = 'all' OR history.type = $2)`,
+      params,
+    );
+    const total: number = countRow.total;
+
+    const rows: BalanceHistoryRow[] =
+      total === 0
+        ? []
+        : await this.dataSource.query(
+            `SELECT * FROM (${BALANCE_HISTORY_SQL}) history
+             WHERE ($2 = 'all' OR history.type = $2)
+             ORDER BY history.occurred_at DESC, history.id DESC
+             LIMIT $3 OFFSET $4`,
+            [...params, limit, (page - 1) * limit],
+          );
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        type: row.type,
+        amount: Number(row.amount),
+        description: row.description,
+        occurred_at: row.occurred_at,
+        status: row.status,
+      })),
+      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      responseMessage: 'Get balance history success',
+    };
+  }
+
   async updateMerchantProfile(userId: string, input: UpdateMerchantProfileDto) {
     await this.dataSource.transaction(async (manager) => {
       const merchant = await this.findOwnedMerchant(manager, userId, true);
@@ -124,6 +265,28 @@ export class MerchantService {
         await this.savePrivatePhone(manager, userId, input.phone);
       }
 
+      if (input.avatar_asset_id !== undefined) {
+        if (input.avatar_asset_id !== null) {
+          await assertOwnedImageAsset(
+            manager,
+            userId,
+            input.avatar_asset_id,
+            'merchant_logo',
+          );
+        }
+        profile.avatarAssetId = input.avatar_asset_id;
+      }
+      if (input.cover_asset_id !== undefined) {
+        if (input.cover_asset_id !== null) {
+          await assertOwnedImageAsset(
+            manager,
+            userId,
+            input.cover_asset_id,
+            'merchant_banner',
+          );
+        }
+        profile.coverAssetId = input.cover_asset_id;
+      }
       if (input.tagline !== undefined) profile.tagline = input.tagline;
       if (input.category_label !== undefined)
         profile.categoryLabel = input.category_label;
@@ -339,11 +502,22 @@ export class MerchantService {
         'user_profile',
         'user_profile.user_id = merchant.user_id AND user_profile.deleted_at IS NULL',
       )
+      .leftJoin(
+        FileAsset,
+        'avatar_asset',
+        'avatar_asset.id = profile.avatar_asset_id AND avatar_asset.deleted_at IS NULL',
+      )
+      .leftJoin(
+        FileAsset,
+        'cover_asset',
+        'cover_asset.id = profile.cover_asset_id AND cover_asset.deleted_at IS NULL',
+      )
       .select([
         'merchant.id AS id',
         'merchant.store_name AS store_name',
         'merchant.store_description AS store_description',
         'merchant.status AS status',
+        'merchant.storage_level AS storage_level',
         'profile.slug AS slug',
         'user_profile.phone AS phone',
         'profile.tagline AS tagline',
@@ -363,6 +537,10 @@ export class MerchantService {
         'profile.digital_license AS digital_license',
         'profile.need_change_password AS need_change_password',
         'profile.terms_accepted_at AS terms_accepted_at',
+        'profile.avatar_asset_id AS avatar_asset_id',
+        'avatar_asset.object_key AS avatar_object_key',
+        'profile.cover_asset_id AS cover_asset_id',
+        'cover_asset.object_key AS cover_object_key',
       ])
       .where('merchant.user_id = :userId', { userId })
       .andWhere('merchant.deleted_at IS NULL')

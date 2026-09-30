@@ -49,7 +49,10 @@ describe('JwtGuard', () => {
     reflector.getAllAndOverride.mockReturnValue(true);
     const context = contextFor('Bearer valid-token');
     jwtService.verifyAsync.mockResolvedValue({ id: 'user-id' });
-    userRepository.findOne.mockResolvedValue({ id: 'user-id' } as User);
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-id',
+      tokenVersion: 0,
+    } as User);
 
     await expect(guard.canActivate(context as never)).resolves.toBe(true);
     expect(context.request).toMatchObject({ user: { id: 'user-id' } });
@@ -67,7 +70,10 @@ describe('JwtGuard', () => {
   it('sets the verified active identity on a protected request', async () => {
     const context = contextFor('Bearer valid-token');
     jwtService.verifyAsync.mockResolvedValue({ id: 'user-id' });
-    userRepository.findOne.mockResolvedValue({ id: 'user-id' } as User);
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-id',
+      tokenVersion: 0,
+    } as User);
 
     await expect(guard.canActivate(context as never)).resolves.toBe(true);
 
@@ -93,5 +99,49 @@ describe('JwtGuard', () => {
     await expect(
       guard.canActivate(contextFor('Bearer invalid-token') as never),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('accepts tokens issued before versions existed while the version is 0', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ id: 'user-id' });
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-id',
+      tokenVersion: 0,
+    } as User);
+
+    await expect(
+      guard.canActivate(contextFor('Bearer old-token') as never),
+    ).resolves.toBe(true);
+  });
+
+  it('rejects tokens from before the latest revocation', async () => {
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-id',
+      tokenVersion: 2,
+    } as User);
+
+    for (const payload of [{ id: 'user-id' }, { id: 'user-id', tv: 1 }]) {
+      jwtService.verifyAsync.mockResolvedValue(payload);
+      await expect(
+        guard.canActivate(contextFor('Bearer revoked-token') as never),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    }
+
+    jwtService.verifyAsync.mockResolvedValue({ id: 'user-id', tv: 2 });
+    await expect(
+      guard.canActivate(contextFor('Bearer current-token') as never),
+    ).resolves.toBe(true);
+  });
+
+  it('treats a revoked token on a public route as anonymous', async () => {
+    reflector.getAllAndOverride.mockReturnValue(true);
+    const context = contextFor('Bearer revoked-token');
+    jwtService.verifyAsync.mockResolvedValue({ id: 'user-id', tv: 0 });
+    userRepository.findOne.mockResolvedValue({
+      id: 'user-id',
+      tokenVersion: 1,
+    } as User);
+
+    await expect(guard.canActivate(context as never)).resolves.toBe(true);
+    expect(context.request).not.toHaveProperty('user');
   });
 });

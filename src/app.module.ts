@@ -28,6 +28,7 @@ import { HelpTicketModule } from './api/help-ticket/help-ticket.module';
 import { OrderModule } from './api/order/order.module';
 import { PayoutAccountModule } from './api/payout-account/payout-account.module';
 import { BundleModule } from './api/bundle/bundle.module';
+import { MerchantDashboardModule } from './api/merchant-dashboard/merchant-dashboard.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { BundleModule } from './api/bundle/bundle.module';
     OrderModule,
     PayoutAccountModule,
     BundleModule,
+    MerchantDashboardModule,
   ],
   controllers: [AppController],
   providers: [

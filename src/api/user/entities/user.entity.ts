@@ -9,8 +9,10 @@ export class User extends BaseEntity {
   @Column()
   name: string;
 
+  // Unique among active users, ignoring case (uq_users_email_active), so a
+  // deleted account's email can sign up again.
   @ApiProperty()
-  @Column({ unique: true })
+  @Column()
   email: string;
 
   @ApiProperty()
@@ -29,4 +31,10 @@ export class User extends BaseEntity {
   @ApiHideProperty()
   @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
   deletedBy: string | null;
+
+  // Raised to end every session issued before; tokens carry it as `tv`.
+  @ApiHideProperty()
+  @Exclude()
+  @Column({ name: 'token_version', type: 'integer', default: 0 })
+  tokenVersion: number;
 }

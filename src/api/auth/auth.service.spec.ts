@@ -1,6 +1,8 @@
 import { ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hash } from 'bcryptjs';
+import { DataSource, EntityManager } from 'typeorm';
+import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
@@ -11,9 +13,14 @@ jest.mock('@nestjs/jwt', () => ({
 
 describe('AuthService', () => {
   let userService: jest.Mocked<
-    Pick<UserService, 'create' | 'findForAuthentication'>
+    Pick<UserService, 'createWithManager' | 'findForAuthentication'>
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
+  let dataSource: jest.Mocked<Pick<DataSource, 'transaction'>>;
+  let entityManager: {
+    create: jest.Mock;
+    save: jest.Mock;
+  };
   let service: AuthService;
 
   const user = {
@@ -25,20 +32,33 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     userService = {
-      create: jest.fn(),
+      createWithManager: jest.fn(),
       findForAuthentication: jest.fn(),
     };
     jwtService = {
       signAsync: jest.fn(),
     };
+    entityManager = {
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    dataSource = {
+      transaction: jest.fn(),
+    };
+    (dataSource.transaction as jest.Mock).mockImplementation(
+      async (runInTransaction: (manager: EntityManager) => Promise<unknown>) =>
+        runInTransaction(entityManager as unknown as EntityManager),
+    );
     service = new AuthService(
       jwtService as unknown as JwtService,
       userService as unknown as UserService,
+      dataSource as unknown as DataSource,
     );
   });
 
   it('registers and returns the approved token response envelope', async () => {
-    userService.create.mockResolvedValue(user);
+    userService.createWithManager.mockResolvedValue(user);
+    entityManager.create.mockReturnValue({ userId: user.id });
     jwtService.signAsync.mockResolvedValue('signed-token');
 
     await expect(
@@ -53,6 +73,17 @@ describe('AuthService', () => {
     });
 
     expect(jwtService.signAsync).toHaveBeenCalledWith({ id: user.id });
+    expect(userService.createWithManager).toHaveBeenCalledWith(entityManager, {
+      name: 'John Doe',
+      email: 'john@example.com',
+      password: 'password1',
+    });
+    expect(entityManager.create).toHaveBeenCalledWith(Profile, {
+      userId: user.id,
+    });
+    expect(entityManager.save).toHaveBeenCalledWith(Profile, {
+      userId: user.id,
+    });
   });
 
   it('signs in active users with matching credentials', async () => {

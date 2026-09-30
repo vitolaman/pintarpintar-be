@@ -133,7 +133,9 @@ $ npm run build
 $ npm test
 ```
 
-Database schema changes require a reviewed TypeORM migration in `src/database/migrations/pintar-pintar/`. Do not rely on entity-level synchronization (`synchronize`) to alter the schema; shared databases are managed by migrations only.
+Database schema changes require a reviewed TypeORM migration in `src/database/migrations/pintar-pintar/`. Runtime synchronization is disabled (`synchronize: false`) and must stay disabled: it previously dropped foreign keys, unique constraints, and indexes on the shared database. Pending migrations run automatically when the application starts (`migrationsRun: true`), so every entity change must ship with its migration in the same commit, or the application fails with a missing-column error.
+
+Write migrations so they succeed both on a database built only from migrations and on one where the objects already exist (`IF NOT EXISTS`, catalog checks). Declare identifier columns with an explicit `type: 'uuid'`; an untyped `@Column({ name: 'x_id' })` maps to `varchar`.
 
 ## Create Migration
 

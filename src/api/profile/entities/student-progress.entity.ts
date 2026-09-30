@@ -3,7 +3,7 @@ import { BaseEntity } from '~/common/entities/base-entity';
 
 @Entity({ name: 'student_progress' })
 export class StudentProgress extends BaseEntity {
-  @Column({ name: 'access_id' })
+  @Column({ name: 'access_id', type: 'uuid' })
   accessId: string;
 
   @Column({ name: 'last_video_id', type: 'uuid', nullable: true })

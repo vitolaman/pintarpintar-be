@@ -47,6 +47,18 @@ const MERCHANT_SALES_SQL = `
   WHERE bundle.merchant_id = $1 AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL
 `;
 
+// Every review ($1 = merchant id) of the merchant's classes and digital
+// products, whatever their current status, with the reviewed item's title.
+const MERCHANT_REVIEWS_SQL = `
+  SELECT review.id, review.user_id, review.rating, review.comment, review.created_at,
+         COALESCE(class.title, product.title) AS item_title
+  FROM reviews review
+  LEFT JOIN classes class ON class.id = review.class_id
+  LEFT JOIN products product ON product.id = review.product_id
+  WHERE review.deleted_at IS NULL
+    AND (class.merchant_id = $1 OR product.merchant_id = $1)
+`;
+
 // Stored timestamps are UTC wall time; periods end now.
 const NOW_UTC = `(now() AT TIME ZONE 'UTC')`;
 const WIB_DATE = (column: string) =>
@@ -133,20 +145,16 @@ export class MerchantDashboardService {
       ),
       this.dataSource.query(
         `SELECT round(avg(review.rating)::numeric, 1) AS average, count(*)::integer AS total
-           FROM reviews review
-           INNER JOIN products product ON product.id = review.product_id
-           WHERE product.merchant_id = $1 AND review.deleted_at IS NULL`,
+           FROM (${MERCHANT_REVIEWS_SQL}) review`,
         [merchant.id],
       ),
       this.dataSource.query(
         `SELECT reviewer.name AS reviewer_name, avatar.object_key AS reviewer_avatar_object_key,
-                  review.rating, review.comment, product.title AS item_title, review.created_at
-           FROM reviews review
-           INNER JOIN products product ON product.id = review.product_id
+                  review.rating, review.comment, review.item_title, review.created_at
+           FROM (${MERCHANT_REVIEWS_SQL}) review
            INNER JOIN users reviewer ON reviewer.id = review.user_id
            LEFT JOIN user_profiles profile ON profile.user_id = reviewer.id AND profile.deleted_at IS NULL
            LEFT JOIN file_assets avatar ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
-           WHERE product.merchant_id = $1 AND review.deleted_at IS NULL
            ORDER BY review.created_at DESC, review.id DESC
            LIMIT 1`,
         [merchant.id],
@@ -160,11 +168,9 @@ export class MerchantDashboardService {
              INNER JOIN users student ON student.id = enrollment.user_id
              WHERE class.merchant_id = $1 AND enrollment.deleted_at IS NULL
              UNION ALL
-             SELECT 'review', reviewer.name, product.title, review.rating, review.created_at
-             FROM reviews review
-             INNER JOIN products product ON product.id = review.product_id
+             SELECT 'review', reviewer.name, review.item_title, review.rating, review.created_at
+             FROM (${MERCHANT_REVIEWS_SQL}) review
              INNER JOIN users reviewer ON reviewer.id = review.user_id
-             WHERE product.merchant_id = $1 AND review.deleted_at IS NULL
              UNION ALL
              SELECT 'purchase', buyer.name, sale.item_title, NULL, sale.created_at
              FROM (${MERCHANT_SALES_SQL}) sale

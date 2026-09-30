@@ -82,6 +82,28 @@ export class MeetingResponseDto {
   @ApiProperty() created_at: Date;
 }
 
+export class AssignmentResourceResponseDto {
+  @ApiProperty() asset_id: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ description: 'Bytes' }) size: number;
+  @ApiProperty({ description: 'Signed download link, valid 10 minutes' })
+  download_url: string;
+}
+
+export class AssignmentQuestionResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() question_text: string;
+  @ApiProperty() type: string;
+  @ApiPropertyOptional({ type: [String], nullable: true }) options:
+    | string[]
+    | null;
+  @ApiProperty() score_weight: number;
+  @ApiPropertyOptional({
+    description: 'Only for the owner and tutors with tugas or nilai permission',
+  })
+  correct_answer?: string | null;
+}
+
 export class AssignmentResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() class_id: string;
@@ -89,6 +111,12 @@ export class AssignmentResponseDto {
   @ApiPropertyOptional() description: string;
   @ApiProperty() due: Date;
   @ApiProperty() type: string;
+  @ApiPropertyOptional({ type: AssignmentResourceResponseDto, nullable: true })
+  resource: AssignmentResourceResponseDto | null;
+  @ApiProperty({ description: 'Distinct learners who submitted' })
+  submission_count: number;
+  @ApiProperty({ type: [AssignmentQuestionResponseDto] })
+  questions: AssignmentQuestionResponseDto[];
   @ApiProperty() created_at: Date;
 }
 

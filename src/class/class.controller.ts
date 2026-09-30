@@ -21,6 +21,7 @@ import {
 } from '../common/decorator/response.decorator';
 import { ClassService } from './class.service';
 import { ClassContentService } from './class-content.service';
+import { ClassAssignmentService } from './class-assignment.service';
 import { CreateChapterDto } from './dto/create-chapter.dto';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
@@ -51,6 +52,7 @@ export class ClassController {
   constructor(
     private readonly classService: ClassService,
     private readonly classContentService: ClassContentService,
+    private readonly classAssignmentService: ClassAssignmentService,
   ) {}
 
   @Get(':classId')
@@ -306,12 +308,21 @@ export class ClassController {
   }
 
   @Post(':classId/assignments')
+  @DefaultResponse(
+    AssignmentResponseDto,
+    'Create assignment success',
+    HttpStatus.CREATED,
+  )
   createAssignment(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
     @Body() dto: CreateAssignmentDto,
   ) {
-    return this.classService.createAssignment(req.user.id, classId, dto);
+    return this.classAssignmentService.createAssignment(
+      req.user.id,
+      classId,
+      dto,
+    );
   }
 
   @Get(':classId/assignments')
@@ -324,11 +335,26 @@ export class ClassController {
     @Query('page') page: number,
     @Query('limit') limit: number,
   ) {
-    return this.classService.getClassAssignments(
+    return this.classAssignmentService.getAssignments(
       req.user.id,
       classId,
-      page || 1,
-      limit || 10,
+      Math.max(Number(page) || 1, 1),
+      Math.min(Math.max(Number(limit) || 10, 1), 100),
+    );
+  }
+
+  @Delete(':classId/assignments/:assignmentId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @EmptyResponse()
+  deleteAssignment(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+  ) {
+    return this.classAssignmentService.deleteAssignment(
+      req.user.id,
+      classId,
+      assignmentId,
     );
   }
 

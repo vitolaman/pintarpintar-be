@@ -37,8 +37,6 @@ describe('ClassService.inviteMentor', () => {
     service = new ClassService(
       unused,
       unused,
-      unused,
-      unused,
       classMentors,
       unused,
       unused,
@@ -153,8 +151,6 @@ describe('ClassService access control', () => {
 
     service = new ClassService(
       classes as never,
-      unused,
-      unused,
       unused,
       unused,
       enrollments as never,
@@ -299,8 +295,6 @@ describe('ClassService.updateClass', () => {
     const unused = {} as never;
     service = new ClassService(
       { manager } as never,
-      unused,
-      unused,
       unused,
       unused,
       unused,

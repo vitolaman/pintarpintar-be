@@ -12,15 +12,12 @@ import { assetUrl } from '../common/storage/asset-url';
 
 import { Class } from './entities/class.entity';
 import { Meeting } from './entities/meeting.entity';
-import { Assignment } from './entities/assignment.entity';
-import { AssignmentQuestion } from './entities/assignment-question.entity';
 import { ClassMentor } from './entities/class-mentor.entity';
 import { Enrollment } from './entities/enrollment.entity';
 
 import { CreateClassDto } from './dto/create-class.dto';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
-import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { ClassAccessService } from './class-access.service';
 import { ClassListQueryDto } from './dto/class-list-query.dto';
@@ -54,11 +51,12 @@ type ClassUpdateField = (typeof CLASS_UPDATE_FIELDS)[number];
 export class ClassService {
   constructor(
     @InjectRepository(Class) private readonly classRepo: Repository<Class>,
-    @InjectRepository(Meeting) private readonly meetingRepo: Repository<Meeting>,
-    @InjectRepository(Assignment) private readonly assignmentRepo: Repository<Assignment>,
-    @InjectRepository(AssignmentQuestion) private readonly assignmentQuestionRepo: Repository<AssignmentQuestion>,
-    @InjectRepository(ClassMentor) private readonly classMentorRepo: Repository<ClassMentor>,
-    @InjectRepository(Enrollment) private readonly enrollmentRepo: Repository<Enrollment>,
+    @InjectRepository(Meeting)
+    private readonly meetingRepo: Repository<Meeting>,
+    @InjectRepository(ClassMentor)
+    private readonly classMentorRepo: Repository<ClassMentor>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
     private readonly classAccess: ClassAccessService,
   ) {}
 
@@ -226,56 +224,6 @@ export class ClassService {
     const [data, total] = await this.meetingRepo.findAndCount({ 
       where: { class_id: classId },
       order: { date: 'ASC', time: 'ASC', id: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-    return { data, meta: { total, page, limit } };
-  }
-
-  async createAssignment(
-    userId: string,
-    classId: string,
-    dto: CreateAssignmentDto,
-  ) {
-    await this.classAccess.requireAction(userId, classId, 'tugas', 'tambah');
-    const { questions } = dto;
-    const assignment = this.assignmentRepo.create({
-      class_id: classId,
-      title: dto.title,
-      description: dto.description,
-      type: dto.type,
-      due: new Date(dto.due),
-    });
-
-    const savedAssignment = await this.assignmentRepo.save(assignment);
-
-    if (questions && questions.length > 0) {
-      const qs = questions.map((q) =>
-        this.assignmentQuestionRepo.create({
-          assignment_id: savedAssignment.id,
-          question_text: q.question_text,
-          type: q.type,
-          options: q.options,
-          correct_answer: q.correct_answer,
-          score_weight: q.score_weight,
-        }),
-      );
-      await this.assignmentQuestionRepo.save(qs);
-    }
-
-    return savedAssignment;
-  }
-
-  async getClassAssignments(
-    userId: string,
-    classId: string,
-    page = 1,
-    limit = 10,
-  ) {
-    await this.classAccess.requireAssigned(userId, classId);
-    const [data, total] = await this.assignmentRepo.findAndCount({
-      where: { class_id: classId },
-      relations: ['questions'],
       skip: (page - 1) * limit,
       take: limit,
     });

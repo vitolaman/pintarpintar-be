@@ -10,7 +10,7 @@ export enum QuestionType {
 
 @Entity({ name: 'assignment_questions' })
 export class AssignmentQuestion extends AuditedBaseEntity {
-  @Column({ name: 'assignment_id' })
+  @Column({ name: 'assignment_id', type: 'uuid' })
   assignment_id: string;
 
   @ManyToOne(() => Assignment, (assignment) => assignment.questions)

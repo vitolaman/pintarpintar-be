@@ -168,6 +168,9 @@ describe('MerchantService', () => {
     expect(query.mock.calls[0][1]).toEqual([merchantId, 'all']);
     expect(query.mock.calls[1][1]).toEqual([merchantId, 'all', 2, 2]);
     expect(query.mock.calls[1][0]).toContain("purchase.status = 'paid'");
+    expect(query.mock.calls[1][0]).toContain(
+      'INNER JOIN bundles bundle ON bundle.id = item.bundle_id',
+    );
     expect(result).toEqual({
       data: [
         {

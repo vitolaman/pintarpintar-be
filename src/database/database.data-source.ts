@@ -14,6 +14,8 @@ import { MerchantMember } from '~/api/merchant/entities/merchant-member.entity';
 import { MerchantProfile } from '~/api/merchant/entities/merchant-profile.entity';
 import { Merchant } from '~/api/merchant/entities/merchant.entity';
 import { MerchantWallet } from '~/api/merchant/entities/merchant-wallet.entity';
+import { Bundle } from '~/api/bundle/entities/bundle.entity';
+import { BundleItem } from '~/api/bundle/entities/bundle-item.entity';
 import { Order } from '~/api/order/entities/order.entity';
 import { OrderItem } from '~/api/order/entities/order-item.entity';
 import { MerchantPayoutAccount } from '~/api/payout-account/entities/merchant-payout-account.entity';
@@ -55,6 +57,8 @@ export const dataSourceOptions: DataSourceOptions = {
     MerchantWallet,
     Order,
     OrderItem,
+    Bundle,
+    BundleItem,
     MerchantPayoutAccount,
     MerchantMember,
     MerchantProfile,

@@ -27,6 +27,7 @@ import { VoucherModule } from './api/voucher/voucher.module';
 import { HelpTicketModule } from './api/help-ticket/help-ticket.module';
 import { OrderModule } from './api/order/order.module';
 import { PayoutAccountModule } from './api/payout-account/payout-account.module';
+import { BundleModule } from './api/bundle/bundle.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { PayoutAccountModule } from './api/payout-account/payout-account.module'
     HelpTicketModule,
     OrderModule,
     PayoutAccountModule,
+    BundleModule,
   ],
   controllers: [AppController],
   providers: [

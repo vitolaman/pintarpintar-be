@@ -232,7 +232,7 @@ export class ClassService {
     limit = 10,
   ) {
     await this.classAccess.requireAction(userId, classId, 'meeting', 'lihat');
-    const [data, total] = await this.meetingRepo.findAndCount({ 
+    const [data, total] = await this.meetingRepo.findAndCount({
       where: { class_id: classId },
       order: { date: 'ASC', time: 'ASC', id: 'ASC' },
       skip: (page - 1) * limit,

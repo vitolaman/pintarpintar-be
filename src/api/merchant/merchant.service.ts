@@ -45,10 +45,11 @@ import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 
-// Income is the merchant's items in paid orders (digital products, classes, and
-// bundles in separate branches so each uses its index); withdrawals are payouts.
+// Income is the merchant's net from items in paid orders (price minus the
+// item's code discount share; digital products, classes, and bundles in
+// separate branches so each uses its index); withdrawals are payouts.
 const BALANCE_HISTORY_SQL = `
-  SELECT item.id, 'income' AS type, item.price_at_purchase AS amount,
+  SELECT item.id, 'income' AS type, item.price_at_purchase - item.discount_amount AS amount,
          'Penjualan ' || product.title AS description,
          purchase.created_at AS occurred_at, 'success' AS status
   FROM order_items item
@@ -59,7 +60,7 @@ const BALANCE_HISTORY_SQL = `
 
   UNION ALL
 
-  SELECT item.id, 'income', item.price_at_purchase,
+  SELECT item.id, 'income', item.price_at_purchase - item.discount_amount,
          'Penjualan ' || class.title,
          purchase.created_at, 'success'
   FROM order_items item
@@ -70,7 +71,7 @@ const BALANCE_HISTORY_SQL = `
 
   UNION ALL
 
-  SELECT item.id, 'income', item.price_at_purchase,
+  SELECT item.id, 'income', item.price_at_purchase - item.discount_amount,
          'Penjualan ' || bundle.title,
          purchase.created_at, 'success'
   FROM order_items item

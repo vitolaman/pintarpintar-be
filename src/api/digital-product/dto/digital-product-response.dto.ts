@@ -42,7 +42,8 @@ export class DigitalProductResponseDto {
   @ApiProperty({ description: 'Learners with access' }) downloads: number;
   @ApiProperty() rating: number;
   @ApiProperty() review_count: number;
-  @ApiProperty({ description: 'Paid order items' }) revenue: number;
+  @ApiProperty({ description: 'Net income from paid order items' })
+  revenue: number;
   @ApiPropertyOptional({ nullable: true })
   post_purchase_instructions: string | null;
   @ApiProperty() created_at: Date;

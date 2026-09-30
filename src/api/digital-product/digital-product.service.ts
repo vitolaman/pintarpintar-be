@@ -35,7 +35,8 @@ import { ProductCategory } from './entities/product-category.entity';
 const PRICE_FIELDS = { list: 'original_price', discount: 'discount_price' };
 
 // Details, sales figures, and the single file for the given product ids.
-// Downloads count learners with access; revenue counts paid order items.
+// Downloads count learners with access; revenue is the net of paid order
+// items (price minus code discount shares).
 const PRODUCT_DETAILS_SQL = `
   SELECT product.id, product.title, product.description, product.cover_asset_id,
          cover.object_key AS cover_object_key,
@@ -67,7 +68,7 @@ const PRODUCT_DETAILS_SQL = `
     FROM reviews WHERE product_id = product.id AND deleted_at IS NULL
   ) review ON true
   LEFT JOIN LATERAL (
-    SELECT COALESCE(sum(item.price_at_purchase), 0) AS revenue
+    SELECT COALESCE(sum(item.price_at_purchase - item.discount_amount), 0) AS revenue
     FROM order_items item
     INNER JOIN orders purchase
       ON purchase.id = item.order_id AND purchase.deleted_at IS NULL AND purchase.status = 'paid'

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { saleTypes } from './merchant-dashboard-query.dto';
+import { saleStatuses, saleTypes } from './merchant-dashboard-query.dto';
 
 export class PeriodMetricDto {
   @ApiProperty({ example: 1000000 })
@@ -88,7 +88,7 @@ export class UnpaidTransactionDto {
 
   @ApiProperty({
     nullable: true,
-    description: 'Available once the payment gateway exists',
+    description: "The order's Duitku payment page while it can still be paid",
   })
   payment_link: string | null;
 }
@@ -171,12 +171,13 @@ export class SaleResponseDto {
   @ApiProperty()
   item_title: string;
 
-  @ApiProperty({ example: 299000 })
+  @ApiProperty({ example: 299000, description: 'Selling price before codes' })
   amount: number;
 
   @ApiProperty({
     nullable: true,
-    description: 'Not stored until the payment gateway exists',
+    example: 'BC',
+    description: 'Duitku payment channel code, once paid',
   })
   payment_method: string | null;
 
@@ -189,10 +190,13 @@ export class SaleResponseDto {
   @ApiProperty({ nullable: true })
   transaction_fee: number | null;
 
-  @ApiProperty({ example: 299000 })
+  @ApiProperty({
+    example: 269100,
+    description: "The merchant's income: the amount minus its code discounts",
+  })
   net_amount: number;
 
-  @ApiProperty({ enum: ['paid', 'pending'] })
+  @ApiProperty({ enum: saleStatuses })
   status: string;
 }
 

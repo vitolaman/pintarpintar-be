@@ -14,7 +14,13 @@ import {
 
 export const dashboardPeriods = [7, 30, 90, 365] as const;
 export const saleTypes = ['kelas', 'bootcamp', 'digital', 'bundle'] as const;
-export const saleStatuses = ['paid', 'pending'] as const;
+export const saleStatuses = [
+  'paid',
+  'pending',
+  'expired',
+  'failed',
+  'cancelled',
+] as const;
 export const sortOrders = ['asc', 'desc'] as const;
 
 export type SaleType = (typeof saleTypes)[number];

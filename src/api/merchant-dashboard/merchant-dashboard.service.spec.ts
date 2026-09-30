@@ -138,8 +138,10 @@ describe('MerchantDashboardService', () => {
           type: 'kelas',
           item_id: ITEM_ID,
           item_title: 'AutoCAD 3D',
-          amount: '399000',
-          coupon_code: null,
+          amount: '359100',
+          gross_amount: '399000',
+          coupon_code: 'HEMAT10',
+          payment_method: 'BC',
           status: 'paid',
         },
       ]);
@@ -168,8 +170,8 @@ describe('MerchantDashboardService', () => {
     expect(pageSql).toContain('ORDER BY sale.amount ASC, sale.id ASC');
     expect(result.data[0]).toMatchObject({
       amount: 399000,
-      net_amount: 399000,
-      payment_method: null,
+      net_amount: 359100,
+      payment_method: 'BC',
       platform_fee: null,
       transaction_fee: null,
     });

@@ -13,7 +13,7 @@ import {
   Param,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiParam, ApiTags, ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiParam, ApiTags } from '@nestjs/swagger';
 import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { Public } from '~/common/decorator/public.decorator';
 import {
@@ -31,6 +31,7 @@ import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 import { MerchantService } from './merchant.service';
 import { ClassService } from '../../class/class.service';
+import { ClassListQueryDto } from '../../class/dto/class-list-query.dto';
 import { CreateClassDto } from '../../class/dto/create-class.dto';
 import { ClassResponseDto } from '../../class/dto/class-response.dto';
 import { PaginatedResponse } from '~/common/decorator/response.decorator';
@@ -165,23 +166,16 @@ export class MerchantController {
   }
 
   @Get(':merchantId/classes')
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'status', required: false, type: String })
   @PaginatedResponse(ClassResponseDto, 'Get classes success')
   getClasses(
     @Req() req: { user: { id: string } },
     @Param('merchantId', ParseUUIDPipe) merchantId: string,
-    @Query('page') page: number,
-    @Query('limit') limit: number,
-    @Query('status') status: string,
+    @Query() query: ClassListQueryDto,
   ) {
     return this.classService.getClassesByMerchant(
       req.user.id,
       merchantId,
-      page || 1,
-      limit || 10,
-      status,
+      query,
     );
   }
 }

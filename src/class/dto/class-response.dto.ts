@@ -11,6 +11,14 @@ export class ClassResponseDto {
   @ApiProperty({ enum: ClassType }) type: ClassType;
   @ApiPropertyOptional() originalPrice: number;
   @ApiPropertyOptional() discountedPrice: number;
+  @ApiPropertyOptional({ nullable: true }) cover_asset_id: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Null when no public asset base URL is configured',
+  })
+  cover_url: string | null;
+  @ApiPropertyOptional({ nullable: true })
+  post_purchase_instructions: string | null;
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date;
 }
@@ -20,8 +28,20 @@ export class FileResourceResponseDto {
   @ApiProperty() chapter_id: string;
   @ApiProperty() name: string;
   @ApiProperty({ enum: ResourceType }) type: ResourceType;
-  @ApiPropertyOptional() url: string;
-  @ApiPropertyOptional() size: string;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Link resources and older rows only',
+  })
+  url: string | null;
+  @ApiPropertyOptional({ nullable: true }) asset_id: string | null;
+  @ApiPropertyOptional({ description: 'Bytes' }) size: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Signed download link for uploaded files, valid 10 minutes',
+  })
+  download_url: string | null;
+  @ApiProperty() order: number;
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date;
 }
@@ -33,6 +53,7 @@ export class VideoResponseDto {
   @ApiPropertyOptional() description: string;
   @ApiPropertyOptional() youtubeUrl: string;
   @ApiPropertyOptional() duration: string;
+  @ApiProperty() order: number;
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date;
 }
@@ -61,6 +82,28 @@ export class MeetingResponseDto {
   @ApiProperty() created_at: Date;
 }
 
+export class AssignmentResourceResponseDto {
+  @ApiProperty() asset_id: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ description: 'Bytes' }) size: number;
+  @ApiProperty({ description: 'Signed download link, valid 10 minutes' })
+  download_url: string;
+}
+
+export class AssignmentQuestionResponseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() question_text: string;
+  @ApiProperty() type: string;
+  @ApiPropertyOptional({ type: [String], nullable: true }) options:
+    | string[]
+    | null;
+  @ApiProperty() score_weight: number;
+  @ApiPropertyOptional({
+    description: 'Only for the owner and tutors with tugas or nilai permission',
+  })
+  correct_answer?: string | null;
+}
+
 export class AssignmentResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() class_id: string;
@@ -68,15 +111,29 @@ export class AssignmentResponseDto {
   @ApiPropertyOptional() description: string;
   @ApiProperty() due: Date;
   @ApiProperty() type: string;
+  @ApiPropertyOptional({ type: AssignmentResourceResponseDto, nullable: true })
+  resource: AssignmentResourceResponseDto | null;
+  @ApiProperty({ description: 'Distinct learners who submitted' })
+  submission_count: number;
+  @ApiProperty({ type: [AssignmentQuestionResponseDto] })
+  questions: AssignmentQuestionResponseDto[];
   @ApiProperty() created_at: Date;
 }
 
 export class MentorResponseDto {
-  @ApiProperty() id: string;
+  @ApiProperty({ description: 'Tutor assignment id (class_mentors.id)' })
+  id: string;
   @ApiProperty() class_id: string;
   @ApiProperty() mentor_id: string;
-  @ApiProperty() role: string;
-  @ApiPropertyOptional() permissions: any;
+  @ApiProperty() user_id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() email: string;
+  @ApiPropertyOptional({ nullable: true }) avatar_url: string | null;
+  @ApiProperty({ enum: ['lead', 'assistant', 'moderator'] }) role: string;
+  @ApiProperty({
+    description: 'Areas × actions (lihat, tambah, edit, delete) booleans',
+  })
+  permissions: Record<string, Record<string, boolean>>;
   @ApiProperty() created_at: Date;
 }
 

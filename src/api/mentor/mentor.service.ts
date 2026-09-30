@@ -245,27 +245,40 @@ export class MentorService {
     const mentor = await this.mentors.findOneBy({ userId });
     if (!mentor) throw new NotFoundException('Mentor not found');
 
-    const [merchantAssignments, productAssignments] = await Promise.all([
-      this.dataSource.query(
-        `SELECT relation.merchant_id, merchant.store_name, relation.status, relation.joined_at
+    const [merchantAssignments, productAssignments, classAssignments] =
+      await Promise.all([
+        this.dataSource.query(
+          `SELECT relation.merchant_id, merchant.store_name, relation.status, relation.joined_at
          FROM merchant_mentors relation
          INNER JOIN merchants merchant ON merchant.id = relation.merchant_id AND merchant.deleted_at IS NULL
          WHERE relation.mentor_user_id = $1 AND relation.status = 'active' AND relation.deleted_at IS NULL
          ORDER BY relation.joined_at DESC NULLS LAST`,
-        [userId],
-      ),
-      this.dataSource.query(
-        `SELECT assignment.product_id, product.title, product.product_type, assignment.role, assignment.sort_order
+          [userId],
+        ),
+        this.dataSource.query(
+          `SELECT assignment.product_id, product.title, product.product_type, assignment.role, assignment.sort_order
          FROM product_mentors assignment
          INNER JOIN products product ON product.id = assignment.product_id AND product.deleted_at IS NULL
          WHERE assignment.mentor_user_id = $1 AND assignment.deleted_at IS NULL
          ORDER BY assignment.sort_order ASC, product.created_at DESC`,
-        [userId],
-      ),
-    ]);
+          [userId],
+        ),
+        this.dataSource.query(
+          `SELECT link.id, link.class_id, class.title, class.type, class.status,
+                class.merchant_id, merchant.store_name, link.role, link.permissions,
+                link.created_at AS assigned_at
+         FROM class_mentors link
+         INNER JOIN classes class ON class.id = link.class_id AND class.deleted_at IS NULL
+         INNER JOIN merchants merchant ON merchant.id = class.merchant_id AND merchant.deleted_at IS NULL
+         WHERE link.mentor_id = $1 AND link.deleted_at IS NULL
+         ORDER BY link.created_at DESC, link.id`,
+          [mentor.id],
+        ),
+      ]);
     const data: MentorAssignmentsResponseDto = {
       merchant_assignments: merchantAssignments,
       product_assignments: productAssignments,
+      class_assignments: classAssignments,
     };
     return { data, responseMessage: 'Get mentor assignments success' };
   }

@@ -11,7 +11,7 @@ export enum AssignmentType {
 
 @Entity({ name: 'assignments' })
 export class Assignment extends AuditedBaseEntity {
-  @Column({ name: 'class_id' })
+  @Column({ name: 'class_id', type: 'uuid' })
   class_id: string;
 
   @ManyToOne(() => Class, (cls) => cls.assignments)
@@ -29,6 +29,9 @@ export class Assignment extends AuditedBaseEntity {
 
   @Column({ type: 'varchar', default: AssignmentType.FILE_UPLOAD })
   type: AssignmentType;
+
+  @Column({ name: 'resource_asset_id', type: 'uuid', nullable: true })
+  resource_asset_id: string | null;
 
   @OneToMany(() => AssignmentQuestion, (question) => question.assignment)
   questions: AssignmentQuestion[];

@@ -56,6 +56,13 @@ export class MentorAssignmentsResponseDto {
 
   @ApiProperty({ type: [Object] })
   product_assignments: Array<Record<string, unknown>>;
+
+  @ApiProperty({
+    type: [Object],
+    description:
+      'Active tutor assignments: class, merchant, role, and permission matrix',
+  })
+  class_assignments: Array<Record<string, unknown>>;
 }
 
 export class PublicMentorResponseDto {

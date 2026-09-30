@@ -6,7 +6,7 @@ import { FileResource } from './file-resource.entity';
 
 @Entity({ name: 'chapters' })
 export class Chapter extends AuditedBaseEntity {
-  @Column({ name: 'class_id' })
+  @Column({ name: 'class_id', type: 'uuid' })
   class_id: string;
 
   @ManyToOne(() => Class, (cls) => cls.chapters)

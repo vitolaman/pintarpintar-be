@@ -4,7 +4,7 @@ import { Chapter } from './chapter.entity';
 
 @Entity({ name: 'videos' })
 export class Video extends AuditedBaseEntity {
-  @Column({ name: 'chapter_id' })
+  @Column({ name: 'chapter_id', type: 'uuid' })
   chapter_id: string;
 
   @ManyToOne(() => Chapter, (chapter) => chapter.videos)
@@ -22,4 +22,7 @@ export class Video extends AuditedBaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   duration: string;
+
+  @Column({ type: 'int', default: 0 })
+  order: number;
 }

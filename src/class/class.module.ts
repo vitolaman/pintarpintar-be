@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClassService } from './class.service';
+import { ClassAccessService } from './class-access.service';
+import { ClassContentService } from './class-content.service';
+import { ClassAssignmentService } from './class-assignment.service';
 import { ClassController } from './class.controller';
 import { Class } from './entities/class.entity';
 import { Chapter } from './entities/chapter.entity';
@@ -39,7 +42,12 @@ import { Enrollment } from './entities/enrollment.entity';
     ]),
   ],
   controllers: [ClassController],
-  providers: [ClassService],
-  exports: [ClassService],
+  providers: [
+    ClassService,
+    ClassAccessService,
+    ClassContentService,
+    ClassAssignmentService,
+  ],
+  exports: [ClassService, ClassAccessService],
 })
 export class ClassModule {}

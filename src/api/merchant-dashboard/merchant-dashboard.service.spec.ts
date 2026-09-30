@@ -76,6 +76,47 @@ describe('MerchantDashboardService', () => {
     service = new MerchantDashboardService({ query } as unknown as DataSource);
   });
 
+  it('rates and lists reviews of both classes and digital products', async () => {
+    query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM merchants')) {
+        return [{ id: 'merchant-id', storage_level: 'basic' }];
+      }
+      if (sql.includes('round(avg(review.rating)')) {
+        return [{ average: '4.5', total: 2 }];
+      }
+      if (sql.includes('reviewer_avatar_object_key')) {
+        return [{ rating: 5, item_title: 'Belajar AutoCAD dari Nol' }];
+      }
+      if (sql.includes('AS catalog') || sql.includes(') catalog')) {
+        return [{ total: 3, new_in_period: 1 }];
+      }
+      return [{}];
+    });
+
+    const { data } = await service.findDashboard(
+      'user-id',
+      plainToInstance(DashboardQueryDto, {}),
+    );
+
+    const reviewQueries = query.mock.calls
+      .map(([sql]) => String(sql))
+      .filter((sql) => sql.includes('FROM reviews review'));
+    expect(reviewQueries).toHaveLength(3);
+    for (const sql of reviewQueries) {
+      expect(sql).toContain(
+        'LEFT JOIN classes class ON class.id = review.class_id',
+      );
+      expect(sql).toContain(
+        'class.merchant_id = $1 OR product.merchant_id = $1',
+      );
+    }
+    expect(data).toMatchObject({
+      rating_average: 4.5,
+      review_count: 2,
+      latest_review: { rating: 5, item_title: 'Belajar AutoCAD dari Nol' },
+    });
+  });
+
   it('rejects users without a merchant', async () => {
     query.mockResolvedValueOnce([]);
     await expect(

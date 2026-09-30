@@ -30,9 +30,11 @@ const PRODUCT_PRICE_SQL = `(CASE WHEN product.discount_price > 0 THEN product.di
 // The merchant's own classes and digital products that can be bundled.
 const CATALOG_SQL = `
   SELECT class.id, 'kelas' AS type, class.type AS class_type, class.title,
-         ${CLASS_PRICE_SQL} AS price, NULL::varchar AS image,
-         class.status = 'published' AS is_available
+         ${CLASS_PRICE_SQL} AS price, class_cover.object_key AS image,
+         class.status IN ('published', 'archived') AS is_available
   FROM classes class
+  LEFT JOIN file_assets class_cover
+    ON class_cover.id = class.cover_asset_id AND class_cover.deleted_at IS NULL
   WHERE class.merchant_id = $1 AND class.deleted_at IS NULL
   UNION ALL
   SELECT product.id, 'digital', NULL, product.title,
@@ -428,14 +430,15 @@ export class BundleService {
                 CASE WHEN item.class_id IS NOT NULL THEN ${CLASS_PRICE_SQL} ELSE ${PRODUCT_PRICE_SQL} END AS price,
                 cover.object_key AS image,
                 CASE WHEN item.class_id IS NOT NULL
-                  THEN class.status = 'published' AND class.deleted_at IS NULL
+                  THEN class.status IN ('published', 'archived') AND class.deleted_at IS NULL
                   ELSE product.is_published AND product.deleted_at IS NULL
                 END AS is_available
          FROM bundle_items item
          LEFT JOIN classes class ON class.id = item.class_id
          LEFT JOIN products product ON product.id = item.product_id
          LEFT JOIN file_assets cover
-           ON cover.id = product.cover_asset_id AND cover.deleted_at IS NULL
+           ON cover.id = COALESCE(class.cover_asset_id, product.cover_asset_id)
+           AND cover.deleted_at IS NULL
          WHERE item.bundle_id = ANY($1::uuid[])
          ORDER BY item.bundle_id, item.display_order`,
         [ids],

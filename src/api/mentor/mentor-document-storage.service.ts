@@ -1,9 +1,4 @@
-import {
-  DeleteObjectCommand,
-  GetObjectCommand,
-  PutObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import {
   BadGatewayException,
   BadRequestException,
@@ -16,9 +11,9 @@ import {
   ObjectStorage,
   createObjectStorage,
 } from '../../common/storage/object-storage';
+import { signedDownloadUrl } from '../../common/storage/signed-download-url';
 
 export const MENTOR_DOCUMENT_PROVIDER = 's3';
-const DOWNLOAD_URL_TTL_SECONDS = 600;
 
 export interface StoredMentorDocument {
   assetId: string;
@@ -121,16 +116,7 @@ export class MentorDocumentStorageService {
   }
 
   signedDownloadUrl(objectKey: string, filename: string): Promise<string> {
-    const safeName = filename.replace(/["\\\r\n]/g, '_');
-    return getSignedUrl(
-      this.storage.client,
-      new GetObjectCommand({
-        Bucket: this.storage.bucket,
-        Key: objectKey,
-        ResponseContentDisposition: `attachment; filename="${safeName}"`,
-      }),
-      { expiresIn: DOWNLOAD_URL_TTL_SECONDS },
-    );
+    return signedDownloadUrl(this.storage, objectKey, filename);
   }
 
   private singleFile(

@@ -14,7 +14,10 @@ import {
   RegisterUploadDto,
 } from './dto/register-upload.dto';
 import { createObjectStorage } from '../../common/storage/object-storage';
-import { assertImageWithinLimit } from './image-asset-rules';
+import {
+  assertFileFitsPurpose,
+  purposeVisibility,
+} from './asset-purpose-rules';
 
 const STORAGE_PROVIDER = 's3';
 
@@ -34,7 +37,13 @@ export class FileAssetService {
 
   async registerUpload(userId: string, input: RegisterUploadDto) {
     const { contentType, sizeBytes } = await this.readObject(input.key);
-    assertImageWithinLimit(input.purpose, contentType, sizeBytes);
+    const filename = originalFilename(input.key);
+    assertFileFitsPurpose(input.purpose, {
+      filename,
+      mimeType: contentType,
+      sizeBytes,
+    });
+    const visibility = purposeVisibility(input.purpose);
 
     const asset = await this.dataSource.transaction(async (manager) => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
@@ -45,7 +54,11 @@ export class FileAssetService {
         withDeleted: true,
       });
       if (existing) {
-        if (existing.uploadedByUserId !== userId || existing.deleted_at) {
+        if (
+          existing.uploadedByUserId !== userId ||
+          existing.deleted_at ||
+          existing.visibility !== visibility
+        ) {
           throw new ConflictException('This upload is already registered');
         }
         return existing;
@@ -57,10 +70,10 @@ export class FileAssetService {
           uploadedByUserId: userId,
           storageProvider: STORAGE_PROVIDER,
           objectKey: input.key,
-          originalFilename: originalFilename(input.key),
-          mimeType: contentType.toLowerCase(),
+          originalFilename: filename,
+          mimeType: (contentType ?? 'application/octet-stream').toLowerCase(),
           sizeBytes: String(sizeBytes),
-          visibility: 'public',
+          visibility,
           status: 'active',
         }),
       );

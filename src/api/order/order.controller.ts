@@ -6,10 +6,14 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { ArrayResponse } from '~/common/decorator/response.decorator';
+import {
+  ArrayResponse,
+  PaginatedResponse,
+} from '~/common/decorator/response.decorator';
 import {
   RecentTransactionsQueryDto,
   TransactionResponseDto,
+  TransactionsQueryDto,
 } from './dto/recent-transactions.dto';
 import { OrderService } from './order.service';
 
@@ -28,5 +32,16 @@ export class OrderController {
     @Query() query: RecentTransactionsQueryDto,
   ) {
     return this.orderService.findRecent(req.user.id, query);
+  }
+
+  @Get('get-transactions')
+  @PaginatedResponse(TransactionResponseDto, 'Get transactions success', [
+    BadRequestException,
+  ])
+  findAll(
+    @Req() req: { user: { id: string } },
+    @Query() query: TransactionsQueryDto,
+  ) {
+    return this.orderService.findAll(req.user.id, query);
   }
 }

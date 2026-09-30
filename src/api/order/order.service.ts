@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import {
   RecentTransactionsQueryDto,
   TransactionResponseDto,
+  TransactionsQueryDto,
 } from './dto/recent-transactions.dto';
 import { Order } from './entities/order.entity';
 
@@ -17,9 +18,33 @@ export class OrderService {
       order: { created_at: 'DESC', id: 'DESC' },
       take: query.limit,
     });
-    if (orders.length === 0) {
-      return { data: [], responseMessage: 'Get recent transactions success' };
-    }
+    return {
+      data: await this.toTransactions(orders),
+      responseMessage: 'Get recent transactions success',
+    };
+  }
+
+  // Full history behind "Lihat Semua Riwayat": own orders only, newest first.
+  async findAll(userId: string, query: TransactionsQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const [orders, total] = await this.dataSource.manager.findAndCount(Order, {
+      where: { userId, ...(query.status ? { status: query.status } : {}) },
+      order: { created_at: 'DESC', id: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return {
+      data: await this.toTransactions(orders),
+      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      responseMessage: 'Get transactions success',
+    };
+  }
+
+  private async toTransactions(
+    orders: Order[],
+  ): Promise<TransactionResponseDto[]> {
+    if (orders.length === 0) return [];
 
     // Deleted catalog items keep their titles so history stays readable.
     const items = await this.dataSource.query(
@@ -41,7 +66,7 @@ export class OrderService {
       [orders.map((order) => order.id)],
     );
 
-    const data: TransactionResponseDto[] = orders.map((order) => ({
+    return orders.map((order) => ({
       id: order.id,
       created_at: order.created_at,
       status: order.status,
@@ -56,7 +81,5 @@ export class OrderService {
           price: Number(item.price),
         })),
     }));
-
-    return { data, responseMessage: 'Get recent transactions success' };
   }
 }

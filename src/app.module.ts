@@ -32,6 +32,8 @@ import { BundleModule } from './api/bundle/bundle.module';
 import { DiscountModule } from './api/discount/discount.module';
 import { MerchantDashboardModule } from './api/merchant-dashboard/merchant-dashboard.module';
 import { FileAssetModule } from './api/file-asset/file-asset.module';
+import { WishlistModule } from './api/wishlist/wishlist.module';
+import { CartModule } from './api/cart/cart.module';
 
 @Module({
   imports: [
@@ -69,6 +71,8 @@ import { FileAssetModule } from './api/file-asset/file-asset.module';
     DiscountModule,
     MerchantDashboardModule,
     FileAssetModule,
+    WishlistModule,
+    CartModule,
   ],
   controllers: [AppController],
   providers: [

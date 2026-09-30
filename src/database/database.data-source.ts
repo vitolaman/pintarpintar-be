@@ -16,7 +16,9 @@ import { Merchant } from '~/api/merchant/entities/merchant.entity';
 import { MerchantWallet } from '~/api/merchant/entities/merchant-wallet.entity';
 import { Bundle } from '~/api/bundle/entities/bundle.entity';
 import { BundleItem } from '~/api/bundle/entities/bundle-item.entity';
+import { CartItem } from '~/api/cart/entities/cart-item.entity';
 import { Order } from '~/api/order/entities/order.entity';
+import { WishlistItem } from '~/api/wishlist/entities/wishlist-item.entity';
 import { OrderItem } from '~/api/order/entities/order-item.entity';
 import { MerchantPayoutAccount } from '~/api/payout-account/entities/merchant-payout-account.entity';
 import { UserNotificationPreferences } from '~/api/merchant/entities/user-notification-preferences.entity';
@@ -62,6 +64,8 @@ export const dataSourceOptions: DataSourceOptions = {
     OrderItem,
     Bundle,
     BundleItem,
+    WishlistItem,
+    CartItem,
     MerchantPayoutAccount,
     MerchantMember,
     MerchantProfile,

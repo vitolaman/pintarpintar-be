@@ -25,6 +25,7 @@ import { UploadModule } from './upload/upload.module';
 import { ClassModule } from './class/class.module';
 import { VoucherModule } from './api/voucher/voucher.module';
 import { HelpTicketModule } from './api/help-ticket/help-ticket.module';
+import { PortalModule } from './api/portal/portal.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { HelpTicketModule } from './api/help-ticket/help-ticket.module';
     UploadModule,
     VoucherModule,
     HelpTicketModule,
+    PortalModule,
   ],
   controllers: [AppController],
   providers: [

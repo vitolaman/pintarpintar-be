@@ -1,3 +1,8 @@
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   ClassCertificateService,
@@ -149,5 +154,103 @@ describe('ClassCertificateService issuing', () => {
     const [state] = await service.loadStates(manager as never, classId);
 
     expect(state).toMatchObject({ status: 'pending', eligible: true });
+  });
+});
+
+describe('ClassCertificateService manual operations', () => {
+  const classId = '30000000-0000-4000-8000-000000000001';
+  const learnerId = '10000000-0000-4000-8000-000000000009';
+  let learnerRows: unknown[];
+  let certificates: unknown[];
+  let manager: Record<string, jest.Mock>;
+  let service: ClassCertificateService;
+
+  beforeEach(() => {
+    learnerRows = [
+      {
+        user_id: learnerId,
+        progress: 100,
+        attendance_percent: null,
+        average_score: null,
+        started_meetings: 0,
+        graded_assignments: 0,
+      },
+    ];
+    certificates = [];
+    manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('AS today'))
+          return [{ year: '2026', today: '2026-09-30' }];
+        if (sql.includes('AS last')) return [{ last: 0 }];
+        if (sql.includes('count(*)::integer AS assignments'))
+          return [{ assignments: 0 }];
+        if (sql.includes('WITH learners')) return learnerRows;
+        return [];
+      }),
+      findOneBy: jest.fn(async () => null),
+      find: jest.fn(async () => certificates),
+      create: jest.fn((_entity, value) => ({ ...value })),
+      save: jest.fn(async (_entity, value) => value),
+      update: jest.fn(),
+    };
+    service = new ClassCertificateService(
+      {
+        manager,
+        transaction: jest.fn((callback) => callback(manager)),
+      } as never,
+      { requireAction: jest.fn() } as never,
+      new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
+    );
+  });
+
+  it('issues an eligible learner on request', async () => {
+    await service.issueManually('tutor-id', classId, learnerId);
+
+    expect(manager.save).toHaveBeenCalledWith(
+      Certificate,
+      expect.objectContaining({ user_id: learnerId, created_by: 'tutor-id' }),
+    );
+  });
+
+  it('refuses to issue an ineligible learner', async () => {
+    learnerRows = [{ ...(learnerRows[0] as object), progress: 50 }];
+
+    await expect(
+      service.issueManually('tutor-id', classId, learnerId),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('refuses to issue twice', async () => {
+    certificates = [{ id: 'certificate-id', user_id: learnerId }];
+
+    await expect(
+      service.issueManually('tutor-id', classId, learnerId),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('returns 404 for a learner not enrolled in the class', async () => {
+    learnerRows = [];
+
+    await expect(
+      service.issueManually('tutor-id', classId, learnerId),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('withdraws by soft-deleting the certificate', async () => {
+    certificates = [{ id: 'certificate-id', user_id: learnerId }];
+
+    await service.withdraw('tutor-id', classId, learnerId);
+
+    expect(manager.update).toHaveBeenCalledWith(
+      Certificate,
+      { id: 'certificate-id' },
+      expect.objectContaining({ deleted_by: 'tutor-id' }),
+    );
+  });
+
+  it('needs an issued certificate to attach a file', async () => {
+    await expect(
+      service.attachFile('tutor-id', classId, learnerId, 'asset-id'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

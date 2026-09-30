@@ -26,7 +26,10 @@ import { ClassGradingService } from './class-grading.service';
 import { ClassAttendanceService } from './class-attendance.service';
 import { ClassCertificateService } from './class-certificate.service';
 import {
+  AttachCertificateFileDto,
   CertificateSettingsDto,
+  CertificateViewDto,
+  ClassCertificateLearnerDto,
   UpdateCertificateSettingsDto,
 } from './dto/certificate.dto';
 import {
@@ -333,6 +336,73 @@ export class ClassController {
       req.user.id,
       classId,
       dto,
+    );
+  }
+
+  @Get(':classId/certificates')
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @PaginatedResponse(
+    ClassCertificateLearnerDto,
+    'Get class certificates success',
+  )
+  findCertificates(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+  ) {
+    return this.classCertificateService.findCertificates(
+      req.user.id,
+      classId,
+      Math.max(Number(page) || 1, 1),
+      Math.min(Math.max(Number(limit) || 50, 1), 100),
+    );
+  }
+
+  @Post(':classId/certificates/:userId/issue')
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(CertificateViewDto, 'Issue certificate success')
+  issueCertificate(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('userId', ParseUUIDPipe) learnerId: string,
+  ) {
+    return this.classCertificateService.issueManually(
+      req.user.id,
+      classId,
+      learnerId,
+    );
+  }
+
+  @Put(':classId/certificates/:userId/file')
+  @DefaultResponse(CertificateViewDto, 'Attach certificate file success')
+  attachCertificateFile(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('userId', ParseUUIDPipe) learnerId: string,
+    @Body() dto: AttachCertificateFileDto,
+  ) {
+    return this.classCertificateService.attachFile(
+      req.user.id,
+      classId,
+      learnerId,
+      dto.asset_id,
+    );
+  }
+
+  @Delete(':classId/certificates/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @EmptyResponse()
+  withdrawCertificate(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('userId', ParseUUIDPipe) learnerId: string,
+  ) {
+    return this.classCertificateService.withdraw(
+      req.user.id,
+      classId,
+      learnerId,
     );
   }
 

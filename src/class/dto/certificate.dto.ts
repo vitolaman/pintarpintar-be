@@ -65,3 +65,9 @@ export class CertificateViewDto {
   @ApiProperty({ type: CertificateSettingsDto })
   requirements: CertificateSettingsDto;
 }
+
+export class ClassCertificateLearnerDto extends CertificateViewDto {
+  @ApiProperty() user_id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() email: string;
+}

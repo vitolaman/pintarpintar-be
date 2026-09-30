@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -7,6 +12,7 @@ import {
   createObjectStorage,
 } from '../common/storage/object-storage';
 import { signedDownloadUrl } from '../common/storage/signed-download-url';
+import { assertOwnedAsset } from '../api/file-asset/asset-purpose-rules';
 import { ClassAccessService } from './class-access.service';
 import { UpdateCertificateSettingsDto } from './dto/certificate.dto';
 import { Certificate, CertificateStatus } from './entities/certificate.entity';
@@ -83,6 +89,165 @@ export class ClassCertificateService {
     configService: ConfigService,
   ) {
     this.storage = createObjectStorage(configService);
+  }
+
+  async findCertificates(
+    userId: string,
+    classId: string,
+    page = 1,
+    limit = 50,
+  ) {
+    await this.classAccess.requireAction(
+      userId,
+      classId,
+      'sertifikat',
+      'lihat',
+    );
+    const manager = this.dataSource.manager;
+    const [{ total }] = await manager.query(
+      `SELECT count(*)::integer AS total FROM enrollments
+       WHERE class_id = $1 AND deleted_at IS NULL`,
+      [classId],
+    );
+    const learners: Array<{ user_id: string; name: string; email: string }> =
+      await manager.query(
+        `SELECT learner.id AS user_id, learner.name, learner.email
+         FROM enrollments enrollment
+         INNER JOIN users learner ON learner.id = enrollment.user_id
+         WHERE enrollment.class_id = $1 AND enrollment.deleted_at IS NULL
+         ORDER BY learner.name, learner.id
+         LIMIT $2 OFFSET $3`,
+        [classId, limit, (page - 1) * limit],
+      );
+    const settings = await this.loadSettings(manager, classId);
+    const states =
+      learners.length === 0
+        ? []
+        : await this.loadStates(
+            manager,
+            classId,
+            learners.map((learner) => learner.user_id),
+            settings,
+          );
+    const views = await this.toViews(manager, states, settings);
+    return {
+      data: learners.map((learner) => ({
+        ...learner,
+        ...views[
+          states.findIndex((state) => state.user_id === learner.user_id)
+        ],
+      })),
+      meta: { total, page, limit },
+    };
+  }
+
+  // Manual issuing: only an eligible learner without a certificate.
+  async issueManually(userId: string, classId: string, learnerId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      await this.classAccess.requireAction(
+        userId,
+        classId,
+        'sertifikat',
+        'tambah',
+        manager,
+      );
+      const state = await this.lockLearnerState(manager, classId, learnerId);
+      if (state.certificate) {
+        throw new ConflictException('The certificate is already issued');
+      }
+      if (!state.eligible) {
+        throw new BadRequestException(
+          'The learner does not meet the certificate requirements yet',
+        );
+      }
+      await this.issue(manager, classId, learnerId, userId);
+      return this.learnerResponse(
+        manager,
+        classId,
+        learnerId,
+        'Issue certificate success',
+      );
+    });
+  }
+
+  async attachFile(
+    userId: string,
+    classId: string,
+    learnerId: string,
+    assetId: string,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      await this.classAccess.requireAction(
+        userId,
+        classId,
+        'sertifikat',
+        'edit',
+        manager,
+      );
+      const state = await this.lockLearnerState(manager, classId, learnerId);
+      if (!state.certificate) {
+        throw new NotFoundException('Certificate not found');
+      }
+      await assertOwnedAsset(manager, userId, assetId, 'certificate_file');
+      await manager.update(
+        Certificate,
+        { id: state.certificate.id },
+        { asset_id: assetId, updated_by: userId },
+      );
+      return this.learnerResponse(
+        manager,
+        classId,
+        learnerId,
+        'Attach certificate file success',
+      );
+    });
+  }
+
+  // A withdrawn certificate keeps its number; issuing again takes a new one.
+  async withdraw(userId: string, classId: string, learnerId: string) {
+    await this.dataSource.transaction(async (manager) => {
+      await this.classAccess.requireAction(
+        userId,
+        classId,
+        'sertifikat',
+        'delete',
+        manager,
+      );
+      const state = await this.lockLearnerState(manager, classId, learnerId);
+      if (!state.certificate) {
+        throw new NotFoundException('Certificate not found');
+      }
+      await manager.update(
+        Certificate,
+        { id: state.certificate.id },
+        { deleted_at: new Date(), deleted_by: userId },
+      );
+    });
+  }
+
+  private async lockLearnerState(
+    manager: EntityManager,
+    classId: string,
+    learnerId: string,
+  ): Promise<LearnerCertificateState> {
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `certificate:${classId}:${learnerId}`,
+    ]);
+    const [state] = await this.loadStates(manager, classId, [learnerId]);
+    if (!state) throw new NotFoundException('Learner not found');
+    return state;
+  }
+
+  private async learnerResponse(
+    manager: EntityManager,
+    classId: string,
+    learnerId: string,
+    responseMessage: string,
+  ) {
+    return {
+      data: await this.findLearnerView(manager, classId, learnerId),
+      responseMessage,
+    };
   }
 
   // The learner's own certificate state for a class.

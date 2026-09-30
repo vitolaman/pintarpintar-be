@@ -237,7 +237,9 @@ export class MentorWorkspaceService {
             city: row.merchant_city,
           },
           start_year: new Date(row.started_at).getUTCFullYear(),
-          end_year: row.ended_at ? new Date(row.ended_at).getUTCFullYear() : null,
+          end_year: row.ended_at
+            ? new Date(row.ended_at).getUTCFullYear()
+            : null,
           status: active ? ('active' as const) : ('inactive' as const),
         };
       })

@@ -1,8 +1,31 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query, Req, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UploadedFiles,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
-import { ArrayResponse, DefaultResponse } from '~/common/decorator/response.decorator';
+import {
+  ArrayResponse,
+  DefaultResponse,
+} from '~/common/decorator/response.decorator';
 import {
   MentorAssignmentsResponseDto,
   MentorDocumentResponseDto,
@@ -21,10 +44,13 @@ import { UpdateMentorDto } from './dto/update-mentor.dto';
 import { MentorService } from './mentor.service';
 import { MentorWorkspaceService } from './mentor-workspace.service';
 
-const mentorDocuments = FileFieldsInterceptor([
-  { name: 'cv', maxCount: 1 },
-  { name: 'skill_certificate', maxCount: 1 },
-], { limits: { fileSize: 5 * 1024 * 1024 } });
+const mentorDocuments = FileFieldsInterceptor(
+  [
+    { name: 'cv', maxCount: 1 },
+    { name: 'skill_certificate', maxCount: 1 },
+  ],
+  { limits: { fileSize: 5 * 1024 * 1024 } },
+);
 
 @Controller('mentors/v1')
 @ApiTags('Mentors')
@@ -41,7 +67,10 @@ export class MentorController {
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: MentorSignUpDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'Account Created!' })
-  signUp(@Body() input: MentorSignUpDto, @UploadedFiles() files: Record<string, Express.Multer.File[]>) {
+  signUp(
+    @Body() input: MentorSignUpDto,
+    @UploadedFiles() files: Record<string, Express.Multer.File[]>,
+  ) {
     return this.mentorService.signUp(input, files);
   }
 
@@ -50,8 +79,16 @@ export class MentorController {
   @UseInterceptors(mentorDocuments)
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: MentorRegisterDto })
-  @DefaultResponse(MentorResponseDto, 'Register mentor success', HttpStatus.CREATED)
-  register(@Req() req: { user: { id: string } }, @Body() input: MentorRegistrationDto, @UploadedFiles() files: Record<string, Express.Multer.File[]>) {
+  @DefaultResponse(
+    MentorResponseDto,
+    'Register mentor success',
+    HttpStatus.CREATED,
+  )
+  register(
+    @Req() req: { user: { id: string } },
+    @Body() input: MentorRegistrationDto,
+    @UploadedFiles() files: Record<string, Express.Multer.File[]>,
+  ) {
     return this.mentorService.register(req.user.id, input, files);
   }
 
@@ -72,13 +109,19 @@ export class MentorController {
   @Patch('update-profile')
   @ApiBearerAuth()
   @DefaultResponse(MentorResponseDto, 'Update mentor profile success')
-  updateProfile(@Req() req: { user: { id: string } }, @Body() input: UpdateMentorDto) {
+  updateProfile(
+    @Req() req: { user: { id: string } },
+    @Body() input: UpdateMentorDto,
+  ) {
     return this.mentorService.updateMyMentor(req.user.id, input);
   }
 
   @Get('get-assignments')
   @ApiBearerAuth()
-  @DefaultResponse(MentorAssignmentsResponseDto, 'Get mentor assignments success')
+  @DefaultResponse(
+    MentorAssignmentsResponseDto,
+    'Get mentor assignments success',
+  )
   findAssignments(@Req() req: { user: { id: string } }) {
     return this.mentorService.findAssignments(req.user.id);
   }

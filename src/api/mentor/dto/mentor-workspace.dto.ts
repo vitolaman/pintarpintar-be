@@ -11,7 +11,9 @@ export class MentorClassesQueryDto {
   @IsIn(mentorClassTypes)
   type?: MentorClassType;
 
-  @ApiPropertyOptional({ description: 'Matches the class title or merchant name' })
+  @ApiPropertyOptional({
+    description: 'Matches the class title or merchant name',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(100)
@@ -32,7 +34,9 @@ export class MentorDashboardStatsDto {
   @ApiProperty({ description: 'Distinct students enrolled in the last 7 days' })
   students_this_week: number;
 
-  @ApiProperty({ description: 'Meetings from today through the next 7 days (WIB)' })
+  @ApiProperty({
+    description: 'Meetings from today through the next 7 days (WIB)',
+  })
   upcoming_sessions: number;
 
   @ApiProperty({ example: 4.7 })
@@ -192,9 +196,15 @@ export class TeachingClassResponseDto {
   @ApiProperty({ example: 2024 })
   start_year: number;
 
-  @ApiPropertyOptional({ description: 'Null while the assignment is ongoing', example: null })
+  @ApiPropertyOptional({
+    description: 'Null while the assignment is ongoing',
+    example: null,
+  })
   end_year: number | null;
 
-  @ApiProperty({ enum: ['active', 'inactive'], description: 'Aktif / Tidak Aktif' })
+  @ApiProperty({
+    enum: ['active', 'inactive'],
+    description: 'Aktif / Tidak Aktif',
+  })
   status: 'active' | 'inactive';
 }

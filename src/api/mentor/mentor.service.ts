@@ -104,12 +104,14 @@ export class MentorService {
       const mentorProfile = await manager.findOneBy(MentorProfile, {
         mentorId: mentor.id,
       });
-      if (!mentorProfile) throw new NotFoundException('Mentor profile not found');
+      if (!mentorProfile)
+        throw new NotFoundException('Mentor profile not found');
 
       let profile = await manager.findOneBy(Profile, { userId });
       if (!profile) profile = manager.create(Profile, { userId });
       if (input.phone !== undefined) profile.phone = input.phone;
-      if (input.headline !== undefined) profile.headline = input.headline ?? null;
+      if (input.headline !== undefined)
+        profile.headline = input.headline ?? null;
       if (input.bio !== undefined) profile.bio = input.bio ?? null;
       if (input.expertise_list !== undefined) {
         mentorProfile.expertise = this.expertiseFromList(input.expertise_list);
@@ -119,7 +121,8 @@ export class MentorService {
       if (input.experience_years !== undefined) {
         mentorProfile.experienceYears = input.experience_years;
       }
-      if (input.education !== undefined) mentorProfile.education = input.education;
+      if (input.education !== undefined)
+        mentorProfile.education = input.education;
       if (input.portfolio_url !== undefined) {
         mentorProfile.portfolioUrl = input.portfolio_url ?? null;
       }
@@ -324,7 +327,10 @@ export class MentorService {
     });
     if (existing) throw new ConflictException('User is already a mentor');
 
-    const mentor = manager.create(Mentor, { userId: user.id, status: 'active' });
+    const mentor = manager.create(Mentor, {
+      userId: user.id,
+      status: 'active',
+    });
     await manager.save(Mentor, mentor);
     await this.saveDocuments(manager, user.id, [
       documents.cv,
@@ -395,16 +401,36 @@ export class MentorService {
   private async findMentorResponse(userId: string): Promise<MentorResponseDto> {
     const row = await this.mentors
       .createQueryBuilder('mentor')
-      .innerJoin(User, 'user', 'user.id = mentor.user_id AND user.deleted_at IS NULL')
-      .innerJoin(MentorProfile, 'mentor_profile', 'mentor_profile.mentor_id = mentor.id AND mentor_profile.deleted_at IS NULL')
-      .innerJoin(Profile, 'profile', 'profile.user_id = user.id AND profile.deleted_at IS NULL')
+      .innerJoin(
+        User,
+        'user',
+        'user.id = mentor.user_id AND user.deleted_at IS NULL',
+      )
+      .innerJoin(
+        MentorProfile,
+        'mentor_profile',
+        'mentor_profile.mentor_id = mentor.id AND mentor_profile.deleted_at IS NULL',
+      )
+      .innerJoin(
+        Profile,
+        'profile',
+        'profile.user_id = user.id AND profile.deleted_at IS NULL',
+      )
       .select([
-        'mentor.id AS id', 'mentor.user_id AS user_id', 'mentor.status AS status',
-        'user.name AS name', 'user.email AS email', 'profile.phone AS phone',
-        'profile.headline AS headline', 'profile.bio AS bio',
-        'mentor_profile.expertise AS expertise', 'mentor_profile.experience_years AS experience_years',
-        'mentor_profile.education AS education', 'mentor_profile.portfolio_url AS portfolio_url',
-        'mentor_profile.linkedin_url AS linkedin_url', 'mentor_profile.cv_asset_id AS cv_asset_id',
+        'mentor.id AS id',
+        'mentor.user_id AS user_id',
+        'mentor.status AS status',
+        'user.name AS name',
+        'user.email AS email',
+        'profile.phone AS phone',
+        'profile.headline AS headline',
+        'profile.bio AS bio',
+        'mentor_profile.expertise AS expertise',
+        'mentor_profile.experience_years AS experience_years',
+        'mentor_profile.education AS education',
+        'mentor_profile.portfolio_url AS portfolio_url',
+        'mentor_profile.linkedin_url AS linkedin_url',
+        'mentor_profile.cv_asset_id AS cv_asset_id',
         'mentor_profile.skill_certificate_asset_id AS skill_certificate_asset_id',
       ])
       .where('mentor.user_id = :userId', { userId })

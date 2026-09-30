@@ -18,6 +18,10 @@ import { MentorProfile } from './entities/mentor-profile.entity';
     TypeOrmModule.forFeature([FileAsset, Mentor, MentorProfile, Profile]),
   ],
   controllers: [MentorController],
-  providers: [MentorDocumentStorageService, MentorService, MentorWorkspaceService],
+  providers: [
+    MentorDocumentStorageService,
+    MentorService,
+    MentorWorkspaceService,
+  ],
 })
 export class MentorModule {}

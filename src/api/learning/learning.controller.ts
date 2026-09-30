@@ -10,13 +10,21 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { DefaultResponse } from '~/common/decorator/response.decorator';
+import {
+  ArrayResponse,
+  DefaultResponse,
+} from '~/common/decorator/response.decorator';
 import { LearningProgressService } from '../../class/learning-progress.service';
 import {
   LearnerProgressResponseDto,
   LearningClassResponseDto,
 } from './dto/learning-response.dto';
 import { LearningClassService } from './learning-class.service';
+import { LearningAssignmentService } from './learning-assignment.service';
+import {
+  LearnerAssignmentDto,
+  LearnerQuizDto,
+} from './dto/learning-assignment.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
 
@@ -29,7 +37,30 @@ export class LearningController {
   constructor(
     private readonly learningProgress: LearningProgressService,
     private readonly learningClass: LearningClassService,
+    private readonly learningAssignment: LearningAssignmentService,
   ) {}
+
+  @Get('get-assignments/:classId')
+  @ArrayResponse(LearnerAssignmentDto, 'Get learning assignments success', [
+    NotFoundException,
+  ])
+  findAssignments(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+  ) {
+    return this.learningAssignment.findAssignments(req.user.id, classId);
+  }
+
+  @Get('get-quiz/:assignmentId')
+  @DefaultResponse(LearnerQuizDto, 'Get quiz success', HttpStatus.OK, [
+    NotFoundException,
+  ])
+  findQuiz(
+    @Req() req: AuthenticatedRequest,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+  ) {
+    return this.learningAssignment.findQuiz(req.user.id, assignmentId);
+  }
 
   @Get('get-class/:id')
   @DefaultResponse(

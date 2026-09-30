@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Req, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
@@ -43,7 +43,7 @@ export class MentorController {
   @Get('get-mentor/:id')
   @Public()
   @DefaultResponse(PublicMentorResponseDto, 'Get mentor success')
-  findPublicMentor(@Param('id') id: string) {
+  findPublicMentor(@Param('id', ParseUUIDPipe) id: string) {
     return this.mentorService.findPublicMentor(id);
   }
 

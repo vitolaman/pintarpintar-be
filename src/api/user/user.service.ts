@@ -13,6 +13,9 @@ import { User } from './entities/user.entity';
 import { Mentor } from '../mentor/entities/mentor.entity';
 import { Merchant } from '../merchant/entities/merchant.entity';
 
+// Public store, catalog and voucher queries show active merchants only.
+const MERCHANT_INACTIVE = 'inactive';
+
 export interface PublicUser {
   id: string;
   name: string;
@@ -126,11 +129,22 @@ export class UserService {
     return this.toPublicUser(await this.users.save(user));
   }
 
+  // The account is soft-deleted, which frees its email for a new sign-up
+  // (emails are unique among active users only), and its merchant goes
+  // inactive so the store and its items leave public pages. Buyers' access
+  // rows are left untouched.
   async deleteCurrentUser(id: string): Promise<PublicUser> {
     const user = await this.findActiveEntity(id);
-    user.deletedBy = id;
-    await this.users.save(user);
-    await this.users.softDelete(id);
+    await this.users.manager.transaction(async (manager) => {
+      user.deletedBy = id;
+      await manager.save(User, user);
+      await manager.softDelete(User, { id });
+      await manager.update(
+        Merchant,
+        { userId: id },
+        { status: MERCHANT_INACTIVE },
+      );
+    });
 
     return this.toPublicUser(user);
   }

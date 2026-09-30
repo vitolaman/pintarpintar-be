@@ -111,11 +111,11 @@ Every route requires a Bearer token except those marked **public**. The full req
 - `PATCH /merchants/v1/update-profile` — includes logo (`avatar_asset_id`), banner (`cover_asset_id`), sanitized rich-text description, skills, and landing background and layout
 - `GET /merchants/v1/get-notification-preferences`
 - `PATCH /merchants/v1/update-notification-preferences`
-- `POST /file-assets/v1/register-upload` — registers an uploaded S3 object as a logo, banner, landing background, or avatar
+- `POST /file-assets/v1/register-upload` — registers an uploaded S3 object for a purpose: public images (`merchant_logo`, `merchant_banner`, `merchant_landing_background`, `user_avatar`, `class_cover`, `product_cover`) or private files (`class_resource`, `assignment_resource` up to 100 MB; `digital_file` up to 200 MB). Private files are only served through signed links that expire after 10 minutes
 
 ### Merchant dashboard
 
-- `GET /merchants/v1/get-dashboard` — summary and merchant level
+- `GET /merchants/v1/get-dashboard` — summary and merchant level; rating, latest review, and activity cover class and digital-product reviews
 - `GET /merchants/v1/get-sales`
 - `GET /merchants/v1/export-sales` — CSV
 - `GET /merchants/v1/get-customers`
@@ -153,21 +153,44 @@ Account numbers are always returned masked. They are stored encrypted when `PAYO
 - `DELETE /bundles/v1/delete-bundle/:id`
 - `GET /bundles/v1/get-public-bundles` — **public**; published bundles, optionally of one merchant
 
+### Merchant digital products
+
+- `GET /digital-products/v1/get-digital-products` — own products with downloads, rating, and revenue; filter by `status` (`published`, `unpublished`, `unlisted`) and `search`
+- `GET /digital-products/v1/get-digital-product/:id` — includes a signed download link for the product file
+- `POST /digital-products/v1/create-digital-product` — `category_slug`, prices, status, cover (`product_cover`), one file (`digital_file`, required to publish), post-purchase instructions
+- `PATCH /digital-products/v1/update-digital-product/:id` — a new `file_asset_id` replaces the single file
+- `DELETE /digital-products/v1/delete-digital-product/:id` — 409 while the product is in a published or unlisted bundle; buyers keep access
+
 ### Merchant classes and class management
 
-- `GET /merchants/v1/:merchantId/classes`
+The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderator`) act within their permission matrix (areas `materi`, `meeting`, `tugas`, `nilai`, `sertifikat` × `lihat`, `tambah`, `edit`, `delete`): missing permission is 403, anyone else gets 404. Class status `archived` means unlisted (hidden from lists, open by link). Writes return `{data, responseMessage}`; deletes return 204.
+
+- `GET /merchants/v1/:merchantId/classes` — filter by `status` and `type`; `limit` up to 100
 - `POST /merchants/v1/:merchantId/classes`
 - `GET /api/v1/classes/:classId`
-- `GET /api/v1/classes/:classId/chapters`
+- `PATCH /api/v1/classes/:classId` — details, prices, cover (`class_cover`), post-purchase instructions; a lead tutor may change only title, description, cover, and instructions
+- `GET /api/v1/classes/:classId/chapters` — chapters with videos and resources in order; file resources carry signed download links
 - `POST /api/v1/classes/:classId/chapters`
-- `POST /api/v1/classes/:classId/chapters/:chapterId/resources`
+- `PATCH /api/v1/classes/:classId/chapters/:chapterId`
+- `DELETE /api/v1/classes/:classId/chapters/:chapterId` — also removes its videos and resources
+- `PUT /api/v1/classes/:classId/chapters/:chapterId/order` — complete `video_ids` and `resource_ids` lists
+- `POST /api/v1/classes/:classId/chapters/:chapterId/videos` — https YouTube or embed link
+- `PATCH /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
+- `DELETE /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
+- `POST /api/v1/classes/:classId/chapters/:chapterId/resources` — `pdf`, `archive`, `image`, `file` (an uploaded `class_resource`) or `link` (https)
+- `PATCH /api/v1/classes/:classId/chapters/:chapterId/resources/:resourceId`
+- `DELETE /api/v1/classes/:classId/chapters/:chapterId/resources/:resourceId`
 - `GET /api/v1/classes/:classId/meetings`
-- `POST /api/v1/classes/:classId/meetings`
-- `GET /api/v1/classes/:classId/mentors`
-- `POST /api/v1/classes/:classId/mentors`
+- `POST /api/v1/classes/:classId/meetings` — date `YYYY-MM-DD`, time `HH:mm`, https live link
+- `PATCH /api/v1/classes/:classId/meetings/:meetingId`
+- `GET /api/v1/classes/:classId/mentors` — tutors with name, email, avatar, role, and permissions
+- `POST /api/v1/classes/:classId/mentors` — invite by email with a role; the role preset applies when no matrix is sent
+- `PATCH /api/v1/classes/:classId/mentors/:classMentorId` — owner only
+- `DELETE /api/v1/classes/:classId/mentors/:classMentorId` — owner only; the tutor loses access immediately
 - `GET /api/v1/classes/:classId/students`
-- `GET /api/v1/classes/:classId/assignments`
-- `POST /api/v1/classes/:classId/assignments`
+- `GET /api/v1/classes/:classId/assignments` — submission counts; correct answers only for the owner and tutors with `tugas` or `nilai` permission
+- `POST /api/v1/classes/:classId/assignments` — future `due`, `file_upload` or `quiz` (2–4 options per multiple-choice question), optional `assignment_resource`
+- `DELETE /api/v1/classes/:classId/assignments/:assignmentId`
 
 ### File upload (S3 multipart)
 
@@ -182,7 +205,7 @@ Account numbers are always returned masked. They are stored encrypted when `PAYO
 - `GET /mentors/v1/get-mentor/:id` — **public**
 - `GET /mentors/v1/get-profile`
 - `PATCH /mentors/v1/update-profile`
-- `GET /mentors/v1/get-assignments`
+- `GET /mentors/v1/get-assignments` — merchant, product, and class tutor assignments (with role and permissions)
 - `GET /mentors/v1/get-dashboard` — stats, upcoming sessions, recent learner messages, class progress
 - `GET /mentors/v1/get-classes` — assigned classes (Kelas-kelas), filterable by type and search
 - `GET /mentors/v1/get-teaching-classes` — teaching history (Kelas Mentor on the profile)

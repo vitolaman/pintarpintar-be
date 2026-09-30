@@ -30,6 +30,7 @@ import { OrderModule } from './api/order/order.module';
 import { PayoutAccountModule } from './api/payout-account/payout-account.module';
 import { BundleModule } from './api/bundle/bundle.module';
 import { DiscountModule } from './api/discount/discount.module';
+import { MerchantDashboardModule } from './api/merchant-dashboard/merchant-dashboard.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { DiscountModule } from './api/discount/discount.module';
     PayoutAccountModule,
     BundleModule,
     DiscountModule,
+    MerchantDashboardModule,
   ],
   controllers: [AppController],
   providers: [

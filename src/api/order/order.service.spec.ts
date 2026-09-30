@@ -1,26 +1,42 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { TransactionsQueryDto } from './dto/recent-transactions.dto';
-import { Order, OrderStatus } from './entities/order.entity';
+import { OrderStatus } from './entities/order.entity';
 import { OrderService } from './order.service';
 
 describe('OrderService', () => {
   const order = {
     id: 'order-1',
+    orderNumber: 'ORD-20260930-0001',
     created_at: new Date('2026-09-30T00:00:00Z'),
     status: OrderStatus.PENDING,
     totalAmount: '299000',
     discountAmount: '0',
   };
-  let manager: Record<string, jest.Mock>;
+  let builder: Record<string, jest.Mock>;
   let query: jest.Mock;
   let service: OrderService;
 
   beforeEach(() => {
-    manager = {
-      find: jest.fn(async () => [order]),
-      findAndCount: jest.fn(async () => [[order], 11]),
-    };
+    builder = {};
+    for (const method of [
+      'addSelect',
+      'where',
+      'andWhere',
+      'orderBy',
+      'addOrderBy',
+      'offset',
+      'limit',
+    ]) {
+      builder[method] = jest.fn(() => builder);
+    }
+    builder.clone = jest.fn(() => builder);
+    builder.getCount = jest.fn(async () => 11);
+    // The overdue pending order reads as expired.
+    builder.getRawAndEntities = jest.fn(async () => ({
+      entities: [{ ...order }],
+      raw: [{ purchase_id: 'order-1', effective_status: 'expired' }],
+    }));
     query = jest.fn(async () => [
       {
         order_id: 'order-1',
@@ -30,7 +46,10 @@ describe('OrderService', () => {
         type: 'kelas',
       },
     ]);
-    service = new OrderService({ manager, query } as never);
+    service = new OrderService({
+      manager: { createQueryBuilder: () => builder },
+      query,
+    } as never);
   });
 
   it('lists only the caller orders with a status filter and pagination', async () => {
@@ -40,12 +59,15 @@ describe('OrderService', () => {
       status: OrderStatus.PENDING,
     });
 
-    expect(manager.findAndCount).toHaveBeenCalledWith(Order, {
-      where: { userId: 'user-id', status: 'pending' },
-      order: { created_at: 'DESC', id: 'DESC' },
-      skip: 10,
-      take: 10,
+    expect(builder.where).toHaveBeenCalledWith('purchase.user_id = :userId', {
+      userId: 'user-id',
     });
+    expect(builder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining("THEN 'expired' ELSE purchase.status END"),
+      { status: 'pending' },
+    );
+    expect(builder.offset).toHaveBeenCalledWith(10);
+    expect(builder.limit).toHaveBeenCalledWith(10);
     expect(response.meta).toEqual({
       page: 2,
       limit: 10,
@@ -53,6 +75,7 @@ describe('OrderService', () => {
       totalPage: 2,
     });
     expect(response.data[0]).toMatchObject({
+      order_number: 'ORD-20260930-0001',
       total_amount: 299000,
       items: [{ type: 'kelas', title: 'AutoCAD', price: 299000 }],
     });
@@ -63,13 +86,14 @@ describe('OrderService', () => {
 
     expect(response.data[0]).toMatchObject({
       id: 'order-1',
-      status: 'pending',
+      status: 'expired',
     });
   });
 
   it.each([
     [{ limit: '51' }, true],
     [{ status: 'refunded' }, true],
+    [{ status: 'cancelled' }, false],
     [{ page: '0' }, true],
     [{ page: '2', limit: '50', status: 'paid' }, false],
   ])('validates %j', async (input, hasErrors) => {

@@ -1,15 +1,35 @@
 import {
+  BadGatewayException,
   BadRequestException,
+  Body,
+  ConflictException,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Post,
   Query,
   Req,
+  ServiceUnavailableException,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle, ThrottlerException } from '@nestjs/throttler';
 import {
   ArrayResponse,
+  DefaultResponse,
   PaginatedResponse,
 } from '~/common/decorator/response.decorator';
+import { ClientAddressThrottlerGuard } from '~/common/guard/client-address-throttler.guard';
+import { CheckoutService } from './checkout/checkout.service';
+import {
+  CheckoutPreviewResponseDto,
+  CheckoutRequestDto,
+  OrderDetailResponseDto,
+} from './dto/checkout.dto';
 import {
   RecentTransactionsQueryDto,
   TransactionResponseDto,
@@ -21,7 +41,10 @@ import { OrderService } from './order.service';
 @ApiBearerAuth()
 @ApiTags('Orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly checkoutService: CheckoutService,
+  ) {}
 
   @Get('get-recent-transactions')
   @ArrayResponse(TransactionResponseDto, 'Get recent transactions success', [
@@ -43,5 +66,99 @@ export class OrderController {
     @Query() query: TransactionsQueryDto,
   ) {
     return this.orderService.findAll(req.user.id, query);
+  }
+
+  // Prices the selection with its codes for the payment summary; writes
+  // nothing.
+  @Post('preview-checkout')
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(
+    CheckoutPreviewResponseDto,
+    'Preview checkout success',
+    HttpStatus.OK,
+    [BadRequestException],
+  )
+  preview(
+    @Req() req: { user: { id: string } },
+    @Body() body: CheckoutRequestDto,
+  ) {
+    return this.checkoutService.preview(req.user.id, body);
+  }
+
+  // Creates the pending order and its Duitku invoice; open
+  // `payment_reference` with Duitku's `checkout.process` or redirect to
+  // `payment_url`.
+  @Post('checkout')
+  @DefaultResponse(
+    OrderDetailResponseDto,
+    'Checkout success',
+    HttpStatus.CREATED,
+    [
+      BadRequestException,
+      ConflictException,
+      BadGatewayException,
+      ServiceUnavailableException,
+    ],
+  )
+  checkout(
+    @Req() req: { user: { id: string } },
+    @Body() body: CheckoutRequestDto,
+  ) {
+    return this.checkoutService.checkout(req.user.id, body);
+  }
+
+  @Get('get-order/:id')
+  @DefaultResponse(OrderDetailResponseDto, 'Get order success')
+  async findOne(
+    @Req() req: { user: { id: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return {
+      data: await this.orderService.findDetail(req.user.id, id),
+      responseMessage: 'Get order success',
+    };
+  }
+
+  @Post('cancel-order/:id')
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(
+    OrderDetailResponseDto,
+    'Cancel order success',
+    HttpStatus.OK,
+    [BadRequestException, NotFoundException],
+  )
+  async cancel(
+    @Req() req: { user: { id: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.checkoutService.cancel(req.user.id, id);
+    return {
+      data: await this.orderService.findDetail(req.user.id, id),
+      responseMessage: 'Cancel order success',
+    };
+  }
+
+  // Recovers a missed payment notification; rate-limited because Duitku
+  // blocks callers that check too often.
+  @Post('check-payment/:id')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ClientAddressThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @DefaultResponse(
+    OrderDetailResponseDto,
+    'Check payment success',
+    HttpStatus.OK,
+    [
+      NotFoundException,
+      ThrottlerException,
+      BadGatewayException,
+      ServiceUnavailableException,
+    ],
+  )
+  checkPayment(
+    @Req() req: { user: { id: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.checkoutService.checkPayment(req.user.id, id);
   }
 }

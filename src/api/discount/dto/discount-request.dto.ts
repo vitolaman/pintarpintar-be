@@ -50,7 +50,8 @@ export class DiscountTargetInputDto {
 export class DiscountCodeInputDto {
   @ApiProperty({
     enum: discountCodeTypes,
-    description: 'once = one use per user; recurring = repeat use',
+    description:
+      'once = single-use codes ("Kode Sekali Pakai"); recurring = one shared code ("Kode Berulang")',
   })
   @IsIn(discountCodeTypes)
   code_type: DiscountCodeType;
@@ -59,7 +60,8 @@ export class DiscountCodeInputDto {
     example: 100,
     minimum: 1,
     maximum: 100000,
-    description: 'Total redemptions allowed',
+    description:
+      'once: how many single-use codes to generate (at most 1,000 per request in total); recurring: total uses of the shared code',
   })
   @IsInt()
   @Min(1)

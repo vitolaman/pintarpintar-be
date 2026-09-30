@@ -27,6 +27,8 @@ import { DiscountProduct } from './entities/discount-product.entity';
 import { Discount } from './entities/discount.entity';
 
 // Uppercase letters and digits without look-alikes (0/O, 1/I/L).
+// Bounds one request's work; a `once` entry generates one row per code.
+const MAX_SINGLE_USE_CODES_PER_REQUEST = 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_PREFIX = 'DSC-';
 const CODE_LENGTH = 8;
@@ -293,18 +295,31 @@ export class DiscountService {
     discountId: string,
     entries: DiscountCodeInputDto[],
   ): Promise<void> {
-    for (const entry of entries) {
-      const code = await this.nextAvailableCode(manager);
-      await manager.save(
-        DiscountCode,
-        manager.create(DiscountCode, {
-          discountId,
-          code,
-          codeType: entry.code_type,
-          usageLimit: entry.usage_limit,
-          usedCount: 0,
-        }),
+    const singleUseCodes = entries
+      .filter((entry) => entry.code_type === 'once')
+      .reduce((total, entry) => total + entry.usage_limit, 0);
+    if (singleUseCodes > MAX_SINGLE_USE_CODES_PER_REQUEST) {
+      throw new BadRequestException(
+        `At most ${MAX_SINGLE_USE_CODES_PER_REQUEST} single-use codes can be generated per request`,
       );
+    }
+
+    for (const entry of entries) {
+      const singleUse = entry.code_type === 'once';
+      const copies = singleUse ? entry.usage_limit : 1;
+      for (let index = 0; index < copies; index++) {
+        const code = await this.nextAvailableCode(manager);
+        await manager.save(
+          DiscountCode,
+          manager.create(DiscountCode, {
+            discountId,
+            code,
+            codeType: entry.code_type,
+            usageLimit: singleUse ? 1 : entry.usage_limit,
+            usedCount: 0,
+          }),
+        );
+      }
     }
   }
 

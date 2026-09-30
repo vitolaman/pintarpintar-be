@@ -80,7 +80,8 @@ export class CatalogItemDetailsDto {
 }
 
 // Resolves typed references ($1 class ids, $2 product ids, $3 bundle ids) to
-// live details. Deleted items are included and reported unavailable.
+// live details. Deleted items, and items of an inactive or deleted merchant,
+// are included and reported unavailable.
 const CATALOG_DETAILS_SQL = `
   SELECT CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END AS type,
          class.id, class.title, class_cover.object_key AS image,
@@ -126,7 +127,8 @@ export async function loadCatalogItems(
   if (refs.length === 0) return new Map();
 
   const rows = await manager.query(
-    `SELECT catalog.*, merchant.store_name AS merchant_name, profile.slug AS merchant_slug
+    `SELECT catalog.*, merchant.store_name AS merchant_name, profile.slug AS merchant_slug,
+            COALESCE(merchant.status = 'active' AND merchant.deleted_at IS NULL, false) AS merchant_active
      FROM (${CATALOG_DETAILS_SQL}) catalog
      LEFT JOIN merchants merchant ON merchant.id = catalog.merchant_id
      LEFT JOIN merchant_profiles profile ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL`,
@@ -150,7 +152,7 @@ export async function loadCatalogItems(
         merchant_id: row.merchant_id,
         merchant_name: row.merchant_name,
         merchant_slug: row.merchant_slug,
-        is_available: row.is_available,
+        is_available: row.is_available && row.merchant_active,
       },
     ]),
   );
@@ -158,4 +160,57 @@ export async function loadCatalogItems(
 
 export function referenceId(ref: CatalogItemColumns): string {
   return ref.classId ?? ref.productId ?? ref.bundleId;
+}
+
+/**
+ * Returns the ids among `refs` that the user already owns: an active class
+ * enrollment, unexpired product access, or a bundle that was bought or whose
+ * items are all owned.
+ */
+export async function findOwnedItemIds(
+  manager: EntityManager,
+  userId: string,
+  refs: CatalogItemColumns[],
+): Promise<Set<string>> {
+  if (refs.length === 0) return new Set();
+
+  const rows: Array<{ id: string }> = await manager.query(
+    `SELECT enrollment.class_id AS id FROM enrollments enrollment
+     WHERE enrollment.user_id = $1 AND enrollment.class_id = ANY($2::uuid[])
+       AND enrollment.deleted_at IS NULL
+     UNION
+     SELECT access.product_id FROM user_access access
+     WHERE access.user_id = $1 AND access.product_id = ANY($3::uuid[])
+       AND access.deleted_at IS NULL
+       AND (access.expires_at IS NULL OR access.expires_at > now())
+     UNION
+     SELECT bundle.id FROM bundles bundle
+     WHERE bundle.id = ANY($4::uuid[])
+       AND (
+         EXISTS (
+           SELECT 1 FROM order_items item
+           INNER JOIN orders purchase ON purchase.id = item.order_id
+           WHERE purchase.user_id = $1 AND item.bundle_id = bundle.id
+             AND purchase.status = 'paid'
+             AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL)
+         OR NOT EXISTS (
+           SELECT 1 FROM bundle_items item
+           WHERE item.bundle_id = bundle.id AND item.deleted_at IS NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM enrollments enrollment
+               WHERE enrollment.user_id = $1 AND enrollment.class_id = item.class_id
+                 AND enrollment.deleted_at IS NULL)
+             AND NOT EXISTS (
+               SELECT 1 FROM user_access access
+               WHERE access.user_id = $1 AND access.product_id = item.product_id
+                 AND access.deleted_at IS NULL
+                 AND (access.expires_at IS NULL OR access.expires_at > now()))))`,
+    [
+      userId,
+      refs.map((ref) => ref.classId).filter(Boolean),
+      refs.map((ref) => ref.productId).filter(Boolean),
+      refs.map((ref) => ref.bundleId).filter(Boolean),
+    ],
+  );
+  return new Set(rows.map((row) => row.id));
 }

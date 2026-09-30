@@ -14,11 +14,18 @@ import {
 
 const EXPORT_LIMIT = 5000;
 
+// An unpaid order past its expiry reads as expired before the sweep records it.
+const SALE_STATUS_SQL = `CASE WHEN purchase.status = 'pending' AND purchase.expires_at <= now()
+  THEN 'expired' ELSE purchase.status END`;
+
 // Every order item that references one of the merchant's digital products,
-// classes, or bundles ($1 = merchant id). All figures derive from it.
+// classes, or bundles ($1 = merchant id). All figures derive from it; `amount`
+// is the merchant's net (price minus the item's code discount share).
 const MERCHANT_SALES_SQL = `
-  SELECT item.id, item.order_id, item.price_at_purchase AS amount,
-         purchase.status, purchase.created_at, purchase.user_id, purchase.coupon_id,
+  SELECT item.id, item.order_id, item.price_at_purchase - item.discount_amount AS amount,
+         item.price_at_purchase AS gross_amount,
+         ${SALE_STATUS_SQL} AS status, purchase.created_at, purchase.user_id, purchase.coupon_id,
+         purchase.expires_at, purchase.payment_url, purchase.payment_method,
          'digital' AS type, product.id AS item_id, product.title AS item_title
   FROM order_items item
   INNER JOIN products product ON product.id = item.product_id
@@ -27,8 +34,10 @@ const MERCHANT_SALES_SQL = `
 
   UNION ALL
 
-  SELECT item.id, item.order_id, item.price_at_purchase,
-         purchase.status, purchase.created_at, purchase.user_id, purchase.coupon_id,
+  SELECT item.id, item.order_id, item.price_at_purchase - item.discount_amount,
+         item.price_at_purchase,
+         ${SALE_STATUS_SQL}, purchase.created_at, purchase.user_id, purchase.coupon_id,
+         purchase.expires_at, purchase.payment_url, purchase.payment_method,
          CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END,
          class.id, class.title
   FROM order_items item
@@ -38,8 +47,10 @@ const MERCHANT_SALES_SQL = `
 
   UNION ALL
 
-  SELECT item.id, item.order_id, item.price_at_purchase,
-         purchase.status, purchase.created_at, purchase.user_id, purchase.coupon_id,
+  SELECT item.id, item.order_id, item.price_at_purchase - item.discount_amount,
+         item.price_at_purchase,
+         ${SALE_STATUS_SQL}, purchase.created_at, purchase.user_id, purchase.coupon_id,
+         purchase.expires_at, purchase.payment_url, purchase.payment_method,
          'bundle', bundle.id, bundle.title
   FROM order_items item
   INNER JOIN bundles bundle ON bundle.id = item.bundle_id
@@ -183,7 +194,8 @@ export class MerchantDashboardService {
       ),
       this.dataSource.query(
         `SELECT sale.order_id, sale.item_title, sale.amount AS price, sale.created_at AS checkout_at,
-                  buyer.name AS buyer_name, buyer.email AS buyer_email, profile.phone AS buyer_phone
+                  buyer.name AS buyer_name, buyer.email AS buyer_email, profile.phone AS buyer_phone,
+                  CASE WHEN sale.expires_at > now() THEN sale.payment_url END AS payment_link
            FROM (${MERCHANT_SALES_SQL}) sale
            INNER JOIN users buyer ON buyer.id = sale.user_id
            LEFT JOIN user_profiles profile ON profile.user_id = buyer.id AND profile.deleted_at IS NULL
@@ -222,7 +234,6 @@ export class MerchantDashboardService {
         unpaid_transactions: unpaid.map((row) => ({
           ...row,
           price: Number(row.price),
-          payment_link: null,
         })),
       },
       responseMessage: 'Get merchant dashboard success',
@@ -363,8 +374,8 @@ export class MerchantDashboardService {
     const rows = await this.dataSource.query(
       `SELECT sale.id, sale.order_id, sale.created_at AS ordered_at,
               buyer.name AS buyer_name, profile.phone AS buyer_phone,
-              sale.type, sale.item_id, sale.item_title, sale.amount,
-              coupon.code AS coupon_code, sale.status
+              sale.type, sale.item_id, sale.item_title, sale.amount, sale.gross_amount,
+              coupon.code AS coupon_code, sale.payment_method, sale.status
        ${salesFromSql(whereSql)}
        ORDER BY ${sortColumn} ${direction}, sale.id ${direction}
        LIMIT $${next} OFFSET $${next + 1}`,
@@ -380,8 +391,8 @@ export class MerchantDashboardService {
       type: row.type,
       item_id: row.item_id,
       item_title: row.item_title,
-      amount: Number(row.amount),
-      payment_method: null,
+      amount: Number(row.gross_amount),
+      payment_method: row.payment_method,
       coupon_code: row.coupon_code,
       platform_fee: null,
       transaction_fee: null,

@@ -30,6 +30,7 @@ const catalogRow = (override: Record<string, unknown> = {}) => ({
   merchant_name: 'Akademi Teknik Budi',
   merchant_slug: 'akademi-teknik-budi',
   is_available: true,
+  merchant_active: true,
   ...override,
 });
 
@@ -237,7 +238,7 @@ describe('OrderService recent transactions', () => {
   });
 
   it('returns the newest orders with typed items', async () => {
-    const find = jest.fn().mockResolvedValue([
+    const orders = [
       {
         id: 'o2',
         created_at: new Date('2026-09-29'),
@@ -252,7 +253,25 @@ describe('OrderService recent transactions', () => {
         totalAmount: '899000',
         discountAmount: '0',
       },
-    ]);
+    ];
+    const limit = jest.fn();
+    const builder = {
+      addSelect: () => builder,
+      where: () => builder,
+      orderBy: () => builder,
+      addOrderBy: () => builder,
+      limit: (value: number) => {
+        limit(value);
+        return builder;
+      },
+      getRawAndEntities: async () => ({
+        entities: orders,
+        raw: orders.map((order) => ({
+          purchase_id: order.id,
+          effective_status: order.status,
+        })),
+      }),
+    };
     const query = jest.fn().mockResolvedValue([
       {
         order_id: 'o1',
@@ -270,16 +289,13 @@ describe('OrderService recent transactions', () => {
       },
     ]);
     const service = new OrderService({
-      manager: { find },
+      manager: { createQueryBuilder: () => builder },
       query,
     } as unknown as DataSource);
 
     const { data } = await service.findRecent('user-id', { limit: 3 });
 
-    expect(find).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ take: 3 }),
-    );
+    expect(limit).toHaveBeenCalledWith(3);
     expect(
       data.map((order) => [order.id, order.status, order.items[0].type]),
     ).toEqual([

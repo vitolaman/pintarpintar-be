@@ -54,10 +54,16 @@ export class TransactionResponseDto {
   @ApiProperty({ description: 'Order id' })
   id: string;
 
+  @ApiProperty({ example: 'ORD-20260930-0001' })
+  order_number: string;
+
   @ApiProperty()
   created_at: Date;
 
-  @ApiProperty({ enum: ['paid', 'pending'] })
+  @ApiProperty({
+    enum: OrderStatus,
+    description: 'An unpaid order past its expiry reads as `expired`',
+  })
   status: string;
 
   @ApiProperty({ example: 299000 })

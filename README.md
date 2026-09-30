@@ -105,8 +105,21 @@ Every route requires a Bearer token except those marked **public**. The full req
 - `GET /cart/v1/get-cart`
 - `DELETE /cart/v1/remove-from-cart/:id`
 - `DELETE /cart/v1/clear-cart`
-- `GET /orders/v1/get-recent-transactions` — last 3 orders
-- `GET /orders/v1/get-transactions` — full history, paginated, filter by `status`
+- `GET /orders/v1/get-recent-transactions` — last 3 orders, with order numbers
+- `GET /orders/v1/get-transactions` — full history, paginated, filter by `status` (`pending`, `paid`, `expired`, `failed`, `cancelled`)
+
+### Checkout and payment (Duitku POP)
+
+- `POST /orders/v1/preview-checkout` — prices up to 20 items with up to one voucher and one discount code (each applies to its own merchant's items); writes nothing
+- `POST /orders/v1/checkout` — creates one `ORD-YYYYMMDD-NNNN` order that stays payable for 60 minutes and returns Duitku's `payment_reference` (for `checkout.process`) and `payment_url`; a Rp0 order is paid at once, and totals between Rp1 and Rp9,999 are rejected
+- `GET /orders/v1/get-order/:id` — the buyer's order for the return page; the payment link is included only while the order can be paid
+- `POST /orders/v1/cancel-order/:id` — cancels an unpaid order and releases its codes
+- `POST /orders/v1/check-payment/:id` — asks Duitku for the status of an unpaid order (recovers a missed notification); 10 per minute per client
+- `POST /payments/v1/duitku-callback` — **public**; Duitku's signed payment notification, the only source that marks an order paid
+
+Payment grants class enrolments and digital-product access (bundles expanded), removes the items from the cart, and credits each merchant's wallet with the item price minus its code discounts. Income becomes withdrawable on Duitku's settlement date (H+4 when none is reported). Unpaid orders expire every minute; settlement runs every 30 minutes.
+
+Deployment needs the six `PAYMENT_*` variables in `.env.example`. `PAYMENT_GATEWAY_URL` is the POP API base (`https://api-sandbox.duitku.com/api` or `https://api-prod.duitku.com/api`), not the demo page. Set the Duitku project's callback URL to `PAYMENT_CALLBACK_URL`, and allow Duitku's POSTs to `/payments/v1/duitku-callback` through Cloudflare (no bot challenge on that path).
 
 ### Merchant profile and settings
 
@@ -121,7 +134,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 ### Merchant dashboard
 
 - `GET /merchants/v1/get-dashboard` — summary and merchant level; rating, latest review, and activity cover class and digital-product reviews
-- `GET /merchants/v1/get-sales`
+- `GET /merchants/v1/get-sales` — price, net after code discounts, and payment method per item; revenue figures across the dashboard use the net
 - `GET /merchants/v1/export-sales` — CSV
 - `GET /merchants/v1/get-customers`
 - `GET /merchants/v1/get-wallet` — earning, settled (withdrawable), and lifetime balances

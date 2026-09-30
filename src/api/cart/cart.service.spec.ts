@@ -30,6 +30,7 @@ const catalogRow = (override: Record<string, unknown> = {}) => ({
   merchant_name: 'Akademi Teknik Budi',
   merchant_slug: 'akademi-teknik-budi',
   is_available: true,
+  merchant_active: true,
   ...override,
 });
 

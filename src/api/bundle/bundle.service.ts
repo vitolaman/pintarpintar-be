@@ -193,17 +193,27 @@ export class BundleService {
           );
 
     const responses = await this.toResponses(rows);
-    const data: PublicBundleResponseDto[] = responses.map(
-      ({ post_purchase_instructions, status, ...bundle }, index) => ({
-        ...bundle,
-        cover_url: assetUrl(bundle.cover_object_key),
-        merchant: {
-          id: rows[index].merchant_id,
-          name: rows[index].merchant_name,
-          slug: rows[index].merchant_slug,
-        },
-      }),
-    );
+    // Listed field by field so private bundle fields never reach the public page.
+    const data: PublicBundleResponseDto[] = responses.map((bundle, index) => ({
+      id: bundle.id,
+      title: bundle.title,
+      description: bundle.description,
+      cover_asset_id: bundle.cover_asset_id,
+      cover_object_key: bundle.cover_object_key,
+      cover_url: assetUrl(bundle.cover_object_key),
+      items: bundle.items,
+      original_total: bundle.original_total,
+      bundle_price: bundle.bundle_price,
+      saving_amount: bundle.saving_amount,
+      saving_percent: bundle.saving_percent,
+      sales_count: bundle.sales_count,
+      created_at: bundle.created_at,
+      merchant: {
+        id: rows[index].merchant_id,
+        name: rows[index].merchant_name,
+        slug: rows[index].merchant_slug,
+      },
+    }));
     return {
       data,
       meta: { page, limit, total, totalPage: Math.ceil(total / limit) },

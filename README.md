@@ -51,7 +51,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 ### Catalog (Kelas, Bootcamp, Produk Digital)
 
-- `GET /catalog/v1/get-items` — **public**; filter by type, search, level, and category; sort; paginate
+- `GET /catalog/v1/get-items` — **public**; filter by type, search, level, category, merchant (`merchant_id`), and digital file type (`file_format`); sort; paginate
 - `GET /catalog/v1/get-class/:id` — **public**; syllabus, mentors, and meeting schedule, without video, file, or meeting links
 - `GET /catalog/v1/get-digital-product/:id` — **public**; file formats and sizes, without download links
 
@@ -62,7 +62,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 ### Vouchers
 
-- `GET /vouchers/v1/get-public-vouchers` — **public**; search, category, and merchant filters
+- `GET /vouchers/v1/get-public-vouchers` — **public**; search, category, and merchant (`merchant_slug` or `merchant_id`) filters
 - `GET /vouchers/v1/get-featured-vouchers` — **public**; 3 random vouchers with tags
 - `POST /vouchers/v1/create-voucher` — merchant
 - `GET /vouchers/v1/get-vouchers` — merchant
@@ -74,6 +74,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 - `POST /reviews/v1/create-review` — enrolled learners only, one review per class
 - `GET /reviews/v1/get-class-reviews/:classId` — **public**; average, count, and paged reviews
+- `GET /reviews/v1/get-merchant-reviews/:merchantId` — **public**; reviews of a merchant's classes and products (Review tab)
 
 ### Pusat Bantuan
 
@@ -87,7 +88,8 @@ Every route requires a Bearer token except those marked **public**. The full req
 - `GET /profile/v1/get-profile` — includes `member_since`
 - `PATCH /profile/v1/update-profile`
 - `GET /profile/v1/get-learning`
-- `GET /profile/v1/get-certifications` — issued class certificates
+- `GET /profile/v1/get-certifications` — issued class certificates with the class mentor
+- `GET /profile/v1/get-statistics` — bootcamps, video classes, digital products, and certificates (Statistik Pembelajaran)
 - `GET /portal/v1/get-items` — owned classes, bootcamps, and digital products
 
 ### Wishlist, cart, and transactions
@@ -104,12 +106,12 @@ Every route requires a Bearer token except those marked **public**. The full req
 ### Merchant profile and settings
 
 - `POST /merchants/v1/register`
-- `GET /merchants/v1/get-public-merchant/:slug` — **public** storefront
+- `GET /merchants/v1/get-public-merchant/:merchant` — **public** storefront by id or slug; stats, skills (Bidang), landing settings, and `is_owner` for the signed-in owner
 - `GET /merchants/v1/get-profile`
-- `PATCH /merchants/v1/update-profile` — includes logo (`avatar_asset_id`) and banner (`cover_asset_id`)
+- `PATCH /merchants/v1/update-profile` — includes logo (`avatar_asset_id`), banner (`cover_asset_id`), sanitized rich-text description, skills, and landing background and layout
 - `GET /merchants/v1/get-notification-preferences`
 - `PATCH /merchants/v1/update-notification-preferences`
-- `POST /file-assets/v1/register-upload` — registers an uploaded S3 object as a logo, banner, or avatar
+- `POST /file-assets/v1/register-upload` — registers an uploaded S3 object as a logo, banner, landing background, or avatar
 
 ### Merchant dashboard
 
@@ -149,6 +151,7 @@ Account numbers are always returned masked. They are stored encrypted when `PAYO
 - `GET /bundles/v1/get-bundle/:id`
 - `PATCH /bundles/v1/update-bundle/:id`
 - `DELETE /bundles/v1/delete-bundle/:id`
+- `GET /bundles/v1/get-public-bundles` — **public**; published bundles, optionally of one merchant
 
 ### Merchant classes and class management
 
@@ -180,6 +183,19 @@ Account numbers are always returned masked. They are stored encrypted when `PAYO
 - `GET /mentors/v1/get-profile`
 - `PATCH /mentors/v1/update-profile`
 - `GET /mentors/v1/get-assignments`
+- `GET /mentors/v1/get-dashboard` — stats, upcoming sessions, recent learner messages, class progress
+- `GET /mentors/v1/get-classes` — assigned classes (Kelas-kelas), filterable by type and search
+- `GET /mentors/v1/get-teaching-classes` — teaching history (Kelas Mentor on the profile)
+- `GET /mentors/v1/get-documents` — CV and skill certificate with short-lived download URLs
+- `PATCH /mentors/v1/update-documents` — replaces the CV and/or skill certificate (multipart)
+
+### Class discussions
+
+Open to the class's merchant owner, its assigned mentors, and enrolled learners; learners can reply but not start threads.
+
+- `GET /discussions/v1/get-threads/:classId`
+- `POST /discussions/v1/create-thread`
+- `POST /discussions/v1/create-comment`
 
 ## Swagger
 

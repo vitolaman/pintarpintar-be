@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { compare } from 'bcryptjs';
 import { Repository } from 'typeorm';
+import { Merchant } from '../merchant/entities/merchant.entity';
 import { User } from './entities/user.entity';
 import { UserService } from './user.service';
 
@@ -146,17 +147,29 @@ describe('UserService', () => {
     expect(result).not.toHaveProperty('passwordHash');
   });
 
-  it('soft-deletes the current user, records the actor, and returns no hash', async () => {
+  it('soft-deletes the current user, deactivates the merchant, and returns no hash', async () => {
+    const manager = {
+      save: jest.fn(async (_entity, input) => input),
+      softDelete: jest.fn(),
+      update: jest.fn(),
+    };
+    (repository as Record<string, unknown>).manager = {
+      transaction: jest.fn((callback) => callback(manager)),
+    };
     repository.findOneBy.mockResolvedValue({ ...user });
-    repository.save.mockImplementation(async (input) => input as User);
-    repository.softDelete.mockResolvedValue({} as never);
 
     const result = await service.deleteCurrentUser(user.id);
 
-    expect(repository.save).toHaveBeenCalledWith(
+    expect(manager.save).toHaveBeenCalledWith(
+      User,
       expect.objectContaining({ deletedBy: user.id }),
     );
-    expect(repository.softDelete).toHaveBeenCalledWith(user.id);
+    expect(manager.softDelete).toHaveBeenCalledWith(User, { id: user.id });
+    expect(manager.update).toHaveBeenCalledWith(
+      Merchant,
+      { userId: user.id },
+      { status: 'inactive' },
+    );
     expect(result).not.toHaveProperty('passwordHash');
     expect(result).toMatchObject({ id: user.id, email: user.email });
   });

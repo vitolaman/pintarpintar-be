@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { assetUrl } from '../../common/storage/asset-url';
+import { Category } from '../digital-product/entities/category.entity';
 import {
   CatalogCardDto,
   CatalogCardType,
@@ -9,6 +10,7 @@ import {
   CatalogDigitalDetailDto,
   CatalogQueryDto,
   CatalogSort,
+  CategoryNodeDto,
 } from './dto/catalog.dto';
 
 // Current selling price follows the PM rule: the discounted price when set,
@@ -72,12 +74,23 @@ const CARD_SQL = `
   LEFT JOIN merchant_profiles profile ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
   LEFT JOIN file_assets avatar ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
   WHERE ($1::text[] IS NULL OR items.type = ANY($1::text[]))
-    AND ($2::text IS NULL OR items.title ILIKE '%' || $2 || '%' ESCAPE '\\')
+    AND ($2::text IS NULL OR items.title ILIKE '%' || $2 || '%' ESCAPE '\\'
+      OR merchant.store_name ILIKE '%' || $2 || '%' ESCAPE '\\'
+      OR EXISTS (
+        SELECT 1 FROM product_categories link
+        INNER JOIN categories category ON category.id = link.category_id AND category.deleted_at IS NULL
+        WHERE link.product_id = items.id AND link.deleted_at IS NULL
+          AND category.name ILIKE '%' || $2 || '%' ESCAPE '\\')
+      OR EXISTS (
+        SELECT 1 FROM digital_files file
+        WHERE file.product_id = items.id AND file.deleted_at IS NULL
+          AND file.file_format ILIKE $2 ESCAPE '\\'))
     AND ($3::text IS NULL OR items.level = $3)
     AND ($4::text IS NULL OR EXISTS (
       SELECT 1 FROM product_categories link
       INNER JOIN categories category ON category.id = link.category_id AND category.deleted_at IS NULL
-      WHERE link.product_id = items.id AND link.deleted_at IS NULL AND category.slug = $4))
+      WHERE link.product_id = items.id AND link.deleted_at IS NULL
+        AND (category.slug = $4 OR lower(category.name) = lower($4))))
     AND (NOT $5::boolean OR (items.list_price > 0 AND items.price < items.list_price))
     AND ($6::uuid IS NULL OR items.id = $6)
     AND ($7::uuid IS NULL OR items.merchant_id = $7)
@@ -308,6 +321,31 @@ export class CatalogService {
       is_owned: ownership.owned,
     };
     return { data: detail, responseMessage: 'Get class success' };
+  }
+
+  // Active categories nested under their parent, ordered by name.
+  async findCategories() {
+    const categories = await this.dataSource.manager.find(Category, {
+      order: { name: 'ASC', id: 'ASC' },
+    });
+    const nodes = new Map<string, CategoryNodeDto>(
+      categories.map((category) => [
+        category.id,
+        {
+          id: category.id,
+          name: category.name,
+          slug: category.slug,
+          children: [],
+        },
+      ]),
+    );
+    const roots: CategoryNodeDto[] = [];
+    for (const category of categories) {
+      const node = nodes.get(category.id);
+      const parent = category.parentId ? nodes.get(category.parentId) : null;
+      (parent ? parent.children : roots).push(node);
+    }
+    return { data: roots, responseMessage: 'Get categories success' };
   }
 
   async findDigitalProduct(id: string, viewerId?: string) {

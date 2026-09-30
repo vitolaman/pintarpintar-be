@@ -5,11 +5,15 @@ export class HelpTicketResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
-  @ApiProperty({ format: 'uuid' })
-  user_id: string;
+  @ApiProperty({
+    format: 'uuid',
+    nullable: true,
+    description: 'Null for anonymous feedback',
+  })
+  user_id: string | null;
 
-  @ApiProperty()
-  user_name: string;
+  @ApiProperty({ nullable: true })
+  user_name: string | null;
 
   @ApiProperty({ enum: HelpTicketType, example: HelpTicketType.KRITIK })
   ticket_type: HelpTicketType;

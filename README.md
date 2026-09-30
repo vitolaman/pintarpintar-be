@@ -36,9 +36,11 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 - `POST /auth/sign-up` — **public**
 - `POST /auth/sign-in` — **public**
+- `PATCH /auth/change-password` — current password required; other devices are signed out; `data.token` replaces this device's token
+- `POST /auth/end-other-sessions` — signs out every other device; `data.token` replaces this device's token
 - `GET /users/me`
 - `PATCH /users/me`
-- `DELETE /users/me`
+- `DELETE /users/me` — frees the email for a new sign-up and deactivates the user's merchant (buyers keep access)
 
 ### Beranda (home)
 
@@ -51,7 +53,8 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 ### Catalog (Kelas, Bootcamp, Produk Digital)
 
-- `GET /catalog/v1/get-items` — **public**; filter by type, search, level, category, merchant (`merchant_id`), and digital file type (`file_format`); sort; paginate
+- `GET /catalog/v1/get-items` — **public**; filter by type, search (title, merchant name, category name, file format), level, category (slug or name), merchant (`merchant_id`), and digital file type (`file_format`); sort; paginate
+- `GET /catalog/v1/get-categories` — **public**; category tree
 - `GET /catalog/v1/get-class/:id` — **public**; syllabus, mentors, and meeting schedule, without video, file, or meeting links
 - `GET /catalog/v1/get-digital-product/:id` — **public**; file formats and sizes, without download links
 
@@ -80,7 +83,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 ### Pusat Bantuan
 
 - `GET /faqs/v1/get-public-faqs` — **public**
-- `POST /help-tickets/v1/create-help-ticket`
+- `POST /help-tickets/v1/create-help-ticket` — **public**; anonymous unless a token is sent; 5 per visitor address per 10 minutes
 - `GET /help-tickets/v1/get-help-tickets`
 - `GET /help-tickets/v1/get-help-ticket/:id`
 
@@ -103,6 +106,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 - `DELETE /cart/v1/remove-from-cart/:id`
 - `DELETE /cart/v1/clear-cart`
 - `GET /orders/v1/get-recent-transactions` — last 3 orders
+- `GET /orders/v1/get-transactions` — full history, paginated, filter by `status`
 
 ### Merchant profile and settings
 

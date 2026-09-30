@@ -17,6 +17,9 @@ import { Repository } from 'typeorm';
 
 interface JwtPayload {
   id: string;
+  // Token version at issue time; tokens from before revocation existed have
+  // none and count as version 0.
+  tv?: number;
 }
 
 @Injectable()
@@ -65,7 +68,8 @@ export class JwtGuard implements CanActivate {
       if (!payload?.id) return null;
 
       const user = await this.userRepo.findOne({ where: { id: payload.id } });
-      return user ? payload : null;
+      if (!user || (payload.tv ?? 0) !== user.tokenVersion) return null;
+      return payload;
     } catch {
       return null;
     }

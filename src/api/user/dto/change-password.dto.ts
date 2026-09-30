@@ -1,19 +1,24 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsStrongPassword } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsStrongPassword,
+  MaxLength,
+} from 'class-validator';
 
 export class ChangePasswordDto {
-  @ApiProperty()
-  @IsStrongPassword({
-    minLength: 8,
-    minNumbers: 1,
-    minSymbols: 0,
-    minLowercase: 0,
-    minUppercase: 0,
-  })
+  // Checked against the stored hash only; older passwords may predate the
+  // current strength rule.
   @ApiProperty({ example: '********' })
-  oldPassword: string;
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
+  current_password: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    example: '********',
+    description: 'At least 8 characters with at least one digit',
+  })
   @IsStrongPassword({
     minLength: 8,
     minNumbers: 1,
@@ -21,6 +26,6 @@ export class ChangePasswordDto {
     minLowercase: 0,
     minUppercase: 0,
   })
-  @ApiProperty({ example: '********' })
-  newPassword: string;
+  @MaxLength(128)
+  new_password: string;
 }

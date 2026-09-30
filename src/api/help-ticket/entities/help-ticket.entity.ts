@@ -9,8 +9,9 @@ export enum HelpTicketType {
 
 @Entity({ name: 'help_tickets' })
 export class HelpTicket extends BaseEntity {
-  @Column({ name: 'user_id', type: 'uuid' })
-  userId: string;
+  // Null for anonymous feedback from the public help page.
+  @Column({ name: 'user_id', type: 'uuid', nullable: true })
+  userId: string | null;
 
   @Column({
     name: 'ticket_type',

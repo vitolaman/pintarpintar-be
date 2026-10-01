@@ -55,6 +55,9 @@ import { HelpTicket } from '~/api/help-ticket/entities/help-ticket.entity';
 import { FaqCategory } from '~/api/faq/entities/faq-category.entity';
 import { Faq } from '~/api/faq/entities/faq.entity';
 import { Review } from '~/api/review/entities/review.entity';
+import { JobApplication } from '~/api/recruitment/entities/job-application.entity';
+import { JobPosting } from '~/api/recruitment/entities/job-posting.entity';
+import { MerchantMentor } from '~/api/recruitment/entities/merchant-mentor.entity';
 
 dotenvExpand.expand(dotenv.config({ path: process.env.ENV_FILE || '.env' }));
 const isProduction = process.env.NODE_ENV == 'production';
@@ -119,6 +122,9 @@ export const dataSourceOptions: DataSourceOptions = {
     FaqCategory,
     Faq,
     Review,
+    JobPosting,
+    JobApplication,
+    MerchantMentor,
   ],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations
   // remain in `migrations/` as reference only and must never run on this database.

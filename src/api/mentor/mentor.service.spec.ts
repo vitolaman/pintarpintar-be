@@ -7,7 +7,6 @@ jest.mock('@nestjs/jwt', () => ({
 
 import { AuthService } from '../auth/auth.service';
 import { FileAsset } from '../profile/entities/file-asset.entity';
-import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { Mentor } from './entities/mentor.entity';
@@ -165,6 +164,58 @@ describe('MentorService', () => {
     expect(manager.save).not.toHaveBeenCalled();
   });
 
+  it('rejects a mentor who already has a profile', async () => {
+    const user = { id: userId, isMentor: true } as User;
+    manager.findOne
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce({ id: mentorId, status: 'active' })
+      .mockResolvedValueOnce({ id: 'profile-id', mentorId });
+
+    await expect(service.register(userId, input, {})).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('completes the mentor record of an accepted applicant', async () => {
+    const user = { id: userId, isMentor: true } as User;
+    manager.findOne
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce({ id: mentorId, status: 'active' })
+      .mockResolvedValueOnce(null);
+    manager.findOneBy.mockResolvedValue(null);
+    jest.spyOn(service, 'findProfile').mockResolvedValue({
+      data: { id: mentorId } as never,
+      responseMessage: 'Get mentor profile success',
+    });
+
+    await expect(service.register(userId, input, {})).resolves.toMatchObject({
+      data: { id: mentorId },
+      responseMessage: 'Register mentor success',
+    });
+    expect(manager.save).not.toHaveBeenCalledWith(Mentor, expect.anything());
+    expect(manager.save).toHaveBeenCalledWith(
+      MentorProfile,
+      expect.objectContaining({
+        mentorId,
+        cvAssetId: documents.cv.assetId,
+        skillCertificateAssetId: documents.certificate.assetId,
+      }),
+    );
+  });
+
+  it('rejects completing an inactive mentor record', async () => {
+    const user = { id: userId, isMentor: true } as User;
+    manager.findOne
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce({ id: mentorId, status: 'suspended' });
+
+    await expect(service.register(userId, input, {})).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
   it('replaces the CV, soft-deletes the old asset, and removes it from storage after commit', async () => {
     storage.storeReplacementDocuments.mockResolvedValue({ cv: documents.cv });
     manager.findOne.mockResolvedValue({ id: mentorId, userId });
@@ -174,15 +225,13 @@ describe('MentorService', () => {
       skillCertificateAssetId: 'old-cert-id',
     };
     manager.findOneBy.mockResolvedValue(mentorProfile);
-    manager.findByIds = jest
-      .fn()
-      .mockResolvedValue([
-        {
-          id: 'old-cv-id',
-          storageProvider: 's3',
-          objectKey: 'mentor-documents/old.pdf',
-        },
-      ]);
+    manager.findByIds = jest.fn().mockResolvedValue([
+      {
+        id: 'old-cv-id',
+        storageProvider: 's3',
+        objectKey: 'mentor-documents/old.pdf',
+      },
+    ]);
     manager.update = jest.fn().mockResolvedValue(undefined);
     manager.softDelete = jest.fn().mockResolvedValue(undefined);
     (dataSource.query as jest.Mock).mockResolvedValue([

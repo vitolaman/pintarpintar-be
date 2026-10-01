@@ -334,17 +334,12 @@ export class MentorService {
     input: MentorRegistrationDto,
     documents: { cv: StoredMentorDocument; certificate: StoredMentorDocument },
   ): Promise<void> {
-    const existing = await manager.findOne(Mentor, {
-      where: { userId: user.id },
-      withDeleted: true,
-    });
-    if (existing) throw new ConflictException('User is already a mentor');
-
-    const mentor = manager.create(Mentor, {
-      userId: user.id,
-      status: 'active',
-    });
-    await manager.save(Mentor, mentor);
+    const mentor =
+      (await this.findProfilelessMentor(manager, user.id)) ??
+      (await manager.save(
+        Mentor,
+        manager.create(Mentor, { userId: user.id, status: 'active' }),
+      ));
     await this.saveDocuments(manager, user.id, [
       documents.cv,
       documents.certificate,
@@ -372,6 +367,28 @@ export class MentorService {
 
     user.isMentor = true;
     await manager.save(User, user);
+  }
+
+  // An accepted job applicant becomes an active mentor before registering;
+  // registration then completes that record. Any other existing record means
+  // the user is already a mentor.
+  private async findProfilelessMentor(
+    manager: EntityManager,
+    userId: string,
+  ): Promise<Mentor | null> {
+    const existing = await manager.findOne(Mentor, {
+      where: { userId },
+      withDeleted: true,
+    });
+    if (!existing) return null;
+    const completable =
+      existing.status === 'active' &&
+      !existing.deleted_at &&
+      !(await manager.findOne(MentorProfile, {
+        where: { mentorId: existing.id },
+      }));
+    if (!completable) throw new ConflictException('User is already a mentor');
+    return existing;
   }
 
   private async saveDocuments(

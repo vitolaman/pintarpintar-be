@@ -88,11 +88,12 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 ### Profile and Portal Saya
 
-- `GET /profile/v1/get-profile` — includes `member_since`
+- `GET /profile/v1/get-profile` — includes `member_since` and `onboarding {role, custom_role, skills, completed_at}`
 - `PATCH /profile/v1/update-profile`
+- `PATCH /profile/v1/update-onboarding` — onboarding pop-up: `role` (`mahasiswa`, `content_creator`, `professional`, `ibu_rumah_tangga`, `brand_bisnis`, `custom` + `custom_role`) and up to 20 `skills`; never grants the mentor or merchant role
 - `GET /profile/v1/get-learning` — everything the user owns: enrolled classes (`kelas`) and bootcamps (`bootcamp`) with progress, and digital products with unexpired access; used for ownership checks and Portal Saya
 - `GET /profile/v1/get-public-profile/:userId` — **public** profile page: name, avatar, roles, expertise, learning and teaching statistics, teaching classes, issued certificates; never email or phone
-- `GET /profile/v1/get-certifications` — issued class certificates with the class mentor
+- `GET /profile/v1/get-certifications` — issued class certificates with the class mentor; `skills` is the class Bidang
 - `GET /profile/v1/get-statistics` — bootcamps, video classes, digital products, and certificates (Statistik Pembelajaran)
 - `GET /portal/v1/get-items` — owned classes, bootcamps, and digital products
 

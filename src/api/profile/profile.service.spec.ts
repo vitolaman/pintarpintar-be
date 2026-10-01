@@ -204,6 +204,10 @@ describe('ProfileService', () => {
       bio: null,
       mentor_expertise: 'AutoCAD, SAP2000',
       member_since: new Date('2026-01-15T03:00:00.000Z'),
+      onboarding_role: 'professional',
+      custom_role: null,
+      skills: ['AutoCAD', 'BIM'],
+      onboarding_completed_at: new Date('2026-01-15T04:00:00.000Z'),
     });
     users.createQueryBuilder.mockReturnValue(query as never);
 
@@ -223,6 +227,12 @@ describe('ProfileService', () => {
         member_since: new Date('2026-01-15T03:00:00.000Z'),
         avatar_url: null,
         expertise_list: ['AutoCAD', 'SAP2000'],
+        onboarding: {
+          role: 'professional',
+          custom_role: null,
+          skills: ['AutoCAD', 'BIM'],
+          completed_at: new Date('2026-01-15T04:00:00.000Z'),
+        },
       },
     });
   });

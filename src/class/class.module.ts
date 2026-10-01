@@ -10,6 +10,9 @@ import { ClassGradingService } from './class-grading.service';
 import { ClassAttendanceService } from './class-attendance.service';
 import { ClassCertificateService } from './class-certificate.service';
 import { ClassController } from './class.controller';
+import { ClassDuplicationService } from './class-duplication.service';
+import { ClassFaqController } from './class-faq.controller';
+import { ClassFaqService } from './class-faq.service';
 import { Class } from './entities/class.entity';
 import { Chapter } from './entities/chapter.entity';
 import { FileResource } from './entities/file-resource.entity';
@@ -27,6 +30,7 @@ import { ClassMentor } from './entities/class-mentor.entity';
 import { Enrollment } from './entities/enrollment.entity';
 import { VideoCompletion } from './entities/video-completion.entity';
 import { ClassCertificateSettings } from './entities/class-certificate-settings.entity';
+import { ClassFaq } from './entities/class-faq.entity';
 
 @Module({
   imports: [
@@ -48,9 +52,10 @@ import { ClassCertificateSettings } from './entities/class-certificate-settings.
       Enrollment,
       VideoCompletion,
       ClassCertificateSettings,
+      ClassFaq,
     ]),
   ],
-  controllers: [ClassController],
+  controllers: [ClassController, ClassFaqController],
   providers: [
     ClassService,
     ClassAccessService,
@@ -61,6 +66,8 @@ import { ClassCertificateSettings } from './entities/class-certificate-settings.
     ClassGradingService,
     ClassAttendanceService,
     ClassCertificateService,
+    ClassFaqService,
+    ClassDuplicationService,
   ],
   exports: [
     ClassService,

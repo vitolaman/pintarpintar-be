@@ -7,6 +7,7 @@ import {
   MEETING_MENTOR_SQL,
   MEETING_STATUS_SQL,
 } from '../../class/meeting-sql';
+import { loadClassFaqs } from '../../class/class-faq.service';
 import { assetUrl } from '../../common/storage/asset-url';
 import { Category } from '../digital-product/entities/category.entity';
 import {
@@ -246,10 +247,18 @@ export class CatalogService {
 
   async findClass(id: string, viewerId?: string) {
     const row = await this.findCardRow(id, ['kelas', 'bootcamp']);
-    const [mentors, chapters, videos, files, meetings, [ownership], [details]] =
-      await Promise.all([
-        this.dataSource.query(
-          `SELECT mentor.id, mentor_user.name, profile.headline, avatar.object_key AS avatar_object_key, link.role
+    const [
+      mentors,
+      chapters,
+      videos,
+      files,
+      meetings,
+      [ownership],
+      [details],
+      faqs,
+    ] = await Promise.all([
+      this.dataSource.query(
+        `SELECT mentor.id, mentor_user.name, profile.headline, avatar.object_key AS avatar_object_key, link.role
          FROM class_mentors link
          INNER JOIN mentors mentor ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
          INNER JOIN users mentor_user ON mentor_user.id = mentor.user_id AND mentor_user.deleted_at IS NULL
@@ -257,32 +266,32 @@ export class CatalogService {
          LEFT JOIN file_assets avatar ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
          WHERE link.class_id = $1 AND link.deleted_at IS NULL
          ORDER BY link.created_at, link.id`,
-          [id],
-        ),
-        this.dataSource.query(
-          `SELECT id, title, description FROM chapters
+        [id],
+      ),
+      this.dataSource.query(
+        `SELECT id, title, description FROM chapters
          WHERE class_id = $1 AND deleted_at IS NULL ORDER BY "order", created_at, id`,
-          [id],
-        ),
-        this.dataSource.query(
-          `SELECT video.id, video.chapter_id, video.title, video.duration, video.description,
+        [id],
+      ),
+      this.dataSource.query(
+        `SELECT video.id, video.chapter_id, video.title, video.duration, video.description,
                 video.created_at
          FROM videos video INNER JOIN chapters chapter ON chapter.id = video.chapter_id
          WHERE chapter.class_id = $1 AND video.deleted_at IS NULL AND chapter.deleted_at IS NULL
          ORDER BY video."order", video.created_at, video.id`,
-          [id],
-        ),
-        this.dataSource.query(
-          `SELECT resource.id, resource.chapter_id, resource.name, resource.type, resource.size,
+        [id],
+      ),
+      this.dataSource.query(
+        `SELECT resource.id, resource.chapter_id, resource.name, resource.type, resource.size,
                 resource.description, resource.created_at
          FROM file_resources resource INNER JOIN chapters chapter ON chapter.id = resource.chapter_id
          WHERE chapter.class_id = $1 AND resource.deleted_at IS NULL AND chapter.deleted_at IS NULL
          ORDER BY resource."order", resource.created_at, resource.id`,
-          [id],
-        ),
-        row.type === 'bootcamp'
-          ? this.dataSource.query(
-              `SELECT meeting.id, meeting.title, meeting."date"::text AS date,
+        [id],
+      ),
+      row.type === 'bootcamp'
+        ? this.dataSource.query(
+            `SELECT meeting.id, meeting.title, meeting."date"::text AS date,
                     to_char(meeting."time", 'HH24:MI') AS time, ${MEETING_STATUS_SQL} AS status,
                     meeting.duration_minutes, ${MEETING_MENTOR_SQL} AS mentor
              FROM meetings meeting
@@ -290,20 +299,21 @@ export class CatalogService {
              ${MEETING_MENTOR_JOIN_SQL}
              WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL
              ORDER BY meeting."date" NULLS LAST, meeting."time" NULLS LAST, meeting.id`,
-              [id],
-            )
-          : [],
-        this.dataSource.query(
-          `SELECT EXISTS (
+            [id],
+          )
+        : [],
+      this.dataSource.query(
+        `SELECT EXISTS (
            SELECT 1 FROM enrollments
            WHERE class_id = $1 AND user_id = $2 AND deleted_at IS NULL) AS owned`,
-          [id, viewerId ?? null],
-        ),
-        this.dataSource.query(
-          'SELECT duration, prerequisites, learning_outcomes FROM classes WHERE id = $1',
-          [id],
-        ),
-      ]);
+        [id, viewerId ?? null],
+      ),
+      this.dataSource.query(
+        'SELECT duration, prerequisites, learning_outcomes FROM classes WHERE id = $1',
+        [id],
+      ),
+      loadClassFaqs(this.dataSource, id),
+    ]);
 
     const detail: CatalogClassDetailDto = {
       ...toCard(row),
@@ -342,6 +352,7 @@ export class CatalogService {
           })),
       })),
       meetings,
+      faqs,
       is_owned: ownership.owned,
     };
     return { data: detail, responseMessage: 'Get class success' };

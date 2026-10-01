@@ -113,6 +113,12 @@ The key always sits under the uploader's own `uploads/<userId>/` prefix.
   - `null` clears `description`, `discountedPrice`, `cover_asset_id`, `post_purchase_instructions`, `category`, `level`, `duration`, `prerequisites` and `learning_outcomes`.
   - A lead tutor may change only the presentation fields (title, description, cover, instructions, Bidang, level, duration, prerequisites, outcomes). Pricing, type and status stay with the owner.
 
+### 2.4 Duplicate class ("Duplikat Kelas")
+- `POST /api/v1/classes/:classId/duplicate` with `{ "type": "video" | "live-bootcamp" }`. Owner only: tutors get 403, anyone else 404.
+- The new class is a **draft** named "{title} (Salinan)", of the chosen type.
+  - Copied: details, cover, prices, chapters, videos, resources (files are shared), assignments and quizzes, certificate settings, and FAQ.
+  - Not copied: learners, reviews, discussions, submissions, grades, certificates, tutors, and meetings.
+
 ---
 
 ## 3. Class content and management
@@ -246,3 +252,11 @@ The class owner, its tutors and its enrolled learners may use these; learners ca
 - `GET /api/v1/classes/:classId/mentors`.
 - `PATCH /api/v1/classes/:classId/mentors/:classMentorId` with `{ "role"?, "permissions"? }`.
 - `DELETE /api/v1/classes/:classId/mentors/:classMentorId` revokes the tutor.
+
+### 3.10 FAQ ("Kelola FAQ")
+- `GET /api/v1/classes/:classId/faqs` lists the entries in the order they were added.
+- `POST /api/v1/classes/:classId/faqs` with `{ "question", "answer" }` (question up to 300 characters, answer up to 3000; at most 50 entries per class).
+- `PATCH /api/v1/classes/:classId/faqs/:faqId` with `{ "question"?, "answer"? }`, and `DELETE /api/v1/classes/:classId/faqs/:faqId` (204).
+- Permissions follow the `materi` area (`lihat`, `tambah`, `edit`, `delete`).
+- The public class detail (`GET /catalog/v1/get-class/:id`) and the learner view (`GET /learning/v1/get-class/:id`) include `faqs`.
+

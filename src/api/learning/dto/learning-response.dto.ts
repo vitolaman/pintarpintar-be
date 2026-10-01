@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CertificateViewDto } from '../../../class/dto/certificate.dto';
+import { ClassFaqResponseDto } from '../../../class/dto/class-faq.dto';
 import {
   MEETING_DURATION_DESCRIPTION,
   MEETING_STATUS_DESCRIPTION,
@@ -127,6 +128,11 @@ export class LearningClassResponseDto {
   @ApiProperty({ type: [LearningMentorDto] }) mentors: LearningMentorDto[];
   @ApiProperty({ type: [LearningChapterDto] }) chapters: LearningChapterDto[];
   @ApiProperty({ type: [LearningMeetingDto] }) meetings: LearningMeetingDto[];
+  @ApiProperty({
+    type: [ClassFaqResponseDto],
+    description: 'Class FAQ, in order',
+  })
+  faqs: ClassFaqResponseDto[];
   @ApiProperty() progress: number;
   @ApiPropertyOptional({ type: NextVideoDto, nullable: true })
   next_video: NextVideoDto | null;

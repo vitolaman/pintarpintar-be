@@ -17,8 +17,10 @@ import {
 } from '~/common/decorator/response.decorator';
 import { Public } from '~/common/decorator/public.decorator';
 import { ProfileService } from './profile.service';
+import { UpdateOnboardingDto } from './dto/update-onboarding.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
+  OnboardingResponseDto,
   CertificationItemResponseDto,
   LearningItemResponseDto,
   ProfileResponseDto,
@@ -52,6 +54,20 @@ export class ProfileController {
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
     return this.profileService.updateCurrent(req.user.id, updateProfileDto);
+  }
+
+  @Patch('update-onboarding')
+  @DefaultResponse(
+    OnboardingResponseDto,
+    'Update onboarding success',
+    HttpStatus.OK,
+    [BadRequestException, NotFoundException],
+  )
+  updateOnboarding(
+    @Req() req: { user: { id: string } },
+    @Body() input: UpdateOnboardingDto,
+  ) {
+    return this.profileService.updateOnboarding(req.user.id, input);
   }
 
   // Public profile page (/profile/{id}); no email or phone.

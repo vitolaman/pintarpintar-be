@@ -25,6 +25,8 @@ import { assetUrl } from '../../common/storage/asset-url';
 import { progressSql } from '../../class/learning-progress.service';
 import { MentorWorkspaceService } from '../mentor/mentor-workspace.service';
 import { splitSkills } from '../../common/util/skill-list';
+import { UpdateOnboardingDto } from './dto/update-onboarding.dto';
+import { OnboardingRole } from './onboarding.constants';
 import {
   LearningItemResponseDto,
   LearningStatisticsResponseDto,
@@ -125,6 +127,29 @@ export class ProfileService {
     }));
   }
 
+  // Saving again replaces the answers. The chosen role is informational only:
+  // it never sets is_mentor or is_merchant.
+  async updateOnboarding(userId: string, input: UpdateOnboardingDto) {
+    await this.dataSource.transaction(async (manager) => {
+      const user = await manager.findOneBy(User, { id: userId });
+      if (!user) throw new NotFoundException('User not found');
+
+      let profile = await manager.findOneBy(Profile, { userId });
+      if (!profile) profile = manager.create(Profile, { userId });
+      profile.onboardingRole = input.role;
+      profile.customRole = input.role === 'custom' ? input.custom_role : null;
+      profile.skills = input.skills;
+      profile.onboardingCompletedAt = new Date();
+      await manager.save(Profile, profile);
+    });
+
+    const { data } = await this.findCurrent(userId);
+    return {
+      data: data.onboarding,
+      responseMessage: 'Update onboarding success',
+    };
+  }
+
   // Everything the user owns: digital products with unexpired access, and
   // classes and bootcamps with an active enrollment. The frontend uses this
   // list for ownership checks and Portal Saya.
@@ -206,7 +231,7 @@ export class ProfileService {
               certificate."issueDate"::text AS issued_on, certificate."fileUrl" AS file_url,
               file.object_key AS file_object_key, file.original_filename AS file_name,
               graded.final_score,
-              class.id AS class_id, class.title AS class_title,
+              class.id AS class_id, class.title AS class_title, class.category AS class_category,
               merchant.store_name AS issuer_name, lead_mentor.name AS mentor_name
        FROM certificates certificate
        INNER JOIN classes class ON class.id = certificate.class_id
@@ -358,6 +383,10 @@ export class ProfileService {
         'profile.phone AS phone',
         'profile.headline AS headline',
         'profile.bio AS bio',
+        'profile.onboarding_role AS onboarding_role',
+        'profile.custom_role AS custom_role',
+        'profile.skills AS skills',
+        'profile.onboarding_completed_at AS onboarding_completed_at',
         'mentor.id AS mentor_id',
         'mentor_profile.expertise AS mentor_expertise',
         'merchant.id AS merchant_id',
@@ -387,6 +416,12 @@ export class ProfileService {
       merchant_id: row.merchant_id,
       member_since: row.member_since,
       expertise_list: splitSkills(row.mentor_expertise),
+      onboarding: {
+        role: row.onboarding_role,
+        custom_role: row.custom_role,
+        skills: row.skills ?? [],
+        completed_at: row.onboarding_completed_at,
+      },
     };
   }
 
@@ -439,8 +474,8 @@ export class ProfileService {
           )
         : row.file_url,
       mentor_name: row.mentor_name,
-      // No skills source exists for certificates yet.
-      skills: [],
+      // The class Bidang is the only per-class skill source.
+      skills: row.class_category ? [row.class_category] : [],
       final_score: finalScore,
       grade: finalScore === null ? null : String(finalScore),
     };
@@ -472,6 +507,10 @@ interface ProfileRow {
   mentor_expertise: string | null;
   merchant_id: string | null;
   member_since: Date;
+  onboarding_role: OnboardingRole | null;
+  custom_role: string | null;
+  skills: string[] | null;
+  onboarding_completed_at: Date | null;
 }
 
 interface LearningRow {
@@ -498,6 +537,7 @@ interface CertificationRow {
   final_score: string | null;
   class_id: string;
   class_title: string;
+  class_category: string | null;
   issuer_name: string | null;
   mentor_name: string | null;
 }

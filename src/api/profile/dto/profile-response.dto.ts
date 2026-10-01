@@ -1,5 +1,23 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TeachingClassResponseDto } from '../../mentor/dto/mentor-workspace.dto';
+import { ONBOARDING_ROLES, OnboardingRole } from '../onboarding.constants';
+
+export class OnboardingResponseDto {
+  @ApiPropertyOptional({ enum: ONBOARDING_ROLES, nullable: true })
+  role: OnboardingRole | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  custom_role: string | null;
+
+  @ApiProperty({ type: [String], example: ['AutoCAD', 'BIM'] })
+  skills: string[];
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Null until onboarding is saved',
+  })
+  completed_at: Date | null;
+}
 
 export class ProfileResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -52,6 +70,12 @@ export class ProfileResponseDto {
     description: 'Mentor skills (Keahlian Saya); empty for non-mentors',
   })
   expertise_list: string[];
+
+  @ApiProperty({
+    type: OnboardingResponseDto,
+    description: 'Onboarding answers; never grants the mentor or merchant role',
+  })
+  onboarding: OnboardingResponseDto;
 }
 
 export class LearningItemResponseDto {

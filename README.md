@@ -141,6 +141,16 @@ Deployment needs the six `PAYMENT_*` variables in `.env.example`. `PAYMENT_GATEW
 - `GET /merchants/v1/get-balance-history`
 - `POST /merchants/v1/request-withdrawal` — "Tarik Saldo": minimum Rp100.000 from the settled balance, Rp5.000 fee, to the primary or a chosen payout account; the amount leaves the balance at once and is transferred manually
 
+### Merchant analytics (Analitik)
+
+Asia/Jakarta days; paid orders only, dated at payment; revenue is the merchant's net, as on the dashboard; a transaction is a paid order with the merchant's items.
+
+- `GET /merchants/v1/get-analytics-student-growth` — `from`, `to` (YYYY-MM-DD), optional `granularity` (`day`/`month`/`year`; by default daily within a month, monthly within a year, otherwise yearly); running total of distinct class students (a person counts once; digital products excluded); at most 400 points
+- `GET /merchants/v1/get-analytics-daily-sales` — `month` (YYYY-MM); transactions and revenue for every day, plus totals
+- `GET /merchants/v1/get-analytics-monthly-revenue` — `year`; revenue for each month, plus the year total
+- `GET /merchants/v1/get-analytics-summary` — `period` (`today`/`month`/`year`); conversion (buyers ÷ distinct visitors, at most 100%, null without visits), retention (buyers with another purchase from the merchant in the previous 90 days), and average order value, each compared with the same elapsed span of the previous period
+- `POST /analytics/v1/track-visit` — **public**; `{target_type: storefront|class|digital_product, target_id, visitor_id}` from the storefront and detail pages; one visit per merchant, visitor, and day (a login makes the user the visitor); the merchant's own visits and bots are ignored; 60 per minute per client
+
 ### Merchant payout accounts (Rekening)
 
 Account numbers are always returned masked. They are stored encrypted when `PAYOUT_ACCOUNT_ENCRYPTION_KEY` is set, and as plain text otherwise.

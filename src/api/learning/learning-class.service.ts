@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { LearnerAccessService } from '../../class/learner-access.service';
 import { LearningProgressService } from '../../class/learning-progress.service';
 import { ClassCertificateService } from '../../class/class-certificate.service';
+import { loadClassFaqs } from '../../class/class-faq.service';
 import {
   BOOTCAMP_MEETING_SQL,
   MEETING_MENTOR_JOIN_SQL,
@@ -63,6 +64,7 @@ export class LearningClassService {
       meetings,
       progress,
       certificate,
+      faqs,
     ] = await Promise.all([
       manager.query(
         `SELECT class.id, class.title, class.type, class.status, class.description,
@@ -134,6 +136,7 @@ export class LearningClassService {
       ),
       this.learningProgress.findProgress(manager, classId, userId),
       this.certificates.findLearnerView(manager, classId, userId),
+      loadClassFaqs(manager, classId),
     ]);
 
     const files = await Promise.all(
@@ -178,6 +181,7 @@ export class LearningClassService {
         files: files.filter((file) => file.chapter_id === chapter.id),
       })),
       meetings,
+      faqs,
       progress: progress.progress,
       next_video: progress.next_video,
       certificate,

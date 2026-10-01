@@ -54,7 +54,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 - `GET /catalog/v1/get-items` — **public**; filter by type, search (title, merchant name, category name, file format), level, category (slug or name), merchant (`merchant_id`), and digital file type (`file_format`); sort; paginate
 - `GET /catalog/v1/get-categories` — **public**; category tree
-- `GET /catalog/v1/get-class/:id` — **public**; syllabus, mentors, and the bootcamp meeting schedule (status, duration, mentor), without video, file, or meeting links
+- `GET /catalog/v1/get-class/:id` — **public**; syllabus, mentors, FAQ, and the bootcamp meeting schedule (status, duration, mentor), without video, file, or meeting links
 - `GET /catalog/v1/get-digital-product/:id` — **public**; file formats and sizes, without download links
 
 ### Promo
@@ -198,6 +198,9 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `POST /merchants/v1/:merchantId/classes` — also accepts Bidang (`category`: Coding/Elektro/Mesin/Desain/Sipil/Kimia), `level` (Pemula/Menengah/Mahir), `duration`, `prerequisites`, and `learning_outcomes` (up to 20); `PATCH /api/v1/classes/:classId` updates them
 - `GET /api/v1/classes/:classId`
 - `PATCH /api/v1/classes/:classId` — details, prices, cover (`class_cover`), post-purchase instructions; a lead tutor may change only title, description, cover, and instructions
+- `POST /api/v1/classes/:classId/duplicate` — owner only; `{type}`; a draft "(Salinan)" copy with details, syllabus, assignments, certificate settings, and FAQ (no learners, reviews, tutors, or meetings)
+- `GET /api/v1/classes/:classId/faqs`, `POST /api/v1/classes/:classId/faqs` — `materi` permission; question up to 300, answer up to 3000 characters; at most 50 per class
+- `PATCH /api/v1/classes/:classId/faqs/:faqId`, `DELETE /api/v1/classes/:classId/faqs/:faqId`
 - `GET /api/v1/classes/:classId/chapters` — chapters with videos and resources in order; file resources carry signed download links
 - `POST /api/v1/classes/:classId/chapters`
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId`
@@ -239,7 +242,7 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 
 Every route requires an active enrollment or product access and answers 404 otherwise.
 
-- `GET /learning/v1/get-class/:id` — chapters, videos (with YouTube id and completion), files as signed links, meetings with live links, progress, next video, certificate
+- `GET /learning/v1/get-class/:id` — chapters, videos (with YouTube id and completion), files as signed links, meetings with live links, FAQ, progress, next video, certificate
 - `POST /learning/v1/complete-video/:videoId` — idempotent; returns progress and the next video
 - `GET /learning/v1/get-assignments/:classId` — without answer keys; own latest submission
 - `GET /learning/v1/get-quiz/:assignmentId`

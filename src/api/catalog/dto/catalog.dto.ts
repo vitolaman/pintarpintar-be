@@ -4,6 +4,7 @@ import {
   MEETING_STATUS_DESCRIPTION,
   MeetingMentorDto,
 } from '~/class/dto/class-response.dto';
+import { ClassFaqResponseDto } from '~/class/dto/class-faq.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -385,6 +386,12 @@ export class CatalogClassDetailDto extends CatalogCardDto {
 
   @ApiProperty({ type: [CatalogMeetingDto], description: 'Bootcamps only' })
   meetings: CatalogMeetingDto[];
+
+  @ApiProperty({
+    type: [ClassFaqResponseDto],
+    description: 'Class FAQ, in order',
+  })
+  faqs: ClassFaqResponseDto[];
 }
 
 export class CatalogDigitalFileDto {

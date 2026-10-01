@@ -332,6 +332,63 @@ describe('learning file purposes', () => {
   });
 });
 
+describe('application CV purpose', () => {
+  it.each([
+    ['cv.pdf', 'application/pdf', 9 * MB],
+    ['cv.pdf', 'application/pdf', 10 * MB],
+    ['cv.doc', 'application/msword', MB],
+    [
+      'cv.docx',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      MB,
+    ],
+  ])('accepts %s', (filename, mimeType, sizeBytes) => {
+    expect(() =>
+      assertFileFitsPurpose('application_cv', {
+        filename,
+        mimeType,
+        sizeBytes,
+      }),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ['cv.png', 'image/png', MB],
+    ['cv.pdf', 'application/pdf', 11 * MB],
+    ['cv.zip', 'application/zip', MB],
+    ['cv.txt', 'text/plain', MB],
+  ])('rejects %s', (filename, mimeType, sizeBytes) => {
+    expect(() =>
+      assertFileFitsPurpose('application_cv', {
+        filename,
+        mimeType,
+        sizeBytes,
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('accepts a registered mentor CV, which is a private PDF of the same user', async () => {
+    const mentorCv = {
+      id: 'mentor-cv',
+      uploadedByUserId: USER_ID,
+      status: 'active',
+      visibility: 'private',
+      storageProvider: 's3',
+      objectKey: 'mentor-documents/mentor-cv.pdf',
+      originalFilename: 'CV_Budi_Santoso.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: String(2 * MB),
+    };
+    const manager = {
+      findOneBy: jest.fn().mockResolvedValue(mentorCv),
+    } as unknown as EntityManager;
+
+    await expect(
+      assertOwnedAsset(manager, USER_ID, 'mentor-cv', 'application_cv'),
+    ).resolves.toMatchObject({ id: 'mentor-cv' });
+  });
+});
+
 describe('assertOwnedAsset', () => {
   const asset = {
     id: 'asset-id',

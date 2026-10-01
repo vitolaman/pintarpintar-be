@@ -161,6 +161,13 @@ export const ASSET_PURPOSE_RULES = {
     maxBytes: 10 * MEBIBYTE,
     visibility: 'private',
   },
+  // The CV of a job application; a registered mentor CV also qualifies.
+  application_cv: {
+    kinds: ['document'],
+    extensions: ['pdf', 'doc', 'docx'],
+    maxBytes: 10 * MEBIBYTE,
+    visibility: 'private',
+  },
 } satisfies Record<string, AssetPurposeRule>;
 
 export type AssetPurpose = keyof typeof ASSET_PURPOSE_RULES;

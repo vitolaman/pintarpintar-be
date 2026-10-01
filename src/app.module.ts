@@ -44,6 +44,7 @@ import { DiscussionModule } from './api/discussion/discussion.module';
 import { DigitalProductModule } from './api/digital-product/digital-product.module';
 import { LearningModule } from './api/learning/learning.module';
 import { PaymentModule } from './api/payment/payment.module';
+import { RecruitmentModule } from './api/recruitment/recruitment.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { PaymentModule } from './api/payment/payment.module';
     DigitalProductModule,
     LearningModule,
     PaymentModule,
+    RecruitmentModule,
   ],
   controllers: [AppController],
   providers: [

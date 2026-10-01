@@ -251,7 +251,7 @@ Every route requires an active enrollment or product access and answers 404 othe
 ### Mentor
 
 - `POST /mentors/v1/sign-up` — **public**; multipart with CV and skill certificate
-- `POST /mentors/v1/register` — multipart with CV and skill certificate
+- `POST /mentors/v1/register` — multipart with CV and skill certificate; also completes the mentor record of an accepted job applicant
 - `GET /mentors/v1/get-mentor/:id` — **public**
 - `GET /mentors/v1/get-profile`
 - `PATCH /mentors/v1/update-profile`
@@ -261,6 +261,27 @@ Every route requires an active enrollment or product access and answers 404 othe
 - `GET /mentors/v1/get-teaching-classes` — teaching history (Kelas Mentor on the profile)
 - `GET /mentors/v1/get-documents` — CV and skill certificate with short-lived download URLs
 - `PATCH /mentors/v1/update-documents` — replaces the CV and/or skill certificate (multipart)
+
+### Karir (job board and mentor recruitment)
+
+Merchants publish teaching vacancies; any logged-in user applies once per vacancy. Statuses: `review` → `interview` → `accepted` or `rejected` (a rejected applicant can still be accepted; acceptance is final). Accepting makes the applicant an active mentor (`is_mentor`), adds them to the merchant's mentor list, and, when the vacancy has a class, assigns them as its `assistant` tutor.
+
+- `GET /job-postings/v1/get-public-jobs` — **public**; active vacancies of active merchants with `keyword` (title, merchant, category, skills), `location`, `category`, `contract_type`, `work_type`, paging, applicant counts, `is_new` (7 days), and the board totals
+- `GET /job-postings/v1/get-public-job/:id` — **public**; 404 once closed
+- `POST /job-postings/v1/create-job` — active merchants only; category is one of the 5 form labels, `Part-Time`/`Full-Time`, `Remote`/`Hybrid`/`On-Site`, free-text salary, up to 20 skills, optional own `class_id`
+- `GET /job-postings/v1/get-my-jobs` — own active vacancies
+- `GET /job-postings/v1/get-my-job/:id`
+- `PATCH /job-postings/v1/update-job/:id` — `class_id: null` unlinks the class; closed vacancies cannot be edited
+- `PATCH /job-postings/v1/close-job/:id` — permanent; applications are kept
+- `POST /job-applications/v1/apply/:jobId` — name, email, WhatsApp, LinkedIn, `cv_asset_id` (an `application_cv` upload, PDF/DOC/DOCX up to 10 MB, or the applicant's mentor CV), optional note; 409 on a second application
+- `GET /job-applications/v1/get-my-applications` — Progress Lamaran; counts per status
+- `GET /job-applications/v1/get-applicants` — filter by `job_id`, `status`, `search`; counts per status
+- `GET /job-applications/v1/get-applicant-cv/:id` — signed CV link (10 minutes)
+- `PATCH /job-applications/v1/schedule-interview/:id` — `interview_at` (ISO 8601 with offset) and `interview_url`; rescheduling replaces both
+- `PATCH /job-applications/v1/accept-applicant/:id`
+- `PATCH /job-applications/v1/reject-applicant/:id`
+- `GET /merchants/v1/get-mentor-roster` — accepted applicants plus the tutors of the merchant's classes, with class counts and ratings, and the page summary
+- `GET /merchants/v1/get-roster-mentor/:userId` — the mentor's classes with students, ratings, and review counts
 
 ### Class discussions
 

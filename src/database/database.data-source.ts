@@ -58,6 +58,7 @@ import { Review } from '~/api/review/entities/review.entity';
 import { JobApplication } from '~/api/recruitment/entities/job-application.entity';
 import { JobPosting } from '~/api/recruitment/entities/job-posting.entity';
 import { MerchantMentor } from '~/api/recruitment/entities/merchant-mentor.entity';
+import { MerchantVisit } from '~/api/merchant-dashboard/entities/merchant-visit.entity';
 
 dotenvExpand.expand(dotenv.config({ path: process.env.ENV_FILE || '.env' }));
 const isProduction = process.env.NODE_ENV == 'production';
@@ -125,6 +126,7 @@ export const dataSourceOptions: DataSourceOptions = {
     JobPosting,
     JobApplication,
     MerchantMentor,
+    MerchantVisit,
   ],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations
   // remain in `migrations/` as reference only and must never run on this database.

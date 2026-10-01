@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   HttpStatus,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -63,9 +65,12 @@ export class HelpTicketController {
     HelpTicketResponseDto,
     'Get help ticket success',
     HttpStatus.OK,
-    [NotFoundException],
+    [BadRequestException, NotFoundException],
   )
-  findOne(@Req() req: { user: { id: string } }, @Param('id') id: string) {
+  findOne(
+    @Req() req: { user: { id: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.helpTicketService.findOne(req.user.id, id);
   }
 }

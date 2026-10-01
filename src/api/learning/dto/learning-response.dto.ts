@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CertificateViewDto } from '../../../class/dto/certificate.dto';
+import {
+  MEETING_DURATION_DESCRIPTION,
+  MEETING_STATUS_DESCRIPTION,
+  MeetingMentorDto,
+} from '../../../class/dto/class-response.dto';
 
 export class NextVideoDto {
   @ApiProperty() id: string;
@@ -97,9 +102,17 @@ export class LearningMeetingDto {
   @ApiPropertyOptional({ nullable: true }) live_url: string | null;
   @ApiProperty({
     enum: ['upcoming', 'completed'],
-    description: 'Completed three hours after the start',
+    description: MEETING_STATUS_DESCRIPTION,
   })
   status: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 90,
+    description: MEETING_DURATION_DESCRIPTION,
+  })
+  duration_minutes: number | null;
+  @ApiPropertyOptional({ type: MeetingMentorDto, nullable: true })
+  mentor: MeetingMentorDto | null;
 }
 
 export class LearningClassResponseDto {

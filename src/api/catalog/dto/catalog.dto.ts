@@ -1,4 +1,9 @@
 import { learningLevels } from '~/common/catalog/class-details';
+import {
+  MEETING_DURATION_DESCRIPTION,
+  MEETING_STATUS_DESCRIPTION,
+  MeetingMentorDto,
+} from '~/class/dto/class-response.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -331,8 +336,21 @@ export class CatalogMeetingDto {
   @ApiProperty({ nullable: true, example: '19:00', description: 'WIB' })
   time: string | null;
 
-  @ApiProperty({ example: 'upcoming' })
+  @ApiProperty({
+    enum: ['upcoming', 'completed'],
+    description: MEETING_STATUS_DESCRIPTION,
+  })
   status: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 90,
+    description: MEETING_DURATION_DESCRIPTION,
+  })
+  duration_minutes: number | null;
+
+  @ApiPropertyOptional({ type: MeetingMentorDto, nullable: true })
+  mentor: MeetingMentorDto | null;
 }
 
 export class CatalogClassDetailDto extends CatalogCardDto {

@@ -8,8 +8,9 @@ import { Repository } from 'typeorm';
 import { ClassAccessService } from './class-access.service';
 import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
 import { ClassService } from './class.service';
-import { Class, ClassStatus } from './entities/class.entity';
+import { Class, ClassStatus, ClassType } from './entities/class.entity';
 import { ClassMentor } from './entities/class-mentor.entity';
+import { Meeting } from './entities/meeting.entity';
 
 describe('ClassService.inviteMentor', () => {
   const ownerId = '10000000-0000-4000-8000-000000000001';
@@ -420,6 +421,32 @@ describe('ClassService.updateClass', () => {
     });
   });
 
+  it('keeps a live bootcamp that has meetings from becoming a video class', async () => {
+    stored = { ...stored, type: ClassType.LIVE_BOOTCAMP };
+    accessAs({ is_owner: true });
+    manager.count = jest.fn().mockResolvedValue(2);
+
+    await expect(
+      service.updateClass(userId, classId, { type: ClassType.VIDEO }),
+    ).rejects.toThrow(
+      'A live bootcamp that has meetings cannot become a video class',
+    );
+    expect(manager.count).toHaveBeenCalledWith(Meeting, {
+      where: { class_id: classId },
+    });
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('turns a live bootcamp without meetings into a video class', async () => {
+    stored = { ...stored, type: ClassType.LIVE_BOOTCAMP };
+    accessAs({ is_owner: true });
+    manager.count = jest.fn().mockResolvedValue(0);
+
+    await expect(
+      service.updateClass(userId, classId, { type: ClassType.VIDEO }),
+    ).resolves.toMatchObject({ data: { type: ClassType.VIDEO } });
+  });
+
   it('rejects a cover the caller did not register', async () => {
     accessAs({ is_owner: true });
     manager.findOneBy.mockResolvedValue({
@@ -546,5 +573,120 @@ describe('ClassService tutor management', () => {
     await expect(
       service.revokeClassMentor(userId, classId, linkId),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('ClassService meetings', () => {
+  const userId = '10000000-0000-4000-8000-000000000001';
+  const classId = '30000000-0000-4000-8000-000000000001';
+  const mentorId = '50000000-0000-4000-8000-000000000001';
+  const meetingId = '60000000-0000-4000-8000-000000000001';
+  const input = {
+    title: 'Sesi Q&A 1',
+    date: '2026-10-12',
+    time: '19:00',
+    duration_minutes: 90,
+    mentor_id: mentorId,
+  };
+  const response = {
+    id: meetingId,
+    class_id: classId,
+    title: 'Sesi Q&A 1',
+    date: '2026-10-12',
+    time: '19:00',
+    status: 'upcoming',
+    duration_minutes: 90,
+    mentor: { id: mentorId, name: 'Mentor' },
+  };
+  let classType: ClassType;
+  let tutorRows: unknown[];
+  let query: jest.Mock;
+  let manager: Record<string, jest.Mock>;
+  let service: ClassService;
+
+  beforeEach(() => {
+    classType = ClassType.LIVE_BOOTCAMP;
+    tutorRows = [{ '?column?': 1 }];
+    query = jest.fn(async (sql: string) => {
+      if (sql.includes('AS is_owner')) return [{ is_owner: true }];
+      if (sql.includes('FOR SHARE')) return [{ type: classType }];
+      if (sql.includes('link.mentor_id = $2')) return tutorRows;
+      if (sql.includes('json_build_object')) return [response];
+      return [];
+    });
+    manager = {
+      query,
+      create: jest.fn((_target, value) => value),
+      save: jest.fn(async (value) => ({ ...value, id: meetingId })),
+      findOne: jest.fn(async () => ({ id: meetingId, class_id: classId })),
+    };
+    manager.transaction = jest.fn((callback) => callback(manager));
+    const unused = {} as never;
+    service = new ClassService(
+      unused,
+      { manager } as never,
+      unused,
+      unused,
+      new ClassAccessService({ manager: { query } } as never),
+    );
+  });
+
+  it('creates a bootcamp meeting with a duration and an assigned tutor', async () => {
+    await expect(
+      service.createMeeting(userId, classId, input),
+    ).resolves.toEqual({
+      data: response,
+      responseMessage: 'Create meeting success',
+    });
+    expect(manager.create).toHaveBeenCalledWith(
+      Meeting,
+      expect.objectContaining({
+        class_id: classId,
+        duration_minutes: 90,
+        mentor_id: mentorId,
+        created_by: userId,
+      }),
+    );
+  });
+
+  it('rejects a meeting for a video class', async () => {
+    classType = ClassType.VIDEO;
+
+    await expect(service.createMeeting(userId, classId, input)).rejects.toThrow(
+      'Meetings are only available for live bootcamps',
+    );
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects a mentor who is not a tutor of the class', async () => {
+    tutorRows = [];
+
+    await expect(service.createMeeting(userId, classId, input)).rejects.toThrow(
+      'mentor_id must be an active tutor of this class',
+    );
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('clears the duration and mentor with null', async () => {
+    await service.updateMeeting(userId, classId, meetingId, {
+      duration_minutes: null,
+      mentor_id: null,
+    });
+
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({ duration_minutes: null, mentor_id: null }),
+    );
+    expect(
+      query.mock.calls.some(([sql]) => sql.includes('link.mentor_id = $2')),
+    ).toBe(false);
+  });
+
+  it('returns 404 for a meeting of another class', async () => {
+    manager.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.updateMeeting(userId, classId, meetingId, { title: 'Baru' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(manager.save).not.toHaveBeenCalled();
   });
 });

@@ -54,7 +54,7 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 - `GET /catalog/v1/get-items` — **public**; filter by type, search (title, merchant name, category name, file format), level, category (slug or name), merchant (`merchant_id`), and digital file type (`file_format`); sort; paginate
 - `GET /catalog/v1/get-categories` — **public**; category tree
-- `GET /catalog/v1/get-class/:id` — **public**; syllabus, mentors, and meeting schedule, without video, file, or meeting links
+- `GET /catalog/v1/get-class/:id` — **public**; syllabus, mentors, and the bootcamp meeting schedule (status, duration, mentor), without video, file, or meeting links
 - `GET /catalog/v1/get-digital-product/:id` — **public**; file formats and sizes, without download links
 
 ### Promo
@@ -200,8 +200,10 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId/resources/:resourceId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId/resources/:resourceId`
 - `GET /api/v1/classes/:classId/meetings`
-- `POST /api/v1/classes/:classId/meetings` — date `YYYY-MM-DD`, time `HH:mm`, https live link
-- `PATCH /api/v1/classes/:classId/meetings/:meetingId`
+- `POST /api/v1/classes/:classId/meetings` — live bootcamps only (400 for video classes); date `YYYY-MM-DD`, time `HH:mm`, https live link, optional `duration_minutes` (1–1440) and `mentor_id` (an active tutor of the class)
+- `PATCH /api/v1/classes/:classId/meetings/:meetingId` — `null` clears the duration and mentor
+
+Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` is `upcoming` until the start plus the duration (180 minutes when unset) has passed, then `completed`. A live bootcamp that has meetings cannot become a video class.
 - `GET /api/v1/classes/:classId/mentors` — tutors with name, email, avatar, role, and permissions
 - `POST /api/v1/classes/:classId/mentors` — invite by email with a role; the role preset applies when no matrix is sent
 - `PATCH /api/v1/classes/:classId/mentors/:classMentorId` — owner only

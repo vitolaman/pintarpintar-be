@@ -5,6 +5,12 @@ import { DataSource } from 'typeorm';
 import { LearnerAccessService } from '../../class/learner-access.service';
 import { LearningProgressService } from '../../class/learning-progress.service';
 import { ClassCertificateService } from '../../class/class-certificate.service';
+import {
+  BOOTCAMP_MEETING_SQL,
+  MEETING_MENTOR_JOIN_SQL,
+  MEETING_MENTOR_SQL,
+  MEETING_STATUS_SQL,
+} from '../../class/meeting-sql';
 import { assetUrl } from '../../common/storage/asset-url';
 import {
   ObjectStorage,
@@ -16,13 +22,6 @@ import {
   LearningClassResponseDto,
   LearningResourceDto,
 } from './dto/learning-response.dto';
-
-// No duration is stored for meetings; one is treated as over three hours
-// after its start (Asia/Jakarta).
-export const MEETING_STATUS_SQL = `
-  CASE WHEN meeting."date" IS NOT NULL AND meeting."time" IS NOT NULL
-         AND ((meeting."date" + meeting."time") AT TIME ZONE 'Asia/Jakarta') + interval '3 hours' < now()
-       THEN 'completed' ELSE 'upcoming' END`;
 
 interface ResourceRow {
   id: string;
@@ -124,8 +123,11 @@ export class LearningClassService {
       manager.query(
         `SELECT meeting.id, meeting.title, meeting.content, meeting."date"::text AS date,
                   to_char(meeting."time", 'HH24:MI') AS time, meeting."liveUrl" AS live_url,
-                  ${MEETING_STATUS_SQL} AS status
+                  ${MEETING_STATUS_SQL} AS status, meeting.duration_minutes,
+                  ${MEETING_MENTOR_SQL} AS mentor
            FROM meetings meeting
+           ${BOOTCAMP_MEETING_SQL}
+           ${MEETING_MENTOR_JOIN_SQL}
            WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL
            ORDER BY meeting."date" NULLS LAST, meeting."time" NULLS LAST, meeting.id`,
         [classId],

@@ -82,15 +82,38 @@ export class ChapterResponseDto {
   @ApiProperty() updated_at: Date;
 }
 
+export class MeetingMentorDto {
+  @ApiProperty({ description: 'Mentor id' }) id: string;
+  @ApiProperty() name: string;
+}
+
+export const MEETING_STATUS_DESCRIPTION =
+  'Completed once the start plus the duration (180 minutes when unset) has passed';
+
+export const MEETING_DURATION_DESCRIPTION = 'Minutes, 1–1440; null when unset';
+
 export class MeetingResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() class_id: string;
   @ApiProperty() title: string;
-  @ApiPropertyOptional() content: string;
-  @ApiProperty() date: string;
-  @ApiProperty() time: string;
-  @ApiPropertyOptional() liveUrl: string;
-  @ApiProperty() status: string;
+  @ApiPropertyOptional({ nullable: true }) content: string | null;
+  @ApiProperty({ example: '2026-10-15' }) date: string;
+  @ApiProperty({ example: '19:30', description: 'HH:mm, Asia/Jakarta' })
+  time: string;
+  @ApiPropertyOptional({ nullable: true }) liveUrl: string | null;
+  @ApiProperty({
+    enum: ['upcoming', 'completed'],
+    description: MEETING_STATUS_DESCRIPTION,
+  })
+  status: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 90,
+    description: MEETING_DURATION_DESCRIPTION,
+  })
+  duration_minutes: number | null;
+  @ApiPropertyOptional({ type: MeetingMentorDto, nullable: true })
+  mentor: MeetingMentorDto | null;
   @ApiProperty() created_at: Date;
 }
 

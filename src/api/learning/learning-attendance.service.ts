@@ -6,7 +6,14 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClassAttendanceService } from '../../class/class-attendance.service';
-import { MEETING_STARTED_SQL } from '../../class/learner-metrics';
+import {
+  BOOTCAMP_MEETING_SQL,
+  MEETING_MENTOR_JOIN_SQL,
+  MEETING_MENTOR_SQL,
+  MEETING_STARTED_SQL,
+  MEETING_STATUS_SQL,
+  MeetingMentor,
+} from '../../class/meeting-sql';
 import { assetUrl } from '../../common/storage/asset-url';
 import {
   AttendanceMeetingDto,
@@ -21,6 +28,9 @@ interface MeetingRow {
   date: string | null;
   time: string | null;
   is_open: boolean;
+  status: string;
+  duration_minutes: number | null;
+  mentor: MeetingMentor | null;
 }
 
 /**
@@ -119,8 +129,11 @@ export class LearningAttendanceService {
     const [meeting]: MeetingRow[] = await this.dataSource.query(
       `SELECT meeting.id, meeting.title, meeting."date"::text AS date,
               to_char(meeting."time", 'HH24:MI') AS time,
-              ${MEETING_STARTED_SQL} AS is_open
+              ${MEETING_STARTED_SQL} AS is_open, ${MEETING_STATUS_SQL} AS status,
+              meeting.duration_minutes, ${MEETING_MENTOR_SQL} AS mentor
        FROM meetings meeting
+       ${BOOTCAMP_MEETING_SQL}
+       ${MEETING_MENTOR_JOIN_SQL}
        WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL
          AND meeting."date" IS NOT NULL AND meeting."time" IS NOT NULL
        ORDER BY ${MEETING_STARTED_SQL} DESC,

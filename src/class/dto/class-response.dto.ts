@@ -155,7 +155,7 @@ export class AssignmentResponseDto {
   @ApiProperty() created_at: Date;
 }
 
-export class MentorResponseDto {
+export class ClassTutorResponseDto {
   @ApiProperty({ description: 'Tutor assignment id (class_mentors.id)' })
   id: string;
   @ApiProperty() class_id: string;

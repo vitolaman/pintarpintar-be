@@ -163,6 +163,7 @@ Only live bootcamps (`type: "live-bootcamp"`) have meetings. Hide the Meeting an
   - `duration_minutes` (Durasi, 1–1440) and `mentor_id` are optional. The mentor must be an active tutor of the class (the `mentor_id` from `GET /api/v1/classes/:classId/mentors`); otherwise the response is 400.
   - A meeting on a video class is 400. A live bootcamp that has meetings cannot be changed to `video` (400).
 - `GET /api/v1/classes/:classId/meetings` and `PATCH /api/v1/classes/:classId/meetings/:meetingId`. In the update, `null` clears `content`, `liveUrl`, `duration_minutes` and `mentor_id`.
+- `DELETE /api/v1/classes/:classId/meetings/:meetingId` (204) needs `meeting.delete`. The meeting disappears everywhere, its attendance stops counting, and learners who now qualify get their automatic certificate. A bootcamp whose meetings are all deleted can be changed to `video`.
 - Every meeting response includes `duration_minutes` and `mentor` (`{ id, name }` or null). `time` is always `HH:mm`, so it can be sent back unchanged.
 - **Status:** a meeting is "started" from its date and time. `status` is `upcoming` until the start plus its duration has passed (180 minutes when no duration is set), then `completed`. The same rule applies on the class editor, the public bootcamp page, the learner pages and the attendance page.
 - **Attendance:**

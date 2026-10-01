@@ -21,11 +21,12 @@ import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { ClassAccessService } from './class-access.service';
+import { ClassCertificateService } from './class-certificate.service';
 import { ClassListQueryDto } from './dto/class-list-query.dto';
 import {
   ClassResponseDto,
   MeetingResponseDto,
-  MentorResponseDto,
+  ClassTutorResponseDto,
 } from './dto/class-response.dto';
 import { UpdateClassMentorDto } from './dto/update-class-mentor.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
@@ -100,6 +101,7 @@ export class ClassService {
     @InjectRepository(Enrollment)
     private readonly enrollmentRepo: Repository<Enrollment>,
     private readonly classAccess: ClassAccessService,
+    private readonly certificates: ClassCertificateService,
   ) {}
 
   async createClass(userId: string, merchantId: string, dto: CreateClassDto) {
@@ -304,6 +306,36 @@ export class ClassService {
         data: await this.findMeetingResponse(manager, classId, meeting.id),
         responseMessage: 'Update meeting success',
       };
+    });
+  }
+
+  // Soft delete: the meeting's attendance stops counting, so learners who
+  // only missed this meeting may now qualify for an automatic certificate.
+  // Leftover meetings of video classes can be removed too.
+  async deleteMeeting(userId: string, classId: string, meetingId: string) {
+    await this.meetingRepo.manager.transaction(async (manager) => {
+      await this.classAccess.requireAction(
+        userId,
+        classId,
+        'meeting',
+        'delete',
+        manager,
+      );
+      await manager.query(
+        'SELECT id FROM classes WHERE id = $1 AND deleted_at IS NULL FOR SHARE',
+        [classId],
+      );
+      const meeting = await manager.findOne(Meeting, {
+        where: { id: meetingId, class_id: classId },
+      });
+      if (!meeting) throw new NotFoundException('Meeting not found');
+
+      await manager.update(
+        Meeting,
+        { id: meeting.id },
+        { deleted_at: new Date(), deleted_by: userId },
+      );
+      await this.certificates.issueEligible(manager, classId);
     });
   }
 
@@ -525,7 +557,7 @@ export class ClassService {
     manager: EntityManager,
     classId: string,
     scope: { linkId: string } | { page: number; limit: number },
-  ): Promise<MentorResponseDto[]> {
+  ): Promise<ClassTutorResponseDto[]> {
     const byLink = 'linkId' in scope;
     const rows = await manager.query(
       `SELECT link.id, link.class_id, link.mentor_id, mentor.user_id,

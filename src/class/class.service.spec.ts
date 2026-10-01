@@ -12,6 +12,8 @@ import { Class, ClassStatus, ClassType } from './entities/class.entity';
 import { ClassMentor } from './entities/class-mentor.entity';
 import { Meeting } from './entities/meeting.entity';
 
+const certificates = { issueEligible: jest.fn() };
+
 describe('ClassService.inviteMentor', () => {
   const ownerId = '10000000-0000-4000-8000-000000000001';
   const classId = '30000000-0000-4000-8000-000000000001';
@@ -47,7 +49,14 @@ describe('ClassService.inviteMentor', () => {
     } as unknown as Repository<ClassMentor>;
     const unused = {} as never;
 
-    service = new ClassService(unused, unused, classMentors, unused, unused);
+    service = new ClassService(
+      unused,
+      unused,
+      classMentors,
+      unused,
+      unused,
+      unused,
+    );
   });
 
   it('assigns an active mentor found by email to the owner class', async () => {
@@ -167,6 +176,7 @@ describe('ClassService access control', () => {
       unused,
       enrollments as never,
       new ClassAccessService({ manager: { query } } as never),
+      certificates as never,
     );
   });
 
@@ -311,6 +321,7 @@ describe('ClassService.updateClass', () => {
       unused,
       unused,
       new ClassAccessService({ manager: { query } } as never),
+      certificates as never,
     );
   });
 
@@ -499,6 +510,7 @@ describe('ClassService tutor management', () => {
       unused,
       unused,
       new ClassAccessService({ manager: { query } } as never),
+      certificates as never,
     );
   });
 
@@ -628,6 +640,7 @@ describe('ClassService meetings', () => {
       unused,
       unused,
       new ClassAccessService({ manager: { query } } as never),
+      certificates as never,
     );
   });
 
@@ -679,6 +692,50 @@ describe('ClassService meetings', () => {
     expect(
       query.mock.calls.some(([sql]) => sql.includes('link.mentor_id = $2')),
     ).toBe(false);
+  });
+
+  it('soft-deletes a meeting and re-evaluates automatic certificates', async () => {
+    manager.update = jest.fn();
+    certificates.issueEligible.mockClear();
+
+    await service.deleteMeeting(userId, classId, meetingId);
+
+    expect(manager.update).toHaveBeenCalledWith(
+      Meeting,
+      { id: meetingId },
+      { deleted_at: expect.any(Date), deleted_by: userId },
+    );
+    expect(certificates.issueEligible).toHaveBeenCalledWith(manager, classId);
+  });
+
+  it('needs the meeting.delete permission', async () => {
+    manager.update = jest.fn();
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('AS is_owner')
+        ? [
+            {
+              is_owner: false,
+              role: 'assistant',
+              permissions: DEFAULT_TUTOR_PERMISSIONS.assistant,
+            },
+          ]
+        : [],
+    );
+
+    await expect(
+      service.deleteMeeting(userId, classId, meetingId),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(manager.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when deleting a meeting of another class', async () => {
+    manager.update = jest.fn();
+    manager.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.deleteMeeting(userId, classId, meetingId),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(manager.update).not.toHaveBeenCalled();
   });
 
   it('returns 404 for a meeting of another class', async () => {

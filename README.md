@@ -212,6 +212,7 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `GET /api/v1/classes/:classId/meetings`
 - `POST /api/v1/classes/:classId/meetings` — live bootcamps only (400 for video classes); date `YYYY-MM-DD`, time `HH:mm`, https live link, optional `duration_minutes` (1–1440) and `mentor_id` (an active tutor of the class)
 - `PATCH /api/v1/classes/:classId/meetings/:meetingId` — `null` clears the duration and mentor
+- `DELETE /api/v1/classes/:classId/meetings/:meetingId` — `meeting.delete`; soft delete; its attendance stops counting and automatic certificates are re-evaluated
 
 Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` is `upcoming` until the start plus the duration (180 minutes when unset) has passed, then `completed`. A live bootcamp that has meetings cannot become a video class.
 - `GET /api/v1/classes/:classId/mentors` — tutors with name, email, avatar, role, and permissions

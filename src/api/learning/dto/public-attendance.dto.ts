@@ -34,7 +34,7 @@ export class CheckInByEmailDto {
   feedback?: string;
 }
 
-export class AttendanceMeetingDto {
+export class PublicAttendanceMeetingDto {
   @ApiProperty()
   id: string;
 
@@ -91,12 +91,12 @@ export class AttendanceSessionDto {
   mentor_names: string[];
 
   @ApiProperty({
-    type: AttendanceMeetingDto,
+    type: PublicAttendanceMeetingDto,
     nullable: true,
     description:
       'The latest started meeting, else the next upcoming one; null without meetings',
   })
-  meeting: AttendanceMeetingDto | null;
+  meeting: PublicAttendanceMeetingDto | null;
 }
 
 export class CheckInByEmailResponseDto {

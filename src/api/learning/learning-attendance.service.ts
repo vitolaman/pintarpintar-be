@@ -16,7 +16,7 @@ import {
 } from '../../class/meeting-sql';
 import { assetUrl } from '../../common/storage/asset-url';
 import {
-  AttendanceMeetingDto,
+  PublicAttendanceMeetingDto,
   AttendanceSessionDto,
   CheckInByEmailDto,
   CheckInByEmailResponseDto,
@@ -125,7 +125,7 @@ export class LearningAttendanceService {
   // The latest meeting that has started; otherwise the next upcoming one.
   private async findSessionMeeting(
     classId: string,
-  ): Promise<AttendanceMeetingDto | null> {
+  ): Promise<PublicAttendanceMeetingDto | null> {
     const [meeting]: MeetingRow[] = await this.dataSource.query(
       `SELECT meeting.id, meeting.title, meeting."date"::text AS date,
               to_char(meeting."time", 'HH24:MI') AS time,

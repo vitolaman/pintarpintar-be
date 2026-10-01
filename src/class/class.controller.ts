@@ -53,12 +53,12 @@ import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
 import { ReorderChapterItemsDto } from './dto/reorder-chapter-items.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { UpdateClassMentorDto } from './dto/update-class-mentor.dto';
-import { 
-  ClassResponseDto, 
-  ChapterResponseDto, 
-  MeetingResponseDto, 
-  AssignmentResponseDto, 
-  MentorResponseDto, 
+import {
+  ClassResponseDto,
+  ChapterResponseDto,
+  MeetingResponseDto,
+  AssignmentResponseDto,
+  ClassTutorResponseDto,
   StudentResponseDto,
   FileResourceResponseDto,
   VideoResponseDto,
@@ -311,6 +311,17 @@ export class ClassController {
       meetingId,
       dto,
     );
+  }
+
+  @Delete(':classId/meetings/:meetingId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @EmptyResponse()
+  deleteMeeting(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('meetingId', ParseUUIDPipe) meetingId: string,
+  ) {
+    return this.classService.deleteMeeting(req.user.id, classId, meetingId);
   }
 
   @Get(':classId/certificate-settings')
@@ -572,7 +583,7 @@ export class ClassController {
 
   @Post(':classId/mentors')
   @DefaultResponse(
-    MentorResponseDto,
+    ClassTutorResponseDto,
     'Invite mentor success',
     HttpStatus.CREATED,
   )
@@ -585,7 +596,7 @@ export class ClassController {
   }
 
   @Patch(':classId/mentors/:classMentorId')
-  @DefaultResponse(MentorResponseDto, 'Update class mentor success')
+  @DefaultResponse(ClassTutorResponseDto, 'Update class mentor success')
   updateClassMentor(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -618,7 +629,7 @@ export class ClassController {
   @Get(':classId/mentors')
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
-  @PaginatedResponse(MentorResponseDto, 'Get class mentors success')
+  @PaginatedResponse(ClassTutorResponseDto, 'Get class mentors success')
   getClassMentors(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,

@@ -10,7 +10,15 @@ import { ClassAccessService } from './class-access.service';
 import { ClassCertificateService } from './class-certificate.service';
 import { Attendance, AttendanceStatus } from './entities/attendance.entity';
 import { LearnerAccessService } from './learner-access.service';
-import { MEETING_STARTED_SQL, loadLearnerMetrics } from './learner-metrics';
+import { loadLearnerMetrics } from './learner-metrics';
+import {
+  BOOTCAMP_MEETING_SQL,
+  MEETING_MENTOR_JOIN_SQL,
+  MEETING_MENTOR_SQL,
+  MEETING_STARTED_SQL,
+  MEETING_STATUS_SQL,
+  MeetingMentor,
+} from './meeting-sql';
 
 interface MeetingRow {
   id: string;
@@ -21,14 +29,20 @@ interface MeetingRow {
   time: string | null;
   live_url: string | null;
   has_started: boolean;
+  status: string;
+  duration_minutes: number | null;
+  mentor: MeetingMentor | null;
 }
 
 const MEETING_SQL = `
   SELECT meeting.id, meeting.class_id, meeting.title, meeting.content,
          meeting."date"::text AS date, to_char(meeting."time", 'HH24:MI') AS time,
-         meeting."liveUrl" AS live_url, ${MEETING_STARTED_SQL} AS has_started
+         meeting."liveUrl" AS live_url, ${MEETING_STARTED_SQL} AS has_started,
+         ${MEETING_STATUS_SQL} AS status, meeting.duration_minutes,
+         ${MEETING_MENTOR_SQL} AS mentor
   FROM meetings meeting
-  INNER JOIN classes class ON class.id = meeting.class_id AND class.deleted_at IS NULL
+  ${BOOTCAMP_MEETING_SQL}
+  ${MEETING_MENTOR_JOIN_SQL}
   WHERE meeting.id = $1 AND meeting.deleted_at IS NULL
 `;
 
@@ -197,6 +211,7 @@ export class ClassAttendanceService {
         `SELECT count(*)::integer AS total_meetings,
                 count(*) FILTER (WHERE ${MEETING_STARTED_SQL})::integer AS started_meetings
          FROM meetings meeting
+         ${BOOTCAMP_MEETING_SQL}
          WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL`,
         [classId],
       ),
@@ -302,6 +317,9 @@ function publicMeeting(meeting: MeetingRow) {
     time: meeting.time,
     live_url: meeting.live_url,
     has_started: meeting.has_started,
+    status: meeting.status,
+    duration_minutes: meeting.duration_minutes,
+    mentor: meeting.mentor,
   };
 }
 

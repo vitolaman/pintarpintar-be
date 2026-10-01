@@ -2,6 +2,8 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ClassListQueryDto } from './class-list-query.dto';
 import { CreateClassDto } from './create-class.dto';
+import { CreateMeetingDto } from './create-meeting.dto';
+import { UpdateMeetingDto } from './update-meeting.dto';
 import { UpdateClassDto } from './update-class.dto';
 
 async function errorFields(target: new () => object, input: object) {
@@ -78,5 +80,37 @@ describe('class DTO validation', () => {
     [{ type: 'live-bootcamp', status: 'published', limit: '100' }, []],
   ])('list query %j fails on %j', async (input, fields) => {
     expect(await errorFields(ClassListQueryDto, input)).toEqual(fields);
+  });
+
+  const meeting = { title: 'Sesi 1', date: '2026-10-12', time: '19:00' };
+
+  it.each([
+    [{}, []],
+    [
+      {
+        duration_minutes: 90,
+        mentor_id: '50000000-0000-4000-8000-000000000001',
+      },
+      [],
+    ],
+    [{ duration_minutes: 1 }, []],
+    [{ duration_minutes: 1440 }, []],
+    [{ duration_minutes: 0 }, ['duration_minutes']],
+    [{ duration_minutes: 1441 }, ['duration_minutes']],
+    [{ duration_minutes: 90.5 }, ['duration_minutes']],
+    [{ duration_minutes: null, mentor_id: null }, []],
+    [{ mentor_id: 'mentor' }, ['mentor_id']],
+  ])('validates new meeting details %j', async (input, fields) => {
+    expect(
+      await errorFields(CreateMeetingDto, { ...meeting, ...input }),
+    ).toEqual(fields);
+  });
+
+  it.each([
+    [{ duration_minutes: null, mentor_id: null }, []],
+    [{ duration_minutes: 0 }, ['duration_minutes']],
+    [{ mentor_id: 'mentor' }, ['mentor_id']],
+  ])('validates meeting detail updates %j', async (input, fields) => {
+    expect(await errorFields(UpdateMeetingDto, input)).toEqual(fields);
   });
 });

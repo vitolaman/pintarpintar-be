@@ -1,9 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  LearningClassService,
-  MEETING_STATUS_SQL,
-} from './learning-class.service';
+import { LearningClassService } from './learning-class.service';
 
 describe('LearningClassService', () => {
   const userId = '10000000-0000-4000-8000-000000000001';
@@ -122,10 +119,5 @@ describe('LearningClassService', () => {
       progress: 100,
       certificate: { status: 'ineligible' },
     });
-  });
-
-  it('derives meeting status from the start time in Asia/Jakarta', () => {
-    expect(MEETING_STATUS_SQL).toContain("AT TIME ZONE 'Asia/Jakarta'");
-    expect(MEETING_STATUS_SQL).toContain("interval '3 hours' < now()");
   });
 });

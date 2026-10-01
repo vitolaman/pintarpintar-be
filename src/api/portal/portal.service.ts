@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { MEETING_END_SQL } from '../../class/meeting-sql';
 import {
   PortalItemQueryDto,
   PortalItemType,
@@ -147,14 +148,11 @@ export class PortalService {
                  AND meeting.class_id = page.item_id
                  AND meeting.deleted_at IS NULL
                  AND meeting."date" IS NOT NULL
-                 AND (
-                   meeting.status = 'ongoing'
-                   OR (
-                     meeting.status = 'upcoming'
-                     AND meeting."date" + COALESCE(meeting."time", time '23:59:59')
-                       >= (now() AT TIME ZONE 'Asia/Jakarta')
-                   )
-                 )
+                 AND CASE
+                   WHEN meeting."time" IS NULL
+                     THEN meeting."date" >= (now() AT TIME ZONE 'Asia/Jakarta')::date
+                   ELSE ${MEETING_END_SQL} >= now()
+                 END
                ORDER BY meeting."date", meeting."time" NULLS LAST
                LIMIT 1
              ) next_meeting ON true

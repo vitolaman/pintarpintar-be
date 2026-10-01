@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -10,7 +11,7 @@ import { assertOwnedAsset } from '../api/file-asset/asset-purpose-rules';
 import { assetUrl } from '../common/storage/asset-url';
 import { assertDiscountWithinPrice } from '../common/pricing/discount-rule';
 
-import { Class } from './entities/class.entity';
+import { Class, ClassType } from './entities/class.entity';
 import { Meeting } from './entities/meeting.entity';
 import { ClassMentor } from './entities/class-mentor.entity';
 import { Enrollment } from './entities/enrollment.entity';
@@ -21,13 +22,23 @@ import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { ClassAccessService } from './class-access.service';
 import { ClassListQueryDto } from './dto/class-list-query.dto';
-import { ClassResponseDto, MentorResponseDto } from './dto/class-response.dto';
+import {
+  ClassResponseDto,
+  MeetingResponseDto,
+  MentorResponseDto,
+} from './dto/class-response.dto';
 import { UpdateClassMentorDto } from './dto/update-class-mentor.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import {
   DEFAULT_TUTOR_PERMISSIONS,
   parsePermissionMatrix,
 } from './class-permissions';
+import {
+  BOOTCAMP_MEETING_SQL,
+  MEETING_MENTOR_JOIN_SQL,
+  MEETING_MENTOR_SQL,
+  MEETING_STATUS_SQL,
+} from './meeting-sql';
 
 // A lead tutor may edit the class's presentation; pricing, type, and status
 // stay with the owner.
@@ -57,6 +68,26 @@ const CLASS_PRICE_FIELDS = {
   list: 'originalPrice',
   discount: 'discountedPrice',
 };
+
+const MEETING_UPDATE_FIELDS = [
+  'title',
+  'content',
+  'date',
+  'time',
+  'liveUrl',
+  'duration_minutes',
+  'mentor_id',
+] as const;
+
+const MEETING_RESPONSE_SQL = `
+  SELECT meeting.id, meeting.class_id, meeting.title, meeting.content,
+         meeting."date"::text AS date, to_char(meeting."time", 'HH24:MI') AS time,
+         meeting."liveUrl" AS "liveUrl", ${MEETING_STATUS_SQL} AS status,
+         meeting.duration_minutes, ${MEETING_MENTOR_SQL} AS mentor, meeting.created_at
+  FROM meetings meeting
+  ${BOOTCAMP_MEETING_SQL}
+  ${MEETING_MENTOR_JOIN_SQL}
+  WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL`;
 
 @Injectable()
 export class ClassService {
@@ -190,6 +221,18 @@ export class ClassService {
           'class_cover',
         );
       }
+      // Meetings exist only for live bootcamps. Meeting writes lock this row
+      // too, so none can be added while the type changes.
+      if (changes.type === ClassType.VIDEO && cls.type !== ClassType.VIDEO) {
+        const meetings = await manager.count(Meeting, {
+          where: { class_id: classId },
+        });
+        if (meetings > 0) {
+          throw new BadRequestException(
+            'A live bootcamp that has meetings cannot become a video class',
+          );
+        }
+      }
 
       Object.assign(cls, changes);
       const saved = await manager.save(cls);
@@ -199,19 +242,36 @@ export class ClassService {
   }
 
   async createMeeting(userId: string, classId: string, dto: CreateMeetingDto) {
-    await this.classAccess.requireAction(userId, classId, 'meeting', 'tambah');
-    const meeting = await this.meetingRepo.save(
-      this.meetingRepo.create({
-        class_id: classId,
-        title: dto.title,
-        content: dto.content,
-        date: dto.date,
-        time: dto.time,
-        liveUrl: dto.liveUrl,
-        created_by: userId,
-      }),
-    );
-    return { data: meeting, responseMessage: 'Create meeting success' };
+    return this.meetingRepo.manager.transaction(async (manager) => {
+      await this.classAccess.requireAction(
+        userId,
+        classId,
+        'meeting',
+        'tambah',
+        manager,
+      );
+      await this.lockBootcamp(manager, classId);
+      if (dto.mentor_id) {
+        await this.assertClassTutor(manager, classId, dto.mentor_id);
+      }
+      const meeting = await manager.save(
+        manager.create(Meeting, {
+          class_id: classId,
+          title: dto.title,
+          content: dto.content,
+          date: dto.date,
+          time: dto.time,
+          liveUrl: dto.liveUrl,
+          duration_minutes: dto.duration_minutes ?? null,
+          mentor_id: dto.mentor_id ?? null,
+          created_by: userId,
+        }),
+      );
+      return {
+        data: await this.findMeetingResponse(manager, classId, meeting.id),
+        responseMessage: 'Create meeting success',
+      };
+    });
   }
 
   async updateMeeting(
@@ -220,19 +280,31 @@ export class ClassService {
     meetingId: string,
     dto: UpdateMeetingDto,
   ) {
-    await this.classAccess.requireAction(userId, classId, 'meeting', 'edit');
-    const meeting = await this.meetingRepo.findOne({
-      where: { id: meetingId, class_id: classId },
-    });
-    if (!meeting) throw new NotFoundException('Meeting not found');
+    return this.meetingRepo.manager.transaction(async (manager) => {
+      await this.classAccess.requireAction(
+        userId,
+        classId,
+        'meeting',
+        'edit',
+        manager,
+      );
+      await this.lockBootcamp(manager, classId);
+      const meeting = await manager.findOne(Meeting, {
+        where: { id: meetingId, class_id: classId },
+      });
+      if (!meeting) throw new NotFoundException('Meeting not found');
+      if (dto.mentor_id) {
+        await this.assertClassTutor(manager, classId, dto.mentor_id);
+      }
 
-    Object.assign(
-      meeting,
-      pickDefined(dto, ['title', 'content', 'date', 'time', 'liveUrl']),
-    );
-    meeting.updated_by = userId;
-    const saved = await this.meetingRepo.save(meeting);
-    return { data: saved, responseMessage: 'Update meeting success' };
+      Object.assign(meeting, pickDefined(dto, MEETING_UPDATE_FIELDS));
+      meeting.updated_by = userId;
+      await manager.save(meeting);
+      return {
+        data: await this.findMeetingResponse(manager, classId, meeting.id),
+        responseMessage: 'Update meeting success',
+      };
+    });
   }
 
   async getClassMeetings(
@@ -242,12 +314,21 @@ export class ClassService {
     limit = 10,
   ) {
     await this.classAccess.requireAction(userId, classId, 'meeting', 'lihat');
-    const [data, total] = await this.meetingRepo.findAndCount({
-      where: { class_id: classId },
-      order: { date: 'ASC', time: 'ASC', id: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const manager = this.meetingRepo.manager;
+    const [data, [{ total }]] = await Promise.all([
+      manager.query(
+        `${MEETING_RESPONSE_SQL}
+         ORDER BY meeting."date" ASC, meeting."time" ASC, meeting.id ASC
+         LIMIT $2 OFFSET $3`,
+        [classId, limit, (page - 1) * limit],
+      ) as Promise<MeetingResponseDto[]>,
+      manager.query(
+        `SELECT count(*)::integer AS total FROM meetings meeting
+         ${BOOTCAMP_MEETING_SQL}
+         WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL`,
+        [classId],
+      ),
+    ]);
     return { data, meta: { total, page, limit } };
   }
 
@@ -533,6 +614,55 @@ export class ClassService {
       [merchantId, userId],
     );
     if (owned.length === 0) throw new NotFoundException('Merchant not found');
+  }
+
+  // Locks the class against a concurrent type change and requires a live
+  // bootcamp, the only class type with meetings.
+  private async lockBootcamp(
+    manager: EntityManager,
+    classId: string,
+  ): Promise<void> {
+    const [cls] = await manager.query(
+      `SELECT type FROM classes WHERE id = $1 AND deleted_at IS NULL FOR SHARE`,
+      [classId],
+    );
+    if (!cls) throw new NotFoundException('Class not found');
+    if (cls.type !== ClassType.LIVE_BOOTCAMP) {
+      throw new BadRequestException(
+        'Meetings are only available for live bootcamps',
+      );
+    }
+  }
+
+  private async assertClassTutor(
+    manager: EntityManager,
+    classId: string,
+    mentorId: string,
+  ): Promise<void> {
+    const [tutor] = await manager.query(
+      `SELECT 1 FROM class_mentors link
+       INNER JOIN mentors mentor
+         ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL AND mentor.status = 'active'
+       WHERE link.class_id = $1 AND link.mentor_id = $2 AND link.deleted_at IS NULL`,
+      [classId, mentorId],
+    );
+    if (!tutor) {
+      throw new BadRequestException(
+        'mentor_id must be an active tutor of this class',
+      );
+    }
+  }
+
+  private async findMeetingResponse(
+    manager: EntityManager,
+    classId: string,
+    meetingId: string,
+  ): Promise<MeetingResponseDto> {
+    const [meeting] = await manager.query(
+      `${MEETING_RESPONSE_SQL} AND meeting.id = $2`,
+      [classId, meetingId],
+    );
+    return meeting;
   }
 }
 

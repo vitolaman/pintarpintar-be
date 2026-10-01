@@ -3,7 +3,6 @@ import { AuditedBaseEntity } from '../../common/entities/audited-base.entity';
 import { Class } from './class.entity';
 import { Attendance } from './attendance.entity';
 
-
 export enum MeetingStatus {
   UPCOMING = 'upcoming',
   ONGOING = 'ongoing',
@@ -35,6 +34,15 @@ export class Meeting extends AuditedBaseEntity {
   @Column({ type: 'varchar', nullable: true })
   liveUrl: string;
 
+  // Null means the default length used for the derived status (3 hours).
+  @Column({ name: 'duration_minutes', type: 'integer', nullable: true })
+  duration_minutes: number | null;
+
+  @Column({ name: 'mentor_id', type: 'uuid', nullable: true })
+  mentor_id: string | null;
+
+  // Kept for existing rows only; responses derive the status from the start
+  // and duration (MEETING_STATUS_SQL).
   @Column({ type: 'varchar', default: MeetingStatus.UPCOMING })
   status: MeetingStatus;
 

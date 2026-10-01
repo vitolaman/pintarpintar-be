@@ -154,13 +154,17 @@ Videos are **YouTube or embed links**; video files are not accepted.
 - `DELETE …/resources/:resourceId`.
 
 ### 3.4 Meetings (live sessions)
+Only live bootcamps (`type: "live-bootcamp"`) have meetings. Hide the Meeting and Absensi tabs for video classes.
 - `POST /api/v1/classes/:classId/meetings` with:
 ```json
-{ "title": "Sesi Q&A 1", "content": "Sesi tanya jawab live", "date": "2026-10-12", "time": "19:00", "liveUrl": "https://zoom.us/j/123456" }
+{ "title": "Sesi Q&A 1", "content": "Sesi tanya jawab live", "date": "2026-10-12", "time": "19:00", "liveUrl": "https://zoom.us/j/123456", "duration_minutes": 90, "mentor_id": "<mentor id>" }
 ```
   - `date` is `YYYY-MM-DD` and `time` is `HH:mm`, both in Asia/Jakarta.
-  - A meeting is "started" from its date and time and "completed" three hours later.
-- `GET /api/v1/classes/:classId/meetings` and `PATCH /api/v1/classes/:classId/meetings/:meetingId`.
+  - `duration_minutes` (Durasi, 1–1440) and `mentor_id` are optional. The mentor must be an active tutor of the class (the `mentor_id` from `GET /api/v1/classes/:classId/mentors`); otherwise the response is 400.
+  - A meeting on a video class is 400. A live bootcamp that has meetings cannot be changed to `video` (400).
+- `GET /api/v1/classes/:classId/meetings` and `PATCH /api/v1/classes/:classId/meetings/:meetingId`. In the update, `null` clears `content`, `liveUrl`, `duration_minutes` and `mentor_id`.
+- Every meeting response includes `duration_minutes` and `mentor` (`{ id, name }` or null). `time` is always `HH:mm`, so it can be sent back unchanged.
+- **Status:** a meeting is "started" from its date and time. `status` is `upcoming` until the start plus its duration has passed (180 minutes when no duration is set), then `completed`. The same rule applies on the class editor, the public bootcamp page, the learner pages and the attendance page.
 - **Attendance:**
   - `GET /api/v1/classes/:classId/attendance-summary` returns the totals per class.
   - `GET /api/v1/classes/:classId/meetings/:meetingId/attendances` returns every enrolled learner with status `hadir`, `izin` or `alpa`, the check-in time and notes.

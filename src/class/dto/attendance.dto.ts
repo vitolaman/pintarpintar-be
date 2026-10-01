@@ -7,6 +7,11 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { AttendanceStatus } from '../entities/attendance.entity';
+import {
+  MEETING_DURATION_DESCRIPTION,
+  MEETING_STATUS_DESCRIPTION,
+  MeetingMentorDto,
+} from './class-response.dto';
 
 export class CheckInDto {
   @ApiPropertyOptional({
@@ -37,6 +42,19 @@ export class AttendanceMeetingDto {
   time: string | null;
   @ApiPropertyOptional({ nullable: true }) live_url: string | null;
   @ApiProperty() has_started: boolean;
+  @ApiProperty({
+    enum: ['upcoming', 'completed'],
+    description: MEETING_STATUS_DESCRIPTION,
+  })
+  status: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 90,
+    description: MEETING_DURATION_DESCRIPTION,
+  })
+  duration_minutes: number | null;
+  @ApiPropertyOptional({ type: MeetingMentorDto, nullable: true })
+  mentor: MeetingMentorDto | null;
 }
 
 export class MyAttendanceDto {

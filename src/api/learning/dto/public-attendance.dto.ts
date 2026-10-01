@@ -7,6 +7,11 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import {
+  MEETING_DURATION_DESCRIPTION,
+  MEETING_STATUS_DESCRIPTION,
+  MeetingMentorDto,
+} from '../../../class/dto/class-response.dto';
 
 export class CheckInByEmailDto {
   @ApiProperty({ example: 'Ahmad Rizki Pratama' })
@@ -48,6 +53,22 @@ export class AttendanceMeetingDto {
 
   @ApiProperty({ description: 'The meeting has started, so check-in is open' })
   is_open: boolean;
+
+  @ApiProperty({
+    enum: ['upcoming', 'completed'],
+    description: MEETING_STATUS_DESCRIPTION,
+  })
+  status: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 90,
+    description: MEETING_DURATION_DESCRIPTION,
+  })
+  duration_minutes: number | null;
+
+  @ApiPropertyOptional({ type: MeetingMentorDto, nullable: true })
+  mentor: MeetingMentorDto | null;
 }
 
 export class AttendanceSessionDto {

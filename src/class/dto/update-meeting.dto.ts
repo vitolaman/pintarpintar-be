@@ -1,12 +1,16 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsISO8601,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
   Matches,
+  Max,
   MaxLength,
+  Min,
   ValidateIf,
 } from 'class-validator';
 import { CALENDAR_DATE, CLOCK_TIME, HTTPS_URL } from './content-validation';
@@ -42,4 +46,25 @@ export class UpdateMeetingDto {
   @MaxLength(2048)
   @IsOptional()
   liveUrl?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 90,
+    description: 'Minutes, 1–1440; null clears it',
+  })
+  @ValidateIf((_, value) => value !== null)
+  @IsInt()
+  @Min(1)
+  @Max(1440)
+  @IsOptional()
+  duration_minutes?: number | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Mentor id of an active tutor of this class; null clears it',
+  })
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  @IsOptional()
+  mentor_id?: string | null;
 }

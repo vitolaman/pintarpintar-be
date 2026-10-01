@@ -1,5 +1,6 @@
 import { EntityManager } from 'typeorm';
 import { progressSql } from './learning-progress.service';
+import { BOOTCAMP_MEETING_SQL, MEETING_STARTED_SQL } from './meeting-sql';
 
 export interface LearnerMetrics {
   user_id: string;
@@ -12,10 +13,6 @@ export interface LearnerMetrics {
   graded_assignments: number;
 }
 
-// A meeting has started once its date and time (Asia/Jakarta) are past.
-export const MEETING_STARTED_SQL = `(meeting."date" IS NOT NULL AND meeting."time" IS NOT NULL
-  AND ((meeting."date" + meeting."time") AT TIME ZONE 'Asia/Jakarta') <= now())`;
-
 // Progress, attendance and grade average of every enrolled learner of a class
 // ($1), optionally narrowed to some learners ($2). Progress, grades, the
 // attendance summary and certificate eligibility all read these numbers.
@@ -26,6 +23,7 @@ const LEARNER_METRICS_SQL = `
       AND ($2::uuid[] IS NULL OR enrollment.user_id = ANY($2::uuid[]))
   ), started_meetings AS (
     SELECT meeting.id FROM meetings meeting
+    ${BOOTCAMP_MEETING_SQL}
     WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL AND ${MEETING_STARTED_SQL}
   )
   SELECT learners.user_id,

@@ -1,6 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import {
+  BOOTCAMP_MEETING_SQL,
+  MEETING_MENTOR_JOIN_SQL,
+  MEETING_MENTOR_SQL,
+  MEETING_STATUS_SQL,
+} from '../../class/meeting-sql';
 import { assetUrl } from '../../common/storage/asset-url';
 import { Category } from '../digital-product/entities/category.entity';
 import {
@@ -276,9 +282,14 @@ export class CatalogService {
         ),
         row.type === 'bootcamp'
           ? this.dataSource.query(
-              `SELECT id, title, "date"::text AS date, to_char("time", 'HH24:MI') AS time, status
-             FROM meetings WHERE class_id = $1 AND deleted_at IS NULL
-             ORDER BY "date" NULLS LAST, "time" NULLS LAST, id`,
+              `SELECT meeting.id, meeting.title, meeting."date"::text AS date,
+                    to_char(meeting."time", 'HH24:MI') AS time, ${MEETING_STATUS_SQL} AS status,
+                    meeting.duration_minutes, ${MEETING_MENTOR_SQL} AS mentor
+             FROM meetings meeting
+             ${BOOTCAMP_MEETING_SQL}
+             ${MEETING_MENTOR_JOIN_SQL}
+             WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL
+             ORDER BY meeting."date" NULLS LAST, meeting."time" NULLS LAST, meeting.id`,
               [id],
             )
           : [],

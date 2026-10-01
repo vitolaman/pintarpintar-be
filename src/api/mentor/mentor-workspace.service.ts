@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { BOOTCAMP_MEETING_SQL } from '../../class/meeting-sql';
 import { assetUrl } from '../../common/storage/asset-url';
 import {
   MentorClassesQueryDto,
@@ -50,6 +51,7 @@ export class MentorWorkspaceService {
               AND enrollment.created_at >= now() - interval '7 days')::integer AS students_this_week,
          (SELECT count(*) FROM meetings meeting
             INNER JOIN mine ON mine.id = meeting.class_id
+            ${BOOTCAMP_MEETING_SQL}
             WHERE meeting.deleted_at IS NULL
               AND meeting."date" BETWEEN ${WIB_NOW}::date AND ${WIB_NOW}::date + 7)::integer AS upcoming_sessions,
          (SELECT COALESCE(round(avg(review.rating)::numeric, 1), 0) FROM reviews review
@@ -72,6 +74,7 @@ export class MentorWorkspaceService {
                      AND enrollment.deleted_at IS NULL)::integer AS student_count
          FROM meetings meeting
          INNER JOIN mine ON mine.id = meeting.class_id
+         ${BOOTCAMP_MEETING_SQL}
          WHERE meeting.deleted_at IS NULL AND meeting."date" >= ${WIB_NOW}::date
          ORDER BY meeting."date", meeting."time" NULLS LAST, meeting.id
          LIMIT 5`,

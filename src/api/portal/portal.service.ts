@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { MEETING_END_SQL } from '../../class/meeting-sql';
+import { assetUrl } from '../../common/storage/asset-url';
 import {
   PortalItemQueryDto,
   PortalItemType,
@@ -176,11 +177,13 @@ export class PortalService {
       type: row.item_type,
       title: row.title,
       image: row.image,
+      image_url: assetUrl(row.image),
       acquired_at: row.acquired_at,
       merchant_id: row.merchant_id,
       merchant_name: row.merchant_name,
       merchant_slug: row.merchant_slug,
       merchant_avatar_object_key: row.merchant_avatar_object_key,
+      merchant_avatar_url: assetUrl(row.merchant_avatar_object_key),
       progress: isVideoClass ? parseProgress(row.raw_progress) : null,
       module_count: row.module_count === null ? null : Number(row.module_count),
       assignment_count:

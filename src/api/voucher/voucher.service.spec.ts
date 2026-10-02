@@ -52,6 +52,7 @@ describe('VoucherService', () => {
     merchant_name: 'Akademi Teknik Raka',
     merchant_slug: 'akademi-teknik-raka',
     merchant_avatar_asset_id: null,
+    merchant_avatar_object_key: null,
     merchant_tagline: null,
     merchant_category_label: 'Pemrograman & IT',
   };
@@ -177,6 +178,44 @@ describe('VoucherService', () => {
     expect(featured.data[0]).toMatchObject({
       maximum_discount_amount: 50000,
     });
+  });
+
+  it('adds the merchant avatar URL to public, featured and promo vouchers', async () => {
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
+    try {
+      const logoRow = {
+        ...publicVoucherRow,
+        merchant_avatar_asset_id: '50000000-0000-4000-8000-000000000001',
+        merchant_avatar_object_key: 'merchants/raka/logo.png',
+      };
+      dataSource.query.mockImplementation((sql: string) => {
+        if (sql.includes('WITH visible') && !sql.includes('COUNT(*)'))
+          return Promise.resolve([logoRow, publicVoucherRow]);
+        return Promise.resolve([{ total: '2' }]);
+      });
+
+      const page = await service.findPublic({});
+      const featured = await service.findFeatured();
+      const promo = await service.findRandomPublic(2);
+
+      const logoUrl = 'https://cdn.example.com/merchants/raka/logo.png';
+      expect(page.data.map((voucher) => voucher.merchant_avatar_url)).toEqual([
+        logoUrl,
+        null,
+      ]);
+      expect(page.data[0]).toMatchObject({
+        merchant_avatar_asset_id: '50000000-0000-4000-8000-000000000001',
+      });
+      expect(page.data[0]).not.toHaveProperty('merchant_avatar_object_key');
+      expect(featured.data[0].merchant_avatar_url).toBe(logoUrl);
+      expect(promo[0].merchant_avatar_url).toBe(logoUrl);
+      const [rowsSql] = dataSource.query.mock.calls[0];
+      expect(rowsSql).toContain(
+        'LEFT JOIN file_assets avatar\n          ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL',
+      );
+    } finally {
+      delete process.env.ASSET_PUBLIC_BASE_URL;
+    }
   });
 
   it('picks featured and promo vouchers randomly with their tag', async () => {

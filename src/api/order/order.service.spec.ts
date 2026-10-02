@@ -90,6 +90,100 @@ describe('OrderService', () => {
     });
   });
 
+  it('adds each item cover URL and merchant name in one query for the page', async () => {
+    const baseUrl = process.env.ASSET_PUBLIC_BASE_URL;
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
+    try {
+      const orders = ['order-1', 'order-2', 'order-3'].map((id) => ({
+        ...order,
+        id,
+      }));
+      builder.getRawAndEntities.mockResolvedValue({
+        entities: orders,
+        raw: orders.map(({ id }) => ({
+          purchase_id: id,
+          effective_status: 'paid',
+        })),
+      });
+      query.mockResolvedValue(
+        orders.map(({ id }, index) => ({
+          order_id: id,
+          price: '299000',
+          item_id: `item-${index}`,
+          title: 'AutoCAD',
+          image: index === 0 ? 'uploads/cover.png' : null,
+          merchant_name: 'Akademi Teknik Budi',
+          type: 'kelas',
+        })),
+      );
+
+      const response = await service.findAll('user-id', {
+        page: 1,
+        limit: 10,
+      });
+
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(query.mock.calls[0][1]).toEqual([
+        ['order-1', 'order-2', 'order-3'],
+      ]);
+      expect(query.mock.calls[0][0]).toContain('= ANY($1::uuid[])');
+      expect(response.data.map((entry) => entry.items[0])).toEqual([
+        expect.objectContaining({
+          image_url: 'https://cdn.example.com/uploads/cover.png',
+          merchant_name: 'Akademi Teknik Budi',
+        }),
+        expect.objectContaining({
+          image_url: null,
+          merchant_name: 'Akademi Teknik Budi',
+        }),
+        expect.objectContaining({ image_url: null }),
+      ]);
+    } finally {
+      process.env.ASSET_PUBLIC_BASE_URL = baseUrl;
+      if (baseUrl === undefined) delete process.env.ASSET_PUBLIC_BASE_URL;
+    }
+  });
+
+  it('adds the cover URL to the order detail items', async () => {
+    const baseUrl = process.env.ASSET_PUBLIC_BASE_URL;
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
+    try {
+      query
+        .mockResolvedValueOnce([
+          {
+            price: '299000',
+            discount_amount: '0',
+            item_id: 'class-1',
+            title: 'AutoCAD',
+            image: 'uploads/cover.png',
+            merchant_id: 'merchant-1',
+            merchant_name: 'Akademi Teknik Budi',
+            type: 'kelas',
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const detail = await service.findDetail('user-id', 'order-1');
+
+      expect(detail.items[0]).toMatchObject({
+        image: 'uploads/cover.png',
+        image_url: 'https://cdn.example.com/uploads/cover.png',
+      });
+    } finally {
+      process.env.ASSET_PUBLIC_BASE_URL = baseUrl;
+      if (baseUrl === undefined) delete process.env.ASSET_PUBLIC_BASE_URL;
+    }
+  });
+
+  it('queries no items for an empty page', async () => {
+    builder.getRawAndEntities.mockResolvedValue({ entities: [], raw: [] });
+
+    const response = await service.findRecent('user-id', { limit: 3 });
+
+    expect(response.data).toEqual([]);
+    expect(query).not.toHaveBeenCalled();
+  });
+
   it.each([
     [{ limit: '51' }, false],
     [{ status: 'refunded' }, true],

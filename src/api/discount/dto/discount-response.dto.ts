@@ -21,6 +21,23 @@ export class DiscountTargetResponseDto {
   title: string;
 }
 
+export class DiscountEligibleItemResponseDto extends DiscountTargetResponseDto {
+  @ApiProperty({ example: 299000, description: 'Current selling price' })
+  price: number;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Public cover URL; null without a cover or ASSET_PUBLIC_BASE_URL',
+  })
+  image_url: string | null;
+
+  @ApiProperty({
+    description: 'Published (classes: published or archived)',
+  })
+  is_available: boolean;
+}
+
 export class DiscountCodeResponseDto {
   @ApiProperty()
   id: string;

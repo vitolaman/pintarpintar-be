@@ -239,4 +239,41 @@ describe('PortalService', () => {
       next_meeting: null,
     });
   });
+
+  it('adds the cover and merchant avatar URLs', async () => {
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com/';
+    try {
+      query.mockResolvedValueOnce([{ total: 2 }]).mockResolvedValueOnce([
+        {
+          ...baseRow,
+          item_id: 'product-id',
+          item_type: 'produk-digital',
+          title: 'Template RAB Excel',
+          image: 'products/covers/rab.png',
+          merchant_avatar_object_key: 'merchants/logo.png',
+        },
+        {
+          ...baseRow,
+          item_id: 'class-id',
+          item_type: 'kelas-video',
+          title: 'AutoCAD',
+        },
+      ]);
+
+      const { data } = await service.findItems('user-id', request());
+
+      expect(data[0]).toMatchObject({
+        image: 'products/covers/rab.png',
+        image_url: 'https://cdn.example.com/products/covers/rab.png',
+        merchant_avatar_object_key: 'merchants/logo.png',
+        merchant_avatar_url: 'https://cdn.example.com/merchants/logo.png',
+      });
+      expect(data[1]).toMatchObject({
+        image_url: null,
+        merchant_avatar_url: null,
+      });
+    } finally {
+      delete process.env.ASSET_PUBLIC_BASE_URL;
+    }
+  });
 });

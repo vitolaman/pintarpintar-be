@@ -18,6 +18,7 @@ import {
 import { User } from '~/api/user/entities/user.entity';
 import { CouponUsage } from '~/api/voucher/entities/coupon-usage.entity';
 import { CatalogItemColumns } from '~/common/catalog/catalog-item';
+import { assetUrl } from '~/common/storage/asset-url';
 import {
   CheckoutPreviewResponseDto,
   CheckoutRequestDto,
@@ -26,7 +27,7 @@ import { OrderItem } from '../entities/order-item.entity';
 import { Order, OrderStatus } from '../entities/order.entity';
 import { OrderService } from '../order.service';
 import { PricingResult } from './checkout-pricing';
-import { CheckoutQuoteService } from './checkout-quote.service';
+import { CheckoutQuoteService, RejectedCode } from './checkout-quote.service';
 
 @Injectable()
 export class CheckoutService {
@@ -38,15 +39,17 @@ export class CheckoutService {
     private readonly orders: OrderService,
   ) {}
 
+  // Lenient: codes that cannot be used are left out of the price and listed
+  // in `rejected_codes`; checkout still rejects them.
   async preview(userId: string, request: CheckoutRequestDto) {
-    const { pricing } = await this.quotes.quote(
+    const { pricing, rejectedCodes } = await this.quotes.quote(
       this.dataSource.manager,
       userId,
       request,
-      { lockCodes: false },
+      { lockCodes: false, lenient: true },
     );
     return {
-      data: toPreview(pricing),
+      data: toPreview(pricing, rejectedCodes),
       responseMessage: 'Preview checkout success',
     };
   }
@@ -246,9 +249,10 @@ async function assertNotAwaitingPayment(
     ],
   );
   if (pending) {
-    throw new ConflictException(
-      `Item ${pending.item_id} is awaiting payment in order ${pending.id}`,
-    );
+    throw new ConflictException({
+      message: `Item ${pending.item_id} is awaiting payment in order ${pending.id}`,
+      details: { order_id: pending.id },
+    });
   }
 }
 
@@ -267,13 +271,17 @@ async function nextOrderNumber(manager: EntityManager): Promise<string> {
   return `ORD-${day}-${String((last ?? 0) + 1).padStart(4, '0')}`;
 }
 
-function toPreview(pricing: PricingResult): CheckoutPreviewResponseDto {
+function toPreview(
+  pricing: PricingResult,
+  rejectedCodes: RejectedCode[],
+): CheckoutPreviewResponseDto {
   return {
     items: pricing.items.map((item) => ({
       type: item.type,
       item_id: item.id,
       title: item.title,
       image: item.image,
+      image_url: assetUrl(item.image),
       merchant_id: item.merchantId,
       merchant_name: item.merchantName,
       price: item.price,
@@ -285,6 +293,10 @@ function toPreview(pricing: PricingResult): CheckoutPreviewResponseDto {
       merchant_id: code.merchantId,
       merchant_name: code.merchantName,
       discount_amount: code.discountAmount,
+    })),
+    rejected_codes: rejectedCodes.map(({ code, reason }) => ({
+      code,
+      reason,
     })),
     subtotal: pricing.subtotal,
     discount_amount: pricing.discountTotal,

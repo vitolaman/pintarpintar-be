@@ -31,14 +31,14 @@ $ yarn db:local:migrate
 
 Every route requires a Bearer token except those marked **public**. The full request and response schemas are in Swagger (below). Routes follow `/api/v1/<resource>[/<id>][/<action>]`: the HTTP method is the operation, `merchant/…`, `mentor/…` and `profile/…` act on the signed-in user's own store, mentor workspace and profile, and plural resources (`merchants/:merchant`, `mentors/:id`) are public pages.
 
-Responses are `{data, responseMessage}`. Paginated lists take `page` (default 1) and `limit` (default 10, at most 100; the promo lists at most 6). A blank or non-numeric value means the default and an out-of-range value is clamped to the nearest bound, so paging never fails a request. They return `meta: {page, limit, total, totalPage}` next to `data`, also when the list sits inside an object (job board, applications, class grades, reviews). Errors are `{statusCode, error, responseMessage}`: `error` is the status name (`BAD_REQUEST`, `UNAUTHORIZED`, `NOT_FOUND`, …) and `responseMessage` lists the reasons in plain words.
+Responses are `{data, responseMessage}`. Paginated lists take `page` (default 1) and `limit` (default 10, at most 100; the promo lists at most 6). A blank or non-numeric value means the default and an out-of-range value is clamped to the nearest bound, so paging never fails a request. They return `meta: {page, limit, total, totalPage}` next to `data`, also when the list sits inside an object (job board, applications, class grades, reviews). Errors are `{statusCode, error, responseMessage}`: `error` is the status name (`BAD_REQUEST`, `UNAUTHORIZED`, `NOT_FOUND`, …) and `responseMessage` lists the reasons in plain words. Some errors add a `details` object, for example the pending `order_id` of the "awaiting payment" 409. Every stored image in a response comes with a ready `*_url` (`image_url`, `cover_url`, `avatar_url`, …), `null` without an image, so the client never needs the storage base URL.
 
 Request fields follow the same rules everywhere. An optional text field is cleared with `""` or `null`; a field the data needs (a title, a name, a mentor's phone) rejects `""`, whitespace and `null`. Text is trimmed. Choice values (`type`, `status`, `level`, `badge`, sort values) match ignoring case and surrounding spaces and are stored in their canonical spelling. Numbers may be sent as numeric strings, and a blank optional number means "not sent". A blank query filter (`?search=`, `?category=`, `?status=`) means no filter. Wherever an item id is sent (cart, wishlist, checkout, bundle items, discount targets), `type` is optional: the server resolves it from the id, and a sent `type` only has to name the right family (`kelas` and `bootcamp` both accept any class).
 
 ### Authentication and user
 
-- `POST /api/v1/auth/sign-up` — **public**; `data.token`
-- `POST /api/v1/auth/sign-in` — **public**; `data.token`; a wrong email or password is 403
+- `POST /api/v1/auth/sign-up` — **public**; `data: {token, user}` (`user` as in `GET /api/v1/users/me`)
+- `POST /api/v1/auth/sign-in` — **public**; `data: {token, user}`; a wrong email or password is 403
 - `PATCH /api/v1/auth/password` — current password required; other devices are signed out; `data.token` replaces this device's token
 - `POST /api/v1/auth/end-other-sessions` — signs out every other device; `data.token` replaces this device's token
 - `GET /api/v1/users/me` — `{data, responseMessage}` like every other route
@@ -56,9 +56,9 @@ Request fields follow the same rules everywhere. An optional text field is clear
 
 ### Catalog (Kelas, Bootcamp, Produk Digital)
 
-- `GET /api/v1/catalog/items` — **public**; filter by type, search (title, merchant name, category name, file format), level, category (slug or name), merchant (`merchant_id`), and digital file type (`file_format`); sort; paginate
+- `GET /api/v1/catalog/items` — **public**; filter by type, search (title, merchant name, category name, file format), level, category (slug or name), merchant (`merchant_id`), and digital file type (`file_format`); sort; paginate; with a login token each card has `in_wishlist` (also on the home and promo cards)
 - `GET /api/v1/catalog/categories` — **public**; category tree
-- `GET /api/v1/catalog/classes/:id` — **public**; `covers`, syllabus, mentors, FAQ, and the bootcamp meeting schedule (status, duration, mentor), without video, file, or meeting links
+- `GET /api/v1/catalog/classes/:id` — **public**; with a login token `in_wishlist`, `in_cart`, `has_reviewed` and `is_owned` (also on the digital product detail); `covers`, syllabus, mentors, FAQ, and the bootcamp meeting schedule (status, duration, mentor), without video, file, or meeting links
 - `GET /api/v1/catalog/digital-products/:id` — **public**; `covers`, file formats and sizes, without download links
 
 ### Promo
@@ -106,16 +106,16 @@ Request fields follow the same rules everywhere. An optional text field is clear
 - `POST /api/v1/wishlist/items` — `{id}` (`type` optional)
 - `GET /api/v1/wishlist`
 - `DELETE /api/v1/wishlist/items/:id` — the entry id or the item's own id
-- `POST /api/v1/cart/items` — `{id}` (`type` optional); rejects items the user already owns
+- `POST /api/v1/cart/items` — `{id}` (`type` optional); returns the cart: 201 for a new item, 200 when it is already there; rejects items the user already owns
 - `GET /api/v1/cart`
-- `DELETE /api/v1/cart/items/:id` — the entry id or the item's own id
-- `DELETE /api/v1/cart`
+- `DELETE /api/v1/cart/items/:id` — the entry id or the item's own id; returns the updated cart (200)
+- `DELETE /api/v1/cart` — returns the empty cart (200)
 - `GET /api/v1/orders/recent` — last 3 orders, with order numbers
-- `GET /api/v1/orders` — full history, paginated, filter by `status` (`pending`, `paid`, `expired`, `failed`, `cancelled`)
+- `GET /api/v1/orders` — full history, paginated, filter by `status` (`pending`, `paid`, `expired`, `failed`, `cancelled`); items carry `image_url` and `merchant_name`
 
 ### Checkout and payment (Duitku POP)
 
-- `POST /api/v1/orders/preview` — prices up to 20 items with up to one voucher and one discount code (each applies to its own merchant's items); writes nothing
+- `POST /api/v1/orders/preview` — prices up to 20 items with up to one voucher and one discount code (each applies to its own merchant's items); writes nothing. An invalid code does not fail the preview: it is left out and listed in `rejected_codes: [{code, reason}]` (`not_found`, `expired`, `not_started`, `used_up`, `already_used`, `minimum_not_met`, `not_applicable`); `POST /api/v1/orders` still rejects it
 - `POST /api/v1/orders` — creates one `ORD-YYYYMMDD-NNNN` order that stays payable for 60 minutes and returns Duitku's `payment_reference` (for `checkout.process`) and `payment_url`; a Rp0 order is paid at once, and totals between Rp1 and Rp9,999 are rejected
 - `GET /api/v1/orders/:id` — the buyer's order for the return page; the payment link is included only while the order can be paid
 - `POST /api/v1/orders/:id/cancel` — cancels an unpaid order and releases its codes
@@ -170,20 +170,21 @@ Asia/Jakarta days; paid orders only, dated at payment; revenue is the merchant's
 
 Account numbers are always returned masked. They are stored encrypted when `PAYOUT_ACCOUNT_ENCRYPTION_KEY` is set, and as plain text otherwise.
 
-- `POST /api/v1/merchant/payout-accounts`
+- `POST /api/v1/merchant/payout-accounts` — optional `is_primary`; the first account is always primary
 - `GET /api/v1/merchant/payout-accounts`
-- `PATCH /api/v1/merchant/payout-accounts/:id`
+- `PATCH /api/v1/merchant/payout-accounts/:id` — `is_primary: true` makes it the primary account
 - `POST /api/v1/merchant/payout-accounts/:id/set-primary`
 - `DELETE /api/v1/merchant/payout-accounts/:id`
 
 ### Merchant discounts
 
-- `GET /api/v1/merchant/discounts/eligible-items`
+- `GET /api/v1/merchant/discounts/eligible-items` — with `price`, `image_url` and `is_available`
 - `POST /api/v1/merchant/discounts` — codes are system-generated: a `once` entry of N creates N single-use codes ("Kode Sekali Pakai", at most 1,000 per request); a `recurring` entry creates one code shared up to its limit, usable once per user; an expired, failed or cancelled order releases it ("Kode Berulang")
 - `GET /api/v1/merchant/discounts`
 - `GET /api/v1/merchant/discounts/:id`
 - `PATCH /api/v1/merchant/discounts/:id`
 - `POST /api/v1/merchant/discounts/:id/codes`
+- `POST /api/v1/merchant/discounts/:id/remove-codes` — `{code_ids}` (up to 1,000) removes those codes at once and returns the discount; an id of another discount is a 400 and nothing changes
 - `DELETE /api/v1/merchant/discount-codes/:codeId`
 - `DELETE /api/v1/merchant/discounts/:id`
 
@@ -245,6 +246,7 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 - `GET /api/v1/classes/:classId/students`
 - `GET /api/v1/classes/:classId/assignments` — submission counts; correct answers only for the owner and tutors with `tugas` or `nilai` permission
 - `POST /api/v1/classes/:classId/assignments` — future `due`, `file_upload` or `quiz` (2–4 options per multiple-choice question), an optional attached file
+- `PATCH /api/v1/classes/:classId/assignments/:assignmentId` — `tugas.edit`; any field of the create body; submissions are kept, and once there are submissions the type and the quiz questions cannot change (409)
 - `DELETE /api/v1/classes/:classId/assignments/:assignmentId`
 - `GET /api/v1/classes/:classId/assignments/:assignmentId/submissions` — `nilai.lihat`; latest submission per learner with file link and answers
 - `PATCH /api/v1/classes/:classId/submissions/:submissionId/grade` — `nilai.edit`; file score 0–100, or essay scores up to each weight; feedback
@@ -263,7 +265,7 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 
 Every route requires an active enrollment or product access and answers 404 otherwise.
 
-- `GET /api/v1/learning/classes/:id` — `post_purchase_instructions`, chapters, videos (`source`; YouTube id, or a signed `video_url` for file videos; completion), files as signed links, meetings with live links, FAQ, progress, next video, certificate
+- `GET /api/v1/learning/classes/:id` — `post_purchase_instructions`, chapters, videos (`source`; YouTube id, or a signed `video_url` for file videos; completion), files as signed links, meetings with live links and `my_attendance_status`, FAQ, progress, next video, certificate
 - `POST /api/v1/learning/videos/:videoId/complete` — idempotent; returns progress and the next video
 - `GET /api/v1/learning/classes/:classId/assignments` — without answer keys; own latest submission
 - `GET /api/v1/learning/assignments/:assignmentId/quiz`
@@ -291,7 +293,7 @@ Every route requires an active enrollment or product access and answers 404 othe
 - `PATCH /api/v1/mentor/profile`
 - `GET /api/v1/mentor/assignments` — merchant, product, and class tutor assignments (with role and permissions)
 - `GET /api/v1/mentor/dashboard` — stats, upcoming sessions, recent learner messages, class progress
-- `GET /api/v1/mentor/classes` — assigned classes (Kelas-kelas), filterable by type and search
+- `GET /api/v1/mentor/classes` — assigned classes (Kelas-kelas) with `cover_url`, filterable by type and search
 - `GET /api/v1/mentor/teaching-history` — teaching history (Kelas Mentor on the profile)
 - `GET /api/v1/mentor/documents` — CV and skill certificate with short-lived download URLs
 - `PATCH /api/v1/mentor/documents` — replaces the CV and/or skill certificate (multipart)
@@ -313,12 +315,12 @@ Merchants publish teaching vacancies; any logged-in user applies once per vacanc
 - `POST /api/v1/merchant/job-postings/:id/close` — permanent; applications are kept
 - `POST /api/v1/job-postings/:jobId/apply` — name, email, WhatsApp, LinkedIn, `cv_asset_id` (an uploaded PDF/DOC/DOCX up to 10 MB, or the applicant's mentor CV), optional note; 409 on a second application
 - `GET /api/v1/job-applications` — Progress Lamaran; counts per status
-- `GET /api/v1/merchant/job-applications` — filter by `job_id`, `status`, `search`; counts per status
+- `GET /api/v1/merchant/job-applications` — filter by `job_id`, `status`, `search`; counts per status; `mentor_id` when the applicant is a mentor
 - `GET /api/v1/merchant/job-applications/:id/cv` — signed CV link (10 minutes)
 - `POST /api/v1/merchant/job-applications/:id/schedule-interview` — `interview_at` (ISO 8601 with offset) and `interview_url`; rescheduling replaces both
 - `POST /api/v1/merchant/job-applications/:id/accept`
 - `POST /api/v1/merchant/job-applications/:id/reject`
-- `GET /api/v1/merchant/mentors` — accepted applicants plus the tutors of the merchant's classes, with class counts and ratings, and the page summary
+- `GET /api/v1/merchant/mentors` — accepted applicants plus the tutors of the merchant's classes, with `mentor_id`, class counts and ratings, and the page summary
 - `GET /api/v1/merchant/mentors/:userId` — the mentor's classes with students, ratings, and review counts
 
 ### Class discussions

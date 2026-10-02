@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
@@ -11,7 +12,7 @@ import {
   ArrayResponse,
   DefaultResponse,
 } from '~/common/decorator/response.decorator';
-import { CatalogCardDto } from '../catalog/dto/catalog.dto';
+import { CatalogItemCardDto } from '../catalog/dto/catalog.dto';
 import {
   PromoItemsQueryDto,
   PromoVouchersQueryDto,
@@ -26,11 +27,14 @@ export class PromoController {
 
   @Get('items')
   @Public()
-  @ArrayResponse(CatalogCardDto, 'Get promo items success', [
+  @ArrayResponse(CatalogItemCardDto, 'Get promo items success', [
     BadRequestException,
   ])
-  findItems(@Query() query: PromoItemsQueryDto) {
-    return this.promoService.findItems(query);
+  findItems(
+    @Req() req: { user?: { id: string } },
+    @Query() query: PromoItemsQueryDto,
+  ) {
+    return this.promoService.findItems(query, req.user?.id);
   }
 
   @Get('vouchers')

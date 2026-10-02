@@ -91,6 +91,80 @@ describe('MentorWorkspaceService', () => {
     expect(query.mock.calls[1][1]).toEqual([mentorId, 'video', '50\\%\\_off']);
   });
 
+  describe('class covers', () => {
+    const baseUrl = process.env.ASSET_PUBLIC_BASE_URL;
+    beforeEach(() => {
+      process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
+    });
+    afterEach(() => {
+      process.env.ASSET_PUBLIC_BASE_URL = baseUrl;
+    });
+
+    const classRow = (id: string, coverKey: string | null) => ({
+      id,
+      title: 'Kelas',
+      type: 'video',
+      status: 'published',
+      role: 'lead',
+      merchant_id: 'merchant-id',
+      merchant_name: 'Akademi',
+      cover_object_key: coverKey,
+      students_count: 0,
+      thread_count: 0,
+    });
+
+    it('returns each class cover from the list query alone', async () => {
+      query
+        .mockResolvedValueOnce([{ id: mentorId }])
+        .mockResolvedValueOnce([
+          classRow('class-1', 'covers/a.png'),
+          classRow('class-2', null),
+          classRow('class-3', 'covers/c.png'),
+        ]);
+
+      const { data } = await service.findClasses(userId, {});
+
+      expect(data.map((row) => [row.id, row.cover_url, row.image])).toEqual([
+        [
+          'class-1',
+          'https://cdn.example.com/covers/a.png',
+          'https://cdn.example.com/covers/a.png',
+        ],
+        ['class-2', null, null],
+        [
+          'class-3',
+          'https://cdn.example.com/covers/c.png',
+          'https://cdn.example.com/covers/c.png',
+        ],
+      ]);
+      expect(query).toHaveBeenCalledTimes(2);
+      expect(query.mock.calls[1][0]).toContain('LEFT JOIN file_assets cover');
+    });
+
+    it('returns the cover in the teaching history', async () => {
+      query.mockResolvedValueOnce([{ id: mentorId }]).mockResolvedValueOnce([
+        {
+          id: 'class-1',
+          title: 'Kelas',
+          status: 'published',
+          class_deleted_at: null,
+          started_at: new Date('2026-01-10T00:00:00.000Z'),
+          ended_at: null,
+          merchant_id: 'merchant-id',
+          merchant_name: 'Akademi',
+          merchant_city: null,
+          merchant_avatar_object_key: null,
+          cover_object_key: 'covers/a.png',
+        },
+      ]);
+
+      const { data } = await service.findTeachingClasses(userId);
+
+      expect(data[0].cover_url).toBe('https://cdn.example.com/covers/a.png');
+      expect(query).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('marks removed or unpublished assignments inactive', async () => {
     query.mockResolvedValueOnce([{ id: mentorId }]).mockResolvedValueOnce([
       {

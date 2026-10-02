@@ -206,6 +206,48 @@ describe('LearningSubmissionService timing', () => {
     );
   });
 
+  it.each(['submitFile', 'submitQuiz'] as const)(
+    '%s locks the assignment before reading it, holding back a tutor edit',
+    async (method) => {
+      assignment.type = method === 'submitQuiz' ? 'quiz' : 'file_upload';
+      const order: string[] = [];
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FOR KEY SHARE')) order.push('lock');
+        return sql.includes('FROM assignment_questions')
+          ? [mc('q1', 'LINE', 100)]
+          : [];
+      });
+      const findLearnerAssignment = (
+        service as unknown as {
+          learningAssignment: { findLearnerAssignment: jest.Mock };
+        }
+      ).learningAssignment.findLearnerAssignment;
+      findLearnerAssignment.mockImplementation(async () => {
+        order.push('read');
+        return assignment;
+      });
+
+      if (method === 'submitQuiz') {
+        await service.submitQuiz(
+          userId,
+          assignmentId,
+          answers([['q1', 'LINE']]),
+        );
+      } else {
+        await service.submitFile(userId, assignmentId, {
+          file_asset_id: 'asset-id',
+        });
+      }
+
+      expect(manager.query).toHaveBeenCalledWith(
+        'SELECT id FROM assignments WHERE id = $1 FOR KEY SHARE',
+        [assignmentId],
+      );
+      expect(order[0]).toBe('lock');
+      expect(order.filter((step) => step === 'lock')).toHaveLength(1);
+    },
+  );
+
   it('accepts a first submission after the due time as late', async () => {
     assignment.due = new Date(Date.now() - 3600_000);
 

@@ -37,6 +37,33 @@ export interface DiscountCodeRule extends CodeRule {
 
 export type PromoCodeRule = VoucherRule | DiscountCodeRule;
 
+/** Why an entered code cannot be used; preview reports these per code. */
+export const codeRejectionReasons = [
+  'not_found',
+  'expired',
+  'not_started',
+  'used_up',
+  'already_used',
+  'minimum_not_met',
+  'not_applicable',
+] as const;
+
+export type CodeRejectionReason = (typeof codeRejectionReasons)[number];
+
+/**
+ * A 400 for one entered code that cannot be used. Checkout reports it as
+ * any other 400; preview collects it as a rejected code instead.
+ */
+export class CodeRejectedException extends BadRequestException {
+  constructor(
+    readonly promoCode: string,
+    readonly reason: CodeRejectionReason,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 export interface PricedItem extends PricingItem {
   discountAmount: number;
 }
@@ -85,24 +112,8 @@ export function priceSelection(
   ];
 
   const codes = ordered.map((rule): AppliedCode => {
-    const eligible = items
-      .map((item, index) => (isEligible(item, rule) ? index : -1))
-      .filter((index) => index >= 0);
-    if (eligible.length === 0) {
-      throw new BadRequestException(
-        `Code ${rule.code} does not apply to any selected item`,
-      );
-    }
-
-    const eligibleSubtotal = sum(eligible.map((index) => items[index].price));
-    if (
-      rule.minimumPurchase !== null &&
-      eligibleSubtotal < rule.minimumPurchase
-    ) {
-      throw new BadRequestException(
-        `Code ${rule.code} requires a minimum purchase of Rp${rule.minimumPurchase} from ${rule.merchantName ?? 'its merchant'}`,
-      );
-    }
+    assertCodeApplies(items, rule);
+    const eligible = eligibleIndexes(items, rule);
 
     const base = sum(eligible.map((index) => remaining[index]));
     const amount = codeDiscount(rule, base);
@@ -137,6 +148,43 @@ export function priceSelection(
     discountTotal,
     total: subtotal - discountTotal,
   };
+}
+
+/**
+ * Rejects a code that matches no selected item, or whose minimum is not met
+ * by its eligible items before any code. Neither depends on the other codes,
+ * so preview can drop a rejected code and price the rest.
+ */
+export function assertCodeApplies(
+  items: PricingItem[],
+  rule: PromoCodeRule,
+): void {
+  const eligible = eligibleIndexes(items, rule);
+  if (eligible.length === 0) {
+    throw new CodeRejectedException(
+      rule.code,
+      'not_applicable',
+      `Code ${rule.code} does not apply to any selected item`,
+    );
+  }
+
+  const eligibleSubtotal = sum(eligible.map((index) => items[index].price));
+  if (
+    rule.minimumPurchase !== null &&
+    eligibleSubtotal < rule.minimumPurchase
+  ) {
+    throw new CodeRejectedException(
+      rule.code,
+      'minimum_not_met',
+      `Code ${rule.code} requires a minimum purchase of Rp${rule.minimumPurchase} from ${rule.merchantName ?? 'its merchant'}`,
+    );
+  }
+}
+
+function eligibleIndexes(items: PricingItem[], rule: PromoCodeRule): number[] {
+  return items
+    .map((item, index) => (isEligible(item, rule) ? index : -1))
+    .filter((index) => index >= 0);
 }
 
 function isEligible(item: PricingItem, rule: PromoCodeRule): boolean {

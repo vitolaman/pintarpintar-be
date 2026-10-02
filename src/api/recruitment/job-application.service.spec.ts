@@ -326,3 +326,57 @@ describe('JobApplicationService', () => {
     );
   });
 });
+
+describe('JobApplicationService applicants', () => {
+  const applicantRow = (id: string, mentorIdValue: string | null) => ({
+    id,
+    status: 'review',
+    user_id: applicantId,
+    mentor_id: mentorIdValue,
+    name: 'Budi',
+    experience_years: null,
+    job_id: jobId,
+    job_title: 'Tutor AutoCAD',
+    cv_filename: 'cv.pdf',
+    cv_size: '1000',
+  });
+
+  it("gives each applicant the user's mentor id from the list query", async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('AS mentor_id')) {
+        return [
+          applicantRow('application-1', mentorId),
+          applicantRow('application-2', null),
+          applicantRow('application-3', mentorId),
+        ];
+      }
+      if (sql.includes('AS total')) return [{ total: 3 }];
+      return [{ all: 3 }];
+    });
+    const service = new JobApplicationService(
+      {
+        query,
+        manager: {
+          findOne: jest.fn(async () => ({ id: merchantId, status: 'active' })),
+        },
+      } as unknown as DataSource,
+      new ConfigService({}),
+    );
+
+    const { data } = await service.findApplicants(
+      ownerId,
+      plainToInstance(ApplicantQueryDto, {}),
+    );
+
+    expect(data.applicants.map((row) => [row.id, row.mentor_id])).toEqual([
+      ['application-1', mentorId],
+      ['application-2', null],
+      ['application-3', mentorId],
+    ]);
+    expect(query).toHaveBeenCalledTimes(3);
+    const [listSql] = query.mock.calls.find(([sql]) =>
+      sql.includes('AS mentor_id'),
+    ) as [string];
+    expect(listSql).toContain("CASE WHEN mentor.status = 'active'");
+  });
+});

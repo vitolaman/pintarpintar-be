@@ -2,6 +2,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RosterMentorDto {
   @ApiProperty({ format: 'uuid' }) user_id: string;
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description:
+      'mentors.id while the user has an active mentor account, otherwise null',
+  })
+  mentor_id: string | null;
   @ApiProperty() name: string;
   @ApiProperty() email: string;
   @ApiPropertyOptional({ nullable: true }) avatar_url: string | null;

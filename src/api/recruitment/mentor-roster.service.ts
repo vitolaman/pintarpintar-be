@@ -9,6 +9,7 @@ import {
   RosterSummaryDto,
 } from './dto/mentor-roster.dto';
 import { findOwnMerchant } from './recruitment-merchant';
+import { ACTIVE_MENTOR_ID_SQL } from './recruitment-sql';
 
 // The merchant's mentors ($1 = merchant id): active entries of the mentor
 // list plus every active tutor of the merchant's classes. $2 narrows it to
@@ -28,7 +29,8 @@ const ROSTER_SQL = `
   ), roster AS (
     SELECT user_id FROM listed UNION SELECT user_id FROM tutors
   )
-  SELECT member.id AS user_id, member.name, member.email,
+  SELECT member.id AS user_id, ${ACTIVE_MENTOR_ID_SQL} AS mentor_id,
+         member.name, member.email,
          avatar.object_key AS avatar_object_key,
          COALESCE(NULLIF(mentor_profile.expertise, ''), accepted.title) AS specialty,
          (SELECT count(DISTINCT tutor.class_id) FROM tutors tutor
@@ -61,6 +63,7 @@ const ROSTER_SQL = `
 
 interface RosterRow {
   user_id: string;
+  mentor_id: string | null;
   name: string;
   email: string;
   avatar_object_key: string | null;
@@ -154,6 +157,7 @@ export class MentorRosterService {
 function toRosterMentor(row: RosterRow): RosterMentorDto {
   return {
     user_id: row.user_id,
+    mentor_id: row.mentor_id,
     name: row.name,
     email: row.email,
     avatar_url: assetUrl(row.avatar_object_key),

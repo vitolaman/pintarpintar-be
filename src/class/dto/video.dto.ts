@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsUrl, IsUUID, ValidateIf } from 'class-validator';
+import { IsOptional, IsUrl, IsUUID, ValidateIf } from 'class-validator';
 import {
   ClearableText,
   EnumInput,

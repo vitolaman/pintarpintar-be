@@ -34,6 +34,15 @@ export class TransactionItemResponseDto {
   @ApiProperty({ example: 'Belajar AutoCAD dari Nol' })
   title: string;
 
+  @ApiProperty({
+    nullable: true,
+    description: 'Public cover URL (null without a cover)',
+  })
+  image_url: string | null;
+
+  @ApiProperty({ nullable: true, example: 'Akademi Teknik Budi' })
+  merchant_name: string | null;
+
   @ApiProperty({ example: 299000 })
   price: number;
 }

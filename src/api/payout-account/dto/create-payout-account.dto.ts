@@ -1,7 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsString, Matches } from 'class-validator';
+import { IsBoolean, IsString, Matches } from 'class-validator';
 import { EnumInput, RequiredText } from '~/common/decorator/input.decorator';
+import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 
 export const payoutBankNames = [
   'Bank BCA',
@@ -27,4 +28,12 @@ export class CreatePayoutAccountDto {
   @IsString()
   @Matches(/^\d{6,20}$/, { message: 'account_number must be 6-20 digits' })
   account_number: string;
+
+  @ApiPropertyOptional({
+    description:
+      'true makes this the primary account and clears the others. The first account is always primary, and the primary changes only when another account is made primary, so false is rejected for the first account and for the current primary.',
+  })
+  @OptionalNotNull()
+  @IsBoolean()
+  is_primary?: boolean;
 }

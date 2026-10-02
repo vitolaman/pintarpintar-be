@@ -1,4 +1,4 @@
-import { Controller, Get, HttpStatus, Query } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Query, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   ArrayResponse,
@@ -6,7 +6,7 @@ import {
 } from '~/common/decorator/response.decorator';
 import { Public } from '~/common/decorator/public.decorator';
 import { HomeCollectionQueryDto } from './dto/home-collection-query.dto';
-import { CatalogCardDto } from '../catalog/dto/catalog.dto';
+import { CatalogItemCardDto } from '../catalog/dto/catalog.dto';
 import {
   HomeMerchantCardResponseDto,
   HomeStatisticsResponseDto,
@@ -32,23 +32,32 @@ export class HomeController {
 
   @Get('bootcamps')
   @Public()
-  @ArrayResponse(CatalogCardDto, 'Get bootcamps success')
-  getBootcamps(@Query() query: HomeCollectionQueryDto) {
-    return this.homeService.getBootcamps(query.limit);
+  @ArrayResponse(CatalogItemCardDto, 'Get bootcamps success')
+  getBootcamps(
+    @Req() req: { user?: { id: string } },
+    @Query() query: HomeCollectionQueryDto,
+  ) {
+    return this.homeService.getBootcamps(query.limit, req.user?.id);
   }
 
   @Get('video-classes')
   @Public()
-  @ArrayResponse(CatalogCardDto, 'Get video classes success')
-  getVideoClasses(@Query() query: HomeCollectionQueryDto) {
-    return this.homeService.getVideoClasses(query.limit);
+  @ArrayResponse(CatalogItemCardDto, 'Get video classes success')
+  getVideoClasses(
+    @Req() req: { user?: { id: string } },
+    @Query() query: HomeCollectionQueryDto,
+  ) {
+    return this.homeService.getVideoClasses(query.limit, req.user?.id);
   }
 
   @Get('digital-products')
   @Public()
-  @ArrayResponse(CatalogCardDto, 'Get digital products success')
-  getDigitalProducts(@Query() query: HomeCollectionQueryDto) {
-    return this.homeService.getDigitalProducts(query.limit);
+  @ArrayResponse(CatalogItemCardDto, 'Get digital products success')
+  getDigitalProducts(
+    @Req() req: { user?: { id: string } },
+    @Query() query: HomeCollectionQueryDto,
+  ) {
+    return this.homeService.getDigitalProducts(query.limit, req.user?.id);
   }
 
   @Get('merchants')

@@ -19,11 +19,15 @@ export class BundleItemResponseDto {
   @ApiProperty({ example: 299000, description: 'Current selling price' })
   price: number;
 
+  @ApiProperty({ nullable: true, description: 'Cover object key' })
+  image: string | null;
+
   @ApiProperty({
     nullable: true,
-    description: 'Cover object key (null for classes)',
+    description:
+      'Public cover URL; null without a cover or ASSET_PUBLIC_BASE_URL',
   })
-  image: string | null;
+  image_url: string | null;
 
   @ApiProperty({ description: 'Public availability, required for publishing' })
   is_available: boolean;
@@ -44,6 +48,13 @@ export class BundleResponseDto {
 
   @ApiProperty({ nullable: true })
   cover_object_key: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Public cover URL; null without a cover or ASSET_PUBLIC_BASE_URL',
+  })
+  cover_url: string | null;
 
   @ApiProperty({
     type: [ItemCoverDto],
@@ -98,11 +109,6 @@ export class PublicBundleResponseDto extends OmitType(BundleResponseDto, [
   'post_purchase_instructions',
   'status',
 ] as const) {
-  @ApiPropertyOptional({
-    description: 'Null without ASSET_PUBLIC_BASE_URL or a cover',
-  })
-  cover_url: string | null;
-
   @ApiProperty({ type: PublicBundleMerchantDto })
   merchant: PublicBundleMerchantDto;
 }

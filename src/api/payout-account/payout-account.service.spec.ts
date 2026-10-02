@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
@@ -101,6 +102,21 @@ describe('CreatePayoutAccountDto', () => {
     });
     expect(await validate(dto)).toHaveLength(0);
     expect(dto.bank_name).toBe('Bank Syariah Indonesia (BSI)');
+  });
+});
+
+describe('is_primary input', () => {
+  const errorFields = async (input: Record<string, unknown>) =>
+    (await validate(plainToInstance(UpdatePayoutAccountDto, input))).map(
+      (error) => error.property,
+    );
+
+  it.each([true, false])('accepts %j', async (is_primary) => {
+    expect(await errorFields({ is_primary })).toEqual([]);
+  });
+
+  it.each([null, 'yes', 1])('rejects %j', async (is_primary) => {
+    expect(await errorFields({ is_primary })).toEqual(['is_primary']);
   });
 });
 
@@ -259,6 +275,170 @@ describe('PayoutAccountService', () => {
     expect(data).toMatchObject({
       masked_account_number: '•••• 7890',
       verification_status: 'unverified',
+    });
+  });
+
+  describe('is_primary', () => {
+    const merchantLock = () =>
+      manager.findOne.mock.calls.findIndex(
+        ([target, options]) =>
+          target === Merchant && options.lock?.mode === 'pessimistic_write',
+      );
+    const order = (mock: jest.Mock) => mock.mock.invocationCallOrder[0];
+
+    it('makes a new account primary after clearing the others under the merchant lock', async () => {
+      manager.count.mockResolvedValue(2);
+
+      const { data } = await service.create('user-id', {
+        ...input,
+        is_primary: true,
+      });
+
+      expect(merchantLock()).toBe(0);
+      expect(manager.update).toHaveBeenCalledWith(
+        MerchantPayoutAccount,
+        { merchantId: 'merchant-id', isPrimary: true },
+        { isPrimary: false },
+      );
+      expect(order(manager.findOne)).toBeLessThan(order(manager.update));
+      expect(order(manager.update)).toBeLessThan(order(manager.save));
+      expect(manager.save.mock.calls[0][1].isPrimary).toBe(true);
+      expect(data.is_primary).toBe(true);
+    });
+
+    it('keeps a new account non-primary with false', async () => {
+      manager.count.mockResolvedValue(1);
+
+      const { data } = await service.create('user-id', {
+        ...input,
+        is_primary: false,
+      });
+
+      expect(manager.update).not.toHaveBeenCalled();
+      expect(data.is_primary).toBe(false);
+    });
+
+    it('rejects false for the first account', async () => {
+      manager.count.mockResolvedValue(0);
+
+      await expect(
+        service.create('user-id', { ...input, is_primary: false }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('switches the primary on update in one transaction under the merchant lock', async () => {
+      manager.findOneBy.mockResolvedValue({
+        id: 'b',
+        isPrimary: false,
+        verificationStatus: 'verified',
+      });
+
+      const { data } = await service.update('user-id', 'b', {
+        is_primary: true,
+      });
+
+      expect(merchantLock()).toBe(0);
+      expect(manager.update).toHaveBeenCalledTimes(1);
+      const [target, criteria, values] = manager.update.mock.calls[0];
+      expect(target).toBe(MerchantPayoutAccount);
+      expect(criteria).toMatchObject({
+        merchantId: 'merchant-id',
+        isPrimary: true,
+      });
+      expect(criteria.id.value).toBe('b');
+      expect(values).toEqual({ isPrimary: false });
+      expect(order(manager.update)).toBeLessThan(order(manager.save));
+      expect(data).toMatchObject({
+        id: 'b',
+        is_primary: true,
+        verification_status: 'verified',
+      });
+    });
+
+    it('keeps one primary when two switches race', async () => {
+      // Models the pessimistic merchant row lock: a locking read waits until
+      // the transaction holding the row ends. Without it the two requests
+      // interleave and both accounts end up primary.
+      const accounts = {
+        a: { id: 'a', isPrimary: true },
+        b: { id: 'b', isPrimary: false },
+        c: { id: 'c', isPrimary: false },
+      };
+      let rowReleased = Promise.resolve();
+      const transaction = jest.fn(async (callback) => {
+        const releases: (() => void)[] = [];
+        const lockingManager = {
+          ...manager,
+          findOne: jest.fn(async (target, options) => {
+            if (target === Merchant && options.lock) {
+              const previous = rowReleased;
+              rowReleased = new Promise((resolve) =>
+                releases.push(() => resolve()),
+              );
+              await previous;
+            }
+            return manager.findOne(target, options);
+          }),
+        };
+        try {
+          return await callback(lockingManager);
+        } finally {
+          releases.forEach((release) => release());
+        }
+      });
+      manager.findOneBy.mockImplementation(async (_target, { id }) => ({
+        ...accounts[id],
+      }));
+      manager.update.mockImplementation(async (_target, criteria) => {
+        for (const account of Object.values(accounts)) {
+          if (account.isPrimary && account.id !== criteria.id?.value) {
+            account.isPrimary = false;
+          }
+        }
+      });
+      manager.save.mockImplementation(async (_target, value) => {
+        accounts[value.id].isPrimary = value.isPrimary;
+        return value;
+      });
+      service = new PayoutAccountService({
+        manager,
+        transaction,
+      } as unknown as DataSource);
+
+      await Promise.all([
+        service.update('user-id', 'b', { is_primary: true }),
+        service.update('user-id', 'c', { is_primary: true }),
+      ]);
+
+      const primaries = Object.values(accounts).filter(
+        (account) => account.isPrimary,
+      );
+      expect(primaries.map((account) => account.id)).toEqual(['c']);
+    });
+
+    it('rejects false for the current primary and changes nothing', async () => {
+      manager.findOneBy.mockResolvedValue({ id: 'a', isPrimary: true });
+
+      await expect(
+        service.update('user-id', 'a', {
+          account_holder_name: 'X',
+          is_primary: false,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(manager.update).not.toHaveBeenCalled();
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('leaves a non-primary account and the others alone with false', async () => {
+      manager.findOneBy.mockResolvedValue({ id: 'b', isPrimary: false });
+
+      const { data } = await service.update('user-id', 'b', {
+        is_primary: false,
+      });
+
+      expect(manager.update).not.toHaveBeenCalled();
+      expect(data.is_primary).toBe(false);
     });
   });
 });

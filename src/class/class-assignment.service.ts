@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,7 +16,11 @@ import { signedDownloadUrl } from '../common/storage/signed-download-url';
 import { ClassAccess, ClassAccessService } from './class-access.service';
 import { CLASS_ACTIONS } from './class-permissions';
 import { AssignmentResponseDto } from './dto/class-response.dto';
-import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import {
+  CreateAssignmentDto,
+  CreateQuestionDto,
+} from './dto/create-assignment.dto';
+import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { Assignment, AssignmentType } from './entities/assignment.entity';
 import {
   AssignmentQuestion,
@@ -41,7 +46,8 @@ export class ClassAssignmentService {
     dto: CreateAssignmentDto,
   ) {
     const questions = dto.questions ?? [];
-    assertAssignmentContent(dto.type, dto.due, questions);
+    assertDueInFuture(dto.due);
+    assertQuestionContent(dto.type, questions);
 
     return this.dataSource.transaction(async (manager) => {
       const access = await this.classAccess.requireAction(
@@ -73,31 +79,110 @@ export class ClassAssignmentService {
           created_by: userId,
         }),
       );
-      // Questions have no order column; they are listed by created_at, and
-      // rows inserted in one transaction would share now(). Stamping them 1 ms
-      // apart keeps the author's order.
-      const createdAt = Date.now();
-      await manager.save(
-        AssignmentQuestion,
-        questions.map((question, index) =>
-          manager.create(AssignmentQuestion, {
-            assignment_id: assignment.id,
-            question_text: question.question_text,
-            type: question.type,
-            options:
-              question.type === QuestionType.MULTIPLE_CHOICE
-                ? question.options
-                : null,
-            correct_answer: question.correct_answer ?? null,
-            score_weight: question.score_weight ?? 0,
-            created_at: new Date(createdAt + index),
-            created_by: userId,
-          }),
-        ),
-      );
+      await saveQuestions(manager, assignment.id, questions, userId);
 
       const [data] = await this.toResponses(manager, [assignment], access);
       return { data, responseMessage: 'Create assignment success' };
+    });
+  }
+
+  // Submissions are kept. Once a learner has submitted, the type and the quiz
+  // questions are fixed: stored answers point at the questions, and their
+  // scores were computed from those options, answer keys and weights.
+  async updateAssignment(
+    userId: string,
+    classId: string,
+    assignmentId: string,
+    dto: UpdateAssignmentDto,
+  ) {
+    if (dto.due !== undefined) assertDueInFuture(dto.due);
+
+    return this.dataSource.transaction(async (manager) => {
+      const access = await this.classAccess.requireAction(
+        userId,
+        classId,
+        'tugas',
+        'edit',
+        manager,
+      );
+      // Learner attempts lock this row FOR KEY SHARE, so the edit waits for
+      // an attempt in progress and holds back new ones until it commits.
+      const assignment = await manager.findOne(Assignment, {
+        where: { id: assignmentId, class_id: classId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!assignment) throw new NotFoundException('Assignment not found');
+
+      const type = dto.type ?? assignment.type;
+      const currentQuestions = await manager.find(AssignmentQuestion, {
+        where: { assignment_id: assignmentId },
+        order: { created_at: 'ASC', id: 'ASC' },
+      });
+      if (dto.questions !== undefined) {
+        assertQuestionContent(type, dto.questions);
+      } else if (
+        type === AssignmentType.QUIZ &&
+        currentQuestions.length === 0
+      ) {
+        throw new BadRequestException('A quiz needs at least one question');
+      }
+
+      const typeChanged = type !== assignment.type;
+      const replacementQuestions =
+        typeChanged && type === AssignmentType.FILE_UPLOAD
+          ? questionReplacement(currentQuestions, [])
+          : questionReplacement(currentQuestions, dto.questions);
+      if (typeChanged || replacementQuestions) {
+        await this.assertNoSubmissions(
+          manager,
+          assignmentId,
+          typeChanged
+            ? 'The assignment type cannot change once learners have submitted'
+            : 'Quiz questions cannot change once learners have submitted',
+        );
+      }
+
+      if (
+        dto.resource_asset_id &&
+        dto.resource_asset_id !== assignment.resource_asset_id
+      ) {
+        await assertOwnedAsset(
+          manager,
+          userId,
+          dto.resource_asset_id,
+          'assignment_resource',
+          { classId },
+        );
+      }
+
+      if (dto.title !== undefined) assignment.title = dto.title;
+      if (dto.description !== undefined) {
+        assignment.description = dto.description;
+      }
+      if (dto.due !== undefined) assignment.due = new Date(dto.due);
+      if (dto.resource_asset_id !== undefined) {
+        assignment.resource_asset_id = dto.resource_asset_id;
+      }
+      assignment.type = type;
+      assignment.updated_by = userId;
+      const saved = await manager.save(Assignment, assignment);
+
+      if (replacementQuestions) {
+        await manager.update(
+          AssignmentQuestion,
+          { assignment_id: assignmentId, deleted_at: IsNull() },
+          { deleted_at: new Date(), deleted_by: userId },
+        );
+        await saveQuestions(
+          manager,
+          assignmentId,
+          replacementQuestions,
+          userId,
+        );
+      }
+
+      const [data] = await this.toResponses(manager, [saved], access);
+      return { data, responseMessage: 'Update assignment success' };
     });
   }
 
@@ -146,6 +231,20 @@ export class ClassAssignmentService {
       );
       await manager.update(Assignment, { id: assignmentId }, deletion);
     });
+  }
+
+  private async assertNoSubmissions(
+    manager: EntityManager,
+    assignmentId: string,
+    message: string,
+  ): Promise<void> {
+    const submitted = await manager.query(
+      `SELECT 1 FROM submissions
+       WHERE assignment_id = $1 AND deleted_at IS NULL
+       LIMIT 1`,
+      [assignmentId],
+    );
+    if (submitted.length > 0) throw new ConflictException(message);
   }
 
   private async loadResourceAssets(
@@ -250,15 +349,72 @@ function canSeeAnswers(access: ClassAccess): boolean {
   );
 }
 
-// Rules spanning several fields, checked before anything is written.
-function assertAssignmentContent(
-  type: AssignmentType,
-  due: string,
-  questions: CreateAssignmentDto['questions'] & object,
-): void {
+type QuestionContent = Pick<
+  CreateQuestionDto,
+  'question_text' | 'type' | 'options' | 'correct_answer' | 'score_weight'
+>;
+
+// Questions have no order column; they are listed by created_at, and rows
+// inserted in one transaction would share now(). Stamping them 1 ms apart
+// keeps the author's order.
+async function saveQuestions(
+  manager: EntityManager,
+  assignmentId: string,
+  questions: QuestionContent[],
+  userId: string,
+): Promise<void> {
+  const createdAt = Date.now();
+  await manager.save(
+    AssignmentQuestion,
+    questions.map((question, index) =>
+      manager.create(AssignmentQuestion, {
+        assignment_id: assignmentId,
+        ...normalizedQuestion(question),
+        created_at: new Date(createdAt + index),
+        created_by: userId,
+      }),
+    ),
+  );
+}
+
+function normalizedQuestion(question: QuestionContent) {
+  return {
+    question_text: question.question_text,
+    type: question.type,
+    options:
+      question.type === QuestionType.MULTIPLE_CHOICE
+        ? (question.options ?? null)
+        : null,
+    correct_answer: question.correct_answer ?? null,
+    score_weight: question.score_weight ?? 0,
+  };
+}
+
+// The questions to store instead of the current ones, or undefined when they
+// stay. Resending the current questions unchanged keeps them, so a full form
+// can be saved after learners have submitted.
+function questionReplacement(
+  current: QuestionContent[],
+  sent: QuestionContent[] | undefined,
+): QuestionContent[] | undefined {
+  if (sent === undefined) return undefined;
+  const unchanged =
+    JSON.stringify(current.map(normalizedQuestion)) ===
+    JSON.stringify(sent.map(normalizedQuestion));
+  return unchanged ? undefined : sent;
+}
+
+function assertDueInFuture(due: string): void {
   if (new Date(due).getTime() <= Date.now()) {
     throw new BadRequestException('due must be in the future');
   }
+}
+
+// Rules spanning several fields, checked before anything is written.
+function assertQuestionContent(
+  type: AssignmentType,
+  questions: QuestionContent[],
+): void {
   if (type === AssignmentType.QUIZ && questions.length === 0) {
     throw new BadRequestException('A quiz needs at least one question');
   }

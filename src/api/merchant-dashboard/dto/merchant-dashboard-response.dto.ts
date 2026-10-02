@@ -24,6 +24,13 @@ export class LatestReviewDto {
   @ApiProperty({ nullable: true })
   reviewer_avatar_object_key: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Reviewer avatar URL; null without an avatar',
+  })
+  reviewer_avatar_url: string | null;
+
   @ApiProperty({ example: 5 })
   rating: number;
 

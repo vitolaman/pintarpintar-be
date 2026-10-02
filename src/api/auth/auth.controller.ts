@@ -12,7 +12,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
 import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { AuthService } from './auth.service';
-import { AuthTokenDto } from './dto/auth-token.dto';
+import { AuthTokenWithUserDto } from './dto/auth-token-with-user.dto';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 
@@ -27,7 +27,7 @@ export class AuthController {
     summary: 'User sign up',
   })
   @HttpCode(HttpStatus.OK)
-  @DefaultResponse(AuthTokenDto, 'Account Created!', HttpStatus.OK, [
+  @DefaultResponse(AuthTokenWithUserDto, 'Account Created!', HttpStatus.OK, [
     BadRequestException,
     ConflictException,
   ])
@@ -40,7 +40,7 @@ export class AuthController {
     summary: 'Sign in with email and password',
   })
   @HttpCode(HttpStatus.OK)
-  @DefaultResponse(AuthTokenDto, 'Login Success', HttpStatus.OK, [
+  @DefaultResponse(AuthTokenWithUserDto, 'Login Success', HttpStatus.OK, [
     BadRequestException,
     ForbiddenException,
   ])

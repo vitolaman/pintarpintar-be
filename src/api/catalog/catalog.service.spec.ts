@@ -141,6 +141,78 @@ describe('CatalogService', () => {
     ]);
   });
 
+  it('marks wishlisted cards with one lookup for the whole page', async () => {
+    const viewerId = '10000000-0000-4000-8000-000000000001';
+    const pageRows = [
+      { ...cardRow, id: 'class-a', type: 'kelas' },
+      { ...cardRow, id: 'class-b', type: 'bootcamp' },
+      { ...cardRow, id: 'product-a', type: 'digital' },
+      { ...cardRow, id: 'product-b', type: 'digital' },
+    ];
+    dataSource.query
+      .mockResolvedValueOnce([{ total: 4 }])
+      .mockResolvedValueOnce(pageRows)
+      .mockResolvedValueOnce([
+        { item_id: 'class-b' },
+        { item_id: 'product-a' },
+      ]);
+
+    const response = await service.findItems(
+      { page: 1, limit: 12, sort: 'terbaru' } as never,
+      viewerId,
+    );
+
+    expect(response.data.map((card) => [card.id, card.in_wishlist])).toEqual([
+      ['class-a', false],
+      ['class-b', true],
+      ['product-a', true],
+      ['product-b', false],
+    ]);
+    expect(dataSource.query).toHaveBeenCalledTimes(3);
+    const [sql, params] = dataSource.query.mock.calls[2];
+    expect(sql).toContain('FROM wishlist');
+    expect(sql).toContain('product_id = ANY($3::uuid[])');
+    expect(params).toEqual([
+      viewerId,
+      ['class-a', 'class-b'],
+      ['product-a', 'product-b'],
+    ]);
+  });
+
+  it('marks no card as wishlisted for a visitor without a token', async () => {
+    dataSource.query
+      .mockResolvedValueOnce([{ total: 1 }])
+      .mockResolvedValueOnce([cardRow]);
+
+    const response = await service.findItems({
+      page: 1,
+      limit: 12,
+      sort: 'terbaru',
+    } as never);
+
+    expect(response.data[0].in_wishlist).toBe(false);
+    expect(dataSource.query).toHaveBeenCalledTimes(2);
+  });
+
+  it('maps the card merchant avatar URL', async () => {
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
+    try {
+      dataSource.query.mockResolvedValueOnce([
+        { ...cardRow, merchant_avatar_object_key: 'merchants/logo.png' },
+        cardRow,
+      ]);
+
+      const cards = await service.findCards({}, 'terbaru', 2);
+
+      expect(cards.map((card) => card.merchant.avatar_url)).toEqual([
+        'https://cdn.example.com/merchants/logo.png',
+        null,
+      ]);
+    } finally {
+      delete process.env.ASSET_PUBLIC_BASE_URL;
+    }
+  });
+
   it('skips the page query when nothing matches', async () => {
     dataSource.query.mockResolvedValueOnce([{ total: 0 }]);
 
@@ -156,7 +228,7 @@ describe('CatalogService', () => {
 
   it('returns class detail without video, file, or meeting links', async () => {
     dataSource.query.mockImplementation((sql: string) => {
-      if (sql.includes('SELECT mentor_user.name, profile.headline'))
+      if (sql.includes('FROM class_mentors link') && !sql.includes('FROM ('))
         return Promise.resolve([]);
       if (sql.includes('SELECT id, title, description FROM chapters'))
         return Promise.resolve([
@@ -268,9 +340,155 @@ describe('CatalogService', () => {
     expect(data.is_owned).toBe(true);
   });
 
+  it('maps merchant and mentor avatar URLs on the class detail', async () => {
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com/';
+    try {
+      dataSource.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('AS owned')) return [{ owned: false }];
+        if (sql.includes('learning_outcomes FROM classes')) {
+          return [
+            { duration: null, prerequisites: null, learning_outcomes: null },
+          ];
+        }
+        if (sql.includes('FROM ('))
+          return [
+            {
+              ...cardRow,
+              type: 'kelas',
+              merchant_avatar_object_key: 'merchants/logo.png',
+            },
+          ];
+        if (sql.includes('FROM class_mentors link'))
+          return [
+            {
+              id: 'mentor-id',
+              name: 'Budi',
+              headline: 'Arsitek',
+              avatar_object_key: 'avatars/budi.png',
+              role: 'Lead Mentor',
+            },
+            {
+              id: 'mentor-2',
+              name: 'Sari',
+              headline: null,
+              avatar_object_key: null,
+              role: 'Mentor',
+            },
+          ];
+        return [];
+      });
+
+      const { data } = await service.findClass(classId);
+
+      expect(data.merchant).toMatchObject({
+        avatar_object_key: 'merchants/logo.png',
+        avatar_url: 'https://cdn.example.com/merchants/logo.png',
+      });
+      expect(data.mentors).toEqual([
+        {
+          id: 'mentor-id',
+          name: 'Budi',
+          headline: 'Arsitek',
+          avatar_object_key: 'avatars/budi.png',
+          avatar_url: 'https://cdn.example.com/avatars/budi.png',
+          role: 'Lead Mentor',
+        },
+        {
+          id: 'mentor-2',
+          name: 'Sari',
+          headline: null,
+          avatar_object_key: null,
+          avatar_url: null,
+          role: 'Mentor',
+        },
+      ]);
+    } finally {
+      delete process.env.ASSET_PUBLIC_BASE_URL;
+    }
+  });
+
+  it('returns the signed-in caller wishlist, cart and review state on a class', async () => {
+    dataSource.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('AS owned'))
+        return [
+          {
+            owned: true,
+            in_wishlist: true,
+            in_cart: false,
+            has_reviewed: true,
+          },
+        ];
+      if (sql.includes('learning_outcomes FROM classes')) {
+        return [
+          { duration: null, prerequisites: null, learning_outcomes: null },
+        ];
+      }
+      if (sql.includes('FROM (')) return [{ ...cardRow, type: 'kelas' }];
+      return [];
+    });
+
+    const { data } = await service.findClass(classId, 'viewer-id');
+
+    expect(data).toMatchObject({
+      is_owned: true,
+      in_wishlist: true,
+      in_cart: false,
+      has_reviewed: true,
+    });
+    const [sql, params] = dataSource.query.mock.calls.find(([query]) =>
+      String(query).includes('AS owned'),
+    );
+    expect(params).toEqual([classId, 'viewer-id']);
+    expect(sql).toContain('FROM wishlist');
+    expect(sql).toContain('FROM cart_items');
+    expect(sql).toMatch(
+      /FROM reviews\s+WHERE class_id = \$1 AND user_id = \$2 AND deleted_at IS NULL/,
+    );
+  });
+
+  it('checks the product columns for a digital product viewer state', async () => {
+    dataSource.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('AS owned'))
+        return [
+          {
+            owned: false,
+            in_wishlist: false,
+            in_cart: true,
+            has_reviewed: false,
+          },
+        ];
+      if (sql.includes('FROM ('))
+        return [{ ...cardRow, type: 'digital', id: classId }];
+      return [];
+    });
+
+    const { data } = await service.findDigitalProduct(classId, 'viewer-id');
+
+    expect(data).toMatchObject({
+      in_wishlist: false,
+      in_cart: true,
+      has_reviewed: false,
+    });
+    const [sql] = dataSource.query.mock.calls.find(([query]) =>
+      String(query).includes('AS owned'),
+    );
+    expect(sql).toContain(
+      'WHERE product_id = $1 AND user_id = $2 AND deleted_at IS NULL) AS in_cart',
+    );
+    expect(sql).not.toContain('class_id = $1');
+  });
+
   it('treats anonymous visitors as not owning', async () => {
     dataSource.query.mockImplementation(async (sql: string) => {
-      if (sql.includes('AS owned')) return [{ owned: false }];
+      if (sql.includes('AS owned'))
+        return [
+          {
+            owned: false,
+            in_wishlist: false,
+            in_cart: false,
+            has_reviewed: false,
+          },
+        ];
       if (sql.includes('FROM ('))
         return [{ ...cardRow, type: 'digital', id: classId }];
       return [];
@@ -282,7 +500,12 @@ describe('CatalogService', () => {
       String(sql).includes('AS owned'),
     );
     expect(ownershipCall[1]).toEqual([classId, null]);
-    expect(data.is_owned).toBe(false);
+    expect(data).toMatchObject({
+      is_owned: false,
+      in_wishlist: false,
+      in_cart: false,
+      has_reviewed: false,
+    });
   });
 
   it('searches titles, merchant names, category names and file formats', async () => {

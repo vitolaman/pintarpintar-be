@@ -215,7 +215,7 @@ export class BundleService {
       description: bundle.description,
       cover_asset_id: bundle.cover_asset_id,
       cover_object_key: bundle.cover_object_key,
-      cover_url: assetUrl(bundle.cover_object_key),
+      cover_url: bundle.cover_url,
       covers: bundle.covers,
       items: bundle.items,
       original_total: bundle.original_total,
@@ -478,6 +478,7 @@ export class BundleService {
         description: row.description,
         cover_asset_id: row.cover_asset_id,
         cover_object_key: row.cover_object_key,
+        cover_url: assetUrl(row.cover_object_key),
         covers: covers.get(row.id) ?? [],
         items: items.map((item) => this.toItem(item)),
         original_total: originalTotal,
@@ -501,6 +502,7 @@ export class BundleService {
       title: row.title,
       price: Number(row.price),
       image: row.image,
+      image_url: assetUrl(row.image),
       is_available: row.is_available,
     };
   }

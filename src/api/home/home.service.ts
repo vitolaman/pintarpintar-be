@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { assetUrl } from '../../common/storage/asset-url';
 import { CatalogService } from '../catalog/catalog.service';
 import { Product } from '../profile/entities/product.entity';
 import {
@@ -24,35 +25,38 @@ export class HomeService {
     };
   }
 
-  async getBootcamps(limit: number) {
+  async getBootcamps(limit: number, viewerId?: string) {
+    const cards = await this.catalogService.findCards(
+      { types: ['bootcamp'] },
+      'terbaru',
+      limit,
+    );
     return {
-      data: await this.catalogService.findCards(
-        { types: ['bootcamp'] },
-        'terbaru',
-        limit,
-      ),
+      data: await this.catalogService.withViewerFlags(viewerId, cards),
       responseMessage: 'Get bootcamps success',
     };
   }
 
-  async getVideoClasses(limit: number) {
+  async getVideoClasses(limit: number, viewerId?: string) {
+    const cards = await this.catalogService.findCards(
+      { types: ['kelas'] },
+      'terbaru',
+      limit,
+    );
     return {
-      data: await this.catalogService.findCards(
-        { types: ['kelas'] },
-        'terbaru',
-        limit,
-      ),
+      data: await this.catalogService.withViewerFlags(viewerId, cards),
       responseMessage: 'Get video classes success',
     };
   }
 
-  async getDigitalProducts(limit: number) {
+  async getDigitalProducts(limit: number, viewerId?: string) {
+    const cards = await this.catalogService.findCards(
+      { types: ['digital'] },
+      'terbaru',
+      limit,
+    );
     return {
-      data: await this.catalogService.findCards(
-        { types: ['digital'] },
-        'terbaru',
-        limit,
-      ),
+      data: await this.catalogService.withViewerFlags(viewerId, cards),
       responseMessage: 'Get digital products success',
     };
   }
@@ -162,9 +166,11 @@ export class HomeService {
       slug: row.slug,
       avatar_asset_id: row.avatar_asset_id,
       avatar_object_key: row.avatar_object_key,
+      avatar_url: assetUrl(row.avatar_object_key),
       best_product_title: row.best_product_title,
       best_product_cover_asset_id: row.best_product_cover_asset_id,
       best_product_cover_object_key: row.best_product_cover_object_key,
+      best_product_cover_url: assetUrl(row.best_product_cover_object_key),
       best_product_rating:
         row.best_product_rating === null
           ? null
@@ -217,6 +223,7 @@ export class HomeService {
       user_name: row.user_name,
       user_avatar_asset_id: row.user_avatar_asset_id,
       user_avatar_object_key: row.user_avatar_object_key,
+      user_avatar_url: assetUrl(row.user_avatar_object_key),
       class_id: row.class_id,
       class_title: row.class_title,
     }));

@@ -1,24 +1,28 @@
 import {
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   Delete,
   Get,
-  HttpCode,
   HttpStatus,
   NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
   Req,
+  Res,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiParam, ApiTags } from '@nestjs/swagger';
-import { CatalogItemRefDto } from '~/common/catalog/catalog-item';
 import {
-  DefaultResponse,
-  EmptyResponse,
-} from '~/common/decorator/response.decorator';
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiParam,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
+import { Response } from 'express';
+import { CatalogItemRefDto } from '~/common/catalog/catalog-item';
+import { DefaultResponse } from '~/common/decorator/response.decorator';
+import { ResponseDto } from '~/common/dto/response.dto-default';
 import { CartService } from './cart.service';
 import { CartResponseDto } from './dto/cart.dto';
 
@@ -36,24 +40,50 @@ export class CartController {
     return this.cartService.findCart(req.user.id);
   }
 
+  // 201 when the item is added; 200 with the unchanged cart when it is
+  // already there.
   @Post('items')
   @DefaultResponse(CartResponseDto, 'Add to cart success', HttpStatus.CREATED, [
     BadRequestException,
-    ConflictException,
   ])
-  add(@Req() req: AuthenticatedRequest, @Body() input: CatalogItemRefDto) {
-    return this.cartService.add(req.user.id, input);
+  @ApiOkResponse({
+    description: 'The item is already in the cart; the cart is unchanged',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ResponseDto) },
+        {
+          properties: {
+            data: { $ref: getSchemaPath(CartResponseDto) },
+            responseMessage: {
+              type: 'string',
+              example: 'Item already in cart',
+            },
+          },
+        },
+      ],
+    },
+  })
+  async add(
+    @Req() req: AuthenticatedRequest,
+    @Body() input: CatalogItemRefDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { created, ...cart } = await this.cartService.add(req.user.id, input);
+    if (!created) res.status(HttpStatus.OK);
+    return cart;
   }
 
   @Delete('items/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiParam({
     name: 'id',
     format: 'uuid',
     description:
       'The cart entry id, or the id of the class, digital product or bundle in it',
   })
-  @EmptyResponse([BadRequestException, NotFoundException])
+  @DefaultResponse(CartResponseDto, 'Remove cart item success', HttpStatus.OK, [
+    BadRequestException,
+    NotFoundException,
+  ])
   remove(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
@@ -62,8 +92,7 @@ export class CartController {
   }
 
   @Delete()
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse([])
+  @DefaultResponse(CartResponseDto, 'Clear cart success', HttpStatus.OK, [])
   clear(@Req() req: AuthenticatedRequest) {
     return this.cartService.clear(req.user.id);
   }

@@ -14,15 +14,16 @@ export class PromoService {
   ) {}
 
   // Promo items have both a list price and a lower discounted price.
-  async findItems(query: PromoItemsQueryDto) {
+  async findItems(query: PromoItemsQueryDto, viewerId?: string) {
     const types =
       query.type === 'digital' ? ['digital'] : ['kelas', 'bootcamp'];
+    const cards = await this.catalogService.findCards(
+      { types, discountedOnly: true },
+      query.sort ?? 'random',
+      query.limit,
+    );
     return {
-      data: await this.catalogService.findCards(
-        { types, discountedOnly: true },
-        query.sort ?? 'random',
-        query.limit,
-      ),
+      data: await this.catalogService.withViewerFlags(viewerId, cards),
       responseMessage: 'Get promo items success',
     };
   }

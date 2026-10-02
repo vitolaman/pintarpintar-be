@@ -130,13 +130,21 @@ export class LearningClassService {
         `SELECT meeting.id, meeting.title, meeting.content, meeting."date"::text AS date,
                   to_char(meeting."time", 'HH24:MI') AS time, meeting."liveUrl" AS live_url,
                   ${MEETING_STATUS_SQL} AS status, meeting.duration_minutes,
-                  ${MEETING_MENTOR_SQL} AS mentor
+                  ${MEETING_MENTOR_SQL} AS mentor,
+                  my_attendance.status AS my_attendance_status
            FROM meetings meeting
            ${BOOTCAMP_MEETING_SQL}
            ${MEETING_MENTOR_JOIN_SQL}
+           LEFT JOIN LATERAL (
+             SELECT attendance.status FROM attendances attendance
+             WHERE attendance.meeting_id = meeting.id AND attendance.user_id = $2
+               AND attendance.deleted_at IS NULL
+             ORDER BY attendance.created_at DESC, attendance.id DESC
+             LIMIT 1
+           ) my_attendance ON true
            WHERE meeting.class_id = $1 AND meeting.deleted_at IS NULL
            ORDER BY meeting."date" NULLS LAST, meeting."time" NULLS LAST, meeting.id`,
-        [classId],
+        [classId, userId],
       ),
       this.learningProgress.findProgress(manager, classId, userId),
       this.certificates.findLearnerView(manager, classId, userId),

@@ -3,12 +3,15 @@ import { VoucherService } from '../voucher/voucher.service';
 import { PromoService } from './promo.service';
 
 describe('PromoService', () => {
-  let catalogService: { findCards: jest.Mock };
+  let catalogService: { findCards: jest.Mock; withViewerFlags: jest.Mock };
   let voucherService: { findRandomPublic: jest.Mock };
   let service: PromoService;
 
   beforeEach(() => {
-    catalogService = { findCards: jest.fn().mockResolvedValue([]) };
+    catalogService = {
+      findCards: jest.fn().mockResolvedValue([]),
+      withViewerFlags: jest.fn(async (_viewer, cards: object[]) => cards),
+    };
     voucherService = { findRandomPublic: jest.fn().mockResolvedValue([]) };
     service = new PromoService(
       catalogService as unknown as CatalogService,

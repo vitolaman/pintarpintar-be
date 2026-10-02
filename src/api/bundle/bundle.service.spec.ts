@@ -330,6 +330,82 @@ describe('BundleService', () => {
     });
   });
 
+  describe('image URLs', () => {
+    const coverKey = 'bundles/covers/paket.png';
+
+    beforeEach(() => {
+      process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.test/';
+      const listQuery = dataSourceQuery.getMockImplementation();
+      dataSourceQuery.mockImplementation(async (sql: string) => {
+        if (sql.includes('count(*)::integer AS total')) return [{ total: 1 }];
+        const rows = await listQuery(sql);
+        return sql.includes('FROM bundles bundle')
+          ? rows.map((row) => ({
+              ...row,
+              merchant_id: 'merchant-id',
+              cover_asset_id: 'cover-id',
+              cover_object_key: coverKey,
+            }))
+          : rows;
+      });
+    });
+
+    afterEach(() => {
+      delete process.env.ASSET_PUBLIC_BASE_URL;
+    });
+
+    const expectItemUrls = (items: { image_url: string | null }[]) => {
+      expect(items.map((item) => item.image_url)).toEqual([
+        null,
+        'https://cdn.test/products/covers/rab.png',
+      ]);
+    };
+
+    it('adds image_url to eligible items', async () => {
+      dataSourceQuery.mockResolvedValueOnce([
+        catalog.autocad,
+        catalog.template,
+      ]);
+
+      const { data } = await service.findEligibleItems('user-id');
+
+      expectItemUrls(data);
+      expect(data[1]).toMatchObject({ image: 'products/covers/rab.png' });
+    });
+
+    it('adds cover_url and item image_url to the list and the detail', async () => {
+      manager.findOneBy.mockResolvedValue({ id: BUNDLE_ID });
+
+      const list = await service.findAll('user-id', { page: 1, limit: 10 });
+      const detail = await service.findOne('user-id', BUNDLE_ID);
+
+      for (const bundle of [list.data[0], detail.data]) {
+        expect(bundle).toMatchObject({
+          cover_object_key: coverKey,
+          cover_url: `https://cdn.test/${coverKey}`,
+        });
+        expectItemUrls(bundle.items);
+      }
+    });
+
+    it('adds cover_url and item image_url to public bundles', async () => {
+      const { data } = await service.findPublic({ page: 1, limit: 12 });
+
+      expect(data[0].cover_url).toBe(`https://cdn.test/${coverKey}`);
+      expectItemUrls(data[0].items);
+    });
+
+    it('returns null URLs without a public base URL', async () => {
+      delete process.env.ASSET_PUBLIC_BASE_URL;
+      manager.findOneBy.mockResolvedValue({ id: BUNDLE_ID });
+
+      const { data } = await service.findOne('user-id', BUNDLE_ID);
+
+      expect(data.cover_url).toBeNull();
+      expect(data.items.every((item) => item.image_url === null)).toBe(true);
+    });
+  });
+
   it('lists published bundles publicly without post-purchase instructions', async () => {
     const merchantId = '20000000-0000-4000-8000-000000000001';
     dataSourceQuery.mockImplementation(async (sql: string) => {

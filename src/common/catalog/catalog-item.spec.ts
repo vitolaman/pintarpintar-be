@@ -35,6 +35,31 @@ describe('loadCatalogItems', () => {
     expect(item).toMatchObject({ price: 299000, is_available: true });
   });
 
+  it('builds the public cover URL next to the object key', async () => {
+    const baseUrl = process.env.ASSET_PUBLIC_BASE_URL;
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com/';
+    try {
+      query.mockResolvedValueOnce([
+        catalogRow({ image: 'uploads/cover kelas.png' }),
+        catalogRow({ id: PRODUCT_ID, type: 'digital', image: null }),
+      ]);
+
+      const items = await loadCatalogItems(manager, [
+        ref,
+        { classId: null, productId: PRODUCT_ID, bundleId: null },
+      ]);
+
+      expect(items.get(CLASS_ID)).toMatchObject({
+        image: 'uploads/cover kelas.png',
+        image_url: 'https://cdn.example.com/uploads/cover%20kelas.png',
+      });
+      expect(items.get(PRODUCT_ID).image_url).toBeNull();
+    } finally {
+      process.env.ASSET_PUBLIC_BASE_URL = baseUrl;
+      if (baseUrl === undefined) delete process.env.ASSET_PUBLIC_BASE_URL;
+    }
+  });
+
   it.each([
     ['an inactive or deleted merchant', { merchant_active: false }],
     ['an unpublished or deleted item', { is_available: false }],

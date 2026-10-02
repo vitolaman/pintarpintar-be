@@ -26,11 +26,12 @@ import {
   AddDiscountCodesDto,
   CreateDiscountDto,
   DiscountListQueryDto,
+  RemoveDiscountCodesDto,
   UpdateDiscountDto,
 } from './dto/discount-request.dto';
 import {
+  DiscountEligibleItemResponseDto,
   DiscountResponseDto,
-  DiscountTargetResponseDto,
 } from './dto/discount-response.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
@@ -42,9 +43,11 @@ export class DiscountController {
   constructor(private readonly discountService: DiscountService) {}
 
   @Get('discounts/eligible-items')
-  @ArrayResponse(DiscountTargetResponseDto, 'Get eligible products success', [
-    NotFoundException,
-  ])
+  @ArrayResponse(
+    DiscountEligibleItemResponseDto,
+    'Get eligible products success',
+    [NotFoundException],
+  )
   findEligibleProducts(@Req() req: AuthenticatedRequest) {
     return this.discountService.findEligibleProducts(req.user.id);
   }
@@ -122,6 +125,22 @@ export class DiscountController {
     @Body() input: AddDiscountCodesDto,
   ) {
     return this.discountService.addCodes(req.user.id, id, input);
+  }
+
+  @Post('discounts/:id/remove-codes')
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(
+    DiscountResponseDto,
+    'Remove discount codes success',
+    HttpStatus.OK,
+    [BadRequestException, NotFoundException],
+  )
+  removeCodes(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() input: RemoveDiscountCodesDto,
+  ) {
+    return this.discountService.removeCodes(req.user.id, id, input);
   }
 
   @Delete('discount-codes/:codeId')

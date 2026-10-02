@@ -24,6 +24,7 @@ import {
   inactivityAction,
   nextLevel,
 } from './merchant-level-rules';
+import { merchantStorageUse } from './merchant-storage';
 import {
   LevelEvaluationQueryDto,
   MerchantLevelSummaryDto,
@@ -211,6 +212,7 @@ export class MerchantLevelService {
       [merchantId],
     );
     if (!row) throw new NotFoundException('Merchant not found');
+    const { usedBytes } = await merchantStorageUse(this.dataSource, merchantId);
     const level = row.storage_level as MerchantStorageLevel;
     const rule = MERCHANT_LEVEL_RULES[level];
     return {
@@ -220,6 +222,7 @@ export class MerchantLevelService {
       gold_threshold: GOLD_MONTHLY_REVENUE,
       max_upload_bytes: rule.maxUploadBytes,
       storage_quota_bytes: rule.storageQuotaBytes,
+      storage_used_bytes: usedBytes,
       last_evaluated_month: row.last_period
         ? row.last_period.slice(0, 7)
         : null,

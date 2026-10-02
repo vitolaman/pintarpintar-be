@@ -10,6 +10,7 @@ import {
   LARGEST_UPLOAD_BYTES,
   MERCHANT_LEVEL_RULES,
 } from '../merchant-level/merchant-level-rules';
+import { assertWithinStorageQuota } from '../merchant-level/merchant-storage';
 
 const MEBIBYTE = 1024 * 1024;
 const GIBIBYTE = 1024 * MEBIBYTE;
@@ -309,9 +310,9 @@ export async function assertOwnedAsset(
   ) {
     throw new BadRequestException(`File asset for ${purpose} is not available`);
   }
-  const merchantLimit =
+  const owner =
     ASSET_PURPOSE_RULES[purpose].maxBytes === 'merchant_level'
-      ? await ownerUploadLimit(manager, purpose, limitOwner)
+      ? await ownerMerchant(manager, purpose, limitOwner)
       : undefined;
   assertFileFitsPurpose(
     purpose,
@@ -320,8 +321,12 @@ export async function assertOwnedAsset(
       mimeType: asset.mimeType,
       sizeBytes: Number(asset.sizeBytes),
     },
-    merchantLimit,
+    owner && {
+      level: owner.level,
+      maxBytes: MERCHANT_LEVEL_RULES[owner.level].maxUploadBytes,
+    },
   );
+  if (owner) await assertWithinStorageQuota(manager, owner, asset);
 
   const visibility = purposeVisibility(purpose);
   if (asset.visibility === PENDING_VISIBILITY) {
@@ -341,14 +346,14 @@ export async function assertOwnedAsset(
   return asset;
 }
 
-// The per-file limit of the merchant that owns the class or product a
-// content file is attached to. While no Pro subscription exists, every
-// merchant has its level's limit.
-async function ownerUploadLimit(
+// The merchant that owns the class or product a content file is attached
+// to; its level sets the per-file limit and the storage quota (no Pro
+// subscription exists yet).
+async function ownerMerchant(
   manager: EntityManager,
   purpose: AssetPurpose,
   owner: UploadLimitOwner | undefined,
-): Promise<UploadLimit> {
+): Promise<{ id: string; level: MerchantStorageLevel }> {
   if (!owner) {
     throw new Error(`${purpose} needs the owning merchant or class`);
   }
@@ -365,8 +370,5 @@ async function ownerUploadLimit(
   if (!merchant) {
     throw new BadRequestException(`File asset for ${purpose} is not available`);
   }
-  return {
-    level: merchant.storageLevel,
-    maxBytes: MERCHANT_LEVEL_RULES[merchant.storageLevel].maxUploadBytes,
-  };
+  return { id: merchant.id, level: merchant.storageLevel };
 }

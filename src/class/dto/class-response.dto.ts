@@ -68,7 +68,14 @@ export class VideoResponseDto {
   @ApiProperty() chapter_id: string;
   @ApiProperty() title: string;
   @ApiPropertyOptional() description: string;
-  @ApiPropertyOptional() youtubeUrl: string;
+  @ApiProperty({ enum: ['link', 'file'] }) source: string;
+  @ApiPropertyOptional({ nullable: true }) youtubeUrl: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    format: 'uuid',
+    description: 'Upload of a file video',
+  })
+  asset_id: string | null;
   @ApiPropertyOptional() duration: string;
   @ApiProperty() order: number;
   @ApiProperty() created_at: Date;

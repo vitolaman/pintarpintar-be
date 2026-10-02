@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { ApiQuery, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import {
+  ArrayResponse,
   DefaultResponse,
   EmptyResponse,
   PaginatedResponse,
@@ -51,6 +52,7 @@ import { UpdateChapterDto } from './dto/update-chapter.dto';
 import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
 import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
 import { ReorderChapterItemsDto } from './dto/reorder-chapter-items.dto';
+import { ReorderChaptersDto } from './dto/reorder-chapters.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { UpdateClassMentorDto } from './dto/update-class-mentor.dto';
 import {
@@ -159,6 +161,16 @@ export class ClassController {
       classId,
       chapterId,
     );
+  }
+
+  @Put(':classId/chapters/order')
+  @ArrayResponse(ChapterResponseDto, 'Reorder chapters success')
+  reorderChapters(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Body() dto: ReorderChaptersDto,
+  ) {
+    return this.classContentService.reorderChapters(req.user.id, classId, dto);
   }
 
   @Put(':classId/chapters/:chapterId/order')

@@ -256,6 +256,175 @@ describe('ClassContentService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  describe('video sources', () => {
+    const assetId = '50000000-0000-4000-8000-000000000001';
+    const upload = (overrides: Record<string, unknown> = {}) => ({
+      id: assetId,
+      uploadedByUserId: userId,
+      status: 'active',
+      visibility: 'private',
+      originalFilename: 'materi.mp4',
+      mimeType: 'video/mp4',
+      sizeBytes: String(500 * 1024 * 1024),
+      ...overrides,
+    });
+    const owned = (asset: Record<string, unknown>) =>
+      manager.findOneBy.mockImplementation(async (entity) => {
+        if (entity === Class)
+          return { id: classId, merchant_id: 'merchant-id' };
+        if (entity === Merchant) {
+          return { id: 'merchant-id', storageLevel: 'basic' };
+        }
+        return asset;
+      });
+    const create = (body: Record<string, unknown>) =>
+      service.createVideo(userId, classId, chapterId, {
+        title: 'Materi',
+        ...body,
+      } as CreateVideoDto);
+
+    it('stores an uploaded file video without a URL', async () => {
+      owned(upload());
+      const response = await create({ source: 'file', asset_id: assetId });
+      expect(response.data).toMatchObject({
+        source: 'file',
+        asset_id: assetId,
+        youtubeUrl: null,
+      });
+    });
+
+    it('defaults to a link video for the current frontend', async () => {
+      const response = await create({
+        youtubeUrl: 'https://www.youtube.com/embed/abc',
+      });
+      expect(response.data).toMatchObject({ source: 'link', asset_id: null });
+    });
+
+    it.each([
+      [
+        'a file video with a URL',
+        { source: 'file', asset_id: assetId, youtubeUrl: 'https://x.test/v' },
+        'not youtubeUrl',
+      ],
+      [
+        'a link video with an upload',
+        { youtubeUrl: 'https://x.test/v', asset_id: assetId },
+        'not asset_id',
+      ],
+      ['a file video without an upload', { source: 'file' }, 'needs asset_id'],
+      ['a link video without a URL', {}, 'needs youtubeUrl'],
+    ])('rejects %s', async (_name, body, message) => {
+      owned(upload());
+      await expect(create(body)).rejects.toThrow(message);
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects an upload that is not a video', async () => {
+      owned(
+        upload({ originalFilename: 'modul.pdf', mimeType: 'application/pdf' }),
+      );
+      await expect(
+        create({ source: 'file', asset_id: assetId }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("rejects a video over the merchant level's per-file limit", async () => {
+      owned(upload({ sizeBytes: String(2 * 1024 * 1024 * 1024) }));
+      await expect(
+        create({ source: 'file', asset_id: assetId }),
+      ).rejects.toThrow('1 GB limit of the Basic merchant level');
+    });
+
+    it('switches a link video to a file and keeps a title-only edit simple', async () => {
+      const video = {
+        id: 'video-id',
+        chapter_id: chapterId,
+        source: 'link',
+        youtubeUrl: null,
+        asset_id: null,
+      };
+      manager.findOne.mockImplementation(async (entity) =>
+        entity === Chapter ? { id: chapterId, class_id: classId } : video,
+      );
+      await expect(
+        service.updateVideo(userId, classId, chapterId, 'video-id', {
+          title: 'Baru',
+        }),
+      ).resolves.toMatchObject({ data: { title: 'Baru', source: 'link' } });
+
+      owned(upload());
+      const switched = await service.updateVideo(
+        userId,
+        classId,
+        chapterId,
+        'video-id',
+        { source: 'file', asset_id: assetId },
+      );
+      expect(switched.data).toMatchObject({
+        source: 'file',
+        asset_id: assetId,
+        youtubeUrl: null,
+      });
+      await expect(
+        service.updateVideo(userId, classId, chapterId, 'video-id', {
+          source: 'link',
+        }),
+      ).rejects.toThrow('needs youtubeUrl');
+    });
+  });
+
+  describe('bab order', () => {
+    const chapterIds = [
+      '60000000-0000-4000-8000-000000000001',
+      '60000000-0000-4000-8000-000000000002',
+      '60000000-0000-4000-8000-000000000003',
+    ];
+    beforeEach(() => {
+      manager.find.mockImplementation(async (entity) =>
+        entity === Chapter
+          ? chapterIds.map((id, order) => ({ id, class_id: classId, order }))
+          : [],
+      );
+    });
+
+    it('stores a complete list in its new order', async () => {
+      const [a, b, c] = chapterIds;
+      const response = await service.reorderChapters(userId, classId, {
+        chapter_ids: [c, a, b],
+      });
+      expect(response.data.map((chapter) => chapter.id)).toEqual([c, a, b]);
+      expect(manager.update).toHaveBeenCalledWith(
+        Chapter,
+        { id: c },
+        { order: 0, updated_by: userId },
+      );
+    });
+
+    it.each([
+      ['a missing chapter', chapterIds.slice(0, 2)],
+      [
+        'another class chapter',
+        [...chapterIds.slice(0, 2), '70000000-0000-4000-8000-000000000009'],
+      ],
+    ])('rejects %s and changes nothing', async (_name, ids) => {
+      await expect(
+        service.reorderChapters(userId, classId, { chapter_ids: ids }),
+      ).rejects.toThrow('every chapter of the class exactly once');
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('needs the content edit permission', async () => {
+      access = {
+        is_owner: false,
+        role: 'moderator',
+        permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+      };
+      await expect(
+        service.reorderChapters(userId, classId, { chapter_ids: chapterIds }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
 });
 
 describe('class content validation', () => {

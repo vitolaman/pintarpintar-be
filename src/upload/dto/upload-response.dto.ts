@@ -25,4 +25,11 @@ export class CompleteUploadResponseDto {
 
   @ApiProperty()
   bucket: string;
+
+  @ApiProperty({
+    format: 'uuid',
+    description:
+      'Send this in the form field the file is for (cover, CV, material, ...)',
+  })
+  asset_id: string;
 }

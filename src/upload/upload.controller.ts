@@ -1,5 +1,7 @@
 import {
+  BadGatewayException,
   BadRequestException,
+  ConflictException,
   Body,
   Controller,
   ForbiddenException,
@@ -11,6 +13,7 @@ import { ApiBearerAuth, ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
 import { ApiException } from '@nanogiants/nestjs-swagger-api-exception-decorator';
 import { isOwnUploadKey } from '~/common/storage/upload-key';
 import { UploadService } from './upload.service';
+import { FileAssetService } from '~/api/file-asset/file-asset.service';
 import { InitiateUploadDto } from './dto/initiate-upload.dto';
 import { PresignedUrlDto } from './dto/presigned-url.dto';
 import { CompleteUploadDto } from './dto/complete-upload.dto';
@@ -30,12 +33,16 @@ const uploadErrors = () =>
   ]);
 
 // S3 multipart upload: initiate, PUT each part to a presigned URL, complete.
-// Keys belong to the user who initiated them.
+// Keys belong to the user who initiated them. Completing also registers the
+// file and returns its asset_id for the form field it is meant for.
 @ApiTags('Upload')
 @ApiBearerAuth()
 @Controller('api/v1/upload')
 export class UploadController {
-  constructor(private readonly uploadService: UploadService) {}
+  constructor(
+    private readonly uploadService: UploadService,
+    private readonly fileAssetService: FileAssetService,
+  ) {}
 
   @Post('initiate')
   @ApiCreatedResponse({ type: InitiateUploadResponseDto })
@@ -68,17 +75,28 @@ export class UploadController {
 
   @Post('complete')
   @ApiCreatedResponse({ type: CompleteUploadResponseDto })
-  @uploadErrors()
+  @ApiException(() => [
+    BadRequestException,
+    ForbiddenException,
+    ConflictException,
+    InternalServerErrorException,
+    BadGatewayException,
+  ])
   async completeUpload(
     @Req() req: AuthenticatedRequest,
     @Body() dto: CompleteUploadDto,
   ) {
     assertOwnKey(dto.key, req.user.id);
-    return this.uploadService.completeMultipartUpload(
+    const completed = await this.uploadService.completeMultipartUpload(
       dto.key,
       dto.uploadId,
       dto.parts,
     );
+    const asset = await this.fileAssetService.registerCompleted(
+      req.user.id,
+      dto.key,
+    );
+    return { ...completed, asset_id: asset.id };
   }
 }
 

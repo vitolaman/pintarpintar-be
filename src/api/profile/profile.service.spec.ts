@@ -314,6 +314,10 @@ describe('ProfileService', () => {
             id: 'asset-id',
             status: 'active',
             uploadedByUserId: userId,
+            originalFilename: 'jane.png',
+            mimeType: 'image/png',
+            sizeBytes: '1024',
+            visibility: 'public',
           });
         }
 

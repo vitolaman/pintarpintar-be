@@ -10,15 +10,8 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DataSource } from 'typeorm';
 import { FileAsset } from '../profile/entities/file-asset.entity';
-import {
-  FileAssetResponseDto,
-  RegisterUploadDto,
-} from './dto/register-upload.dto';
 import { createObjectStorage } from '../../common/storage/object-storage';
-import {
-  assertFileFitsPurpose,
-  purposeVisibility,
-} from './asset-purpose-rules';
+import { PENDING_VISIBILITY } from './asset-purpose-rules';
 import { isOwnUploadKey } from '~/common/storage/upload-key';
 
 const STORAGE_PROVIDER = 's3';
@@ -37,33 +30,28 @@ export class FileAssetService {
     this.bucketName = storage.bucket;
   }
 
-  async registerUpload(userId: string, input: RegisterUploadDto) {
-    if (!isOwnUploadKey(input.key, userId)) {
+  /**
+   * Registers a completed upload of the caller as a pending file asset. The
+   * first form field it is attached to decides whether it is public or
+   * private (see `assertOwnedAsset`). Registering the same key again returns
+   * the caller's existing asset.
+   */
+  async registerCompleted(userId: string, key: string): Promise<FileAsset> {
+    if (!isOwnUploadKey(key, userId)) {
       throw new ForbiddenException('This upload belongs to another user');
     }
-    const { contentType, sizeBytes } = await this.readObject(input.key);
-    const filename = originalFilename(input.key);
-    assertFileFitsPurpose(input.purpose, {
-      filename,
-      mimeType: contentType,
-      sizeBytes,
-    });
-    const visibility = purposeVisibility(input.purpose);
+    const { contentType, sizeBytes } = await this.readObject(key);
 
-    const asset = await this.dataSource.transaction(async (manager) => {
+    return this.dataSource.transaction(async (manager) => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-        `file-asset:${input.key}`,
+        `file-asset:${key}`,
       ]);
       const existing = await manager.findOne(FileAsset, {
-        where: { storageProvider: STORAGE_PROVIDER, objectKey: input.key },
+        where: { storageProvider: STORAGE_PROVIDER, objectKey: key },
         withDeleted: true,
       });
       if (existing) {
-        if (
-          existing.uploadedByUserId !== userId ||
-          existing.deleted_at ||
-          existing.visibility !== visibility
-        ) {
+        if (existing.uploadedByUserId !== userId || existing.deleted_at) {
           throw new ConflictException('This upload is already registered');
         }
         return existing;
@@ -74,20 +62,15 @@ export class FileAssetService {
         manager.create(FileAsset, {
           uploadedByUserId: userId,
           storageProvider: STORAGE_PROVIDER,
-          objectKey: input.key,
-          originalFilename: filename,
+          objectKey: key,
+          originalFilename: originalFilename(key),
           mimeType: (contentType ?? 'application/octet-stream').toLowerCase(),
           sizeBytes: String(sizeBytes),
-          visibility,
+          visibility: PENDING_VISIBILITY,
           status: 'active',
         }),
       );
     });
-
-    return {
-      data: this.toResponse(asset),
-      responseMessage: 'Register upload success',
-    };
   }
 
   private async readObject(
@@ -108,17 +91,6 @@ export class FileAssetService {
       }
       throw new BadGatewayException('File storage is unavailable');
     }
-  }
-
-  private toResponse(asset: FileAsset): FileAssetResponseDto {
-    return {
-      id: asset.id,
-      object_key: asset.objectKey,
-      original_filename: asset.originalFilename,
-      mime_type: asset.mimeType,
-      size_bytes: Number(asset.sizeBytes),
-      visibility: asset.visibility,
-    };
   }
 }
 

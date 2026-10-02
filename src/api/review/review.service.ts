@@ -14,6 +14,7 @@ import {
   ReviewListQueryDto,
 } from './dto/review.dto';
 import { Review } from './entities/review.entity';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -195,12 +196,7 @@ export class ReviewService {
         review_count: summary.total,
         reviews: rows.map(toReview),
       },
-      meta: {
-        page,
-        limit,
-        total: summary.total,
-        totalPage: Math.ceil(summary.total / limit),
-      },
+      meta: paginationMeta(page, limit, summary.total),
       responseMessage: 'Get product reviews success',
     };
   }
@@ -231,12 +227,7 @@ export class ReviewService {
         review_count: summary.total,
         reviews: rows.map(toReview),
       },
-      meta: {
-        page,
-        limit,
-        total: summary.total,
-        totalPage: Math.ceil(summary.total / limit),
-      },
+      meta: paginationMeta(page, limit, summary.total),
       responseMessage: 'Get class reviews success',
     };
   }
@@ -281,12 +272,7 @@ export class ReviewService {
         review_count: summary.total,
         reviews,
       },
-      meta: {
-        page,
-        limit,
-        total: summary.total,
-        totalPage: Math.ceil(summary.total / limit),
-      },
+      meta: paginationMeta(page, limit, summary.total),
       responseMessage: 'Get merchant reviews success',
     };
   }

@@ -1,20 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsIn,
-  IsInt,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   Matches,
-  Max,
   MaxLength,
   Min,
   ValidateIf,
 } from 'class-validator';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
+import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
+import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
 
 export const productStatuses = [
   'published',
@@ -76,7 +76,7 @@ export class CreateDigitalProductDto {
 
   @ApiPropertyOptional({
     format: 'uuid',
-    description: 'Upload registered as product_cover',
+    description: assetFieldDescription('product_cover', 'The main cover.'),
   })
   @IsUUID()
   @IsOptional()
@@ -87,7 +87,7 @@ export class CreateDigitalProductDto {
 
   @ApiPropertyOptional({
     format: 'uuid',
-    description: 'Upload registered as digital_file; required to publish',
+    description: assetFieldDescription('digital_file', 'Required to publish.'),
   })
   @IsUUID()
   @IsOptional()
@@ -143,7 +143,14 @@ export class UpdateDigitalProductDto {
   @IsIn(productStatuses)
   status?: ProductStatus;
 
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: assetFieldDescription(
+      'product_cover',
+      'Sets the main cover and keeps the others; null removes the main cover and the next one takes its place.',
+    ),
+  })
   @ValidateIf((_, value) => value !== null)
   @IsUUID()
   @IsOptional()
@@ -154,7 +161,10 @@ export class UpdateDigitalProductDto {
 
   @ApiPropertyOptional({
     format: 'uuid',
-    description: "Replaces the product's single file",
+    description: assetFieldDescription(
+      'digital_file',
+      "Replaces the product's single file.",
+    ),
   })
   @ValidateIf((_, value) => value !== undefined)
   @IsUUID()
@@ -169,19 +179,10 @@ export class UpdateDigitalProductDto {
 }
 
 export class DigitalProductListQueryDto {
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @IsOptional()
+  @PageQuery()
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 10, minimum: 1, maximum: 100 })
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  @IsOptional()
+  @LimitQuery()
   limit?: number = 10;
 
   @ApiPropertyOptional({ enum: productStatuses })

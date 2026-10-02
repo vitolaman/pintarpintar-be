@@ -5,13 +5,11 @@ import {
   ArrayMinSize,
   IsArray,
   IsIn,
-  IsInt,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   Length,
-  Max,
   MaxLength,
   Min,
   ValidateNested,
@@ -19,6 +17,8 @@ import {
 import { bundleStatuses, BundleStatus } from '../entities/bundle.entity';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
+import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
+import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
 
 export const bundleItemTypes = ['kelas', 'digital'] as const;
 
@@ -55,7 +55,14 @@ export class CreateBundleDto {
   @Length(1, 5000)
   description: string;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Uploaded cover asset' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: assetFieldDescription(
+      'product_cover',
+      'Sets the main cover and keeps the others; null removes the main cover and the next one takes its place.',
+    ),
+  })
   @IsOptional()
   @IsUUID()
   cover_asset_id?: string | null;
@@ -102,20 +109,11 @@ export class BundleListQueryDto {
   @IsIn(bundleStatuses)
   status?: BundleStatus;
 
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
+  @LimitQuery()
+  limit = 10;
 }
 
 export class PublicBundleQueryDto {
@@ -127,18 +125,9 @@ export class PublicBundleQueryDto {
   @IsUUID()
   merchant_id?: string;
 
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 12, minimum: 1, maximum: 50 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  limit = 12;
+  @LimitQuery()
+  limit = 10;
 }

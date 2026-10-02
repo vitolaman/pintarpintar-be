@@ -21,6 +21,7 @@ import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { Voucher } from './entities/voucher.entity';
 import { isPromoCodeAvailable } from '~/common/promo-code/promo-code-namespace';
 import { escapeLike } from '~/common/util/escape-like';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // Presentation labels from the voucher pages, assigned per voucher so a
 // voucher keeps the same tag across requests.
@@ -101,7 +102,7 @@ export class VoucherService {
 
     return {
       data: rows.map((row) => this.toVoucherResponse(row)),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get vouchers success',
     };
   }
@@ -227,7 +228,7 @@ export class VoucherService {
 
     return {
       data: rows.map((row) => this.toPublicVoucherResponse(row)),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get public vouchers success',
     };
   }
@@ -264,7 +265,7 @@ export class VoucherService {
   private emptyPublicPage(page: number, limit: number) {
     return {
       data: [] as PublicVoucherResponseDto[],
-      meta: { page, limit, total: 0, totalPage: 0 },
+      meta: paginationMeta(page, limit, 0),
       responseMessage: 'Get public vouchers success',
     };
   }

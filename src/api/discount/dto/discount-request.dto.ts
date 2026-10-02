@@ -30,6 +30,7 @@ import {
 } from '../entities/discount-code.entity';
 import { discountTypes, DiscountType } from '../entities/discount.entity';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
+import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const discountTargetTypes = ['kelas', 'digital'] as const;
 
@@ -149,18 +150,9 @@ export class AddDiscountCodesDto {
 }
 
 export class DiscountListQueryDto {
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
+  @LimitQuery()
+  limit = 10;
 }

@@ -3,6 +3,7 @@ import { Transform } from 'class-transformer';
 import { IsOptional, IsString, IsUUID, Length } from 'class-validator';
 import { trimText } from '~/common/dto/text-transforms';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
+import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Budi Santoso' })
@@ -33,7 +34,14 @@ export class UpdateProfileDto {
   @Transform(trimText)
   bio?: string;
 
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: assetFieldDescription(
+      'user_avatar',
+      'null removes the avatar.',
+    ),
+  })
   @IsOptional()
   @IsUUID()
   avatar_asset_id?: string | null;

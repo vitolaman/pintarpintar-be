@@ -336,7 +336,7 @@ describe('ClassContentService', () => {
       owned(upload({ sizeBytes: String(2 * 1024 * 1024 * 1024) }));
       await expect(
         create({ source: 'file', asset_id: assetId }),
-      ).rejects.toThrow('1 GB limit of the Basic merchant level');
+      ).rejects.toThrow('1 GB or smaller on the Basic merchant level');
     });
 
     it('switches a link video to a file and keeps a title-only edit simple', async () => {
@@ -415,6 +415,63 @@ describe('ClassContentService', () => {
         service.reorderChapters(userId, classId, { chapter_ids: ids }),
       ).rejects.toThrow('every chapter of the class exactly once');
       expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    const twelveChapters = Array.from({ length: 12 }, (_, order) => ({
+      id: `61000000-0000-4000-8000-0000000000${String(order).padStart(2, '0')}`,
+      class_id: classId,
+      order,
+    }));
+
+    it('lists every chapter for the editor when no limit is sent', async () => {
+      manager.findAndCount = jest.fn(async () => [twelveChapters, 12]);
+
+      const response = await service.getChapters(userId, classId, 1);
+
+      expect(manager.findAndCount).toHaveBeenCalledWith(
+        Chapter,
+        expect.not.objectContaining({ take: expect.anything() }),
+      );
+      expect(response.data).toHaveLength(12);
+      expect(response.meta).toEqual({
+        page: 1,
+        limit: 12,
+        total: 12,
+        totalPage: 1,
+      });
+    });
+
+    it('paginates chapters when a limit is sent', async () => {
+      manager.findAndCount = jest.fn(async () => [
+        twelveChapters.slice(2, 4),
+        12,
+      ]);
+
+      const response = await service.getChapters(userId, classId, 2, 2);
+
+      expect(manager.findAndCount).toHaveBeenCalledWith(
+        Chapter,
+        expect.objectContaining({ skip: 2, take: 2 }),
+      );
+      expect(response.meta).toEqual({
+        page: 2,
+        limit: 2,
+        total: 12,
+        totalPage: 6,
+      });
+    });
+
+    it('reports an empty class as one empty page', async () => {
+      manager.findAndCount = jest.fn(async () => [[], 0]);
+
+      const response = await service.getChapters(userId, classId, 1);
+
+      expect(response.meta).toEqual({
+        page: 1,
+        limit: 1,
+        total: 0,
+        totalPage: 0,
+      });
     });
 
     it('needs the content edit permission', async () => {

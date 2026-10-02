@@ -9,6 +9,7 @@ import {
   MeetingPlatform,
   PortalItemResponseDto,
 } from './dto/portal-item-response.dto';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // Owned classes (Vito's enrollments) and owned digital products (access grants)
 // share one projection so both can be ordered and paginated together.
@@ -162,7 +163,7 @@ export class PortalService {
 
     return {
       data: rows.map((row) => this.toItem(row)),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get portal items success',
     };
   }

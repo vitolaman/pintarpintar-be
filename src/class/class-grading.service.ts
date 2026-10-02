@@ -18,6 +18,7 @@ import { GradeSubmissionDto } from './dto/grading.dto';
 import { Submission } from './entities/submission.entity';
 import { SubmissionAnswer } from './entities/submission-answer.entity';
 import { loadLearnerMetrics } from './learner-metrics';
+import { paginationMeta } from '../common/dto/response-meta.dto';
 
 interface SubmissionRow {
   id: string;
@@ -70,7 +71,7 @@ export class ClassGradingService {
     classId: string,
     assignmentId: string,
     page = 1,
-    limit = 20,
+    limit = 10,
   ) {
     await this.classAccess.requireAction(userId, classId, 'nilai', 'lihat');
     const manager = this.dataSource.manager;
@@ -88,7 +89,8 @@ export class ClassGradingService {
     );
     return {
       data: await this.toSubmissions(manager, rows),
-      meta: { total, page, limit },
+      meta: paginationMeta(page, limit, total),
+      responseMessage: 'Get submissions success',
     };
   }
 
@@ -162,7 +164,7 @@ export class ClassGradingService {
     });
   }
 
-  async findGradeTable(userId: string, classId: string, page = 1, limit = 50) {
+  async findGradeTable(userId: string, classId: string, page = 1, limit = 10) {
     await this.classAccess.requireAction(userId, classId, 'nilai', 'lihat');
     const manager = this.dataSource.manager;
 
@@ -234,7 +236,7 @@ export class ClassGradingService {
               ?.average_score ?? null,
         })),
       },
-      meta: { total, page, limit },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get class grades success',
     };
   }

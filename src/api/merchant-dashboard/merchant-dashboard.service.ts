@@ -13,6 +13,7 @@ import {
   SaleResponseDto,
 } from './dto/merchant-dashboard-response.dto';
 import { MERCHANT_SALES_SQL } from './merchant-sales-sql';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 const EXPORT_LIMIT = 5000;
 
@@ -225,7 +226,7 @@ export class MerchantDashboardService {
 
     return {
       data: rows,
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get sales success',
     };
   }
@@ -317,7 +318,7 @@ export class MerchantDashboardService {
         classes_enrolled: row.classes_enrolled,
         completion_rate: row.completion_rate,
       })),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get customers success',
     };
   }

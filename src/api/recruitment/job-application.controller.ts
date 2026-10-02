@@ -14,7 +14,10 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { DefaultResponse } from '~/common/decorator/response.decorator';
+import {
+  DefaultResponse,
+  PaginatedObjectResponse,
+} from '~/common/decorator/response.decorator';
 import {
   ApplicantCvLinkDto,
   ApplicantListResponseDto,
@@ -52,10 +55,9 @@ export class JobApplicationController {
   }
 
   @Get('job-applications')
-  @DefaultResponse(
+  @PaginatedObjectResponse(
     MyApplicationListResponseDto,
     'Get my applications success',
-    HttpStatus.OK,
     [BadRequestException],
   )
   findMine(
@@ -66,12 +68,10 @@ export class JobApplicationController {
   }
 
   @Get('merchant/job-applications')
-  @DefaultResponse(
-    ApplicantListResponseDto,
-    'Get applicants success',
-    HttpStatus.OK,
-    [BadRequestException, NotFoundException],
-  )
+  @PaginatedObjectResponse(ApplicantListResponseDto, 'Get applicants success', [
+    BadRequestException,
+    NotFoundException,
+  ])
   findApplicants(
     @Req() req: AuthenticatedRequest,
     @Query() query: ApplicantQueryDto,

@@ -21,6 +21,7 @@ import {
   JobCategory,
 } from '../recruitment.constants';
 import { JobClassDto, JobMerchantDto } from './job-posting.dto';
+import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
 
 const WEB_URL = {
   protocols: ['http', 'https'],
@@ -59,8 +60,10 @@ export class ApplyJobDto {
 
   @ApiProperty({
     format: 'uuid',
-    description:
-      'A registered upload with purpose application_cv (PDF/DOC/DOCX, at most 10 MB), or the applicant mentor CV asset',
+    description: assetFieldDescription(
+      'application_cv',
+      'The CV registered on your mentor profile is also accepted.',
+    ),
   })
   @IsUUID()
   cv_asset_id: string;

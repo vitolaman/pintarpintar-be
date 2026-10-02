@@ -1,16 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import {
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Length,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsIn, IsString, IsUUID, Length } from 'class-validator';
 import { ThreadBadge } from '../../../class/entities/discussion-thread.entity';
+import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const threadBadges = Object.values(ThreadBadge);
 export const discussionRoles = ['merchant', 'mentor', 'student'] as const;
@@ -58,20 +50,11 @@ export class ThreadListQueryDto {
   @IsUUID()
   class_id: string;
 
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 50 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  limit = 20;
+  @LimitQuery()
+  limit = 10;
 }
 
 export class DiscussionAuthorDto {

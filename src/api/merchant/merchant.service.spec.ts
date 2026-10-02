@@ -587,13 +587,19 @@ describe('UpdateMerchantProfileDto category_label', () => {
 });
 
 describe('BalanceHistoryQueryDto', () => {
-  it.each([[{ type: 'refund' }], [{ page: '0' }], [{ limit: '101' }]])(
-    'rejects %j',
-    async (query) => {
-      const errors = await validate(
-        plainToInstance(BalanceHistoryQueryDto, query),
-      );
-      expect(errors).not.toHaveLength(0);
-    },
-  );
+  it('rejects an unknown entry type', async () => {
+    const errors = await validate(
+      plainToInstance(BalanceHistoryQueryDto, { type: 'refund' }),
+    );
+    expect(errors).not.toHaveLength(0);
+  });
+
+  it('clamps paging instead of rejecting it', async () => {
+    const query = plainToInstance(BalanceHistoryQueryDto, {
+      page: '0',
+      limit: '101',
+    });
+    expect(await validate(query)).toHaveLength(0);
+    expect(query).toMatchObject({ page: 1, limit: 100 });
+  });
 });

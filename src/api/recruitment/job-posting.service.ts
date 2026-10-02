@@ -19,6 +19,7 @@ import { NEW_JOB_DAYS } from './recruitment.constants';
 import { findOwnMerchant } from './recruitment-merchant';
 import { PUBLIC_JOB_SQL } from './recruitment-sql';
 import { SavedJobPosting } from './entities/saved-job-posting.entity';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // Applications of deleted accounts are not counted anywhere.
 const JOB_SELECT_SQL = `
@@ -119,7 +120,7 @@ export class JobPostingService {
     const saved = await this.savedJobIds(userId, rows);
     return {
       data: rows.map((row) => toJobResponse(row, saved.has(row.id))),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get job postings success',
     };
   }
@@ -247,7 +248,7 @@ export class JobPostingService {
         recruiting_merchants: totals.recruiting_merchants,
         jobs: rows.map((row) => toJobResponse(row, saved.has(row.id))),
       },
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get job board success',
     };
   }
@@ -353,7 +354,7 @@ export class JobPostingService {
         saved_at: saved.saved_at,
         is_open: saved.is_open,
       })),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get saved job postings success',
     };
   }

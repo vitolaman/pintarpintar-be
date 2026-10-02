@@ -226,14 +226,16 @@ describe('WishlistService', () => {
 });
 
 describe('OrderService recent transactions', () => {
-  it('bounds the limit', async () => {
-    for (const [limit, errors] of [
+  it('clamps the limit to 1–20 and defaults it to 3', async () => {
+    for (const [limit, expected] of [
       ['0', 1],
-      ['21', 1],
-      ['3', 0],
+      ['21', 20],
+      ['', 3],
+      ['5', 5],
     ] as const) {
       const dto = plainToInstance(RecentTransactionsQueryDto, { limit });
-      expect((await validate(dto)).length > 0).toBe(errors > 0);
+      expect(dto.limit).toBe(expected);
+      expect(await validate(dto)).toHaveLength(0);
     }
   });
 

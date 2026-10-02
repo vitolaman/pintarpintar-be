@@ -31,15 +31,17 @@ $ yarn db:local:migrate
 
 Every route requires a Bearer token except those marked **public**. The full request and response schemas are in Swagger (below). Routes follow `/api/v1/<resource>[/<id>][/<action>]`: the HTTP method is the operation, `merchant/…`, `mentor/…` and `profile/…` act on the signed-in user's own store, mentor workspace and profile, and plural resources (`merchants/:merchant`, `mentors/:id`) are public pages.
 
+Responses are `{data, responseMessage}`. Paginated lists take `page` (default 1) and `limit` (default 10, at most 100; the promo lists at most 6). A blank or non-numeric value means the default and an out-of-range value is clamped to the nearest bound, so paging never fails a request. They return `meta: {page, limit, total, totalPage}` next to `data`, also when the list sits inside an object (job board, applications, class grades, reviews). Errors are `{statusCode, error, responseMessage}`: `error` is the status name (`BAD_REQUEST`, `UNAUTHORIZED`, `NOT_FOUND`, …) and `responseMessage` lists the reasons in plain words.
+
 ### Authentication and user
 
-- `POST /api/v1/auth/sign-up` — **public**
-- `POST /api/v1/auth/sign-in` — **public**
+- `POST /api/v1/auth/sign-up` — **public**; `data.token`
+- `POST /api/v1/auth/sign-in` — **public**; `data.token`; a wrong email or password is 403
 - `PATCH /api/v1/auth/password` — current password required; other devices are signed out; `data.token` replaces this device's token
 - `POST /api/v1/auth/end-other-sessions` — signs out every other device; `data.token` replaces this device's token
 - `GET /api/v1/users/me` — `{data, responseMessage}` like every other route
-- `PATCH /api/v1/users/me`
-- `DELETE /api/v1/users/me` — frees the email for a new sign-up and deactivates the user's merchant (buyers keep access)
+- `PATCH /api/v1/users/me` — returns the same user object as `GET`
+- `DELETE /api/v1/users/me` — returns the account as it was; frees the email for a new sign-up and deactivates the user's merchant (buyers keep access)
 
 ### Beranda (home)
 
@@ -201,7 +203,7 @@ Each item has up to 5 ordered covers; the first is the main cover, returned as `
 
 - `GET /api/v1/merchant/digital-products` — own products with downloads, rating, and revenue; filter by `status` (`published`, `unpublished`, `unlisted`) and `search`
 - `GET /api/v1/merchant/digital-products/:id` — includes a signed download link for the product file
-- `POST /api/v1/merchant/digital-products` — `category_slug`, prices, status, cover (`product_cover`), one file (`digital_file`, required to publish), post-purchase instructions
+- `POST /api/v1/merchant/digital-products` — `category_slug`, prices, status, cover image, one file (required to publish), post-purchase instructions
 - `PATCH /api/v1/merchant/digital-products/:id` — a new `file_asset_id` replaces the single file
 - `DELETE /api/v1/merchant/digital-products/:id` — 409 while the product is in a published or unlisted bundle; buyers keep access
 
@@ -212,11 +214,11 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `GET /api/v1/merchant/classes` — the signed-in owner's store; filter by `status` and `type`; `limit` up to 100
 - `POST /api/v1/merchant/classes` — also accepts Bidang (`category`: Coding/Elektro/Mesin/Desain/Sipil/Kimia), `level` (Pemula/Menengah/Mahir), `duration`, `prerequisites`, and `learning_outcomes` (up to 20); `PATCH /api/v1/classes/:classId` updates them
 - `GET /api/v1/classes/:classId`
-- `PATCH /api/v1/classes/:classId` — details, prices, cover (`class_cover`), post-purchase instructions; a lead tutor may change only title, description, cover, and instructions
+- `PATCH /api/v1/classes/:classId` — details, prices, cover image, post-purchase instructions; a lead tutor may change only title, description, cover, and instructions
 - `POST /api/v1/classes/:classId/duplicate` — owner only; `{type}`; a draft "(Salinan)" copy with details, syllabus, assignments, certificate settings, and FAQ (no learners, reviews, tutors, or meetings)
 - `GET /api/v1/classes/:classId/faqs`, `POST /api/v1/classes/:classId/faqs` — `materi` permission; question up to 300, answer up to 3000 characters; at most 50 per class
 - `PATCH /api/v1/classes/:classId/faqs/:faqId`, `DELETE /api/v1/classes/:classId/faqs/:faqId`
-- `GET /api/v1/classes/:classId/chapters` — chapters with videos and resources in order; file resources carry signed download links
+- `GET /api/v1/classes/:classId/chapters` — chapters with videos and resources in order; file resources carry signed download links. Without `limit` it returns every chapter (the bab reorder needs them all); with `limit` it paginates
 - `POST /api/v1/classes/:classId/chapters`
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId` — also removes its videos and resources
@@ -225,7 +227,7 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `POST /api/v1/classes/:classId/chapters/:chapterId/videos` — `source` `link` (default; https `youtubeUrl`) or `file` (`asset_id` of an uploaded MP4/MOV/WebM, within the store level's per-file limit)
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
-- `POST /api/v1/classes/:classId/chapters/:chapterId/resources` — `pdf`, `archive`, `image`, `file` (an uploaded `class_resource`) or `link` (https)
+- `POST /api/v1/classes/:classId/chapters/:chapterId/resources` — `pdf`, `archive`, `image`, `file` (an uploaded file) or `link` (https); `data` is the array of added materials
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId/resources/:resourceId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId/resources/:resourceId`
 - `GET /api/v1/classes/:classId/meetings`
@@ -240,7 +242,7 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 - `DELETE /api/v1/classes/:classId/mentors/:classMentorId` — owner only; the tutor loses access immediately
 - `GET /api/v1/classes/:classId/students`
 - `GET /api/v1/classes/:classId/assignments` — submission counts; correct answers only for the owner and tutors with `tugas` or `nilai` permission
-- `POST /api/v1/classes/:classId/assignments` — future `due`, `file_upload` or `quiz` (2–4 options per multiple-choice question), optional `assignment_resource`
+- `POST /api/v1/classes/:classId/assignments` — future `due`, `file_upload` or `quiz` (2–4 options per multiple-choice question), an optional attached file
 - `DELETE /api/v1/classes/:classId/assignments/:assignmentId`
 - `GET /api/v1/classes/:classId/assignments/:assignmentId/submissions` — `nilai.lihat`; latest submission per learner with file link and answers
 - `PATCH /api/v1/classes/:classId/submissions/:submissionId/grade` — `nilai.edit`; file score 0–100, or essay scores up to each weight; feedback
@@ -252,7 +254,7 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 - `PATCH /api/v1/classes/:classId/certificate-settings` — `sertifikat.edit`
 - `GET /api/v1/classes/:classId/certificates` — `sertifikat.lihat`; status `issued`, `pending` or `ineligible` per learner
 - `POST /api/v1/classes/:classId/certificates/:userId/issue` — `sertifikat.tambah`; eligible learners only; numbers `PP-CERT-YYYY-NNNN`
-- `PUT /api/v1/classes/:classId/certificates/:userId/file` — `sertifikat.edit`; a `certificate_file` upload
+- `PUT /api/v1/classes/:classId/certificates/:userId/file` — `sertifikat.edit`; an uploaded PDF, PNG or JPG
 - `DELETE /api/v1/classes/:classId/certificates/:userId` — `sertifikat.delete`; withdraws the certificate
 
 ### Learning (enrolled learners and buyers)
@@ -263,7 +265,7 @@ Every route requires an active enrollment or product access and answers 404 othe
 - `POST /api/v1/learning/videos/:videoId/complete` — idempotent; returns progress and the next video
 - `GET /api/v1/learning/classes/:classId/assignments` — without answer keys; own latest submission
 - `GET /api/v1/learning/assignments/:assignmentId/quiz`
-- `POST /api/v1/learning/assignments/:assignmentId/submit` — a `submission_file` upload; replaces before the due time, late first submission accepted
+- `POST /api/v1/learning/assignments/:assignmentId/submit` — an uploaded PDF, DWG or ZIP; replaces before the due time, late first submission accepted
 - `POST /api/v1/learning/assignments/:assignmentId/submit-quiz` — every question answered; multiple choice scored at once
 - `GET /api/v1/learning/classes/:classId/grades` — scores, feedback, Partisipasi and average
 - `GET /api/v1/learning/meetings/:meetingId` — the check-in page (`/absensi`)
@@ -276,7 +278,7 @@ Every route requires an active enrollment or product access and answers 404 othe
 
 - `POST /api/v1/upload/initiate`
 - `POST /api/v1/upload/presigned-urls`
-- `POST /api/v1/upload/complete` — also registers the file and returns its `asset_id`; send it in the form field the file is for. The field checks the file when the form is saved: covers, logos, banners, landing backgrounds and the user photo take PNG/JPG/WebP images (2 MB for logo and photo, otherwise 4 MB) and make the file public; class materials, assignment attachments, class videos (MP4/MOV/WebM) and digital-product files (up to the store level's per-file limit: 1, 5 or 10 GB), submissions (PDF/DWG/ZIP, 20 MB), certificate files (PDF/PNG/JPG, 10 MB) and CVs (PDF/DOC/DOCX, 10 MB) make it private. A file used in a public field cannot go into a private one, or the reverse. Private files are only served through signed links that expire after 10 minutes
+- `POST /api/v1/upload/complete` — also registers the file and returns its `asset_id`; send it in the form field the file is for. The field checks the file when the form is saved: covers, logos, banners, landing backgrounds and the user photo take PNG/JPG/WebP images (2 MB for logo and photo, otherwise 4 MB) and make the file public; class materials, assignment attachments, class videos (MP4/MOV/WebM) and digital-product files (up to the store level's per-file limit: 1, 5 or 10 GB), submissions (PDF/DWG/ZIP, 20 MB), certificate files (PDF/PNG/JPG, 10 MB) and CVs (PDF/DOC/DOCX, 10 MB) make it private. A file used in a public field cannot go into a private one, or the reverse. Each field's accepted types and size are in its Swagger description, and a rejected file gets a plain message such as "The file must be 2 MB or smaller" or "Allowed file types: PDF, DWG or ZIP". Private files are only served through signed links that expire after 10 minutes
 
 ### Mentor
 

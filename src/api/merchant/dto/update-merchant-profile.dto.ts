@@ -18,6 +18,7 @@ import {
 import { merchantCategoryLabels } from '~/common/constants/merchant-category';
 import { trimOptionalText, trimText } from '~/common/dto/text-transforms';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
+import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
 
 export class UpdateMerchantProfileDto {
   @ApiPropertyOptional({ example: 'Akademi Teknik' })
@@ -159,8 +160,10 @@ export class UpdateMerchantProfileDto {
 
   @ApiPropertyOptional({
     nullable: true,
-    description:
-      'Store logo: own registered image asset (max 2 MB), null clears it',
+    description: assetFieldDescription(
+      'merchant_logo',
+      'The store logo; null clears it.',
+    ),
   })
   @IsOptional()
   @IsUUID()
@@ -168,8 +171,10 @@ export class UpdateMerchantProfileDto {
 
   @ApiPropertyOptional({
     nullable: true,
-    description:
-      'Store banner: own registered image asset (max 4 MB), null clears it',
+    description: assetFieldDescription(
+      'merchant_banner',
+      'The store banner; null clears it.',
+    ),
   })
   @IsOptional()
   @IsUUID()
@@ -190,7 +195,10 @@ export class UpdateMerchantProfileDto {
   @ApiPropertyOptional({
     format: 'uuid',
     nullable: true,
-    description: 'Registered upload with purpose merchant_landing_background',
+    description: assetFieldDescription(
+      'merchant_landing_background',
+      'null clears it.',
+    ),
   })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)

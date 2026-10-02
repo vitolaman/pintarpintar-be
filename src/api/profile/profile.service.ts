@@ -89,19 +89,6 @@ export class ProfileService {
 
       if (input.avatar_asset_id !== undefined) {
         if (input.avatar_asset_id !== null) {
-          const asset = await manager.findOneBy(FileAsset, {
-            id: input.avatar_asset_id,
-          });
-
-          if (!asset || asset.status !== 'active') {
-            throw new BadRequestException('Avatar asset is not available');
-          }
-
-          if (asset.uploadedByUserId !== userId) {
-            throw new BadRequestException(
-              'Avatar asset does not belong to user',
-            );
-          }
           await assertOwnedAsset(
             manager,
             userId,

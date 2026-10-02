@@ -1,20 +1,23 @@
-import { Transform } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class ResponseMetaDto {
-  constructor(partial: Partial<ResponseMetaDto>) {
-    Object.assign(this, partial);
-
-    this.total_page = Math.ceil(this.total / this.per_page);
-  }
-
-  @Transform(({ value }) => parseInt(value))
+  @ApiProperty({ example: 1 })
   page: number;
 
-  @Transform(({ value }) => parseInt(value))
-  per_page: number;
+  @ApiProperty({ example: 10, description: 'Items per page' })
+  limit: number;
 
-  @Transform(({ value }) => parseInt(value))
+  @ApiProperty({ example: 42, description: 'Items across all pages' })
   total: number;
 
-  total_page?: number;
+  @ApiProperty({ example: 5, description: 'Number of pages; 0 when empty' })
+  totalPage: number;
+}
+
+export function paginationMeta(
+  page: number,
+  limit: number,
+  total: number,
+): ResponseMetaDto {
+  return { page, limit, total, totalPage: Math.ceil(total / limit) };
 }

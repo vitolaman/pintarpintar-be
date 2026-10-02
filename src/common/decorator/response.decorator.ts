@@ -14,7 +14,7 @@ import {
 } from '@nestjs/swagger';
 import { ResponseMetaDto } from '../dto/response-meta.dto';
 import { ResponsePaginatedDto } from '../dto/response-paginated.dto-default';
-import { ResponseDto } from '../dto/response.dto-default';
+import { ResponseArrayDto, ResponseDto } from '../dto/response.dto-default';
 
 export const DefaultResponse = <TModel extends Type<any>>(
   model: TModel,
@@ -116,6 +116,47 @@ export const ArrayResponse = <TModel extends Type<any>>(
   model: TModel,
   responseMessage: string,
   exceptions: Array<any> = [],
+  status: HttpStatus = HttpStatus.OK,
+) => {
+  return applyDecorators(
+    ApiExtraModels(ResponseArrayDto),
+    ApiExtraModels(model),
+    ApiException(() => [...exceptions, InternalServerErrorException], {
+      template: {
+        statusCode: '$status',
+        responseMessage: ['$description'],
+        error: '$error',
+      },
+    }),
+    ApiResponse({
+      status,
+      schema: {
+        allOf: [
+          { $ref: getSchemaPath(ResponseArrayDto) },
+          {
+            properties: {
+              data: {
+                type: 'array',
+                items: { $ref: getSchemaPath(model) },
+              },
+              responseMessage: {
+                type: 'string',
+                example: responseMessage,
+              },
+            },
+          },
+        ],
+      },
+    }),
+  );
+};
+
+// For paginated responses whose list sits inside an object, for example
+// `{ data: { counts, applications }, meta }`.
+export const PaginatedObjectResponse = <TModel extends Type<any>>(
+  model: TModel,
+  responseMessage: string,
+  exceptions: Array<any> = [],
 ) => {
   return applyDecorators(
     ApiExtraModels(ResponsePaginatedDto),
@@ -130,21 +171,15 @@ export const ArrayResponse = <TModel extends Type<any>>(
     }),
     ApiOkResponse({
       schema: {
-        allOf: [
-          { $ref: getSchemaPath(ResponsePaginatedDto) },
-          {
-            properties: {
-              data: {
-                type: 'array',
-                items: { $ref: getSchemaPath(model) },
-              },
-              responseMessage: {
-                type: 'string',
-                example: responseMessage,
-              },
-            },
+        required: ['data', 'meta', 'responseMessage'],
+        properties: {
+          data: { $ref: getSchemaPath(model) },
+          meta: { $ref: getSchemaPath(ResponseMetaDto) },
+          responseMessage: {
+            type: 'string',
+            example: responseMessage,
           },
-        ],
+        },
       },
     }),
   );

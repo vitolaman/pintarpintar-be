@@ -10,6 +10,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export class CreateReviewDto {
   @ApiPropertyOptional({
@@ -42,19 +43,10 @@ export class CreateReviewDto {
 }
 
 export class ReviewListQueryDto {
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 10, minimum: 1, maximum: 50 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  @Max(50)
+  @LimitQuery()
   limit = 10;
 }
 

@@ -8,6 +8,7 @@ import {
   TransactionsQueryDto,
 } from './dto/recent-transactions.dto';
 import { Order, OrderStatus } from './entities/order.entity';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // An unpaid order past its expiry reads as expired even before the sweep
 // records it.
@@ -53,7 +54,7 @@ export class OrderService {
     ]);
     return {
       data: await this.toTransactions(rows),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get transactions success',
     };
   }

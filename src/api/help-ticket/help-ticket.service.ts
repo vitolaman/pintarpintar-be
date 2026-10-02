@@ -5,6 +5,7 @@ import { User } from '../user/entities/user.entity';
 import { CreateHelpTicketDto } from './dto/create-help-ticket.dto';
 import { HelpTicketResponseDto } from './dto/help-ticket-response.dto';
 import { HelpTicket } from './entities/help-ticket.entity';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 @Injectable()
 export class HelpTicketService {
@@ -52,12 +53,7 @@ export class HelpTicketService {
 
     return {
       data: rows.map((item) => this.toResponse(item, user.name)),
-      meta: {
-        page,
-        limit,
-        total,
-        totalPage: Math.ceil(total / limit),
-      },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get help tickets success',
     };
   }

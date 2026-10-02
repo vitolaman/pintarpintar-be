@@ -45,6 +45,7 @@ import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
 import { MerchantLevelService } from '../merchant-level/merchant-level.service';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // Income is the merchant's net from items in paid orders (price minus the
 // item's code discount share; digital products, classes, and bundles in
@@ -268,7 +269,7 @@ export class MerchantService {
         occurred_at: row.occurred_at,
         status: row.status,
       })),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get balance history success',
     };
   }

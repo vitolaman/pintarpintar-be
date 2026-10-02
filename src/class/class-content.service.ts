@@ -28,6 +28,7 @@ import { ReorderChaptersDto } from './dto/reorder-chapters.dto';
 import { Chapter } from './entities/chapter.entity';
 import { FileResource, ResourceType } from './entities/file-resource.entity';
 import { Video } from './entities/video.entity';
+import { paginationMeta } from '../common/dto/response-meta.dto';
 
 type ChildEntity = typeof Video | typeof FileResource;
 
@@ -78,18 +79,23 @@ export class ClassContentService {
     });
   }
 
-  async getChapters(userId: string, classId: string, page = 1, limit = 10) {
+  // Without a limit every chapter is returned as one page, because the bab
+  // reorder needs the complete list of ids.
+  async getChapters(userId: string, classId: string, page = 1, limit?: number) {
     await this.classAccess.requireAction(userId, classId, 'materi', 'lihat');
     const manager = this.dataSource.manager;
+    const paginated = limit !== undefined;
     const [chapters, total] = await manager.findAndCount(Chapter, {
       where: { class_id: classId },
       order: { order: 'ASC', created_at: 'ASC', id: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
+      ...(paginated ? { skip: (page - 1) * limit, take: limit } : {}),
     });
     return {
       data: await this.toChapterResponses(manager, chapters),
-      meta: { total, page, limit },
+      meta: paginated
+        ? paginationMeta(page, limit, total)
+        : paginationMeta(1, Math.max(total, 1), total),
+      responseMessage: 'Get class chapters success',
     };
   }
 

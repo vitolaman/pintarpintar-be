@@ -21,6 +21,7 @@ import { Public } from '~/common/decorator/public.decorator';
 import {
   DefaultResponse,
   PaginatedResponse,
+  PaginatedObjectResponse,
 } from '~/common/decorator/response.decorator';
 import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
 import {
@@ -45,12 +46,9 @@ export class JobPostingController {
 
   @Get('job-postings')
   @Public()
-  @DefaultResponse(
-    JobBoardResponseDto,
-    'Get job board success',
-    HttpStatus.OK,
-    [BadRequestException],
-  )
+  @PaginatedObjectResponse(JobBoardResponseDto, 'Get job board success', [
+    BadRequestException,
+  ])
   findPublic(
     @Req() req: OptionalAuthRequest,
     @Query() query: PublicJobQueryDto,

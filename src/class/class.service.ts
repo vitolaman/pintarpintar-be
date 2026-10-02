@@ -41,6 +41,7 @@ import {
   MEETING_STATUS_SQL,
 } from './meeting-sql';
 import { applyCoverInput, findCovers } from '../api/item-cover/item-covers';
+import { paginationMeta } from '../common/dto/response-meta.dto';
 
 // A lead tutor may edit the class's presentation; pricing, type, and status
 // stay with the owner.
@@ -173,7 +174,8 @@ export class ClassService {
       .getManyAndCount();
     return {
       data: await this.toClassResponses(classes),
-      meta: { total, page, limit },
+      meta: paginationMeta(page, limit, total),
+      responseMessage: 'Get classes success',
     };
   }
 
@@ -366,7 +368,11 @@ export class ClassService {
         [classId],
       ),
     ]);
-    return { data, meta: { total, page, limit } };
+    return {
+      data,
+      meta: paginationMeta(page, limit, total),
+      responseMessage: 'Get class meetings success',
+    };
   }
 
   // Only the owner of the class's merchant may invite, and only an active
@@ -490,7 +496,11 @@ export class ClassService {
       [classId],
     );
     const data = await this.loadTutors(manager, classId, { page, limit });
-    return { data, meta: { total, page, limit } };
+    return {
+      data,
+      meta: paginationMeta(page, limit, total),
+      responseMessage: 'Get class mentors success',
+    };
   }
 
   // Projects only enrollment columns and public user fields; loading the
@@ -538,7 +548,11 @@ export class ClassService {
         email: row.student_email,
       },
     }));
-    return { data, meta: { total, page, limit } };
+    return {
+      data,
+      meta: paginationMeta(page, limit, total),
+      responseMessage: 'Get class students success',
+    };
   }
 
   private async lockTutorLink(

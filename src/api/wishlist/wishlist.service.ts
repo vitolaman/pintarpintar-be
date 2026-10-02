@@ -13,6 +13,7 @@ import {
 } from '~/common/catalog/catalog-item';
 import { WishlistEntryResponseDto, WishlistQueryDto } from './dto/wishlist.dto';
 import { WishlistItem } from './entities/wishlist-item.entity';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 @Injectable()
 export class WishlistService {
@@ -32,7 +33,7 @@ export class WishlistService {
 
     return {
       data: await this.toResponses(entries),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get wishlist success',
     };
   }

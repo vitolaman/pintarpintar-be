@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 import { ResourceType } from '../entities/file-resource.entity';
 import { HTTPS_URL } from './content-validation';
+import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 
 // Older rows may still carry `video` or `zip`; new resources use these.
 export const WRITABLE_RESOURCE_TYPES = [
@@ -45,8 +46,10 @@ export class CreateResourceDto {
   @ApiProperty({
     required: false,
     format: 'uuid',
-    description:
-      'Required unless type is link: an upload registered as class_resource',
+    description: assetFieldDescription(
+      'class_resource',
+      'Required unless type is link.',
+    ),
   })
   @ValidateIf((resource) => resource.type !== ResourceType.LINK)
   @IsUUID()

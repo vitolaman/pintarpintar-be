@@ -3,14 +3,12 @@ import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsIn,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
-  Max,
   MaxLength,
-  Min,
 } from 'class-validator';
+import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const dashboardPeriods = [7, 30, 90, 365] as const;
 export const saleTypes = ['kelas', 'bootcamp', 'digital', 'bundle'] as const;
@@ -39,20 +37,11 @@ export class DashboardQueryDto {
 }
 
 class PagedQueryDto {
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(toNumber)
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
-  @IsOptional()
-  @Transform(toNumber)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
+  @LimitQuery()
+  limit = 10;
 
   @ApiPropertyOptional({ enum: sortOrders, default: 'desc' })
   @IsOptional()
@@ -117,20 +106,11 @@ export class SalesFilterQueryDto {
 }
 
 export class SalesQueryDto extends SalesFilterQueryDto {
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(toNumber)
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
-  @IsOptional()
-  @Transform(toNumber)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
+  @LimitQuery()
+  limit = 10;
 }
 
 export class CustomersQueryDto extends PagedQueryDto {

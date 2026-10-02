@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { HTTPS_URL } from './content-validation';
 import { VideoSource, videoSources } from '../entities/video.entity';
+import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 
 export class CreateVideoDto {
   @ApiProperty()
@@ -46,7 +47,10 @@ export class CreateVideoDto {
 
   @ApiPropertyOptional({
     format: 'uuid',
-    description: 'Required for a file video: an uploaded MP4, MOV or WebM',
+    description: assetFieldDescription(
+      'class_video',
+      'Required for a file video.',
+    ),
   })
   @IsUUID()
   @IsOptional()
@@ -87,7 +91,13 @@ export class UpdateVideoDto {
   @MaxLength(2048)
   youtubeUrl?: string;
 
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: assetFieldDescription(
+      'class_video',
+      'Replaces the file of a file video.',
+    ),
+  })
   @ValidateIf((_, value) => value !== undefined)
   @IsUUID()
   asset_id?: string;

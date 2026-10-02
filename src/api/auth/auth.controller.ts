@@ -1,7 +1,18 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  BadRequestException,
+  Body,
+  ConflictException,
+  Controller,
+  ForbiddenException,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
+import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { AuthService } from './auth.service';
+import { AuthTokenDto } from './dto/auth-token.dto';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 
@@ -16,22 +27,10 @@ export class AuthController {
     summary: 'User sign up',
   })
   @HttpCode(HttpStatus.OK)
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Account Created!',
-    schema: {
-      example: {
-        responseMessage: 'Account Created!',
-        data: {
-          token: 'string',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.CONFLICT,
-    description: 'Email already registered',
-  })
+  @DefaultResponse(AuthTokenDto, 'Account Created!', HttpStatus.OK, [
+    BadRequestException,
+    ConflictException,
+  ])
   signUp(@Body() body: SignUpBodyDto) {
     return this.authService.signUp(body);
   }
@@ -41,29 +40,10 @@ export class AuthController {
     summary: 'Sign in with email and password',
   })
   @HttpCode(HttpStatus.OK)
-  @ApiResponse({
-    status: 200,
-    description: 'Success',
-    schema: {
-      example: {
-        responseMessage: 'Login Success',
-        data: {
-          token: 'string',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Invalid credentials',
-    schema: {
-      example: {
-        responseMessage: ['invalid username or password'],
-        error: 'FORBIDDEN',
-        statusCode: 403,
-      },
-    },
-  })
+  @DefaultResponse(AuthTokenDto, 'Login Success', HttpStatus.OK, [
+    BadRequestException,
+    ForbiddenException,
+  ])
   signIn(@Body() body: SignInBodyDto) {
     return this.authService.signIn(body);
   }

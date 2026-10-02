@@ -21,6 +21,7 @@ import {
 } from '../../common/catalog/class-details';
 import { ClassStatus, ClassType } from '../entities/class.entity';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
+import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 
 export class CreateClassDto {
   @ApiProperty()
@@ -67,7 +68,7 @@ export class CreateClassDto {
   @ApiProperty({
     required: false,
     format: 'uuid',
-    description: 'File asset registered with purpose class_cover',
+    description: assetFieldDescription('class_cover', 'The main cover.'),
   })
   @IsUUID()
   @IsOptional()

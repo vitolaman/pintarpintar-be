@@ -24,6 +24,7 @@ import { BundleItem } from './entities/bundle-item.entity';
 import { Bundle, BundleStatus } from './entities/bundle.entity';
 import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
 import { applyCoverInput, findCovers } from '../item-cover/item-covers';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // Current selling price: the discounted price when set, otherwise the list price.
 const CLASS_PRICE_SQL = `(CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric`;
@@ -164,7 +165,7 @@ export class BundleService {
 
     return {
       data: await this.toResponses(rows),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get bundles success',
     };
   }
@@ -230,7 +231,7 @@ export class BundleService {
     }));
     return {
       data,
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get public bundles success',
     };
   }

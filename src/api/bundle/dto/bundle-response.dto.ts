@@ -1,3 +1,4 @@
+import { ItemCoverDto } from '../../item-cover/dto/item-cover.dto';
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { bundleStatuses, BundleStatus } from '../entities/bundle.entity';
 import { bundleItemTypes, BundleItemType } from './bundle-request.dto';
@@ -43,6 +44,12 @@ export class BundleResponseDto {
 
   @ApiProperty({ nullable: true })
   cover_object_key: string | null;
+
+  @ApiProperty({
+    type: [ItemCoverDto],
+    description: 'Ordered covers; the first equals cover_asset_id',
+  })
+  covers: ItemCoverDto[];
 
   @ApiProperty({ type: [BundleItemResponseDto] })
   items: BundleItemResponseDto[];

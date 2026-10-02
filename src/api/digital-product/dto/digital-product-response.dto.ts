@@ -1,3 +1,4 @@
+import { ItemCoverDto } from '../../item-cover/dto/item-cover.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { productStatuses } from './digital-product-request.dto';
 
@@ -31,6 +32,11 @@ export class DigitalProductResponseDto {
     description: 'Null when no public asset base URL is configured',
   })
   cover_url: string | null;
+  @ApiProperty({
+    type: [ItemCoverDto],
+    description: 'Ordered covers; the first equals cover_asset_id / cover_url',
+  })
+  covers: ItemCoverDto[];
   @ApiProperty() original_price: number;
   @ApiProperty() discount_price: number;
   @ApiProperty({ description: 'Current selling price' }) price: number;

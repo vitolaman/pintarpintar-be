@@ -31,6 +31,8 @@ import { DigitalProductResponseDto } from './dto/digital-product-response.dto';
 import { Category } from './entities/category.entity';
 import { DigitalFile } from './entities/digital-file.entity';
 import { ProductCategory } from './entities/product-category.entity';
+import { applyCoverInput, findCovers } from '../item-cover/item-covers';
+import { ItemCoverDto } from '../item-cover/dto/item-cover.dto';
 
 const PRICE_FIELDS = { list: 'original_price', discount: 'discount_price' };
 
@@ -151,10 +153,11 @@ export class DigitalProductService {
     const rows: ProductRow[] =
       ids.length === 0 ? [] : await manager.query(PRODUCT_DETAILS_SQL, [ids]);
     const byId = new Map(rows.map((row) => [row.id, row]));
+    const covers = await findCovers(manager, 'product', ids);
 
     return {
       data: await Promise.all(
-        ids.map((id) => this.toResponse(byId.get(id), false)),
+        ids.map((id) => this.toResponse(byId.get(id), false, covers.get(id))),
       ),
       meta: { total, page, limit },
     };
@@ -180,14 +183,6 @@ export class DigitalProductService {
     return this.dataSource.transaction(async (manager) => {
       const merchantId = await this.findMerchantId(manager, userId, true);
       const category = await this.findCategory(manager, input.category_slug);
-      if (input.cover_asset_id) {
-        await assertOwnedAsset(
-          manager,
-          userId,
-          input.cover_asset_id,
-          'product_cover',
-        );
-      }
       const file = input.file_asset_id
         ? await assertOwnedAsset(
             manager,
@@ -207,12 +202,22 @@ export class DigitalProductService {
         discountPrice: String(input.discount_price ?? 0),
         currency: 'IDR',
         productType: 'digital',
-        coverAssetId: input.cover_asset_id ?? null,
         postPurchaseInstructions: input.post_purchase_instructions ?? null,
         publishedAt: null,
       });
       applyStatus(product, input.status);
       const saved = await manager.save(Product, product);
+      const main = await applyCoverInput(
+        manager,
+        { productId: saved.id },
+        input,
+        null,
+        (assetId) =>
+          assertOwnedAsset(manager, userId, assetId, 'product_cover'),
+      );
+      if (main !== undefined) {
+        await manager.update(Product, { id: saved.id }, { coverAssetId: main });
+      }
       await this.setCategory(manager, saved.id, category.id);
       if (file) await this.setFile(manager, saved.id, file);
 
@@ -248,14 +253,14 @@ export class DigitalProductService {
       const category = input.category_slug
         ? await this.findCategory(manager, input.category_slug)
         : null;
-      if (input.cover_asset_id) {
-        await assertOwnedAsset(
-          manager,
-          userId,
-          input.cover_asset_id,
-          'product_cover',
-        );
-      }
+      const main = await applyCoverInput(
+        manager,
+        { productId: id },
+        input,
+        product.coverAssetId,
+        (assetId) =>
+          assertOwnedAsset(manager, userId, assetId, 'product_cover'),
+      );
       const file = input.file_asset_id
         ? await assertOwnedAsset(
             manager,
@@ -282,9 +287,7 @@ export class DigitalProductService {
       if (input.discount_price !== undefined) {
         product.discountPrice = String(input.discount_price ?? 0);
       }
-      if (input.cover_asset_id !== undefined) {
-        product.coverAssetId = input.cover_asset_id;
-      }
+      if (main !== undefined) product.coverAssetId = main;
       if (input.post_purchase_instructions !== undefined) {
         product.postPurchaseInstructions = input.post_purchase_instructions;
       }
@@ -414,12 +417,14 @@ export class DigitalProductService {
     id: string,
   ): Promise<DigitalProductResponseDto> {
     const [row] = await manager.query(PRODUCT_DETAILS_SQL, [[id]]);
-    return this.toResponse(row, true);
+    const covers = await findCovers(manager, 'product', [id]);
+    return this.toResponse(row, true, covers.get(id));
   }
 
   private async toResponse(
     row: ProductRow,
     withDownload: boolean,
+    covers: ItemCoverDto[] = [],
   ): Promise<DigitalProductResponseDto> {
     const originalPrice = Number(row.original_price);
     const discountPrice = Number(row.discount_price);
@@ -437,6 +442,7 @@ export class DigitalProductService {
         : null,
       cover_asset_id: row.cover_asset_id,
       cover_url: assetUrl(row.cover_object_key),
+      covers,
       original_price: originalPrice,
       discount_price: discountPrice,
       price: discountPrice > 0 ? discountPrice : originalPrice,

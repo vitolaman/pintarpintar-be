@@ -54,8 +54,8 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 - `GET /api/v1/catalog/items` — **public**; filter by type, search (title, merchant name, category name, file format), level, category (slug or name), merchant (`merchant_id`), and digital file type (`file_format`); sort; paginate
 - `GET /api/v1/catalog/categories` — **public**; category tree
-- `GET /api/v1/catalog/classes/:id` — **public**; syllabus, mentors, FAQ, and the bootcamp meeting schedule (status, duration, mentor), without video, file, or meeting links
-- `GET /api/v1/catalog/digital-products/:id` — **public**; file formats and sizes, without download links
+- `GET /api/v1/catalog/classes/:id` — **public**; `covers`, syllabus, mentors, FAQ, and the bootcamp meeting schedule (status, duration, mentor), without video, file, or meeting links
+- `GET /api/v1/catalog/digital-products/:id` — **public**; `covers`, file formats and sizes, without download links
 
 ### Promo
 
@@ -182,6 +182,10 @@ Account numbers are always returned masked. They are stored encrypted when `PAYO
 - `POST /api/v1/merchant/discounts/:id/codes`
 - `DELETE /api/v1/merchant/discount-codes/:codeId`
 - `DELETE /api/v1/merchant/discounts/:id`
+
+### Covers (classes, bootcamps, digital products, bundles)
+
+Each item has up to 5 ordered covers; the first is the main cover, returned as `cover_asset_id` / `cover_url` and used on cards. Create and update take `cover_asset_ids` (the whole ordered list; `[]` removes all) or the single `cover_asset_id` (sets the main cover and keeps the others; `null` removes the main cover), never both. Details, the merchant lists and the public bundle list return `covers: [{ asset_id, url }]`.
 
 ### Merchant bundles
 

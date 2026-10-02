@@ -11,6 +11,7 @@ import { ClassCertificateSettings } from './entities/class-certificate-settings.
 import { ClassFaq } from './entities/class-faq.entity';
 import { FileResource } from './entities/file-resource.entity';
 import { Video } from './entities/video.entity';
+import { copyClassCovers } from '../api/item-cover/item-covers';
 
 const COPY_SUFFIX = ' (Salinan)';
 const MAX_TITLE_LENGTH = 255;
@@ -59,6 +60,7 @@ export class ClassDuplicationService {
       await this.copyAssignments(manager, classId, copy.id, userId);
       await this.copyCertificateSettings(manager, classId, copy.id);
       await this.copyFaq(manager, classId, copy.id, userId);
+      await copyClassCovers(manager, classId, copy.id);
       return copy.id;
     });
 

@@ -14,6 +14,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 
 export const productStatuses = [
   'published',
@@ -81,6 +82,9 @@ export class CreateDigitalProductDto {
   @IsOptional()
   cover_asset_id?: string;
 
+  @CoverAssetIds('product_cover')
+  cover_asset_ids?: string[];
+
   @ApiPropertyOptional({
     format: 'uuid',
     description: 'Upload registered as digital_file; required to publish',
@@ -144,6 +148,9 @@ export class UpdateDigitalProductDto {
   @IsUUID()
   @IsOptional()
   cover_asset_id?: string | null;
+
+  @CoverAssetIds('product_cover')
+  cover_asset_ids?: string[];
 
   @ApiPropertyOptional({
     format: 'uuid',

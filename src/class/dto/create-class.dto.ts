@@ -20,6 +20,7 @@ import {
   learningLevels,
 } from '../../common/catalog/class-details';
 import { ClassStatus, ClassType } from '../entities/class.entity';
+import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 
 export class CreateClassDto {
   @ApiProperty()
@@ -71,6 +72,9 @@ export class CreateClassDto {
   @IsUUID()
   @IsOptional()
   cover_asset_id?: string;
+
+  @CoverAssetIds('class_cover')
+  cover_asset_ids?: string[];
 
   @ApiProperty({ required: false, maxLength: 5000 })
   @IsString()

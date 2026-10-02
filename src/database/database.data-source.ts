@@ -62,6 +62,7 @@ import { MerchantVisit } from '~/api/merchant-dashboard/entities/merchant-visit.
 import { ClassFaq } from '~/class/entities/class-faq.entity';
 import { MerchantLevelEvaluation } from '~/api/merchant-level/entities/merchant-level-evaluation.entity';
 import { Notification } from '~/api/notification/entities/notification.entity';
+import { ItemCoverImage } from '~/api/item-cover/entities/item-cover-image.entity';
 
 dotenvExpand.expand(dotenv.config({ path: process.env.ENV_FILE || '.env' }));
 const isProduction = process.env.NODE_ENV == 'production';
@@ -133,6 +134,7 @@ export const dataSourceOptions: DataSourceOptions = {
     ClassFaq,
     MerchantLevelEvaluation,
     Notification,
+    ItemCoverImage,
   ],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations
   // remain in `migrations/` as reference only and must never run on this database.

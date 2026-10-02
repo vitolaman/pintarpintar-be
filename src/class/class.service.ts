@@ -40,6 +40,7 @@ import {
   MEETING_MENTOR_SQL,
   MEETING_STATUS_SQL,
 } from './meeting-sql';
+import { applyCoverInput, findCovers } from '../api/item-cover/item-covers';
 
 // A lead tutor may edit the class's presentation; pricing, type, and status
 // stay with the owner.
@@ -47,6 +48,7 @@ const LEAD_TUTOR_CLASS_FIELDS = [
   'title',
   'description',
   'cover_asset_id',
+  'cover_asset_ids',
   'post_purchase_instructions',
   'category',
   'level',
@@ -112,14 +114,6 @@ export class ClassService {
     );
     return this.classRepo.manager.transaction(async (manager) => {
       await this.assertOwnsMerchant(userId, merchantId, manager);
-      if (dto.cover_asset_id) {
-        await assertOwnedAsset(
-          manager,
-          userId,
-          dto.cover_asset_id,
-          'class_cover',
-        );
-      }
       const saved = await manager.save(
         Class,
         manager.create(Class, {
@@ -130,7 +124,6 @@ export class ClassService {
           type: dto.type,
           originalPrice: dto.originalPrice,
           discountedPrice: dto.discountedPrice,
-          cover_asset_id: dto.cover_asset_id ?? null,
           post_purchase_instructions: dto.post_purchase_instructions ?? null,
           category: dto.category ?? null,
           level: dto.level ?? null,
@@ -139,6 +132,17 @@ export class ClassService {
           learning_outcomes: dto.learning_outcomes ?? null,
         }),
       );
+      const main = await applyCoverInput(
+        manager,
+        { classId: saved.id },
+        dto,
+        null,
+        (assetId) => assertOwnedAsset(manager, userId, assetId, 'class_cover'),
+      );
+      if (main !== undefined) {
+        saved.cover_asset_id = main;
+        await manager.update(Class, { id: saved.id }, { cover_asset_id: main });
+      }
       const [data] = await this.toClassResponses([saved], manager);
       return { data, responseMessage: 'Create class success' };
     });
@@ -215,14 +219,14 @@ export class ClassService {
           CLASS_PRICE_FIELDS,
         );
       }
-      if (changes.cover_asset_id) {
-        await assertOwnedAsset(
-          manager,
-          userId,
-          changes.cover_asset_id,
-          'class_cover',
-        );
-      }
+      const { cover_asset_id, cover_asset_ids, ...classChanges } = changes;
+      const main = await applyCoverInput(
+        manager,
+        { classId },
+        { cover_asset_id, cover_asset_ids },
+        cls.cover_asset_id,
+        (assetId) => assertOwnedAsset(manager, userId, assetId, 'class_cover'),
+      );
       // Meetings exist only for live bootcamps. Meeting writes lock this row
       // too, so none can be added while the type changes.
       if (changes.type === ClassType.VIDEO && cls.type !== ClassType.VIDEO) {
@@ -236,7 +240,8 @@ export class ClassService {
         }
       }
 
-      Object.assign(cls, changes);
+      Object.assign(cls, classChanges);
+      if (main !== undefined) cls.cover_asset_id = main;
       const saved = await manager.save(cls);
       const [data] = await this.toClassResponses([saved], manager);
       return { data, responseMessage: 'Update class success' };
@@ -612,6 +617,11 @@ export class ClassService {
     const coverKeys = new Map(
       covers.map((cover) => [cover.id, cover.object_key]),
     );
+    const coverLists = await findCovers(
+      manager,
+      'class',
+      classes.map((cls) => cls.id),
+    );
 
     return classes.map((cls) => ({
       id: cls.id,
@@ -624,6 +634,7 @@ export class ClassService {
       discountedPrice: cls.discountedPrice,
       cover_asset_id: cls.cover_asset_id,
       cover_url: assetUrl(coverKeys.get(cls.cover_asset_id ?? '')),
+      covers: coverLists.get(cls.id) ?? [],
       post_purchase_instructions: cls.post_purchase_instructions,
       category: cls.category,
       level: cls.level,

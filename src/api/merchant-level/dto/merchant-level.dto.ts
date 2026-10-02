@@ -28,9 +28,17 @@ export class MerchantLevelSummaryDto {
 
   @ApiProperty({
     example: 32212254720,
-    description: 'Storage quota of the level; shown only, not enforced yet',
+    description:
+      'Storage quota of the level, enforced when content files are attached (covers and profile images do not count)',
   })
   storage_quota_bytes: number;
+
+  @ApiProperty({
+    example: 3221225472,
+    description:
+      'Bytes used by distinct files attached to live class materials, class videos, assignment attachments and digital-product files',
+  })
+  storage_used_bytes: number;
 
   @ApiProperty({ example: '2026-09', nullable: true, type: String })
   last_evaluated_month: string | null;

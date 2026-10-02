@@ -138,7 +138,7 @@ Each store is Basic, Silver or Gold by its monthly revenue (net of paid sales, A
 - a store with listed items and no paid sale in two counted months gets a warning; a further month without a sale soft-deletes its digital products, classes, bootcamps and bundles, ends buyers' access to them and deactivates its discounts and vouchers. Counted months are full months after tracking started (registration, or deploy for older stores) and after any earlier removal;
 - every evaluation writes `notifications` rows for the owner (`merchant_level_evaluated`, plus `merchant_inactivity_warning` or `merchant_items_removed`) for the email sender.
 
-Per-file upload limit by level: 1, 5 or 10 GB for class materials, assignment attachments and digital-product files. Storage quotas (30, 100, 200 GB) are shown only.
+Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos, assignment attachments and digital-product files. Storage quota by level: 30, 100 or 200 GB, counting each distinct file attached to the store's live class materials, class videos, assignment attachments and digital-product files (covers, logos and profile images do not count). Attaching a file that would pass the quota is refused with 400; removing an item frees its space (the stored object is kept); a store over its quota after a level drop keeps its files but cannot add new ones. `level.storage_used_bytes` shows the current use.
 
 - `GET /api/v1/merchant/level-evaluations` — the store's monthly evaluations, newest first
 

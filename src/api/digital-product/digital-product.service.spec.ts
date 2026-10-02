@@ -94,6 +94,9 @@ describe('DigitalProductService', () => {
     inBundle = false;
     manager = {
       query: jest.fn(async (sql: string) => {
+        if (sql.includes('used_bytes')) {
+          return [{ used_bytes: '0', counted: false }];
+        }
         if (sql.includes('FROM bundle_items')) return inBundle ? [{}] : [];
         if (sql.includes('count(*)::integer AS total')) return [{ total: 1 }];
         if (sql.includes('ORDER BY created_at DESC')) return [{ id: PRODUCT }];

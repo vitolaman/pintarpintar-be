@@ -35,6 +35,9 @@ describe('ClassContentService', () => {
     maxOrder = null;
     liveVideoIds = [];
     const query = jest.fn(async (sql: string) => {
+      if (sql.includes('used_bytes')) {
+        return [{ used_bytes: '0', counted: false }];
+      }
       if (sql.includes('AS is_owner')) return access ? [access] : [];
       if (sql.includes('FROM videos WHERE chapter_id')) {
         return liveVideoIds.map((id) => ({ id }));

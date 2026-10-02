@@ -349,6 +349,8 @@ describe('assertOwnedAsset', () => {
   // Content purposes look up the owning merchant's level (Basic here).
   const manager = (value: unknown) =>
     ({
+      // No content stored yet, so the storage quota is not reached.
+      query: jest.fn(async () => [{ used_bytes: '0', counted: false }]),
       findOneBy: jest.fn(async (entity) =>
         entity === Merchant
           ? { id: 'merchant-id', storageLevel: 'basic' }
@@ -447,7 +449,11 @@ describe('assertOwnedAsset claims a pending asset', () => {
     return {
       update,
       findOneBy,
-      manager: { update, findOneBy } as unknown as EntityManager,
+      manager: {
+        update,
+        findOneBy,
+        query: jest.fn(async () => [{ used_bytes: '0', counted: false }]),
+      } as unknown as EntityManager,
     };
   };
 
@@ -542,6 +548,7 @@ describe('per-file limit by merchant level', () => {
   };
   const classOf = (level: MerchantStorageLevel) =>
     ({
+      query: jest.fn(async () => [{ used_bytes: '0', counted: false }]),
       findOneBy: jest.fn(async (entity) => {
         if (entity === Class) return { id: 'class-id', merchant_id: 'm' };
         if (entity === Merchant) return { id: 'm', storageLevel: level };

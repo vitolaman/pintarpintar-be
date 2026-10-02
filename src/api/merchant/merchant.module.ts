@@ -13,6 +13,7 @@ import { MerchantWithdrawalService } from './merchant-withdrawal.service';
 import { MerchantPayoutAccount } from '../payout-account/entities/merchant-payout-account.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 import { ClassModule } from '../../class/class.module';
+import { MerchantLevelModule } from '../merchant-level/merchant-level.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ClassModule } from '../../class/class.module';
       UserNotificationPreferences,
     ]),
     ClassModule,
+    MerchantLevelModule,
   ],
   controllers: [MerchantController],
   providers: [MerchantService, MerchantWithdrawalService],

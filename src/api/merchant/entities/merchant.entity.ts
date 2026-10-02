@@ -30,6 +30,15 @@ export class Merchant extends BaseEntity {
   @Column()
   status: string;
 
+  // When the monthly level evaluation started counting for this merchant:
+  // registration, or the deploy of the level rules for older merchants.
+  @Column({
+    name: 'level_tracked_from',
+    type: 'timestamp',
+    default: () => 'now()',
+  })
+  levelTrackedFrom: Date;
+
   @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
   deletedBy: string | null;
 }

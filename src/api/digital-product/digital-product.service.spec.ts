@@ -103,9 +103,11 @@ describe('DigitalProductService', () => {
       findOne: jest.fn(async (entity) =>
         entity === Merchant ? merchant : owned && { ...owned },
       ),
-      findOneBy: jest.fn(async (entity) =>
-        entity === Category ? category : asset,
-      ),
+      findOneBy: jest.fn(async (entity) => {
+        if (entity === Category) return category;
+        if (entity === Merchant) return { ...merchant, storageLevel: 'basic' };
+        return asset;
+      }),
       create: jest.fn((_entity, value) => ({ ...value })),
       save: jest.fn(async (_entity, value) => ({ id: PRODUCT, ...value })),
       exists: jest.fn(async () => hasFile),

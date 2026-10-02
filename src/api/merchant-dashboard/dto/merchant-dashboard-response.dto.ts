@@ -1,3 +1,4 @@
+import { MerchantLevelSummaryDto } from '../../merchant-level/dto/merchant-level.dto';
 import { ApiProperty } from '@nestjs/swagger';
 import { saleStatuses, saleTypes } from './merchant-dashboard-query.dto';
 
@@ -105,6 +106,9 @@ export class MerchantDashboardResponseDto {
 
   @ApiProperty({ enum: ['basic', 'silver', 'gold'] })
   storage_level: string;
+
+  @ApiProperty({ type: MerchantLevelSummaryDto })
+  level: MerchantLevelSummaryDto;
 
   @ApiProperty({
     example: 5268000,

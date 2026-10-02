@@ -7,6 +7,8 @@ import { ConfigService } from '@nestjs/config';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ClassAccessService } from './class-access.service';
+import { Class } from './entities/class.entity';
+import { Merchant } from '../api/merchant/entities/merchant.entity';
 import { ClassContentService } from './class-content.service';
 import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
@@ -174,14 +176,20 @@ describe('ClassContentService', () => {
   });
 
   it('stores a private file resource with its size and no public URL', async () => {
-    manager.findOneBy.mockResolvedValue({
-      id: assetId,
-      uploadedByUserId: userId,
-      status: 'active',
-      visibility: 'private',
-      originalFilename: 'modul.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: '2048',
+    // The class's merchant decides the per-file limit (Basic: 1 GB).
+    manager.findOneBy.mockImplementation(async (entity) => {
+      if (entity === Class) return { id: classId, merchant_id: 'merchant-id' };
+      if (entity === Merchant)
+        return { id: 'merchant-id', storageLevel: 'basic' };
+      return {
+        id: assetId,
+        uploadedByUserId: userId,
+        status: 'active',
+        visibility: 'private',
+        originalFilename: 'modul.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: '2048',
+      };
     });
 
     await service.addResources(userId, classId, chapterId, {

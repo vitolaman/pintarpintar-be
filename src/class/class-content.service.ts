@@ -245,6 +245,7 @@ export class ClassContentService {
               userId,
               input.asset_id,
               'class_resource',
+              { classId },
             );
         created.push(
           manager.create(FileResource, {

@@ -42,6 +42,7 @@ import {
   MerchantProfile,
 } from './entities/merchant-profile.entity';
 import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
+import { MerchantLevelService } from '../merchant-level/merchant-level.service';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 
@@ -110,6 +111,7 @@ export class MerchantService {
     private readonly wallets: Repository<MerchantWallet>,
     @InjectRepository(UserNotificationPreferences)
     private readonly notificationPreferences: Repository<UserNotificationPreferences>,
+    private readonly merchantLevels: MerchantLevelService,
   ) {}
 
   async register(userId: string, input: RegisterMerchantDto) {
@@ -622,6 +624,7 @@ export class MerchantService {
       avatar_url: assetUrl(row.avatar_object_key),
       cover_url: assetUrl(row.cover_object_key),
       skills: await this.findSkills(row.id),
+      level: await this.merchantLevels.findSummary(row.id),
       landing: this.toLanding(
         landing_background_asset_id,
         landing_background_object_key,

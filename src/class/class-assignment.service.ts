@@ -56,6 +56,7 @@ export class ClassAssignmentService {
           userId,
           dto.resource_asset_id,
           'assignment_resource',
+          { classId },
         );
       }
 

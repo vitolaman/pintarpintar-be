@@ -1,3 +1,4 @@
+import { MerchantLevelService } from '../merchant-level/merchant-level.service';
 import { NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -73,7 +74,12 @@ describe('MerchantDashboardService', () => {
 
   beforeEach(() => {
     query = jest.fn();
-    service = new MerchantDashboardService({ query } as unknown as DataSource);
+    service = new MerchantDashboardService(
+      { query } as unknown as DataSource,
+      {
+        findSummary: jest.fn().mockResolvedValue({ current: 'basic' }),
+      } as unknown as MerchantLevelService,
+    );
   });
 
   it('rates and lists reviews of both classes and digital products', async () => {

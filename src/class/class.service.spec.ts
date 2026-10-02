@@ -284,6 +284,7 @@ describe('ClassService.updateClass', () => {
 
   const accessAs = (row: Record<string, unknown> | null) =>
     query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM item_cover_images')) return [];
       if (sql.includes('FROM file_assets')) {
         return [{ id: coverId, object_key: 'uploads/1-cover.png' }];
       }
@@ -312,6 +313,11 @@ describe('ClassService.updateClass', () => {
       findOne: jest.fn(async () => ({ ...stored })),
       findOneBy: jest.fn(),
       save: jest.fn(async (value) => value),
+      // item_cover_images: the class has no covers yet.
+      find: jest.fn(async () => []),
+      delete: jest.fn(),
+      insert: jest.fn(),
+      update: jest.fn(),
     };
     manager.transaction = jest.fn((callback) => callback(manager));
     const unused = {} as never;
@@ -430,6 +436,9 @@ describe('ClassService.updateClass', () => {
       cover_asset_id: coverId,
       cover_url: 'https://cdn.example.com/uploads/1-cover.png',
     });
+    expect(manager.insert).toHaveBeenCalledWith(expect.anything(), [
+      { classId, assetId: coverId, position: 0 },
+    ]);
   });
 
   it('keeps a live bootcamp that has meetings from becoming a video class', async () => {

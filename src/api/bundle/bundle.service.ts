@@ -23,6 +23,7 @@ import {
 import { BundleItem } from './entities/bundle-item.entity';
 import { Bundle, BundleStatus } from './entities/bundle.entity';
 import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
+import { applyCoverInput, findCovers } from '../item-cover/item-covers';
 
 // Current selling price: the discounted price when set, otherwise the list price.
 const CLASS_PRICE_SQL = `(CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric`;
@@ -102,14 +103,6 @@ export class BundleService {
       const merchant = await this.findMerchant(manager, userId, true);
       const status = input.status ?? 'published';
 
-      if (input.cover_asset_id) {
-        await assertOwnedAsset(
-          manager,
-          userId,
-          input.cover_asset_id,
-          'product_cover',
-        );
-      }
       const items = await this.resolveItems(manager, merchant.id, input.items);
       this.assertSellable(items, status, input.bundle_price);
 
@@ -119,13 +112,23 @@ export class BundleService {
           merchantId: merchant.id,
           title: input.title,
           description: input.description,
-          coverAssetId: input.cover_asset_id ?? null,
           bundlePrice: String(input.bundle_price),
           postPurchaseInstructions: input.post_purchase_instructions ?? null,
           status,
         }),
       );
       await this.insertItems(manager, bundle.id, items);
+      const main = await applyCoverInput(
+        manager,
+        { bundleId: bundle.id },
+        input,
+        null,
+        (assetId) =>
+          assertOwnedAsset(manager, userId, assetId, 'product_cover'),
+      );
+      if (main !== undefined) {
+        await manager.update(Bundle, { id: bundle.id }, { coverAssetId: main });
+      }
       return bundle.id;
     });
 
@@ -211,6 +214,7 @@ export class BundleService {
       cover_asset_id: bundle.cover_asset_id,
       cover_object_key: bundle.cover_object_key,
       cover_url: assetUrl(bundle.cover_object_key),
+      covers: bundle.covers,
       items: bundle.items,
       original_total: bundle.original_total,
       bundle_price: bundle.bundle_price,
@@ -246,17 +250,15 @@ export class BundleService {
       const merchant = await this.findMerchant(manager, userId, true);
       const bundle = await this.findOwnedBundle(manager, merchant.id, id);
 
-      if (input.cover_asset_id !== undefined) {
-        if (input.cover_asset_id) {
-          await assertOwnedAsset(
-            manager,
-            userId,
-            input.cover_asset_id,
-            'product_cover',
-          );
-        }
-        bundle.coverAssetId = input.cover_asset_id ?? null;
-      }
+      const main = await applyCoverInput(
+        manager,
+        { bundleId: id },
+        input,
+        bundle.coverAssetId,
+        (assetId) =>
+          assertOwnedAsset(manager, userId, assetId, 'product_cover'),
+      );
+      if (main !== undefined) bundle.coverAssetId = main;
       if (input.title !== undefined) bundle.title = input.title;
       if (input.description !== undefined) {
         bundle.description = input.description;
@@ -418,7 +420,7 @@ export class BundleService {
     if (rows.length === 0) return [];
 
     const ids = rows.map((row) => row.id);
-    const [itemRows, salesRows] = await Promise.all([
+    const [itemRows, salesRows, covers] = await Promise.all([
       this.dataSource.query(
         `SELECT item.bundle_id,
                 COALESCE(class.id, product.id) AS id,
@@ -450,6 +452,7 @@ export class BundleService {
          GROUP BY item.bundle_id`,
         [ids],
       ) as Promise<{ bundle_id: string; sales: number }[]>,
+      findCovers(this.dataSource, 'bundle', ids),
     ]);
 
     const salesByBundle = new Map(
@@ -468,6 +471,7 @@ export class BundleService {
         description: row.description,
         cover_asset_id: row.cover_asset_id,
         cover_object_key: row.cover_object_key,
+        covers: covers.get(row.id) ?? [],
         items: items.map((item) => this.toItem(item)),
         original_total: originalTotal,
         bundle_price: bundlePrice,

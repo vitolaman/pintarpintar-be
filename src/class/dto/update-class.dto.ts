@@ -21,6 +21,7 @@ import {
   learningLevels,
 } from '../../common/catalog/class-details';
 import { ClassStatus, ClassType } from '../entities/class.entity';
+import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 
 // Omitted fields stay unchanged; null clears a nullable field and is
 // rejected for the others.
@@ -78,6 +79,9 @@ export class UpdateClassDto {
   @IsUUID()
   @IsOptional()
   cover_asset_id?: string | null;
+
+  @CoverAssetIds('class_cover')
+  cover_asset_ids?: string[];
 
   @ApiPropertyOptional({ nullable: true, maxLength: 5000 })
   @ValidateIf((_, value) => value !== null)

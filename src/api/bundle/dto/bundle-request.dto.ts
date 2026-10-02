@@ -18,6 +18,7 @@ import {
 } from 'class-validator';
 import { bundleStatuses, BundleStatus } from '../entities/bundle.entity';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
+import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 
 export const bundleItemTypes = ['kelas', 'digital'] as const;
 
@@ -58,6 +59,9 @@ export class CreateBundleDto {
   @IsOptional()
   @IsUUID()
   cover_asset_id?: string | null;
+
+  @CoverAssetIds('product_cover')
+  cover_asset_ids?: string[];
 
   @ApiProperty({
     example: 349000,

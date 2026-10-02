@@ -19,6 +19,7 @@ import {
   CatalogSort,
   CategoryNodeDto,
 } from './dto/catalog.dto';
+import { findCovers } from '../item-cover/item-covers';
 
 // Current selling price follows the PM rule: the discounted price when set,
 // otherwise the list price.
@@ -315,8 +316,10 @@ export class CatalogService {
       loadClassFaqs(this.dataSource, id),
     ]);
 
+    const covers = await findCovers(this.dataSource, 'class', [row.id]);
     const detail: CatalogClassDetailDto = {
       ...toCard(row),
+      covers: covers.get(row.id) ?? [],
       description: row.description,
       duration: details.duration,
       // One requirement per non-empty line of the prerequisites text.
@@ -404,8 +407,10 @@ export class CatalogService {
       ),
     ]);
 
+    const covers = await findCovers(this.dataSource, 'product', [row.id]);
     const detail: CatalogDigitalDetailDto = {
       ...toCard(row),
+      covers: covers.get(row.id) ?? [],
       description: row.description,
       files: files.map((file) => ({ ...file, size: Number(file.size) })),
       is_owned: ownership.owned,

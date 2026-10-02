@@ -1,3 +1,4 @@
+import { ItemCoverDto } from '../../item-cover/dto/item-cover.dto';
 import { learningLevels } from '~/common/catalog/class-details';
 import {
   MEETING_DURATION_DESCRIPTION,
@@ -355,6 +356,12 @@ export class CatalogMeetingDto {
 }
 
 export class CatalogClassDetailDto extends CatalogCardDto {
+  @ApiProperty({
+    type: [ItemCoverDto],
+    description: 'Ordered covers; the first is the card image',
+  })
+  covers: ItemCoverDto[];
+
   @ApiProperty({ nullable: true })
   description: string | null;
 
@@ -409,6 +416,12 @@ export class CatalogDigitalFileDto {
 }
 
 export class CatalogDigitalDetailDto extends CatalogCardDto {
+  @ApiProperty({
+    type: [ItemCoverDto],
+    description: 'Ordered covers; the first is the card image',
+  })
+  covers: ItemCoverDto[];
+
   @ApiProperty({ nullable: true })
   description: string | null;
 

@@ -25,7 +25,7 @@ import { CreateHelpTicketDto } from './dto/create-help-ticket.dto';
 import { HelpTicketResponseDto } from './dto/help-ticket-response.dto';
 import { HelpTicketService } from './help-ticket.service';
 
-@Controller('help-tickets/v1')
+@Controller('api/v1/help-tickets')
 @ApiBearerAuth()
 @ApiTags('Help Tickets')
 export class HelpTicketController {
@@ -33,7 +33,7 @@ export class HelpTicketController {
 
   // Public: feedback from the help page is anonymous unless a token is sent.
   // At most 5 submissions per visitor address per 10 minutes.
-  @Post('create-help-ticket')
+  @Post()
   @Public()
   @UseGuards(ClientAddressThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 600_000 } })
@@ -49,7 +49,7 @@ export class HelpTicketController {
     return this.helpTicketService.create(req.user?.id ?? null, input);
   }
 
-  @Get('get-help-tickets')
+  @Get()
   @PaginatedResponse(HelpTicketResponseDto, 'Get help tickets success', [
     NotFoundException,
   ])
@@ -60,7 +60,7 @@ export class HelpTicketController {
     return this.helpTicketService.findAll(req.user.id, query.page, query.limit);
   }
 
-  @Get('get-help-ticket/:id')
+  @Get(':id')
   @DefaultResponse(
     HelpTicketResponseDto,
     'Get help ticket success',

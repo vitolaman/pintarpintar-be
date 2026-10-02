@@ -28,12 +28,12 @@ import {
 // Public routes still read a valid token when one is sent.
 type OptionalAuthRequest = { user?: { id: string } };
 
-@Controller('catalog/v1')
+@Controller('api/v1/catalog')
 @ApiTags('Catalog')
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
-  @Get('get-items')
+  @Get('items')
   @Public()
   @PaginatedResponse(CatalogCardDto, 'Get catalog items success', [
     BadRequestException,
@@ -42,14 +42,14 @@ export class CatalogController {
     return this.catalogService.findItems(query);
   }
 
-  @Get('get-categories')
+  @Get('categories')
   @Public()
   @ArrayResponse(CategoryNodeDto, 'Get categories success')
   findCategories() {
     return this.catalogService.findCategories();
   }
 
-  @Get('get-class/:id')
+  @Get('classes/:id')
   @Public()
   @DefaultResponse(CatalogClassDetailDto, 'Get class success', HttpStatus.OK, [
     BadRequestException,
@@ -62,7 +62,7 @@ export class CatalogController {
     return this.catalogService.findClass(id, req.user?.id);
   }
 
-  @Get('get-digital-product/:id')
+  @Get('digital-products/:id')
   @Public()
   @DefaultResponse(
     CatalogDigitalDetailDto,

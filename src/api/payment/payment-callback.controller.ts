@@ -20,7 +20,7 @@ import { DuitkuClient } from './duitku/duitku.client';
 import { isValidCallbackSignature } from './duitku/duitku-signature';
 import { OrderPaymentService } from './order-payment.service';
 
-@Controller('payments/v1')
+@Controller('api/v1/payments')
 @ApiTags('Payments')
 export class PaymentCallbackController {
   constructor(
@@ -34,7 +34,7 @@ export class PaymentCallbackController {
    * without applying anything twice.
    */
   @Public()
-  @Post('duitku-callback')
+  @Post('duitku/callback')
   @HttpCode(HttpStatus.OK)
   @ApiConsumes('application/x-www-form-urlencoded')
   @ApiOkResponse({ description: 'Notification processed' })

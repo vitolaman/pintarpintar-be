@@ -6,8 +6,6 @@ import {
   Get,
   HttpStatus,
   NotFoundException,
-  Param,
-  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -28,26 +26,29 @@ import {
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('discussions/v1')
+@Controller('api/v1/discussions')
 @ApiBearerAuth()
 @ApiTags('Class Discussions')
 export class DiscussionController {
   constructor(private readonly discussionService: DiscussionService) {}
 
-  @Get('get-threads/:classId')
+  @Get('threads')
   @PaginatedResponse(DiscussionThreadDto, 'Get class threads success', [
     BadRequestException,
     NotFoundException,
   ])
   findThreads(
     @Req() req: AuthenticatedRequest,
-    @Param('classId', ParseUUIDPipe) classId: string,
     @Query() query: ThreadListQueryDto,
   ) {
-    return this.discussionService.findThreads(req.user.id, classId, query);
+    return this.discussionService.findThreads(
+      req.user.id,
+      query.class_id,
+      query,
+    );
   }
 
-  @Post('create-thread')
+  @Post('threads')
   @DefaultResponse(
     DiscussionThreadDto,
     'Create thread success',
@@ -61,7 +62,7 @@ export class DiscussionController {
     return this.discussionService.createThread(req.user.id, input);
   }
 
-  @Post('create-comment')
+  @Post('comments')
   @DefaultResponse(
     DiscussionCommentDto,
     'Create comment success',

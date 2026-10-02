@@ -5,7 +5,7 @@ import { AuthService } from './auth.service';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 
-@Controller('auth')
+@Controller('api/v1/auth')
 @ApiTags('Auth')
 @Public()
 export class AuthController {

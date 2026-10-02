@@ -10,19 +10,19 @@ import { MentorRosterService } from './mentor-roster.service';
 type AuthenticatedRequest = { user: { id: string } };
 
 // The merchant's mentor list ("List Mentor" tab and the page summary cards).
-@Controller('merchants/v1')
+@Controller('api/v1/merchant')
 @ApiBearerAuth()
 @ApiTags('Merchant Mentor Roster')
 export class MentorRosterController {
   constructor(private readonly mentorRosterService: MentorRosterService) {}
 
-  @Get('get-mentor-roster')
+  @Get('mentors')
   @DefaultResponse(MentorRosterResponseDto, 'Get mentor roster success')
   findRoster(@Req() req: AuthenticatedRequest) {
     return this.mentorRosterService.findRoster(req.user.id);
   }
 
-  @Get('get-roster-mentor/:userId')
+  @Get('mentors/:userId')
   @DefaultResponse(RosterMentorDetailDto, 'Get roster mentor success')
   findRosterMentor(
     @Req() req: AuthenticatedRequest,

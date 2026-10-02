@@ -4,11 +4,11 @@ import {
   ConflictException,
   Controller,
   Get,
+  HttpCode,
   HttpStatus,
   NotFoundException,
   Param,
   ParseUUIDPipe,
-  Patch,
   Post,
   Query,
   Req,
@@ -30,13 +30,13 @@ import { JobApplicationService } from './job-application.service';
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('job-applications/v1')
+@Controller('api/v1')
 @ApiBearerAuth()
 @ApiTags('Karir Job Applications')
 export class JobApplicationController {
   constructor(private readonly jobApplicationService: JobApplicationService) {}
 
-  @Post('apply/:jobId')
+  @Post('job-postings/:jobId/apply')
   @DefaultResponse(
     MyApplicationResponseDto,
     'Apply job success',
@@ -51,7 +51,7 @@ export class JobApplicationController {
     return this.jobApplicationService.apply(req.user.id, jobId, input);
   }
 
-  @Get('get-my-applications')
+  @Get('job-applications')
   @DefaultResponse(
     MyApplicationListResponseDto,
     'Get my applications success',
@@ -65,7 +65,7 @@ export class JobApplicationController {
     return this.jobApplicationService.findMine(req.user.id, query);
   }
 
-  @Get('get-applicants')
+  @Get('merchant/job-applications')
   @DefaultResponse(
     ApplicantListResponseDto,
     'Get applicants success',
@@ -79,7 +79,7 @@ export class JobApplicationController {
     return this.jobApplicationService.findApplicants(req.user.id, query);
   }
 
-  @Get('get-applicant-cv/:id')
+  @Get('merchant/job-applications/:id/cv')
   @DefaultResponse(ApplicantCvLinkDto, 'Get applicant CV success')
   findApplicantCv(
     @Req() req: AuthenticatedRequest,
@@ -88,7 +88,8 @@ export class JobApplicationController {
     return this.jobApplicationService.findApplicantCv(req.user.id, id);
   }
 
-  @Patch('schedule-interview/:id')
+  @Post('merchant/job-applications/:id/schedule-interview')
+  @HttpCode(HttpStatus.OK)
   @DefaultResponse(
     ApplicantResponseDto,
     'Schedule interview success',
@@ -103,7 +104,8 @@ export class JobApplicationController {
     return this.jobApplicationService.scheduleInterview(req.user.id, id, input);
   }
 
-  @Patch('accept-applicant/:id')
+  @Post('merchant/job-applications/:id/accept')
+  @HttpCode(HttpStatus.OK)
   @DefaultResponse(
     ApplicantResponseDto,
     'Accept applicant success',
@@ -117,7 +119,8 @@ export class JobApplicationController {
     return this.jobApplicationService.accept(req.user.id, id);
   }
 
-  @Patch('reject-applicant/:id')
+  @Post('merchant/job-applications/:id/reject')
+  @HttpCode(HttpStatus.OK)
   @DefaultResponse(
     ApplicantResponseDto,
     'Reject applicant success',

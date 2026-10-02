@@ -51,7 +51,7 @@ type AuthenticatedRequest = { user: { id: string } };
 
 // Routes for learners using what they bought. Every route requires an active
 // enrollment (or product access) and answers 404 otherwise.
-@Controller('learning/v1')
+@Controller('api/v1')
 @ApiBearerAuth()
 @ApiTags('Learning')
 export class LearningController {
@@ -67,7 +67,7 @@ export class LearningController {
 
   // Public attendance page (/absensi/{classId}); never exposes meeting links.
   @Public()
-  @Get('get-attendance-session/:classId')
+  @Get('attendance/classes/:classId')
   @DefaultResponse(AttendanceSessionDto, 'Get attendance session success')
   findAttendanceSession(@Param('classId', ParseUUIDPipe) classId: string) {
     return this.learningAttendance.findSession(classId);
@@ -75,7 +75,7 @@ export class LearningController {
 
   // Check-in without login: the email must belong to an enrolled learner.
   @Public()
-  @Post('check-in-by-email/:classId')
+  @Post('attendance/classes/:classId/check-in')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ClientAddressThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 600_000 } })
@@ -92,7 +92,7 @@ export class LearningController {
     return this.learningAttendance.checkInByEmail(classId, input);
   }
 
-  @Post('submit-assignment/:assignmentId')
+  @Post('learning/assignments/:assignmentId/submit')
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(
     LearnerAssignmentDto,
@@ -108,7 +108,7 @@ export class LearningController {
     return this.learningSubmission.submitFile(req.user.id, assignmentId, input);
   }
 
-  @Post('submit-quiz/:assignmentId')
+  @Post('learning/assignments/:assignmentId/submit-quiz')
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(LearnerAssignmentDto, 'Submit quiz success', HttpStatus.OK, [
     BadRequestException,
@@ -123,7 +123,7 @@ export class LearningController {
     return this.learningSubmission.submitQuiz(req.user.id, assignmentId, input);
   }
 
-  @Get('get-assignments/:classId')
+  @Get('learning/classes/:classId/assignments')
   @ArrayResponse(LearnerAssignmentDto, 'Get learning assignments success', [
     NotFoundException,
   ])
@@ -134,7 +134,7 @@ export class LearningController {
     return this.learningAssignment.findAssignments(req.user.id, classId);
   }
 
-  @Get('get-digital-product/:id')
+  @Get('learning/digital-products/:id')
   @DefaultResponse(
     OwnedProductDto,
     'Get owned digital product success',
@@ -148,7 +148,7 @@ export class LearningController {
     return this.learningProduct.findProduct(req.user.id, id);
   }
 
-  @Get('get-meeting/:meetingId')
+  @Get('learning/meetings/:meetingId')
   @DefaultResponse(LearnerMeetingDto, 'Get meeting success', HttpStatus.OK, [
     NotFoundException,
   ])
@@ -159,7 +159,7 @@ export class LearningController {
     return this.classAttendance.findMeetingForLearner(req.user.id, meetingId);
   }
 
-  @Post('check-in/:meetingId')
+  @Post('learning/meetings/:meetingId/check-in')
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(LearnerMeetingDto, 'Check in success', HttpStatus.OK, [
     BadRequestException,
@@ -173,7 +173,7 @@ export class LearningController {
     return this.classAttendance.checkIn(req.user.id, meetingId, input.review);
   }
 
-  @Get('get-grades/:classId')
+  @Get('learning/classes/:classId/grades')
   @DefaultResponse(
     LearnerGradesDto,
     'Get learning grades success',
@@ -187,7 +187,7 @@ export class LearningController {
     return this.learningAssignment.findGrades(req.user.id, classId);
   }
 
-  @Get('get-quiz/:assignmentId')
+  @Get('learning/assignments/:assignmentId/quiz')
   @DefaultResponse(LearnerQuizDto, 'Get quiz success', HttpStatus.OK, [
     NotFoundException,
   ])
@@ -198,7 +198,7 @@ export class LearningController {
     return this.learningAssignment.findQuiz(req.user.id, assignmentId);
   }
 
-  @Get('get-class/:id')
+  @Get('learning/classes/:id')
   @DefaultResponse(
     LearningClassResponseDto,
     'Get learning class success',
@@ -212,7 +212,7 @@ export class LearningController {
     return this.learningClass.findClass(req.user.id, id);
   }
 
-  @Post('complete-video/:videoId')
+  @Post('learning/videos/:videoId/complete')
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(
     LearnerProgressResponseDto,

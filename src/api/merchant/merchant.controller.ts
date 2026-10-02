@@ -11,7 +11,6 @@ import {
   Req,
   Query,
   Param,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiParam, ApiTags } from '@nestjs/swagger';
 import { DefaultResponse } from '~/common/decorator/response.decorator';
@@ -41,7 +40,7 @@ import { CreateClassDto } from '../../class/dto/create-class.dto';
 import { ClassResponseDto } from '../../class/dto/class-response.dto';
 import { PaginatedResponse } from '~/common/decorator/response.decorator';
 
-@Controller('merchants/v1')
+@Controller('api/v1')
 @ApiBearerAuth()
 @ApiTags('Merchants')
 export class MerchantController {
@@ -51,7 +50,7 @@ export class MerchantController {
     private readonly withdrawals: MerchantWithdrawalService,
   ) {}
 
-  @Post('register')
+  @Post('merchant/register')
   @DefaultResponse(
     MerchantResponseDto,
     'Register merchant success',
@@ -65,7 +64,7 @@ export class MerchantController {
     return this.merchantService.register(req.user.id, input);
   }
 
-  @Get('get-public-merchant/:merchant')
+  @Get('merchants/:merchant')
   @Public()
   @ApiParam({
     name: 'merchant',
@@ -84,7 +83,7 @@ export class MerchantController {
     return this.merchantService.findPublicStorefront(merchant, req.user?.id);
   }
 
-  @Get('get-profile')
+  @Get('merchant/profile')
   @DefaultResponse(
     MerchantResponseDto,
     'Get merchant profile success',
@@ -95,7 +94,7 @@ export class MerchantController {
     return this.merchantService.findMerchantProfile(req.user.id);
   }
 
-  @Get('get-wallet')
+  @Get('merchant/wallet')
   @DefaultResponse(
     MerchantWalletResponseDto,
     'Get merchant wallet success',
@@ -107,7 +106,7 @@ export class MerchantController {
   }
 
   // "Tarik Saldo": minimum Rp100.000, Rp5.000 fee, processed manually.
-  @Post('request-withdrawal')
+  @Post('merchant/withdrawals')
   @DefaultResponse(
     WithdrawalResponseDto,
     'Request withdrawal success',
@@ -121,7 +120,7 @@ export class MerchantController {
     return this.withdrawals.request(req.user.id, body);
   }
 
-  @Get('get-balance-history')
+  @Get('merchant/balance-history')
   @PaginatedResponse(
     BalanceHistoryItemResponseDto,
     'Get balance history success',
@@ -134,7 +133,7 @@ export class MerchantController {
     return this.merchantService.findBalanceHistory(req.user.id, query);
   }
 
-  @Patch('update-profile')
+  @Patch('merchant/profile')
   @DefaultResponse(
     MerchantResponseDto,
     'Update merchant profile success',
@@ -148,7 +147,7 @@ export class MerchantController {
     return this.merchantService.updateMerchantProfile(req.user.id, input);
   }
 
-  @Get('get-notification-preferences')
+  @Get('merchant/notification-preferences')
   @DefaultResponse(
     NotificationPreferencesResponseDto,
     'Get notification preferences success',
@@ -159,7 +158,7 @@ export class MerchantController {
     return this.merchantService.findNotificationPreferences(req.user.id);
   }
 
-  @Patch('update-notification-preferences')
+  @Patch('merchant/notification-preferences')
   @DefaultResponse(
     NotificationPreferencesResponseDto,
     'Update notification preferences success',
@@ -176,23 +175,27 @@ export class MerchantController {
     );
   }
 
-  @Post(':merchantId/classes')
+  @Post('merchant/classes')
   @DefaultResponse(ClassResponseDto, 'Create class success', HttpStatus.CREATED)
-  createClass(
+  async createClass(
     @Req() req: { user: { id: string } },
-    @Param('merchantId', ParseUUIDPipe) merchantId: string,
     @Body() dto: CreateClassDto,
   ) {
+    const merchantId = await this.merchantService.findOwnMerchantId(
+      req.user.id,
+    );
     return this.classService.createClass(req.user.id, merchantId, dto);
   }
 
-  @Get(':merchantId/classes')
+  @Get('merchant/classes')
   @PaginatedResponse(ClassResponseDto, 'Get classes success')
-  getClasses(
+  async getClasses(
     @Req() req: { user: { id: string } },
-    @Param('merchantId', ParseUUIDPipe) merchantId: string,
     @Query() query: ClassListQueryDto,
   ) {
+    const merchantId = await this.merchantService.findOwnMerchantId(
+      req.user.id,
+    );
     return this.classService.getClassesByMerchant(
       req.user.id,
       merchantId,

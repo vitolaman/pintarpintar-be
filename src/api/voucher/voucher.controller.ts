@@ -33,12 +33,12 @@ import {
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { VoucherService } from './voucher.service';
 
-@Controller('vouchers/v1')
+@Controller('api/v1')
 @ApiTags('Vouchers')
 export class VoucherController {
   constructor(private readonly voucherService: VoucherService) {}
 
-  @Post('create-voucher')
+  @Post('merchant/vouchers')
   @ApiBearerAuth()
   @DefaultResponse(
     VoucherResponseDto,
@@ -53,7 +53,7 @@ export class VoucherController {
     return this.voucherService.create(req.user.id, input);
   }
 
-  @Get('get-vouchers')
+  @Get('merchant/vouchers')
   @ApiBearerAuth()
   @PaginatedResponse(VoucherResponseDto, 'Get vouchers success', [
     NotFoundException,
@@ -65,7 +65,7 @@ export class VoucherController {
     return this.voucherService.findAll(req.user.id, query.page, query.limit);
   }
 
-  @Get('get-voucher/:id')
+  @Get('merchant/vouchers/:id')
   @ApiBearerAuth()
   @DefaultResponse(VoucherResponseDto, 'Get voucher success', HttpStatus.OK, [
     NotFoundException,
@@ -77,7 +77,7 @@ export class VoucherController {
     return this.voucherService.findOne(req.user.id, id);
   }
 
-  @Patch('update-voucher/:id')
+  @Patch('merchant/vouchers/:id')
   @ApiBearerAuth()
   @DefaultResponse(
     VoucherResponseDto,
@@ -93,7 +93,7 @@ export class VoucherController {
     return this.voucherService.update(req.user.id, id, input);
   }
 
-  @Delete('delete-voucher/:id')
+  @Delete('merchant/vouchers/:id')
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([NotFoundException])
@@ -104,14 +104,14 @@ export class VoucherController {
     return this.voucherService.remove(req.user.id, id);
   }
 
-  @Get('get-public-vouchers')
+  @Get('vouchers')
   @Public()
   @PaginatedResponse(PublicVoucherResponseDto, 'Get public vouchers success')
   findPublic(@Query() query: PublicVoucherQueryDto) {
     return this.voucherService.findPublic(query);
   }
 
-  @Get('get-featured-vouchers')
+  @Get('vouchers/featured')
   @Public()
   @ArrayResponse(PublicVoucherResponseDto, 'Get featured vouchers success')
   findFeatured() {

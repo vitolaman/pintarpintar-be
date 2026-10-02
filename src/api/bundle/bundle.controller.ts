@@ -37,13 +37,13 @@ import {
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('bundles/v1')
+@Controller('api/v1')
 @ApiBearerAuth()
 @ApiTags('Merchant Bundles')
 export class BundleController {
   constructor(private readonly bundleService: BundleService) {}
 
-  @Get('get-public-bundles')
+  @Get('bundles')
   @Public()
   @PaginatedResponse(PublicBundleResponseDto, 'Get public bundles success', [
     BadRequestException,
@@ -52,7 +52,7 @@ export class BundleController {
     return this.bundleService.findPublic(query);
   }
 
-  @Get('get-eligible-items')
+  @Get('merchant/bundles/eligible-items')
   @ArrayResponse(BundleItemResponseDto, 'Get eligible bundle items success', [
     NotFoundException,
   ])
@@ -60,7 +60,7 @@ export class BundleController {
     return this.bundleService.findEligibleItems(req.user.id);
   }
 
-  @Post('create-bundle')
+  @Post('merchant/bundles')
   @DefaultResponse(
     BundleResponseDto,
     'Create bundle success',
@@ -71,7 +71,7 @@ export class BundleController {
     return this.bundleService.create(req.user.id, input);
   }
 
-  @Get('get-bundles')
+  @Get('merchant/bundles')
   @PaginatedResponse(BundleResponseDto, 'Get bundles success', [
     BadRequestException,
     NotFoundException,
@@ -83,7 +83,7 @@ export class BundleController {
     return this.bundleService.findAll(req.user.id, query);
   }
 
-  @Get('get-bundle/:id')
+  @Get('merchant/bundles/:id')
   @DefaultResponse(BundleResponseDto, 'Get bundle success', HttpStatus.OK, [
     BadRequestException,
     NotFoundException,
@@ -95,7 +95,7 @@ export class BundleController {
     return this.bundleService.findOne(req.user.id, id);
   }
 
-  @Patch('update-bundle/:id')
+  @Patch('merchant/bundles/:id')
   @DefaultResponse(BundleResponseDto, 'Update bundle success', HttpStatus.OK, [
     BadRequestException,
     NotFoundException,
@@ -108,7 +108,7 @@ export class BundleController {
     return this.bundleService.update(req.user.id, id, input);
   }
 
-  @Delete('delete-bundle/:id')
+  @Delete('merchant/bundles/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([BadRequestException, NotFoundException])
   remove(

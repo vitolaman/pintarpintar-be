@@ -25,13 +25,13 @@ import { WishlistService } from './wishlist.service';
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('wishlist/v1')
+@Controller('api/v1/wishlist')
 @ApiBearerAuth()
 @ApiTags('Wishlist')
 export class WishlistController {
   constructor(private readonly wishlistService: WishlistService) {}
 
-  @Get('get-wishlist')
+  @Get()
   @PaginatedResponse(WishlistEntryResponseDto, 'Get wishlist success', [
     BadRequestException,
   ])
@@ -39,7 +39,7 @@ export class WishlistController {
     return this.wishlistService.findAll(req.user.id, query);
   }
 
-  @Post('add-to-wishlist')
+  @Post('items')
   @DefaultResponse(
     WishlistEntryResponseDto,
     'Add to wishlist success',
@@ -50,7 +50,7 @@ export class WishlistController {
     return this.wishlistService.add(req.user.id, input);
   }
 
-  @Delete('remove-from-wishlist/:id')
+  @Delete('items/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([BadRequestException, NotFoundException])
   remove(

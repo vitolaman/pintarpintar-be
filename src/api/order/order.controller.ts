@@ -37,7 +37,7 @@ import {
 } from './dto/recent-transactions.dto';
 import { OrderService } from './order.service';
 
-@Controller('orders/v1')
+@Controller('api/v1/orders')
 @ApiBearerAuth()
 @ApiTags('Orders')
 export class OrderController {
@@ -46,7 +46,7 @@ export class OrderController {
     private readonly checkoutService: CheckoutService,
   ) {}
 
-  @Get('get-recent-transactions')
+  @Get('recent')
   @ArrayResponse(TransactionResponseDto, 'Get recent transactions success', [
     BadRequestException,
   ])
@@ -57,7 +57,7 @@ export class OrderController {
     return this.orderService.findRecent(req.user.id, query);
   }
 
-  @Get('get-transactions')
+  @Get()
   @PaginatedResponse(TransactionResponseDto, 'Get transactions success', [
     BadRequestException,
   ])
@@ -70,7 +70,7 @@ export class OrderController {
 
   // Prices the selection with its codes for the payment summary; writes
   // nothing.
-  @Post('preview-checkout')
+  @Post('preview')
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(
     CheckoutPreviewResponseDto,
@@ -88,7 +88,7 @@ export class OrderController {
   // Creates the pending order and its Duitku invoice; open
   // `payment_reference` with Duitku's `checkout.process` or redirect to
   // `payment_url`.
-  @Post('checkout')
+  @Post()
   @DefaultResponse(
     OrderDetailResponseDto,
     'Checkout success',
@@ -107,7 +107,7 @@ export class OrderController {
     return this.checkoutService.checkout(req.user.id, body);
   }
 
-  @Get('get-order/:id')
+  @Get(':id')
   @DefaultResponse(OrderDetailResponseDto, 'Get order success')
   async findOne(
     @Req() req: { user: { id: string } },
@@ -119,7 +119,7 @@ export class OrderController {
     };
   }
 
-  @Post('cancel-order/:id')
+  @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(
     OrderDetailResponseDto,
@@ -140,7 +140,7 @@ export class OrderController {
 
   // Recovers a missed payment notification; rate-limited because Duitku
   // blocks callers that check too often.
-  @Post('check-payment/:id')
+  @Post(':id/check-payment')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ClientAddressThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })

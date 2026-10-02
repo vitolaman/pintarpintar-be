@@ -35,13 +35,13 @@ import {
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('discounts/v1')
+@Controller('api/v1/merchant')
 @ApiBearerAuth()
 @ApiTags('Merchant Discounts')
 export class DiscountController {
   constructor(private readonly discountService: DiscountService) {}
 
-  @Get('get-eligible-products')
+  @Get('discounts/eligible-items')
   @ArrayResponse(DiscountTargetResponseDto, 'Get eligible products success', [
     NotFoundException,
   ])
@@ -49,7 +49,7 @@ export class DiscountController {
     return this.discountService.findEligibleProducts(req.user.id);
   }
 
-  @Post('create-discount')
+  @Post('discounts')
   @DefaultResponse(
     DiscountResponseDto,
     'Create discount success',
@@ -60,7 +60,7 @@ export class DiscountController {
     return this.discountService.create(req.user.id, input);
   }
 
-  @Get('get-discounts')
+  @Get('discounts')
   @PaginatedResponse(DiscountResponseDto, 'Get discounts success', [
     BadRequestException,
     NotFoundException,
@@ -72,7 +72,7 @@ export class DiscountController {
     return this.discountService.findAll(req.user.id, query);
   }
 
-  @Get('get-discount/:id')
+  @Get('discounts/:id')
   @DefaultResponse(DiscountResponseDto, 'Get discount success', HttpStatus.OK, [
     BadRequestException,
     NotFoundException,
@@ -84,7 +84,7 @@ export class DiscountController {
     return this.discountService.findOne(req.user.id, id);
   }
 
-  @Patch('update-discount/:id')
+  @Patch('discounts/:id')
   @DefaultResponse(
     DiscountResponseDto,
     'Update discount success',
@@ -99,7 +99,7 @@ export class DiscountController {
     return this.discountService.update(req.user.id, id, input);
   }
 
-  @Delete('delete-discount/:id')
+  @Delete('discounts/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([BadRequestException, NotFoundException])
   remove(
@@ -109,7 +109,7 @@ export class DiscountController {
     return this.discountService.remove(req.user.id, id);
   }
 
-  @Post('add-discount-codes/:id')
+  @Post('discounts/:id/codes')
   @DefaultResponse(
     DiscountResponseDto,
     'Add discount codes success',
@@ -124,7 +124,7 @@ export class DiscountController {
     return this.discountService.addCodes(req.user.id, id, input);
   }
 
-  @Delete('delete-discount-code/:codeId')
+  @Delete('discount-codes/:codeId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([BadRequestException, NotFoundException])
   removeCode(

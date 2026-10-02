@@ -18,7 +18,7 @@ type AuthenticatedRequest = { user: { id: string } };
 
 // Session actions for a signed-in user; they answer with a fresh token that
 // keeps the current device signed in.
-@Controller('auth')
+@Controller('api/v1/auth')
 @ApiTags('Auth')
 @ApiBearerAuth()
 export class AuthSessionController {
@@ -35,7 +35,7 @@ export class AuthSessionController {
     return this.authService.endOtherSessions(req.user.id);
   }
 
-  @Patch('change-password')
+  @Patch('password')
   @ApiOperation({
     summary: 'Change the password; other devices are signed out',
     description:

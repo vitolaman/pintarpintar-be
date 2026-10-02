@@ -4,6 +4,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  HttpCode,
   HttpStatus,
   NotFoundException,
   Param,
@@ -31,12 +32,12 @@ import { JobPostingService } from './job-posting.service';
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('job-postings/v1')
+@Controller('api/v1')
 @ApiTags('Karir Job Postings')
 export class JobPostingController {
   constructor(private readonly jobPostingService: JobPostingService) {}
 
-  @Get('get-public-jobs')
+  @Get('job-postings')
   @Public()
   @DefaultResponse(
     JobBoardResponseDto,
@@ -48,14 +49,14 @@ export class JobPostingController {
     return this.jobPostingService.findPublic(query);
   }
 
-  @Get('get-public-job/:id')
+  @Get('job-postings/:id')
   @Public()
   @DefaultResponse(JobPostingResponseDto, 'Get job success')
   findPublicOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.jobPostingService.findPublicOne(id);
   }
 
-  @Post('create-job')
+  @Post('merchant/job-postings')
   @ApiBearerAuth()
   @DefaultResponse(
     JobPostingResponseDto,
@@ -67,7 +68,7 @@ export class JobPostingController {
     return this.jobPostingService.create(req.user.id, input);
   }
 
-  @Get('get-my-jobs')
+  @Get('merchant/job-postings')
   @ApiBearerAuth()
   @PaginatedResponse(JobPostingResponseDto, 'Get job postings success', [
     BadRequestException,
@@ -80,7 +81,7 @@ export class JobPostingController {
     return this.jobPostingService.findMine(req.user.id, query);
   }
 
-  @Get('get-my-job/:id')
+  @Get('merchant/job-postings/:id')
   @ApiBearerAuth()
   @DefaultResponse(JobPostingResponseDto, 'Get job posting success')
   findMineOne(
@@ -90,7 +91,7 @@ export class JobPostingController {
     return this.jobPostingService.findMineOne(req.user.id, id);
   }
 
-  @Patch('update-job/:id')
+  @Patch('merchant/job-postings/:id')
   @ApiBearerAuth()
   @DefaultResponse(
     JobPostingResponseDto,
@@ -106,7 +107,8 @@ export class JobPostingController {
     return this.jobPostingService.update(req.user.id, id, input);
   }
 
-  @Patch('close-job/:id')
+  @Post('merchant/job-postings/:id/close')
+  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @DefaultResponse(JobPostingResponseDto, 'Close job posting success')
   close(

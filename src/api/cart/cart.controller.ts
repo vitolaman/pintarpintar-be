@@ -24,19 +24,19 @@ import { CartResponseDto } from './dto/cart.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('cart/v1')
+@Controller('api/v1/cart')
 @ApiBearerAuth()
 @ApiTags('Cart')
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
-  @Get('get-cart')
+  @Get()
   @DefaultResponse(CartResponseDto, 'Get cart success', HttpStatus.OK, [])
   findCart(@Req() req: AuthenticatedRequest) {
     return this.cartService.findCart(req.user.id);
   }
 
-  @Post('add-to-cart')
+  @Post('items')
   @DefaultResponse(CartResponseDto, 'Add to cart success', HttpStatus.CREATED, [
     BadRequestException,
     ConflictException,
@@ -45,7 +45,7 @@ export class CartController {
     return this.cartService.add(req.user.id, input);
   }
 
-  @Delete('remove-from-cart/:id')
+  @Delete('items/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([BadRequestException, NotFoundException])
   remove(
@@ -55,7 +55,7 @@ export class CartController {
     return this.cartService.remove(req.user.id, id);
   }
 
-  @Delete('clear-cart')
+  @Delete()
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([])
   clear(@Req() req: AuthenticatedRequest) {

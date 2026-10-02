@@ -31,13 +31,13 @@ import { DigitalProductResponseDto } from './dto/digital-product-response.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('digital-products/v1')
+@Controller('api/v1/merchant/digital-products')
 @ApiBearerAuth()
 @ApiTags('Merchant Digital Products')
 export class DigitalProductController {
   constructor(private readonly digitalProductService: DigitalProductService) {}
 
-  @Get('get-digital-products')
+  @Get()
   @PaginatedResponse(
     DigitalProductResponseDto,
     'Get digital products success',
@@ -50,7 +50,7 @@ export class DigitalProductController {
     return this.digitalProductService.findAll(req.user.id, query);
   }
 
-  @Get('get-digital-product/:id')
+  @Get(':id')
   @DefaultResponse(
     DigitalProductResponseDto,
     'Get digital product success',
@@ -64,7 +64,7 @@ export class DigitalProductController {
     return this.digitalProductService.findOne(req.user.id, id);
   }
 
-  @Post('create-digital-product')
+  @Post()
   @DefaultResponse(
     DigitalProductResponseDto,
     'Create digital product success',
@@ -78,7 +78,7 @@ export class DigitalProductController {
     return this.digitalProductService.create(req.user.id, input);
   }
 
-  @Patch('update-digital-product/:id')
+  @Patch(':id')
   @DefaultResponse(
     DigitalProductResponseDto,
     'Update digital product success',
@@ -93,7 +93,7 @@ export class DigitalProductController {
     return this.digitalProductService.update(req.user.id, id, input);
   }
 
-  @Delete('delete-digital-product/:id')
+  @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([BadRequestException, NotFoundException, ConflictException])
   remove(

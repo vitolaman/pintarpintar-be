@@ -21,14 +21,14 @@ import {
 } from './dto/merchant-analytics.dto';
 import { VisitTrackingService } from './visit-tracking.service';
 
-@Controller('analytics/v1')
+@Controller('api/v1/analytics')
 @ApiTags('Analytics')
 export class VisitTrackingController {
   constructor(private readonly visitTrackingService: VisitTrackingService) {}
 
   // Public; a sent login token makes the user the visitor. Called by the
   // storefront and the class, bootcamp and digital product detail pages.
-  @Post('track-visit')
+  @Post('visits')
   @Public()
   @UseGuards(ClientAddressThrottlerGuard)
   @Throttle({ default: { limit: 60, ttl: 60_000 } })

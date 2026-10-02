@@ -54,6 +54,10 @@ export class CreateCommentDto {
 }
 
 export class ThreadListQueryDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  class_id: string;
+
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
   @Transform(({ value }) => Number(value))

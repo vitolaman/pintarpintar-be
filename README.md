@@ -298,6 +298,10 @@ Merchants publish teaching vacancies; any logged-in user applies once per vacanc
 
 - `GET /api/v1/job-postings` — **public**; active vacancies of active merchants with `keyword` (title, merchant, category, skills), `location`, `category`, `contract_type`, `work_type`, paging, applicant counts, `is_new` (7 days), and the board totals
 - `GET /api/v1/job-postings/:id` — **public**; 404 once closed
+- Job responses carry `is_saved`: true when the signed-in caller saved the job, false without a token (the board and detail stay public)
+- `GET /api/v1/job-postings/saved` — the caller's saved jobs ("Lowongan Tersimpan"), newest save first, paginated; each has the job fields plus `saved_at` and `is_open` (false once closed or removed; it stays listed until unsaved)
+- `PUT /api/v1/job-postings/:id/save` — save an active job; saving again is a no-op; 404 for a closed or unknown job
+- `DELETE /api/v1/job-postings/:id/save` — unsave; also succeeds when it was not saved
 - `POST /api/v1/merchant/job-postings` — active merchants only; category is one of the 5 form labels, `Part-Time`/`Full-Time`, `Remote`/`Hybrid`/`On-Site`, free-text salary, up to 20 skills, optional own `class_id`
 - `GET /api/v1/merchant/job-postings` — own active vacancies
 - `GET /api/v1/merchant/job-postings/:id`

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   HttpCode,
@@ -11,6 +12,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
 } from '@nestjs/common';
@@ -26,11 +28,15 @@ import {
   JobBoardResponseDto,
   JobPostingResponseDto,
   PublicJobQueryDto,
+  SavedJobPostingResponseDto,
+  SaveJobPostingResponseDto,
   UpdateJobPostingDto,
 } from './dto/job-posting.dto';
 import { JobPostingService } from './job-posting.service';
 
 type AuthenticatedRequest = { user: { id: string } };
+// Public routes: a valid token identifies the caller, and no token is fine.
+type OptionalAuthRequest = { user?: { id: string } };
 
 @Controller('api/v1')
 @ApiTags('Karir Job Postings')
@@ -45,15 +51,60 @@ export class JobPostingController {
     HttpStatus.OK,
     [BadRequestException],
   )
-  findPublic(@Query() query: PublicJobQueryDto) {
-    return this.jobPostingService.findPublic(query);
+  findPublic(
+    @Req() req: OptionalAuthRequest,
+    @Query() query: PublicJobQueryDto,
+  ) {
+    return this.jobPostingService.findPublic(query, req.user?.id);
+  }
+
+  // Declared before job-postings/:id so "saved" is not read as an id.
+  @Get('job-postings/saved')
+  @ApiBearerAuth()
+  @PaginatedResponse(
+    SavedJobPostingResponseDto,
+    'Get saved job postings success',
+  )
+  findSaved(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: RequestPaginatedQueryDto,
+  ) {
+    return this.jobPostingService.findSaved(req.user.id, query);
   }
 
   @Get('job-postings/:id')
   @Public()
   @DefaultResponse(JobPostingResponseDto, 'Get job success')
-  findPublicOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.jobPostingService.findPublicOne(id);
+  findPublicOne(
+    @Req() req: OptionalAuthRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.jobPostingService.findPublicOne(id, req.user?.id);
+  }
+
+  @Put('job-postings/:id/save')
+  @ApiBearerAuth()
+  @DefaultResponse(
+    SaveJobPostingResponseDto,
+    'Save job posting success',
+    HttpStatus.OK,
+    [NotFoundException],
+  )
+  save(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.jobPostingService.save(req.user.id, id);
+  }
+
+  @Delete('job-postings/:id/save')
+  @ApiBearerAuth()
+  @DefaultResponse(SaveJobPostingResponseDto, 'Unsave job posting success')
+  unsave(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.jobPostingService.unsave(req.user.id, id);
   }
 
   @Post('merchant/job-postings')

@@ -18,6 +18,7 @@ import { JobPosting } from './entities/job-posting.entity';
 import { NEW_JOB_DAYS } from './recruitment.constants';
 import { findOwnMerchant } from './recruitment-merchant';
 import { PUBLIC_JOB_SQL } from './recruitment-sql';
+import { SavedJobPosting } from './entities/saved-job-posting.entity';
 
 // Applications of deleted accounts are not counted anywhere.
 const JOB_SELECT_SQL = `
@@ -93,7 +94,7 @@ export class JobPostingService {
       return job.id;
     });
     return {
-      data: await this.findResponse(jobId),
+      data: await this.findResponse(jobId, userId),
       responseMessage: 'Create job posting success',
     };
   }
@@ -115,8 +116,9 @@ export class JobPostingService {
         [merchant.id],
       ),
     ]);
+    const saved = await this.savedJobIds(userId, rows);
     return {
-      data: rows.map(toJobResponse),
+      data: rows.map((row) => toJobResponse(row, saved.has(row.id))),
       meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
       responseMessage: 'Get job postings success',
     };
@@ -130,8 +132,9 @@ export class JobPostingService {
       [jobId, merchant.id],
     );
     if (!row) throw new NotFoundException('Job posting not found');
+    const saved = await this.savedJobIds(userId, [row]);
     return {
-      data: toJobResponse(row),
+      data: toJobResponse(row, saved.has(row.id)),
       responseMessage: 'Get job posting success',
     };
   }
@@ -165,7 +168,7 @@ export class JobPostingService {
       await manager.save(job);
     });
     return {
-      data: await this.findResponse(jobId),
+      data: await this.findResponse(jobId, userId),
       responseMessage: 'Update job posting success',
     };
   }
@@ -182,12 +185,12 @@ export class JobPostingService {
       await manager.save(job);
     });
     return {
-      data: await this.findResponse(jobId),
+      data: await this.findResponse(jobId, userId),
       responseMessage: 'Close job posting success',
     };
   }
 
-  async findPublic(query: PublicJobQueryDto) {
+  async findPublic(query: PublicJobQueryDto, viewerId?: string) {
     const { page, limit } = query;
     const conditions = [PUBLIC_JOB_SQL];
     const params: unknown[] = [];
@@ -237,32 +240,147 @@ export class JobPostingService {
          WHERE ${PUBLIC_JOB_SQL}`,
       ),
     ]);
+    const saved = await this.savedJobIds(viewerId, rows);
     return {
       data: {
         active_jobs: totals.active_jobs,
         recruiting_merchants: totals.recruiting_merchants,
-        jobs: rows.map(toJobResponse),
+        jobs: rows.map((row) => toJobResponse(row, saved.has(row.id))),
       },
       meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
       responseMessage: 'Get job board success',
     };
   }
 
-  async findPublicOne(jobId: string) {
+  async findPublicOne(jobId: string, viewerId?: string) {
     const [row]: JobRow[] = await this.dataSource.query(
       `${JOB_SELECT_SQL} WHERE job.id = $1 AND ${PUBLIC_JOB_SQL}`,
       [jobId],
     );
     if (!row) throw new NotFoundException('Job posting not found');
-    return { data: toJobResponse(row), responseMessage: 'Get job success' };
+    const saved = await this.savedJobIds(viewerId, [row]);
+    return {
+      data: toJobResponse(row, saved.has(row.id)),
+      responseMessage: 'Get job success',
+    };
   }
 
-  private async findResponse(jobId: string): Promise<JobPostingResponseDto> {
+  /** Saves an active job for the caller; saving it again changes nothing. */
+  async save(userId: string, jobId: string) {
+    const [job] = await this.dataSource.query(
+      `SELECT job.id FROM job_postings job
+       INNER JOIN merchants merchant ON merchant.id = job.merchant_id
+       WHERE job.id = $1 AND ${PUBLIC_JOB_SQL}`,
+      [jobId],
+    );
+    if (!job) throw new NotFoundException('Job posting not found');
+
+    // One atomic upsert on the per-user unique index: a repeated or
+    // concurrent save keeps the single row, and RETURNING gives its save time
+    // even if an unsave runs right after.
+    const result = await this.dataSource
+      .createQueryBuilder()
+      .insert()
+      .into(SavedJobPosting)
+      .values({ userId, jobPostingId: jobId })
+      .orUpdate(['updated_at'], ['user_id', 'job_posting_id'], {
+        indexPredicate: 'deleted_at IS NULL',
+      })
+      .returning(['created_at'])
+      .execute();
+    const [saved] = result.raw as { created_at: Date }[];
+    return {
+      data: {
+        job_posting_id: jobId,
+        is_saved: true,
+        saved_at: saved.created_at,
+      },
+      responseMessage: 'Save job posting success',
+    };
+  }
+
+  /** Removes a saved job; unsaving one that is not saved also succeeds. */
+  async unsave(userId: string, jobId: string) {
+    await this.dataSource.manager.delete(SavedJobPosting, {
+      userId,
+      jobPostingId: jobId,
+    });
+    return {
+      data: { job_posting_id: jobId, is_saved: false, saved_at: null },
+      responseMessage: 'Unsave job posting success',
+    };
+  }
+
+  /**
+   * The caller's saved jobs, newest save first. Jobs closed or removed after
+   * saving stay listed with is_open false until the caller unsaves them.
+   */
+  async findSaved(userId: string, query: RequestPaginatedQueryDto) {
+    const { page, limit } = query;
+    const [savedRows, [{ total }]] = await Promise.all([
+      this.dataSource.query(
+        `SELECT saved.job_posting_id, saved.created_at AS saved_at,
+                (${PUBLIC_JOB_SQL}) AS is_open
+         FROM saved_job_postings saved
+         INNER JOIN job_postings job ON job.id = saved.job_posting_id
+         INNER JOIN merchants merchant ON merchant.id = job.merchant_id
+         WHERE saved.user_id = $1 AND saved.deleted_at IS NULL
+         ORDER BY saved.created_at DESC, saved.id DESC
+         LIMIT $2 OFFSET $3`,
+        [userId, limit, (page - 1) * limit],
+      ) as Promise<
+        { job_posting_id: string; saved_at: Date; is_open: boolean }[]
+      >,
+      this.dataSource.query(
+        `SELECT count(*)::integer AS total FROM saved_job_postings saved
+         INNER JOIN job_postings job ON job.id = saved.job_posting_id
+         WHERE saved.user_id = $1 AND saved.deleted_at IS NULL`,
+        [userId],
+      ),
+    ]);
+    const ids = savedRows.map((row) => row.job_posting_id);
+    const jobs: JobRow[] =
+      ids.length === 0
+        ? []
+        : await this.dataSource.query(
+            `${JOB_SELECT_SQL} WHERE job.id = ANY($1::uuid[])`,
+            [ids],
+          );
+    const byId = new Map(jobs.map((job) => [job.id, job]));
+    return {
+      data: savedRows.map((saved) => ({
+        ...toJobResponse(byId.get(saved.job_posting_id), true),
+        saved_at: saved.saved_at,
+        is_open: saved.is_open,
+      })),
+      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      responseMessage: 'Get saved job postings success',
+    };
+  }
+
+  private async savedJobIds(
+    viewerId: string | null | undefined,
+    rows: { id: string }[],
+  ): Promise<Set<string>> {
+    if (!viewerId || rows.length === 0) return new Set();
+    const saved: { job_posting_id: string }[] = await this.dataSource.query(
+      `SELECT job_posting_id FROM saved_job_postings
+       WHERE user_id = $1 AND job_posting_id = ANY($2::uuid[]) AND deleted_at IS NULL`,
+      [viewerId, rows.map((row) => row.id)],
+    );
+    return new Set(saved.map((row) => row.job_posting_id));
+  }
+
+  private async findResponse(
+    jobId: string,
+    viewerId: string,
+  ): Promise<JobPostingResponseDto> {
     const [row]: JobRow[] = await this.dataSource.query(
       `${JOB_SELECT_SQL} WHERE job.id = $1`,
       [jobId],
     );
-    return toJobResponse(row);
+    const saved = await this.savedJobIds(viewerId, [row]);
+    return toJobResponse(row, saved.has(row.id));
   }
 
   private async lockOwnJob(
@@ -293,7 +411,7 @@ export class JobPostingService {
   }
 }
 
-function toJobResponse(row: JobRow): JobPostingResponseDto {
+function toJobResponse(row: JobRow, isSaved = false): JobPostingResponseDto {
   return {
     id: row.id,
     title: row.title,
@@ -316,5 +434,6 @@ function toJobResponse(row: JobRow): JobPostingResponseDto {
     is_new: row.is_new,
     created_at: row.created_at,
     closed_at: row.closed_at,
+    is_saved: isSaved,
   };
 }

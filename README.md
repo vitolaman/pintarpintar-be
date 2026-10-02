@@ -165,7 +165,7 @@ Account numbers are always returned masked. They are stored encrypted when `PAYO
 ### Merchant discounts
 
 - `GET /discounts/v1/get-eligible-products`
-- `POST /discounts/v1/create-discount` — codes are system-generated: a `once` entry of N creates N single-use codes ("Kode Sekali Pakai", at most 1,000 per request); a `recurring` entry creates one code shared up to its limit ("Kode Berulang")
+- `POST /discounts/v1/create-discount` — codes are system-generated: a `once` entry of N creates N single-use codes ("Kode Sekali Pakai", at most 1,000 per request); a `recurring` entry creates one code shared up to its limit, usable once per user; an expired, failed or cancelled order releases it ("Kode Berulang")
 - `GET /discounts/v1/get-discounts`
 - `GET /discounts/v1/get-discount/:id`
 - `PATCH /discounts/v1/update-discount/:id`

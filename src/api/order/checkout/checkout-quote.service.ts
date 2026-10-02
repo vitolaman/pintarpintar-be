@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
+import { DiscountCodeType } from '~/api/discount/entities/discount-code.entity';
 import {
   CatalogItemColumns,
   findOwnedItemIds,
@@ -42,6 +43,7 @@ interface DiscountCodeRow {
   code: string;
   usage_limit: number;
   used_count: number;
+  code_type: DiscountCodeType;
   discount_id: string;
   merchant_id: string;
   merchant_name: string | null;
@@ -67,6 +69,7 @@ export class CheckoutQuoteService {
     const items = await this.loadItems(manager, userId, request);
     const rules = await this.loadCodes(
       manager,
+      userId,
       request.codes ?? [],
       options.lockCodes,
     );
@@ -127,6 +130,7 @@ export class CheckoutQuoteService {
 
   private async loadCodes(
     manager: EntityManager,
+    userId: string,
     enteredCodes: string[],
     lockCodes: boolean,
   ): Promise<PromoCodeRule[]> {
@@ -140,7 +144,7 @@ export class CheckoutQuoteService {
     for (const code of codes) {
       const rule =
         (await this.loadVoucher(manager, code, lockCodes)) ??
-        (await this.loadDiscountCode(manager, code, lockCodes));
+        (await this.loadDiscountCode(manager, userId, code, lockCodes));
       if (!rule) {
         throw new BadRequestException(`Code ${code} is invalid or expired`);
       }
@@ -209,12 +213,13 @@ export class CheckoutQuoteService {
 
   private async loadDiscountCode(
     manager: EntityManager,
+    userId: string,
     code: string,
     lock: boolean,
   ): Promise<DiscountCodeRule | null> {
     const [row]: DiscountCodeRow[] = await manager.query(
       `SELECT code.id, upper(code.code) AS code,
-              code.usage_limit, code.used_count, discount.id AS discount_id,
+              code.usage_limit, code.used_count, code.code_type, discount.id AS discount_id,
               discount.merchant_id, merchant.store_name AS merchant_name,
               discount.discount_type, discount.discount_value, discount.minimum_purchase,
               discount.is_active
@@ -235,6 +240,22 @@ export class CheckoutQuoteService {
     }
     if (row.used_count >= row.usage_limit) {
       throw new BadRequestException(`Code ${code} has reached its usage limit`);
+    }
+    // A recurring code ("Kode Berulang") is shared by many users but usable
+    // once per user. Released orders (expired, failed, cancelled) do not
+    // count; checkout holds the code row lock, so concurrent checkouts of one
+    // user see each other's pending order.
+    if (row.code_type === 'recurring') {
+      const [used] = await manager.query(
+        `SELECT 1 FROM orders
+         WHERE discount_code_id = $1 AND user_id = $2 AND deleted_at IS NULL
+           AND (status = 'paid' OR (status = 'pending' AND expires_at > now()))
+         LIMIT 1`,
+        [row.id, userId],
+      );
+      if (used) {
+        throw new BadRequestException(`You have already used code ${code}`);
+      }
     }
     const targets: Array<{
       class_id: string | null;

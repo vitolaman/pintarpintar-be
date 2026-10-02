@@ -6,7 +6,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, EntityTarget, In, IsNull } from 'typeorm';
-import { assertOwnedAsset } from '../api/file-asset/asset-purpose-rules';
+import {
+  assertOwnedAsset,
+  fileExtension,
+  fileKindOf,
+} from '../api/file-asset/asset-purpose-rules';
 import {
   ObjectStorage,
   createObjectStorage,
@@ -25,9 +29,10 @@ import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
 import { UpdateChapterDto } from './dto/update-chapter.dto';
 import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
 import { ReorderChaptersDto } from './dto/reorder-chapters.dto';
+import { FileAsset } from '../api/profile/entities/file-asset.entity';
 import { Chapter } from './entities/chapter.entity';
 import { FileResource, ResourceType } from './entities/file-resource.entity';
-import { Video } from './entities/video.entity';
+import { Video, VideoSource } from './entities/video.entity';
 import { paginationMeta } from '../common/dto/response-meta.dto';
 
 type ChildEntity = typeof Video | typeof FileResource;
@@ -260,7 +265,17 @@ export class ClassContentService {
 
       const created: FileResource[] = [];
       for (const input of dto.resources) {
-        const isLink = input.type === ResourceType.LINK;
+        const isLink = input.asset_id === undefined;
+        if (isLink && input.url === undefined) {
+          throw new BadRequestException(
+            `Material "${input.name}" needs an uploaded file (asset_id) or a link (url)`,
+          );
+        }
+        if (!isLink && input.url !== undefined) {
+          throw new BadRequestException(
+            `Material "${input.name}" takes either asset_id or url, not both`,
+          );
+        }
         const asset = isLink
           ? null
           : await assertOwnedAsset(
@@ -273,7 +288,7 @@ export class ClassContentService {
         created.push(
           manager.create(FileResource, {
             chapter_id: chapterId,
-            type: input.type,
+            type: asset ? materialTypeOf(asset) : ResourceType.LINK,
             name: input.name,
             description: input.description ?? null,
             url: isLink ? input.url : null,
@@ -626,6 +641,36 @@ type VideoSourceInput = Pick<
  * (within the class merchant's per-file limit) and no URL. Fields not sent
  * keep the current video's values for the same source.
  */
+// A material's type follows its file, whatever type the client sent.
+function materialTypeOf(asset: FileAsset): ResourceType {
+  const kind = fileKindOf({
+    filename: asset.originalFilename,
+    mimeType: asset.mimeType,
+  });
+  if (kind === 'archive') return ResourceType.ARCHIVE;
+  if (kind === 'image') return ResourceType.IMAGE;
+  if (fileExtension(asset.originalFilename) === 'pdf') return ResourceType.PDF;
+  return ResourceType.FILE;
+}
+
+// Without an explicit source, the field sent decides: an upload makes a file
+// video and a link makes a link video; otherwise the video keeps its source.
+function inferredVideoSource(
+  input: VideoSourceInput,
+  current: Video | null,
+): VideoSource {
+  const sentFile = input.asset_id !== undefined;
+  const sentLink = input.youtubeUrl !== undefined;
+  if (sentFile && sentLink) {
+    throw new BadRequestException(
+      'Send either youtubeUrl or asset_id, not both',
+    );
+  }
+  if (sentFile) return 'file';
+  if (sentLink) return 'link';
+  return current?.source ?? 'link';
+}
+
 async function resolveVideoSource(
   manager: EntityManager,
   userId: string,
@@ -633,7 +678,7 @@ async function resolveVideoSource(
   current: Video | null,
   input: VideoSourceInput,
 ): Promise<Pick<Video, 'source' | 'youtubeUrl' | 'asset_id'>> {
-  const source = input.source ?? current?.source ?? 'link';
+  const source = input.source ?? inferredVideoSource(input, current);
   if (source === 'link') {
     if (input.asset_id !== undefined) {
       throw new BadRequestException(

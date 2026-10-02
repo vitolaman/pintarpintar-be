@@ -1,34 +1,41 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsEnum,
-  IsInt,
   IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
-  Min,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { AssignmentType } from '../entities/assignment.entity';
 import { QuestionType } from '../entities/assignment-question.entity';
 import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
+import {
+  ClearableText,
+  EnumInput,
+  NumberInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
+import { MAX_DESCRIPTION_LENGTH } from './content-validation';
+
+// Options are trimmed like the correct answer, so the answer still matches
+// the option it was copied from.
+const trimEachText = ({ value }: { value: unknown }) =>
+  Array.isArray(value)
+    ? value.map((item) => (typeof item === 'string' ? item.trim() : item))
+    : value;
 
 export class CreateQuestionDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(5000)
+  @RequiredText({ max: 5000 })
   question_text: string;
 
-  @ApiProperty({ enum: QuestionType })
-  @IsEnum(QuestionType)
+  @EnumInput(Object.values(QuestionType))
   type: QuestionType;
 
   @ApiProperty({
@@ -36,6 +43,7 @@ export class CreateQuestionDto {
     type: [String],
     description: 'Two to four options, required for multiple_choice',
   })
+  @Transform(trimEachText)
   @ValidateIf((question) => question.type === QuestionType.MULTIPLE_CHOICE)
   @IsArray()
   @ArrayMinSize(2)
@@ -45,35 +53,25 @@ export class CreateQuestionDto {
   @MaxLength(1000, { each: true })
   options?: string[];
 
-  @ApiProperty({
-    required: false,
+  // A multiple-choice question without a correct answer is rejected by the
+  // service, which checks that the answer is one of the options.
+  @ClearableText({
+    max: 5000,
     description:
-      'For multiple_choice, the text of the correct option; for essay, an optional answer key',
+      'For multiple_choice, the text of the correct option (required); for essay, an optional answer key',
   })
-  @ValidateIf((question) => question.type === QuestionType.MULTIPLE_CHOICE)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(5000)
-  correct_answer?: string;
+  correct_answer?: string | null;
 
-  @ApiProperty({ default: 0, minimum: 0 })
-  @IsInt()
-  @Min(0)
-  @IsOptional()
+  @NumberInput({ presence: 'optional', integer: true, min: 0, default: 0 })
   score_weight?: number;
 }
 
 export class CreateAssignmentDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
+  @RequiredText({ max: 255 })
   title: string;
 
-  @ApiProperty({ required: false })
-  @IsString()
-  @IsOptional()
-  description?: string;
+  @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
+  description?: string | null;
 
   @ApiProperty({
     example: '2026-10-15T23:59:00+07:00',
@@ -82,8 +80,7 @@ export class CreateAssignmentDto {
   @IsISO8601({ strict: true })
   due: string;
 
-  @ApiProperty({ enum: AssignmentType })
-  @IsEnum(AssignmentType)
+  @EnumInput(Object.values(AssignmentType))
   type: AssignmentType;
 
   @ApiProperty({

@@ -1,11 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEnum,
-  IsOptional,
-  IsString,
-  MaxLength,
-  ValidateIf,
-} from 'class-validator';
+import { ClearableText, EnumInput } from '~/common/decorator/input.decorator';
 import { AttendanceStatus } from '../entities/attendance.entity';
 import {
   MEETING_DURATION_DESCRIPTION,
@@ -14,22 +8,16 @@ import {
 } from './class-response.dto';
 
 export class CheckInDto {
-  @ApiPropertyOptional({
-    nullable: true,
-    maxLength: 2000,
+  @ClearableText({
+    max: 2000,
     description:
       'Optional review of the session. Name and email come from the account; any sent are ignored.',
   })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(2000)
-  @IsOptional()
   review?: string | null;
 }
 
 export class SetAttendanceStatusDto {
-  @ApiProperty({ enum: AttendanceStatus })
-  @IsEnum(AttendanceStatus)
+  @EnumInput(Object.values(AttendanceStatus))
   status: AttendanceStatus;
 }
 

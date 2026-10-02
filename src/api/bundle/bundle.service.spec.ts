@@ -4,7 +4,12 @@ import { validate } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import { BundleService } from './bundle.service';
-import { CreateBundleDto } from './dto/bundle-request.dto';
+import {
+  BundleListQueryDto,
+  CreateBundleDto,
+  PublicBundleQueryDto,
+  UpdateBundleDto,
+} from './dto/bundle-request.dto';
 import { BundleItem } from './entities/bundle-item.entity';
 import { Bundle } from './entities/bundle.entity';
 
@@ -56,8 +61,63 @@ describe('CreateBundleDto', () => {
     [{ bundle_price: 0 }],
     [{ title: '' }],
     [{ status: 'active' }],
+    [{ status: null }],
+    [{ description: '  ' }],
   ])('rejects %j', async (override) => {
     expect(await errorsFor(override)).not.toHaveLength(0);
+  });
+
+  it('accepts a numeric price string and a status in any case', async () => {
+    const dto = plainToInstance(CreateBundleDto, {
+      ...valid,
+      bundle_price: '349000',
+      status: ' Unlisted ',
+    });
+    expect(await validate(dto)).toEqual([]);
+    expect(dto).toMatchObject({ bundle_price: 349000, status: 'unlisted' });
+  });
+
+  it('clears the post-purchase instructions with "" or null', async () => {
+    for (const value of ['', null]) {
+      const dto = plainToInstance(UpdateBundleDto, {
+        post_purchase_instructions: value,
+      });
+      expect(await validate(dto)).toEqual([]);
+      expect(dto.post_purchase_instructions).toBeNull();
+    }
+  });
+
+  it.each(['', '  ', null])(
+    'rejects a title or description of %j on update',
+    async (value) => {
+      const errors = await validate(
+        plainToInstance(UpdateBundleDto, { title: value, description: value }),
+      );
+      expect(errors.map((error) => error.property)).toEqual([
+        'title',
+        'description',
+      ]);
+    },
+  );
+});
+
+describe('bundle list queries', () => {
+  it('treats blank filters as no filter and matches the status in any case', async () => {
+    const blank = plainToInstance(BundleListQueryDto, { status: ' ' });
+    expect(await validate(blank)).toEqual([]);
+    expect(blank.status).toBeUndefined();
+
+    const published = plainToInstance(BundleListQueryDto, {
+      status: 'PUBLISHED',
+    });
+    expect(await validate(published)).toEqual([]);
+    expect(published.status).toBe('published');
+
+    const anyMerchant = plainToInstance(PublicBundleQueryDto, {
+      merchant_id: '',
+    });
+    expect(await validate(anyMerchant)).toEqual([]);
+    expect(anyMerchant.merchant_id).toBeUndefined();
   });
 });
 
@@ -180,18 +240,56 @@ describe('BundleService', () => {
     expect(manager.save).not.toHaveBeenCalled();
   });
 
+  it('resolves items sent by id alone, and bootcamp for a class', async () => {
+    await service.create(
+      'user-id',
+      input({ items: [{ id: CLASS_ID }, { id: PRODUCT_ID }] }),
+    );
+    await service.create(
+      'user-id',
+      input({
+        items: [{ type: 'bootcamp', id: CLASS_ID }, { id: PRODUCT_ID }],
+      }),
+    );
+    expect(manager.save).toHaveBeenCalledWith(
+      BundleItem,
+      expect.arrayContaining([
+        expect.objectContaining({ classId: CLASS_ID, productId: null }),
+      ]),
+    );
+  });
+
+  it('rejects an item of another family, naming it', async () => {
+    await expect(
+      service.create(
+        'user-id',
+        input({
+          items: [{ type: 'digital', id: CLASS_ID }, { id: PRODUCT_ID }],
+        }),
+      ),
+    ).rejects.toThrow(`Item ${CLASS_ID} is a class, not digital`);
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
   it('rejects publishing with an unavailable item but allows unpublished', async () => {
     manager.query.mockResolvedValue([
       { ...catalog.autocad, is_available: false },
       catalog.template,
     ]);
 
-    await expect(service.create('user-id', input())).rejects.toThrow(
-      /must be published/,
-    );
     await expect(
-      service.create('user-id', input({ status: 'unpublished' })),
-    ).resolves.toBeDefined();
+      service.create('user-id', input({ status: 'published' })),
+    ).rejects.toThrow(/must be published/);
+    await expect(service.create('user-id', input())).resolves.toBeDefined();
+  });
+
+  it('creates an unpublished bundle when no status is sent', async () => {
+    await service.create('user-id', input());
+
+    expect(manager.create).toHaveBeenCalledWith(
+      Bundle,
+      expect.objectContaining({ status: 'unpublished' }),
+    );
   });
 
   it.each([[424000], [500000]])(

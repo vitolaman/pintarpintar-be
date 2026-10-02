@@ -1,11 +1,15 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { DataSource, EntityManager } from 'typeorm';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
+import { SignInBodyDto } from './dto/sign-in.req.dto';
+import { SignUpBodyDto } from './dto/sign-up.req.dto';
 
 jest.mock('@nestjs/jwt', () => ({
   JwtService: jest.fn(),
@@ -196,5 +200,65 @@ describe('AuthService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(entityManager.save).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('auth request DTOs', () => {
+  const signUp = {
+    name: 'John Doe',
+    email: 'john.doe@gmail.com',
+    password: 'qwerty12',
+  };
+
+  async function errorFields(target: new () => object, value: object) {
+    const errors = await validate(plainToInstance(target, value));
+    return errors.map((error) => error.property);
+  }
+
+  it('trims the name and email but never the password', async () => {
+    const dto = plainToInstance(SignUpBodyDto, {
+      name: '  John Doe ',
+      email: ' john.doe@gmail.com ',
+      password: ' qwerty12 ',
+    });
+    expect(dto).toMatchObject({
+      name: 'John Doe',
+      email: 'john.doe@gmail.com',
+      password: ' qwerty12 ',
+    });
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[''], ['   '], [null]])(
+    'rejects a sign-up name or email of %j',
+    async (text) => {
+      expect(
+        await errorFields(SignUpBodyDto, {
+          ...signUp,
+          name: text,
+          email: text,
+        }),
+      ).toEqual(['name', 'email']);
+    },
+  );
+
+  it.each([[''], [null]])('rejects a password of %j', async (password) => {
+    const errors = await validate(
+      plainToInstance(SignUpBodyDto, { ...signUp, password }),
+    );
+    expect(errors.map((error) => error.property)).toEqual(['password']);
+    expect(errors[0].constraints).toHaveProperty('isNotEmpty');
+    expect(
+      await errorFields(SignInBodyDto, {
+        email: signUp.email,
+        password,
+      }),
+    ).toEqual(['password']);
+  });
+
+  it('rejects a blank sign-in email', async () => {
+    expect(
+      await errorFields(SignInBodyDto, { email: '  ', password: 'x' }),
+    ).toEqual(['email']);
   });
 });

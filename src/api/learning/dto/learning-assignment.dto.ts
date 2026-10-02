@@ -4,12 +4,11 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsString,
   IsUUID,
-  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
+import { RequiredText } from '~/common/decorator/input.decorator';
 
 export class LearnerResourceDto {
   @ApiProperty() name: string;
@@ -77,11 +76,10 @@ export class QuizAnswerDto {
   @IsUUID()
   question_id: string;
 
-  @ApiProperty({
+  @RequiredText({
+    max: 10_000,
     description: 'The chosen option text, or the essay answer',
   })
-  @IsString()
-  @MaxLength(10000)
   answer: string;
 }
 

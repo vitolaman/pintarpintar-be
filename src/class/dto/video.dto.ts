@@ -1,48 +1,37 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsOptional, IsUrl, IsUUID, ValidateIf } from 'class-validator';
 import {
-  IsIn,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUrl,
-  IsUUID,
-  MaxLength,
-  ValidateIf,
-} from 'class-validator';
-import { HTTPS_URL } from './content-validation';
+  ClearableText,
+  EnumInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
+import { HTTPS_URL, MAX_DESCRIPTION_LENGTH } from './content-validation';
 import { VideoSource, videoSources } from '../entities/video.entity';
 import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 
 export class CreateVideoDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
+  @RequiredText({ max: 255 })
   title: string;
 
-  @ApiProperty({ required: false })
-  @IsString()
-  @IsOptional()
-  description?: string;
+  @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
+  description?: string | null;
 
-  @ApiPropertyOptional({
-    enum: videoSources,
-    default: 'link',
+  @EnumInput(videoSources, {
+    presence: 'filter',
     description:
-      'link: send youtubeUrl. file: send asset_id (a class_video upload)',
+      'Optional: inferred from the field sent (youtubeUrl makes a link video, asset_id a file video). An explicit source must match that field.',
   })
-  @IsIn(videoSources)
-  @IsOptional()
   source?: VideoSource;
 
-  @ApiPropertyOptional({
+  // Not clearable: a link video needs its link, and a file video takes none.
+  @RequiredText({
+    max: 2048,
+    optional: true,
     example: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     description:
       'Required for a link video: an https YouTube or other video link',
   })
   @IsUrl(HTTPS_URL)
-  @MaxLength(2048)
-  @IsOptional()
   youtubeUrl?: string;
 
   @ApiPropertyOptional({
@@ -56,39 +45,26 @@ export class CreateVideoDto {
   @IsOptional()
   asset_id?: string;
 
-  @ApiProperty({ required: false, example: '12:30' })
-  @IsString()
-  @MaxLength(32)
-  @IsOptional()
-  duration?: string;
+  @ClearableText({ max: 32, example: '12:30' })
+  duration?: string | null;
 }
 
 export class UpdateVideoDto {
-  @ApiPropertyOptional()
-  @ValidateIf((_, value) => value !== undefined)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
+  @RequiredText({ max: 255, optional: true })
   title?: string;
 
-  @ApiPropertyOptional({ nullable: true })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @IsOptional()
+  @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
   description?: string | null;
 
-  @ApiPropertyOptional({
-    enum: videoSources,
-    description: "Switching the source needs that source's field too",
+  @EnumInput(videoSources, {
+    presence: 'optional',
+    description:
+      "Optional: sending youtubeUrl or asset_id switches the source. An explicit source needs that source's field too.",
   })
-  @ValidateIf((_, value) => value !== undefined)
-  @IsIn(videoSources)
   source?: VideoSource;
 
-  @ApiPropertyOptional()
-  @ValidateIf((_, value) => value !== undefined)
+  @RequiredText({ max: 2048, optional: true })
   @IsUrl(HTTPS_URL)
-  @MaxLength(2048)
   youtubeUrl?: string;
 
   @ApiPropertyOptional({
@@ -102,10 +78,6 @@ export class UpdateVideoDto {
   @IsUUID()
   asset_id?: string;
 
-  @ApiPropertyOptional({ nullable: true })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(32)
-  @IsOptional()
+  @ClearableText({ max: 32 })
   duration?: string | null;
 }

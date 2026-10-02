@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -7,33 +7,36 @@ import {
   IsIn,
   IsNumber,
   IsOptional,
-  IsString,
   IsUUID,
-  Length,
-  MaxLength,
-  Min,
   ValidateNested,
 } from 'class-validator';
 import { bundleStatuses, BundleStatus } from '../entities/bundle.entity';
-import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
+import {
+  ClearableText,
+  EnumInput,
+  NumberInput,
+  QueryFilter,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
+import {
+  ContentItemType,
+  contentItemTypes,
+} from '~/common/catalog/catalog-item';
 
 export const bundleItemTypes = ['kelas', 'digital'] as const;
 
 export type BundleItemType = (typeof bundleItemTypes)[number];
 
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
-
 export class BundleItemInputDto {
-  @ApiProperty({
-    enum: bundleItemTypes,
-    description: 'kelas = class, digital = digital product',
+  @EnumInput(contentItemTypes, {
+    presence: 'filter',
+    description:
+      'Optional: resolved from the id. When sent it must name the item family (kelas or bootcamp for a class, digital for a digital product).',
   })
-  @IsIn(bundleItemTypes)
-  type: BundleItemType;
+  type?: ContentItemType;
 
   @ApiProperty({ description: 'Class id or digital product id' })
   @IsUUID()
@@ -41,18 +44,13 @@ export class BundleItemInputDto {
 }
 
 export class CreateBundleDto {
-  @ApiProperty({ example: 'Paket AutoCAD & Template RAB', maxLength: 160 })
-  @Transform(trim)
-  @IsString()
-  @Length(1, 160)
+  @RequiredText({ max: 160, example: 'Paket AutoCAD & Template RAB' })
   title: string;
 
-  @ApiProperty({
+  @RequiredText({
+    max: 5000,
     example: 'Kelas AutoCAD lengkap plus template RAB siap pakai.',
   })
-  @Transform(trim)
-  @IsString()
-  @Length(1, 5000)
   description: string;
 
   @ApiPropertyOptional({
@@ -70,23 +68,18 @@ export class CreateBundleDto {
   @CoverAssetIds('product_cover')
   cover_asset_ids?: string[];
 
-  @ApiProperty({
+  @NumberInput({
+    min: 0.01,
     example: 349000,
     description: 'Must be below the items total',
   })
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.01)
   bundle_price: number;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 5000 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(5000)
+  @ClearableText({ max: 5000 })
   post_purchase_instructions?: string | null;
 
-  @ApiPropertyOptional({ enum: bundleStatuses, default: 'published' })
-  @OptionalNotNull()
-  @IsIn(bundleStatuses)
+  @EnumInput(bundleStatuses, { presence: 'optional', default: 'unpublished' })
   status?: BundleStatus;
 
   @ApiProperty({ type: [BundleItemInputDto], minItems: 2, maxItems: 20 })
@@ -104,9 +97,10 @@ export class UpdateBundleDto extends PartialType(CreateBundleDto, {
 }) {}
 
 export class BundleListQueryDto {
-  @ApiPropertyOptional({ enum: bundleStatuses })
-  @IsOptional()
-  @IsIn(bundleStatuses)
+  @EnumInput(bundleStatuses, {
+    presence: 'filter',
+    description: 'A blank value means every status',
+  })
   status?: BundleStatus;
 
   @PageQuery()
@@ -119,8 +113,10 @@ export class BundleListQueryDto {
 export class PublicBundleQueryDto {
   @ApiPropertyOptional({
     format: 'uuid',
-    description: "Only this merchant's bundles",
+    description:
+      "Only this merchant's bundles; a blank value means every merchant",
   })
+  @QueryFilter()
   @IsOptional()
   @IsUUID()
   merchant_id?: string;

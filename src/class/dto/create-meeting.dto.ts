@@ -1,30 +1,23 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsISO8601, IsOptional, IsUrl, IsUUID, Matches } from 'class-validator';
 import {
-  IsISO8601,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUrl,
-  IsUUID,
-  Matches,
-  Max,
-  MaxLength,
-  Min,
-} from 'class-validator';
-import { CALENDAR_DATE, CLOCK_TIME, HTTPS_URL } from './content-validation';
+  ClearableText,
+  NumberInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
+import {
+  CALENDAR_DATE,
+  CLOCK_TIME,
+  HTTPS_URL,
+  MAX_DESCRIPTION_LENGTH,
+} from './content-validation';
 
 export class CreateMeetingDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
+  @RequiredText({ max: 255 })
   title: string;
 
-  @ApiProperty({ required: false })
-  @IsString()
-  @IsOptional()
-  content?: string;
+  @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
+  content?: string | null;
 
   @ApiProperty({ example: '2026-10-15' })
   @Matches(CALENDAR_DATE, { message: 'date must be YYYY-MM-DD' })
@@ -35,21 +28,19 @@ export class CreateMeetingDto {
   @Matches(CLOCK_TIME, { message: 'time must be HH:mm' })
   time: string;
 
-  @ApiProperty({ required: false, example: 'https://zoom.us/j/123456789' })
+  @ClearableText({ max: 2048, example: 'https://zoom.us/j/123456789' })
   @IsUrl(HTTPS_URL)
-  @MaxLength(2048)
-  @IsOptional()
-  liveUrl?: string;
+  liveUrl?: string | null;
 
-  @ApiPropertyOptional({
+  @NumberInput({
+    presence: 'nullable',
+    integer: true,
+    min: 1,
+    max: 1440,
     example: 90,
     description: 'Minutes, 1–1440. The status treats an unset duration as 180.',
   })
-  @IsInt()
-  @Min(1)
-  @Max(1440)
-  @IsOptional()
-  duration_minutes?: number;
+  duration_minutes?: number | null;
 
   @ApiPropertyOptional({
     description: 'Mentor id of an active tutor of this class',

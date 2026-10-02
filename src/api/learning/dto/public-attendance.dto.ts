@@ -1,12 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { IsEmail } from 'class-validator';
 import {
-  IsEmail,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+  ClearableText,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
 import {
   MEETING_DURATION_DESCRIPTION,
   MEETING_STATUS_DESCRIPTION,
@@ -14,24 +11,18 @@ import {
 } from '../../../class/dto/class-response.dto';
 
 export class CheckInByEmailDto {
-  @ApiProperty({ example: 'Ahmad Rizki Pratama' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(120)
+  @RequiredText({ max: 120, example: 'Ahmad Rizki Pratama' })
   name: string;
 
-  @ApiProperty({ example: 'ahmad.rizki@student.id' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @RequiredText({ max: 255, example: 'ahmad.rizki@student.id' })
   @IsEmail()
-  @MaxLength(255)
   email: string;
 
-  @ApiPropertyOptional({ description: 'Session feedback (Ulasan & Masukan)' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(1000)
-  feedback?: string;
+  @ClearableText({
+    max: 1000,
+    description: 'Session feedback (Ulasan & Masukan)',
+  })
+  feedback?: string | null;
 }
 
 export class PublicAttendanceMeetingDto {

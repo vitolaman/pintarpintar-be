@@ -3,13 +3,11 @@ import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
-  IsIn,
   IsString,
-  Length,
   MaxLength,
   ValidateIf,
 } from 'class-validator';
-import { trimText } from '~/common/dto/text-transforms';
+import { EnumInput, RequiredText } from '~/common/decorator/input.decorator';
 import { uniqueSkills } from '~/common/util/skill-list';
 import {
   MAX_ONBOARDING_SKILL_LENGTH,
@@ -25,18 +23,14 @@ const toSkillList = ({ value }: { value: unknown }) =>
     : value;
 
 export class UpdateOnboardingDto {
-  @ApiProperty({ enum: ONBOARDING_ROLES, example: 'professional' })
-  @IsIn(ONBOARDING_ROLES)
+  @EnumInput(ONBOARDING_ROLES, { example: 'professional' })
   role: OnboardingRole;
 
+  @RequiredText({ max: 60, example: 'Konsultan Teknik' })
   @ApiPropertyOptional({
-    example: 'Konsultan Teknik',
     description: 'Required for role `custom`; ignored otherwise',
   })
   @ValidateIf((input: UpdateOnboardingDto) => input.role === 'custom')
-  @Transform(trimText)
-  @IsString()
-  @Length(1, 60)
   custom_role?: string;
 
   @ApiProperty({

@@ -1,4 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { CreateHelpTicketDto } from './dto/create-help-ticket.dto';
 import { HelpTicketType } from './entities/help-ticket.entity';
 import { HelpTicketService } from './help-ticket.service';
 
@@ -56,5 +59,42 @@ describe('HelpTicketService', () => {
     expect(helpTickets.findAndCount).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: 'user-id' } }),
     );
+  });
+});
+
+describe('CreateHelpTicketDto', () => {
+  it('matches the ticket type ignoring case and trims the message', async () => {
+    const dto = plainToInstance(CreateHelpTicketDto, {
+      ticket_type: ' Kritik ',
+      message: '  Aplikasi sering error. ',
+    });
+    expect(dto).toMatchObject({
+      ticket_type: HelpTicketType.KRITIK,
+      message: 'Aplikasi sering error.',
+    });
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[''], ['   '], [null]])(
+    'rejects a message of %j',
+    async (message) => {
+      const errors = await validate(
+        plainToInstance(CreateHelpTicketDto, {
+          ticket_type: 'saran',
+          message,
+        }),
+      );
+      expect(errors.map((error) => error.property)).toEqual(['message']);
+    },
+  );
+
+  it('rejects an unknown ticket type', async () => {
+    const errors = await validate(
+      plainToInstance(CreateHelpTicketDto, {
+        ticket_type: 'keluhan',
+        message: 'Halo',
+      }),
+    );
+    expect(errors.map((error) => error.property)).toEqual(['ticket_type']);
   });
 });

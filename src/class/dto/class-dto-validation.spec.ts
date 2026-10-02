@@ -1,8 +1,16 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { AttendanceStatus } from '../entities/attendance.entity';
+import { CheckInDto, SetAttendanceStatusDto } from './attendance.dto';
+import { UpdateCertificateSettingsDto } from './certificate.dto';
 import { ClassListQueryDto } from './class-list-query.dto';
+import { CreateChapterDto } from './create-chapter.dto';
 import { CreateClassDto } from './create-class.dto';
 import { CreateMeetingDto } from './create-meeting.dto';
+import { GradeSubmissionDto } from './grading.dto';
+import { InviteMentorDto } from './invite-mentor.dto';
+import { UpdateChapterDto } from './update-chapter.dto';
+import { UpdateClassMentorDto } from './update-class-mentor.dto';
 import { UpdateMeetingDto } from './update-meeting.dto';
 import { UpdateClassDto } from './update-class.dto';
 
@@ -63,7 +71,9 @@ describe('class DTO validation', () => {
       },
       [],
     ],
-    [{ title: 'Kelas', level: 'pemula' }, ['level']],
+    [{ title: 'Kelas', level: 'Expert' }, ['level']],
+    [{ title: '  ' }, ['title']],
+    [{ title: 'Kelas', status: null }, ['status']],
     [
       { title: 'Kelas', learning_outcomes: 'Membuat denah' },
       ['learning_outcomes'],
@@ -112,5 +122,158 @@ describe('class DTO validation', () => {
     [{ mentor_id: 'mentor' }, ['mentor_id']],
   ])('validates meeting detail updates %j', async (input, fields) => {
     expect(await errorFields(UpdateMeetingDto, input)).toEqual(fields);
+  });
+
+  describe('clearing, required text, enums and numbers', () => {
+    it('clears optional class text and nullable enums with "" or null', async () => {
+      const dto = plainToInstance(UpdateClassDto, {
+        description: '',
+        post_purchase_instructions: null,
+        duration: '   ',
+        prerequisites: '',
+        category: '',
+        level: null,
+      });
+
+      expect(dto).toMatchObject({
+        description: null,
+        post_purchase_instructions: null,
+        duration: null,
+        prerequisites: null,
+        category: null,
+        level: null,
+      });
+      expect(await validate(dto)).toEqual([]);
+    });
+
+    it.each([[''], ['  '], [null]])(
+      'rejects the required class title %j',
+      async (title) => {
+        expect(await errorFields(UpdateClassDto, { title })).toEqual(['title']);
+        expect(await errorFields(CreateClassDto, { title })).toEqual(['title']);
+      },
+    );
+
+    it.each([
+      [{ status: '' }, ['status']],
+      [{ type: null }, ['type']],
+      [{ originalPrice: null }, ['originalPrice']],
+    ])('rejects clearing NOT NULL class field %j', async (input, fields) => {
+      expect(await errorFields(UpdateClassDto, input)).toEqual(fields);
+    });
+
+    it('stores class enums canonically and accepts numeric strings', async () => {
+      const dto = plainToInstance(CreateClassDto, {
+        title: '  Kelas  ',
+        status: ' Published ',
+        type: 'LIVE-BOOTCAMP',
+        category: 'sipil',
+        level: ' mahir',
+        originalPrice: '150000',
+        discountedPrice: '',
+      });
+
+      expect(dto).toMatchObject({
+        title: 'Kelas',
+        status: 'published',
+        type: 'live-bootcamp',
+        category: 'Sipil',
+        level: 'Mahir',
+        originalPrice: 150000,
+      });
+      expect(dto.discountedPrice).toBeUndefined();
+      expect(await validate(dto)).toEqual([]);
+    });
+
+    it('leaves the status of a new class unset so it defaults to draft', () => {
+      expect(plainToInstance(CreateClassDto, { title: 'Kelas' }).status).toBe(
+        undefined,
+      );
+    });
+
+    it('clears chapter and meeting text, and takes a numeric order', async () => {
+      const chapter = plainToInstance(CreateChapterDto, {
+        title: 'Bab 1',
+        description: '',
+        order: '2',
+      });
+      expect(chapter).toMatchObject({ description: null, order: 2 });
+      expect(await validate(chapter)).toEqual([]);
+
+      const update = plainToInstance(UpdateMeetingDto, {
+        content: '  ',
+        liveUrl: '',
+        duration_minutes: '90',
+      });
+      expect(update).toMatchObject({
+        content: null,
+        liveUrl: null,
+        duration_minutes: 90,
+      });
+      expect(await validate(update)).toEqual([]);
+    });
+
+    it.each([
+      [UpdateChapterDto, { title: '' }, ['title']],
+      [UpdateChapterDto, { title: null }, ['title']],
+      [UpdateMeetingDto, { title: '  ' }, ['title']],
+      [CreateMeetingDto, { ...meeting, title: '' }, ['title']],
+      [
+        CreateMeetingDto,
+        { ...meeting, liveUrl: 'http://zoom.us/j/1' },
+        ['liveUrl'],
+      ],
+      [CreateChapterDto, { title: 'Bab', order: null }, ['order']],
+    ])('rejects %p %j', async (target, input, fields) => {
+      expect(await errorFields(target as never, input)).toEqual(fields);
+    });
+
+    it('clears the check-in review and grading feedback', async () => {
+      const checkIn = plainToInstance(CheckInDto, { review: '  ' });
+      expect(checkIn.review).toBeNull();
+      expect(await validate(checkIn)).toEqual([]);
+
+      const grade = plainToInstance(GradeSubmissionDto, {
+        feedback: '',
+        score: '85',
+      });
+      expect(grade).toMatchObject({ feedback: null, score: 85 });
+      expect(await validate(grade)).toEqual([]);
+    });
+
+    it('matches attendance status, tutor role and numbers case-insensitively', async () => {
+      const status = plainToInstance(SetAttendanceStatusDto, {
+        status: ' Hadir ',
+      });
+      expect(status.status).toBe(AttendanceStatus.HADIR);
+      expect(await validate(status)).toEqual([]);
+
+      const invite = plainToInstance(InviteMentorDto, {
+        email: ' mentor@example.com ',
+        role: 'Lead',
+      });
+      expect(invite).toMatchObject({
+        email: 'mentor@example.com',
+        role: 'lead',
+      });
+      expect(await validate(invite)).toEqual([]);
+
+      const settings = plainToInstance(UpdateCertificateSettingsDto, {
+        min_score: '75',
+      });
+      expect(settings.min_score).toBe(75);
+      expect(await validate(settings)).toEqual([]);
+    });
+
+    it.each([
+      [InviteMentorDto, { email: '', role: 'lead' }, ['email']],
+      [InviteMentorDto, { email: 'a@b.co', role: 'owner' }, ['role']],
+      [UpdateClassMentorDto, { role: null }, ['role']],
+      [SetAttendanceStatusDto, { status: 'absen' }, ['status']],
+      [UpdateCertificateSettingsDto, { min_score: null }, ['min_score']],
+      [GradeSubmissionDto, { score: '101' }, ['score']],
+    ])('rejects %p %j', async (target, input, fields) => {
+      expect(await errorFields(target as never, input)).toEqual(fields);
+    });
   });
 });

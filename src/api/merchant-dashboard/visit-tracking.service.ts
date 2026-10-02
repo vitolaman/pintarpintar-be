@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { TrackVisitDto } from './dto/merchant-analytics.dto';
@@ -39,6 +43,11 @@ export class VisitTrackingService {
     userId: string | null,
     userAgent: string | undefined,
   ) {
+    if (!userId && !input.visitor_id) {
+      throw new BadRequestException(
+        'visitor_id is required when the request has no login token',
+      );
+    }
     const merchant = await this.findTargetMerchant(input);
     if (!merchant) throw new NotFoundException('Page not found');
 

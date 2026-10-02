@@ -1,23 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { EnumInput, QueryFilter } from '~/common/decorator/input.decorator';
 
 export const mentorClassTypes = ['bootcamp', 'kelas'] as const;
 export type MentorClassType = (typeof mentorClassTypes)[number];
 
 export class MentorClassesQueryDto {
-  @ApiPropertyOptional({ enum: mentorClassTypes })
-  @IsOptional()
-  @IsIn(mentorClassTypes)
+  @EnumInput(mentorClassTypes, { presence: 'filter' })
   type?: MentorClassType;
 
   @ApiPropertyOptional({
     description: 'Matches the class title or merchant name',
   })
+  @QueryFilter()
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   search?: string;
 }
 

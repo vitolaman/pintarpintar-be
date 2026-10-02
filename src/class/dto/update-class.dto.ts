@@ -2,15 +2,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
-  IsEnum,
-  IsIn,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
-  Min,
   ValidateIf,
 } from 'class-validator';
 import {
@@ -23,52 +19,41 @@ import {
 import { ClassStatus, ClassType } from '../entities/class.entity';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
+import {
+  ClearableText,
+  EnumInput,
+  NumberInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
+import { MAX_DESCRIPTION_LENGTH } from './content-validation';
 
-// Omitted fields stay unchanged; null clears a nullable field and is
+// Omitted fields stay unchanged; null or "" clears a nullable field and is
 // rejected for the others.
 export class UpdateClassDto {
-  @ApiPropertyOptional()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
-  @ValidateIf((_, value) => value !== undefined)
+  @RequiredText({ max: 255, optional: true })
   title?: string;
 
-  @ApiPropertyOptional({ nullable: true })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @IsOptional()
+  @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
   description?: string | null;
 
-  @ApiPropertyOptional({ enum: ClassType })
-  @IsEnum(ClassType)
-  @ValidateIf((_, value) => value !== undefined)
+  @EnumInput(Object.values(ClassType), { presence: 'optional' })
   type?: ClassType;
 
-  @ApiPropertyOptional({
-    enum: ClassStatus,
+  @EnumInput(Object.values(ClassStatus), {
+    presence: 'optional',
     description: '`archived` means unlisted: hidden from lists, open by link',
   })
-  @IsEnum(ClassStatus)
-  @ValidateIf((_, value) => value !== undefined)
   status?: ClassStatus;
 
-  @ApiPropertyOptional({ minimum: 0 })
-  @IsNumber()
-  @Min(0)
-  @ValidateIf((_, value) => value !== undefined)
+  @NumberInput({ presence: 'optional', min: 0 })
   originalPrice?: number;
 
-  @ApiPropertyOptional({
-    minimum: 0,
-    nullable: true,
+  @NumberInput({
+    presence: 'nullable',
+    min: 0,
     description:
       'Selling price; when greater than 0, must not exceed originalPrice. Null removes the discount',
   })
-  @IsNumber()
-  @Min(0)
-  @ValidateIf((_, value) => value !== null)
-  @IsOptional()
   discountedPrice?: number | null;
 
   @ApiPropertyOptional({
@@ -87,41 +72,19 @@ export class UpdateClassDto {
   @CoverAssetIds('class_cover')
   cover_asset_ids?: string[];
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 5000 })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(5000)
-  @IsOptional()
+  @ClearableText({ max: 5000 })
   post_purchase_instructions?: string | null;
 
-  @ApiPropertyOptional({
-    enum: classCategories,
-    nullable: true,
-    description: 'Bidang',
-  })
-  @ValidateIf((_, value) => value !== null)
-  @IsIn(classCategories)
-  @IsOptional()
+  @EnumInput(classCategories, { presence: 'nullable', description: 'Bidang' })
   category?: ClassCategory | null;
 
-  @ApiPropertyOptional({ enum: learningLevels, nullable: true })
-  @ValidateIf((_, value) => value !== null)
-  @IsIn(learningLevels)
-  @IsOptional()
+  @EnumInput(learningLevels, { presence: 'nullable' })
   level?: LearningLevel | null;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 60 })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(60)
-  @IsOptional()
+  @ClearableText({ max: 60 })
   duration?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(2000)
-  @IsOptional()
+  @ClearableText({ max: 2000 })
   prerequisites?: string | null;
 
   @ApiPropertyOptional({

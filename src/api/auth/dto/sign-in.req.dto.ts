@@ -1,15 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { RequiredText } from '~/common/decorator/input.decorator';
 
 export class SignInBodyDto {
-  @IsNotEmpty()
+  @RequiredText({ max: 255, example: 'john.doe@gmail.com' })
   @IsEmail()
-  @IsString()
-  @ApiProperty({ example: 'john.doe@gmail.com' })
   email: string;
 
-  @IsNotEmpty()
-  @IsString()
+  // Passwords are never trimmed: spaces are part of the secret.
   @ApiProperty({ example: 'qwerty1!' })
+  @IsString()
+  @IsNotEmpty()
   password: string;
 }

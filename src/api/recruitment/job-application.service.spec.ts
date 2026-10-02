@@ -13,7 +13,12 @@ import { Merchant } from '../merchant/entities/merchant.entity';
 import { Mentor } from '../mentor/entities/mentor.entity';
 import { FileAsset } from '../profile/entities/file-asset.entity';
 import { User } from '../user/entities/user.entity';
-import { ApplyJobDto, ScheduleInterviewDto } from './dto/job-application.dto';
+import {
+  ApplicantQueryDto,
+  ApplyJobDto,
+  MyApplicationQueryDto,
+  ScheduleInterviewDto,
+} from './dto/job-application.dto';
 import { JobApplication } from './entities/job-application.entity';
 import { MerchantMentor } from './entities/merchant-mentor.entity';
 import { JobApplicationService } from './job-application.service';
@@ -68,6 +73,52 @@ describe('job application DTOs', () => {
         ...value,
       }),
     ).toEqual(fields);
+  });
+
+  it.each([[''], ['   '], [null]])('clears the note with %j', async (note) => {
+    const dto = plainToInstance(ApplyJobDto, { ...applyInput, note });
+    expect(dto.note).toBeNull();
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[''], ['   '], [null]])('rejects a phone of %j', async (phone) => {
+    expect(await errorFields(ApplyJobDto, { ...applyInput, phone })).toEqual([
+      'phone',
+    ]);
+  });
+
+  it.each([[''], [null]])('rejects an interview link of %j', async (url) => {
+    expect(
+      await errorFields(ScheduleInterviewDto, {
+        interview_at: '2026-11-15T10:00:00+07:00',
+        interview_url: url,
+      }),
+    ).toEqual(['interview_url']);
+  });
+
+  it('treats blank applicant filters as no filter', async () => {
+    const query = plainToInstance(ApplicantQueryDto, {
+      status: '',
+      job_id: ' ',
+      search: '  ',
+    });
+    expect(query).toMatchObject({
+      status: undefined,
+      job_id: undefined,
+      search: undefined,
+    });
+    expect(await validate(query)).toEqual([]);
+  });
+
+  it('matches the status filter ignoring case', async () => {
+    const query = plainToInstance(MyApplicationQueryDto, {
+      status: ' Interview ',
+    });
+    expect(query.status).toBe('interview');
+    expect(await validate(query)).toEqual([]);
+    expect(
+      await errorFields(MyApplicationQueryDto, { status: 'pending' }),
+    ).toEqual(['status']);
   });
 });
 

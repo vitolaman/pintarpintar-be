@@ -28,3 +28,60 @@ describe('CatalogQueryDto file_format', () => {
     ]);
   });
 });
+
+describe('CatalogQueryDto filters', () => {
+  const parse = (input: object) => plainToInstance(CatalogQueryDto, input);
+  const errorFields = async (input: object) =>
+    (await validate(parse(input))).map((error) => error.property);
+
+  it('treats blank filters as no filter and keeps the default sort', async () => {
+    const query = parse({
+      type: '',
+      search: '  ',
+      level: '',
+      category: ' ',
+      merchant_id: '',
+      file_format: '',
+      sort: '',
+    });
+
+    expect(await validate(query)).toEqual([]);
+    expect(query).toMatchObject({
+      type: undefined,
+      search: undefined,
+      level: undefined,
+      category: undefined,
+      merchant_id: undefined,
+      file_format: undefined,
+      sort: 'terbaru',
+    });
+  });
+
+  it('trims text filters', () => {
+    expect(parse({ category: ' Sipil ', search: ' rab ' })).toMatchObject({
+      category: 'Sipil',
+      search: 'rab',
+    });
+  });
+
+  it('matches enum filters ignoring case and spaces', async () => {
+    const query = parse({
+      type: ' Kelas,BOOTCAMP ',
+      level: ' mahir ',
+      sort: 'Termurah',
+    });
+
+    expect(await validate(query)).toEqual([]);
+    expect(query).toMatchObject({
+      type: ['kelas', 'bootcamp'],
+      level: 'Mahir',
+      sort: 'termurah',
+    });
+  });
+
+  it('rejects unknown enum values', async () => {
+    expect(await errorFields({ type: 'kelas,webinar' })).toEqual(['type']);
+    expect(await errorFields({ level: 'expert' })).toEqual(['level']);
+    expect(await errorFields({ sort: 'cheapest' })).toEqual(['sort']);
+  });
+});

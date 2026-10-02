@@ -1,7 +1,8 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsInt, IsOptional, IsString } from 'class-validator';
+import { QueryFilter } from '../decorator/input.decorator';
 
 export const DEFAULT_PAGE_LIMIT = 10;
 export const MAX_PAGE_LIMIT = 100;
@@ -81,8 +82,9 @@ export class RequestPaginatedQueryDto {
 }
 
 export class RequestPaginatedQueryWithSearchDto extends RequestPaginatedQueryDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'A blank value means no search' })
+  @QueryFilter()
   @IsOptional()
-  @IsNotEmpty()
+  @IsString()
   search?: string;
 }

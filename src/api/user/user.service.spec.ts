@@ -4,8 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { compare } from 'bcryptjs';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { Repository } from 'typeorm';
 import { Merchant } from '../merchant/entities/merchant.entity';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateCurrentUserBodyDto } from './dto/update-current-user.req.dto';
 import { User } from './entities/user.entity';
 import { UserService } from './user.service';
 
@@ -205,6 +209,50 @@ describe('UserService', () => {
       id: user.id,
       email: user.email,
       merchant_id: 'c8a64b8f-2f0b-4c4e-9a43-2f4c1f2d7a10',
+    });
+  });
+});
+
+describe('user request DTOs', () => {
+  it('trims the name and rejects a blank or null one', async () => {
+    expect(
+      plainToInstance(UpdateCurrentUserBodyDto, { name: '  Jane ' }).name,
+    ).toBe('Jane');
+    for (const name of ['', '  ', null]) {
+      const errors = await validate(
+        plainToInstance(UpdateCurrentUserBodyDto, { name }),
+      );
+      expect(errors.map((error) => error.property)).toEqual(['name']);
+    }
+  });
+
+  it.each([[''], [null]])(
+    'rejects a password change with %j as either password',
+    async (password) => {
+      const errors = await validate(
+        plainToInstance(ChangePasswordDto, {
+          current_password: password,
+          new_password: password,
+        }),
+      );
+      expect(errors.map((error) => error.property)).toEqual([
+        'current_password',
+        'new_password',
+      ]);
+      for (const error of errors) {
+        expect(error.constraints).toHaveProperty('isNotEmpty');
+      }
+    },
+  );
+
+  it('keeps the spaces of a password', () => {
+    const dto = plainToInstance(ChangePasswordDto, {
+      current_password: ' lama123 ',
+      new_password: ' baru1234 ',
+    });
+    expect(dto).toMatchObject({
+      current_password: ' lama123 ',
+      new_password: ' baru1234 ',
     });
   });
 });

@@ -4,159 +4,112 @@ import {
   ArrayMaxSize,
   IsArray,
   IsEmail,
-  IsIn,
-  IsInt,
   IsOptional,
   IsString,
   IsUrl,
   IsUUID,
   Length,
-  Max,
-  Min,
   ValidateIf,
 } from 'class-validator';
 import { merchantCategoryLabels } from '~/common/constants/merchant-category';
-import { trimOptionalText, trimText } from '~/common/dto/text-transforms';
+import {
+  ClearableText,
+  EnumInput,
+  NumberInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
 
+// A leading "@" is not part of the handle, so "@" alone clears it.
+const stripHandlePrefix = ({ value }: { value: unknown }) => {
+  if (typeof value !== 'string') return value;
+  return value.trim().replace(/^@/, '').trim() || null;
+};
+
 export class UpdateMerchantProfileDto {
-  @ApiPropertyOptional({ example: 'Akademi Teknik' })
-  @OptionalNotNull()
-  @IsString()
-  @Length(1, 120)
-  @Transform(trimText)
+  @RequiredText({ max: 120, optional: true, example: 'Akademi Teknik' })
   store_name?: string;
 
-  @ApiPropertyOptional({
+  @ClearableText({
+    max: 10_000,
     example: '<p><b>Kelas</b> teknologi praktis.</p>',
     description:
       'Rich text; sanitized to bold, italic, underline, lists, alignment, and font sizes 10–32px',
   })
-  @IsOptional()
-  @IsString()
-  @Length(1, 10_000)
-  @Transform(trimText)
-  store_description?: string;
+  store_description?: string | null;
 
-  @ApiPropertyOptional({ example: '+62 812-3456-7890' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 32)
-  @Transform(trimText)
-  phone?: string;
+  @ClearableText({ max: 32, example: '+62 812-3456-7890' })
+  phone?: string | null;
 
-  @ApiPropertyOptional({ example: 'Belajar teknologi dari praktisi.' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 160)
-  @Transform(trimText)
-  tagline?: string;
+  @ClearableText({ max: 160, example: 'Belajar teknologi dari praktisi.' })
+  tagline?: string | null;
 
-  @ApiPropertyOptional({
-    enum: merchantCategoryLabels,
-    nullable: true,
+  @EnumInput(merchantCategoryLabels, {
+    presence: 'nullable',
     example: 'Teknik & Arsitektur',
   })
-  @IsOptional()
-  @IsIn(merchantCategoryLabels)
-  @Transform(trimOptionalText)
   category_label?: string | null;
 
-  @ApiPropertyOptional({ example: 'Bandung' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 120)
-  @Transform(trimText)
-  city?: string;
+  @ClearableText({ max: 120, example: 'Bandung' })
+  city?: string | null;
 
-  @ApiPropertyOptional({ example: 'contact@akademi.example' })
-  @IsOptional()
+  @ClearableText({ max: 255, example: 'contact@akademi.example' })
   @IsEmail()
-  @Length(1, 255)
-  @Transform(trimText)
-  public_email?: string;
+  public_email?: string | null;
 
-  @ApiPropertyOptional({ example: '+62 812-3456-7890' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 32)
-  @Transform(trimText)
-  public_phone?: string;
+  @ClearableText({ max: 32, example: '+62 812-3456-7890' })
+  public_phone?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://akademi.example' })
-  @IsOptional()
+  @ClearableText({ max: 2_048, example: 'https://akademi.example' })
   @IsUrl({ require_tld: false })
-  @Length(1, 2_048)
-  @Transform(trimText)
-  website_url?: string;
+  website_url?: string | null;
 
-  @ApiPropertyOptional({ example: 'akademi_teknik' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 120)
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim().replace(/^@/, '') : value,
-  )
-  instagram_handle?: string;
+  @Transform(stripHandlePrefix)
+  @ClearableText({ max: 120, example: 'akademi_teknik' })
+  instagram_handle?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://youtube.com/@akademi' })
-  @IsOptional()
+  @ClearableText({ max: 2_048, example: 'https://youtube.com/@akademi' })
   @IsUrl({ require_tld: false })
-  @Length(1, 2_048)
-  @Transform(trimText)
-  youtube_url?: string;
+  youtube_url?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://linkedin.com/company/akademi' })
-  @IsOptional()
+  @ClearableText({
+    max: 2_048,
+    example: 'https://linkedin.com/company/akademi',
+  })
   @IsUrl({ require_tld: false })
-  @Length(1, 2_048)
-  @Transform(trimText)
-  linkedin_url?: string;
+  linkedin_url?: string | null;
 
-  @ApiPropertyOptional({ example: 'Frontend engineering' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 160)
-  @Transform(trimText)
-  expertise?: string;
+  @ClearableText({ max: 160, example: 'Frontend engineering' })
+  expertise?: string | null;
 
-  @ApiPropertyOptional({ example: 4, minimum: 0, maximum: 80 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(80)
-  experience_years?: number;
+  @NumberInput({
+    presence: 'nullable',
+    integer: true,
+    min: 0,
+    max: 80,
+    example: 4,
+  })
+  experience_years?: number | null;
 
-  @ApiPropertyOptional({ example: 'S1 Teknik Informatika' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 255)
-  @Transform(trimText)
-  education?: string;
+  @ClearableText({ max: 255, example: 'S1 Teknik Informatika' })
+  education?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://portfolio.example' })
-  @IsOptional()
+  @ClearableText({ max: 2_048, example: 'https://portfolio.example' })
   @IsUrl({ require_tld: false })
-  @Length(1, 2_048)
-  @Transform(trimText)
-  portfolio_url?: string;
+  portfolio_url?: string | null;
 
-  @ApiPropertyOptional({ example: 'Refund tersedia sebelum materi diakses.' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 4_000)
-  @Transform(trimText)
-  refund_policy?: string;
+  @ClearableText({
+    max: 4_000,
+    example: 'Refund tersedia sebelum materi diakses.',
+  })
+  refund_policy?: string | null;
 
-  @ApiPropertyOptional({
+  @ClearableText({
+    max: 4_000,
     example: 'Lisensi personal, tidak dapat didistribusikan.',
   })
-  @IsOptional()
-  @IsString()
-  @Length(1, 4_000)
-  @Transform(trimText)
-  digital_license?: string;
+  digital_license?: string | null;
 
   @ApiPropertyOptional({
     nullable: true,

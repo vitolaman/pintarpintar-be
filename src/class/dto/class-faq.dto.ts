@@ -1,21 +1,16 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsIn, IsString, Length } from 'class-validator';
-import { trimText } from '../../common/dto/text-transforms';
+import { EnumInput, RequiredText } from '~/common/decorator/input.decorator';
 
 export const MAX_CLASS_FAQS = 50;
 
 export class CreateClassFaqDto {
-  @ApiProperty({ example: 'Apakah kelas ini cocok untuk pemula?' })
-  @Transform(trimText)
-  @IsString()
-  @Length(1, 300)
+  @RequiredText({
+    max: 300,
+    example: 'Apakah kelas ini cocok untuk pemula?',
+  })
   question: string;
 
-  @ApiProperty({ example: 'Ya, materi dimulai dari dasar.' })
-  @Transform(trimText)
-  @IsString()
-  @Length(1, 3000)
+  @RequiredText({ max: 3000, example: 'Ya, materi dimulai dari dasar.' })
   answer: string;
 }
 
@@ -31,7 +26,6 @@ export class ClassFaqResponseDto {
 }
 
 export class DuplicateClassDto {
-  @ApiProperty({ enum: ['video', 'live-bootcamp'] })
-  @IsIn(['video', 'live-bootcamp'])
+  @EnumInput(['video', 'live-bootcamp'] as const)
   type: 'video' | 'live-bootcamp';
 }

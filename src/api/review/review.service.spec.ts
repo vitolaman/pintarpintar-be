@@ -4,7 +4,10 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { DataSource, QueryFailedError } from 'typeorm';
+import { CreateReviewDto } from './dto/review.dto';
 import { ReviewService } from './review.service';
 
 describe('ReviewService', () => {
@@ -225,4 +228,40 @@ describe('ReviewService', () => {
       } as never),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+});
+
+describe('CreateReviewDto', () => {
+  const classId = '30000000-0000-4000-8000-000000000001';
+
+  it.each([[''], ['   '], [null]])(
+    'clears the comment with %j',
+    async (comment) => {
+      const dto = plainToInstance(CreateReviewDto, {
+        class_id: classId,
+        rating: 5,
+        comment,
+      });
+      expect(dto.comment).toBeNull();
+      expect(await validate(dto)).toEqual([]);
+    },
+  );
+
+  it('accepts a numeric string rating', async () => {
+    const dto = plainToInstance(CreateReviewDto, {
+      class_id: classId,
+      rating: ' 4 ',
+    });
+    expect(dto.rating).toBe(4);
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[''], ['6'], ['4.5'], [null]])(
+    'rejects a rating of %j',
+    async (rating) => {
+      const errors = await validate(
+        plainToInstance(CreateReviewDto, { class_id: classId, rating }),
+      );
+      expect(errors.map((error) => error.property)).toEqual(['rating']);
+    },
+  );
 });

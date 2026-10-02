@@ -119,6 +119,9 @@ describe('MerchantWithdrawalService', () => {
     [{ amount: 150000.5 }, true],
     [{ amount: 100000, payout_account_id: 'nope' }, true],
     [{ amount: 100000 }, false],
+    [{ amount: '250000' }, false],
+    [{ amount: '' }, true],
+    [{ amount: null }, true],
   ])('validates %j', async (input, hasErrors) => {
     const errors = await validate(plainToInstance(RequestWithdrawalDto, input));
     expect(errors.length > 0).toBe(hasErrors);

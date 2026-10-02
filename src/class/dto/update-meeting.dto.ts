@@ -1,32 +1,29 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsISO8601,
-  IsInt,
-  IsNotEmpty,
   IsOptional,
-  IsString,
   IsUrl,
   IsUUID,
   Matches,
-  Max,
-  MaxLength,
-  Min,
   ValidateIf,
 } from 'class-validator';
-import { CALENDAR_DATE, CLOCK_TIME, HTTPS_URL } from './content-validation';
+import {
+  ClearableText,
+  NumberInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
+import {
+  CALENDAR_DATE,
+  CLOCK_TIME,
+  HTTPS_URL,
+  MAX_DESCRIPTION_LENGTH,
+} from './content-validation';
 
 export class UpdateMeetingDto {
-  @ApiPropertyOptional()
-  @ValidateIf((_, value) => value !== undefined)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
+  @RequiredText({ max: 255, optional: true })
   title?: string;
 
-  @ApiPropertyOptional({ nullable: true })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @IsOptional()
+  @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
   content?: string | null;
 
   @ApiPropertyOptional({ example: '2026-10-15' })
@@ -40,23 +37,18 @@ export class UpdateMeetingDto {
   @Matches(CLOCK_TIME, { message: 'time must be HH:mm' })
   time?: string;
 
-  @ApiPropertyOptional({ nullable: true })
-  @ValidateIf((_, value) => value !== null)
+  @ClearableText({ max: 2048 })
   @IsUrl(HTTPS_URL)
-  @MaxLength(2048)
-  @IsOptional()
   liveUrl?: string | null;
 
-  @ApiPropertyOptional({
-    nullable: true,
+  @NumberInput({
+    presence: 'nullable',
+    integer: true,
+    min: 1,
+    max: 1440,
     example: 90,
     description: 'Minutes, 1–1440; null clears it',
   })
-  @ValidateIf((_, value) => value !== null)
-  @IsInt()
-  @Min(1)
-  @Max(1440)
-  @IsOptional()
   duration_minutes?: number | null;
 
   @ApiPropertyOptional({

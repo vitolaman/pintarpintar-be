@@ -1,28 +1,26 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { catalogSorts, CatalogSort } from '../../catalog/dto/catalog.dto';
 import { PublicVoucherResponseDto } from '../../voucher/dto/voucher-response.dto';
+import { EnumInput } from '~/common/decorator/input.decorator';
 import { LimitQuery } from '~/common/dto/request-paginated.dto';
 
 export const promoItemTypes = ['kelas', 'digital'] as const;
 
 export class PromoItemsQueryDto {
-  @ApiPropertyOptional({
-    enum: promoItemTypes,
+  // a blank type means the default tab.
+  @EnumInput(promoItemTypes, {
+    presence: 'filter',
     default: 'kelas',
     description:
       'kelas = video classes and bootcamps; digital = digital products',
   })
-  @IsOptional()
-  @IsIn(promoItemTypes)
   type: (typeof promoItemTypes)[number] = 'kelas';
 
-  @ApiPropertyOptional({
-    enum: catalogSorts,
-    description: 'Omit for a random pick',
+  @EnumInput(catalogSorts, {
+    presence: 'filter',
+    description: 'Omit, or send a blank value, for a random pick',
   })
-  @IsOptional()
-  @IsIn(catalogSorts)
   sort?: CatalogSort;
 
   @LimitQuery({

@@ -217,18 +217,24 @@ export function matchAnswers(
   }
   return questions.map((question) => {
     const value = byQuestion.get(question.id);
-    if (value === undefined || value.trim() === '') {
+    if (value === undefined) {
       throw new BadRequestException('Every question must be answered');
     }
     if (question.type === 'essay') {
       return { question, value, isCorrect: null, score: null };
     }
-    if (!question.options?.includes(value)) {
+    // Answers arrive trimmed; older questions may store options and their
+    // correct answer with surrounding spaces, so the stored option is the
+    // one compared with the answer key.
+    const option = question.options?.find(
+      (candidate) => candidate.trim() === value,
+    );
+    if (option === undefined) {
       throw new BadRequestException(
         'A multiple-choice answer must be one of its options',
       );
     }
-    const isCorrect = value === question.correct_answer;
+    const isCorrect = option === question.correct_answer;
     return {
       question,
       value,

@@ -40,6 +40,34 @@ describe('UpdateOnboardingDto', () => {
   ])('validates %j', async (value, fields) => {
     expect(await errorFields(value)).toEqual(fields);
   });
+
+  it('matches the role ignoring case and stores it canonically', async () => {
+    const dto = plainToInstance(UpdateOnboardingDto, {
+      role: ' Custom ',
+      custom_role: '  Konsultan Teknik ',
+      skills: [],
+    });
+    expect(dto).toMatchObject({
+      role: 'custom',
+      custom_role: 'Konsultan Teknik',
+    });
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[''], [null]])(
+    'rejects a custom role of %j for role custom',
+    async (custom_role) => {
+      expect(
+        await errorFields({ role: 'custom', custom_role, skills: [] }),
+      ).toEqual(['custom_role']);
+    },
+  );
+
+  it('ignores the custom role for any other role', async () => {
+    expect(
+      await errorFields({ role: 'mahasiswa', custom_role: null, skills: [] }),
+    ).toEqual([]);
+  });
 });
 
 describe('ProfileService.updateOnboarding', () => {

@@ -1,17 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 import {
-  IsIn,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
-  Length,
   Matches,
   MaxLength,
-  Min,
   ValidateIf,
 } from 'class-validator';
+import {
+  ClearableText,
+  EnumInput,
+  NumberInput,
+  QueryFilter,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
@@ -24,23 +27,14 @@ export const productStatuses = [
 
 export type ProductStatus = (typeof productStatuses)[number];
 
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
-
 const CATEGORY_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export class CreateDigitalProductDto {
-  @ApiProperty({ example: 'Template RAB Excel Proyek Rumah', maxLength: 255 })
-  @Transform(trim)
-  @IsString()
-  @Length(1, 255)
+  @RequiredText({ max: 255, example: 'Template RAB Excel Proyek Rumah' })
   title: string;
 
-  @ApiPropertyOptional()
-  @IsString()
-  @MaxLength(10000)
-  @IsOptional()
-  description?: string;
+  @ClearableText({ max: 10000 })
+  description?: string | null;
 
   @ApiProperty({
     example: 'excel',
@@ -50,29 +44,30 @@ export class CreateDigitalProductDto {
   @Matches(CATEGORY_SLUG, { message: 'category_slug must be a category slug' })
   category_slug: string;
 
-  @ApiProperty({
+  @NumberInput({
+    min: 0,
     example: 150000,
-    minimum: 0,
     description: 'List price (Harga Asli)',
   })
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
   original_price: number;
 
-  @ApiPropertyOptional({
+  @NumberInput({
+    presence: 'nullable',
+    min: 0,
     example: 99000,
-    minimum: 0,
     description:
       'Selling price when greater than 0; must not exceed original_price',
   })
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @IsOptional()
-  discount_price?: number;
+  discount_price?: number | null;
 
-  @ApiProperty({ enum: productStatuses, example: 'unpublished' })
-  @IsIn(productStatuses)
-  status: ProductStatus;
+  @EnumInput(productStatuses, {
+    presence: 'optional',
+    default: 'unpublished',
+    example: 'unpublished',
+  })
+  status?: ProductStatus;
 
   @ApiPropertyOptional({
     format: 'uuid',
@@ -93,27 +88,16 @@ export class CreateDigitalProductDto {
   @IsOptional()
   file_asset_id?: string;
 
-  @ApiPropertyOptional({ maxLength: 5000 })
-  @IsString()
-  @MaxLength(5000)
-  @IsOptional()
-  post_purchase_instructions?: string;
+  @ClearableText({ max: 5000 })
+  post_purchase_instructions?: string | null;
 }
 
 // Omitted fields stay unchanged; null clears a nullable field.
 export class UpdateDigitalProductDto {
-  @ApiPropertyOptional({ maxLength: 255 })
-  @Transform(trim)
-  @ValidateIf((_, value) => value !== undefined)
-  @IsString()
-  @Length(1, 255)
+  @RequiredText({ max: 255, optional: true })
   title?: string;
 
-  @ApiPropertyOptional({ nullable: true })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(10000)
-  @IsOptional()
+  @ClearableText({ max: 10000 })
   description?: string | null;
 
   @ApiPropertyOptional({ example: 'excel' })
@@ -121,26 +105,19 @@ export class UpdateDigitalProductDto {
   @Matches(CATEGORY_SLUG, { message: 'category_slug must be a category slug' })
   category_slug?: string;
 
-  @ApiPropertyOptional({ minimum: 0 })
-  @ValidateIf((_, value) => value !== undefined)
+  @NumberInput({ presence: 'optional', min: 0 })
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
   original_price?: number;
 
-  @ApiPropertyOptional({
-    minimum: 0,
-    nullable: true,
+  @NumberInput({
+    presence: 'nullable',
+    min: 0,
     description: 'Null or 0 removes the discount',
   })
-  @ValidateIf((_, value) => value !== null)
   @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @IsOptional()
   discount_price?: number | null;
 
-  @ApiPropertyOptional({ enum: productStatuses })
-  @ValidateIf((_, value) => value !== undefined)
-  @IsIn(productStatuses)
+  @EnumInput(productStatuses, { presence: 'optional' })
   status?: ProductStatus;
 
   @ApiPropertyOptional({
@@ -170,11 +147,7 @@ export class UpdateDigitalProductDto {
   @IsUUID()
   file_asset_id?: string;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 5000 })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(5000)
-  @IsOptional()
+  @ClearableText({ max: 5000 })
   post_purchase_instructions?: string | null;
 }
 
@@ -185,15 +158,19 @@ export class DigitalProductListQueryDto {
   @LimitQuery()
   limit?: number = 10;
 
-  @ApiPropertyOptional({ enum: productStatuses })
-  @IsIn(productStatuses)
-  @IsOptional()
+  @EnumInput(productStatuses, {
+    presence: 'filter',
+    description: 'A blank value means every status',
+  })
   status?: ProductStatus;
 
-  @ApiPropertyOptional({ description: 'Matches the title' })
-  @Transform(trim)
+  @ApiPropertyOptional({
+    maxLength: 255,
+    description: 'Matches the title; a blank value means no search',
+  })
+  @QueryFilter()
+  @IsOptional()
   @IsString()
   @MaxLength(255)
-  @IsOptional()
   search?: string;
 }

@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsUUID } from 'class-validator';
+import { BadRequestException } from '@nestjs/common';
+import { IsUUID } from 'class-validator';
 import { EntityManager } from 'typeorm';
+import { EnumInput } from '../decorator/input.decorator';
 
 /**
  * Purchasable catalog items across the separate catalogs: Vito's classes
@@ -17,9 +19,12 @@ export const catalogItemTypes = [
 export type CatalogItemType = (typeof catalogItemTypes)[number];
 
 export class CatalogItemRefDto {
-  @ApiProperty({ enum: catalogItemTypes })
-  @IsIn(catalogItemTypes)
-  type: CatalogItemType;
+  @EnumInput(catalogItemTypes, {
+    presence: 'filter',
+    description:
+      'Optional: the server resolves the kind from the id. When sent it must name the item family (kelas and bootcamp both accept any class).',
+  })
+  type?: CatalogItemType;
 
   @ApiProperty({ description: 'Class, digital product, or bundle id' })
   @IsUUID()
@@ -32,12 +37,76 @@ export interface CatalogItemColumns {
   bundleId: string | null;
 }
 
-export function toReferenceColumns(ref: CatalogItemRefDto): CatalogItemColumns {
-  return {
-    classId: ref.type === 'kelas' || ref.type === 'bootcamp' ? ref.id : null,
-    productId: ref.type === 'digital' ? ref.id : null,
-    bundleId: ref.type === 'bundle' ? ref.id : null,
-  };
+export type ItemFamily = 'class' | 'product' | 'bundle';
+
+/** The kinds a request may name for a class or digital product reference. */
+export const contentItemTypes = ['kelas', 'bootcamp', 'digital'] as const;
+
+export type ContentItemType = (typeof contentItemTypes)[number];
+
+const FAMILY_OF_TYPE: Record<CatalogItemType, ItemFamily> = {
+  kelas: 'class',
+  bootcamp: 'class',
+  digital: 'product',
+  bundle: 'bundle',
+};
+
+const FAMILY_LABEL: Record<ItemFamily, string> = {
+  class: 'class',
+  product: 'digital product',
+  bundle: 'bundle',
+};
+
+/**
+ * A sent `type` only has to name the item's family: `kelas` and `bootcamp`
+ * both accept any class. Rejects with 400 naming the item otherwise.
+ */
+export function assertItemFamily(
+  id: string,
+  sentType: CatalogItemType | undefined,
+  family: ItemFamily,
+): void {
+  if (sentType && FAMILY_OF_TYPE[sentType] !== family) {
+    throw new BadRequestException(
+      `Item ${id} is a ${FAMILY_LABEL[family]}, not ${sentType}`,
+    );
+  }
+}
+
+/**
+ * Resolves item ids of any kind to their table columns, in request order.
+ * Ids are UUIDs, so an id names at most one row across the three tables.
+ * Deleted rows still resolve; availability is checked by the caller. A sent
+ * `type` only has to name the item's family.
+ */
+export async function resolveItemReferences(
+  manager: EntityManager,
+  refs: Array<{ id: string; type?: CatalogItemType }>,
+): Promise<CatalogItemColumns[]> {
+  if (refs.length === 0) return [];
+  const ids = refs.map((ref) => ref.id);
+  const rows: Array<{ id: string; family: ItemFamily }> = await manager.query(
+    `SELECT id, 'class' AS family FROM classes WHERE id = ANY($1::uuid[])
+     UNION ALL
+     SELECT id, 'product' FROM products WHERE id = ANY($1::uuid[])
+     UNION ALL
+     SELECT id, 'bundle' FROM bundles WHERE id = ANY($1::uuid[])`,
+    [ids],
+  );
+  const familyOf = new Map(rows.map((row) => [row.id, row.family]));
+
+  return refs.map((ref) => {
+    const family = familyOf.get(ref.id);
+    if (!family) {
+      throw new BadRequestException(`Item ${ref.id} is not available`);
+    }
+    assertItemFamily(ref.id, ref.type, family);
+    return {
+      classId: family === 'class' ? ref.id : null,
+      productId: family === 'product' ? ref.id : null,
+      bundleId: family === 'bundle' ? ref.id : null,
+    };
+  });
 }
 
 export class CatalogItemDetailsDto {

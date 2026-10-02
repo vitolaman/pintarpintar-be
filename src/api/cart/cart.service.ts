@@ -11,7 +11,7 @@ import {
   CatalogItemRefDto,
   loadCatalogItems,
   referenceId,
-  toReferenceColumns,
+  resolveItemReferences,
 } from '~/common/catalog/catalog-item';
 import { CartResponseDto } from './dto/cart.dto';
 import { CartItem } from './entities/cart-item.entity';
@@ -30,11 +30,11 @@ export class CartService {
   }
 
   async add(userId: string, ref: CatalogItemRefDto) {
-    const columns = toReferenceColumns(ref);
     try {
       await this.dataSource.transaction(async (manager) => {
+        const [columns] = await resolveItemReferences(manager, [ref]);
         const item = (await loadCatalogItems(manager, [columns])).get(ref.id);
-        if (!item || item.type !== ref.type || !item.is_available) {
+        if (!item || !item.is_available) {
           throw new BadRequestException('Item is not available');
         }
         if (await this.isOwned(manager, userId, columns)) {
@@ -65,11 +65,18 @@ export class CartService {
     };
   }
 
+  // `id` is the cart entry id or the id of the item in the cart.
   async remove(userId: string, id: string): Promise<void> {
-    const result = await this.dataSource.manager.delete(CartItem, {
-      id,
-      userId,
-    });
+    const result = await this.dataSource.manager
+      .createQueryBuilder()
+      .delete()
+      .from(CartItem)
+      .where('user_id = :userId', { userId })
+      .andWhere(
+        '(id = :id OR class_id = :id OR product_id = :id OR bundle_id = :id)',
+        { id },
+      )
+      .execute();
     if (!result.affected) throw new NotFoundException('Cart item not found');
   }
 

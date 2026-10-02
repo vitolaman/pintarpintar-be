@@ -18,7 +18,7 @@ describe('ClassService.inviteMentor', () => {
   const ownerId = '10000000-0000-4000-8000-000000000001';
   const classId = '30000000-0000-4000-8000-000000000001';
   const mentorId = '50000000-0000-4000-8000-000000000001';
-  const input = { email: ' Mentor@Example.com ', role: 'lead' as const };
+  const input = { email: 'Mentor@Example.com', role: 'lead' as const };
   let manager: Record<string, jest.Mock>;
   let service: ClassService;
 
@@ -366,6 +366,27 @@ describe('ClassService.updateClass', () => {
     expect(manager.save).not.toHaveBeenCalled();
   });
 
+  it('saves cleared optional fields as null', async () => {
+    stored = { ...stored, description: 'Lama', category: 'Sipil' };
+    accessAs({ is_owner: true });
+
+    await service.updateClass(userId, classId, {
+      description: null,
+      category: null,
+      duration: null,
+      discountedPrice: null,
+    });
+
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: null,
+        category: null,
+        duration: null,
+        discountedPrice: null,
+      }),
+    );
+  });
+
   it('still renames a class whose stored prices are inverted', async () => {
     stored = { ...stored, originalPrice: 100000, discountedPrice: 120000 };
     accessAs({ is_owner: true });
@@ -689,14 +710,21 @@ describe('ClassService meetings', () => {
     expect(manager.save).not.toHaveBeenCalled();
   });
 
-  it('clears the duration and mentor with null', async () => {
+  it('clears the content, link, duration and mentor with null', async () => {
     await service.updateMeeting(userId, classId, meetingId, {
+      content: null,
+      liveUrl: null,
       duration_minutes: null,
       mentor_id: null,
     });
 
     expect(manager.save).toHaveBeenCalledWith(
-      expect.objectContaining({ duration_minutes: null, mentor_id: null }),
+      expect.objectContaining({
+        content: null,
+        liveUrl: null,
+        duration_minutes: null,
+        mentor_id: null,
+      }),
     );
     expect(
       query.mock.calls.some(([sql]) => sql.includes('link.mentor_id = $2')),

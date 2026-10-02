@@ -8,7 +8,7 @@ import {
 
 export class ChangePasswordDto {
   // Checked against the stored hash only; older passwords may predate the
-  // current strength rule.
+  // current strength rule. Passwords are never trimmed.
   @ApiProperty({ example: '********' })
   @IsString()
   @IsNotEmpty()
@@ -19,6 +19,8 @@ export class ChangePasswordDto {
     example: '********',
     description: 'At least 8 characters with at least one digit',
   })
+  @IsString()
+  @IsNotEmpty()
   @IsStrongPassword({
     minLength: 8,
     minNumbers: 1,

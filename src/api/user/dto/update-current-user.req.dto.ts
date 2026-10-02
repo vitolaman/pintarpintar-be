@@ -1,9 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { RequiredText } from '~/common/decorator/input.decorator';
 
 export class UpdateCurrentUserBodyDto {
-  @IsNotEmpty()
-  @IsString()
-  @ApiProperty({ example: 'Jane Doe' })
+  @RequiredText({ max: 120, example: 'Jane Doe' })
   name: string;
 }

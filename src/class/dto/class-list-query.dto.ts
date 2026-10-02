@@ -1,6 +1,5 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional } from 'class-validator';
 import { ClassStatus, ClassType } from '../entities/class.entity';
+import { EnumInput } from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export class ClassListQueryDto {
@@ -10,13 +9,9 @@ export class ClassListQueryDto {
   @LimitQuery()
   limit?: number = 10;
 
-  @ApiPropertyOptional({ enum: ClassStatus })
-  @IsEnum(ClassStatus)
-  @IsOptional()
+  @EnumInput(Object.values(ClassStatus), { presence: 'filter' })
   status?: ClassStatus;
 
-  @ApiPropertyOptional({ enum: ClassType })
-  @IsEnum(ClassType)
-  @IsOptional()
+  @EnumInput(Object.values(ClassType), { presence: 'filter' })
   type?: ClassType;
 }

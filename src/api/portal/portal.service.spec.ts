@@ -61,6 +61,26 @@ describe('PortalItemQueryDto', () => {
       expect(await errorsFor({ type })).toHaveLength(0);
     }
   });
+
+  it('treats a blank tab and search as every tab and no search', async () => {
+    const query = plainToInstance(PortalItemQueryDto, {
+      type: ' ',
+      search: '',
+    });
+
+    expect(await validate(query)).toHaveLength(0);
+    expect(query).toMatchObject({ type: 'all', search: undefined });
+  });
+
+  it('matches the tab ignoring case and trims the search', async () => {
+    const query = plainToInstance(PortalItemQueryDto, {
+      type: ' Live-Bootcamp ',
+      search: '  autocad ',
+    });
+
+    expect(await validate(query)).toHaveLength(0);
+    expect(query).toMatchObject({ type: 'live-bootcamp', search: 'autocad' });
+  });
 });
 
 describe('parseProgress', () => {

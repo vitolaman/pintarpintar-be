@@ -2,15 +2,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
-  IsEnum,
-  IsIn,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
-  Min,
 } from 'class-validator';
 import {
   ClassCategory,
@@ -22,48 +18,43 @@ import {
 import { ClassStatus, ClassType } from '../entities/class.entity';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
+import {
+  ClearableText,
+  EnumInput,
+  NumberInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
+import { MAX_DESCRIPTION_LENGTH } from './content-validation';
 
 export class CreateClassDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
+  @RequiredText({ max: 255 })
   title: string;
 
-  @ApiProperty({ required: false })
-  @IsString()
-  @IsOptional()
-  description?: string;
+  @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
+  description?: string | null;
 
-  @ApiProperty({
-    enum: ClassStatus,
+  @EnumInput(Object.values(ClassStatus), {
+    presence: 'optional',
     default: ClassStatus.DRAFT,
     description: '`archived` means unlisted: hidden from lists, open by link',
   })
-  @IsEnum(ClassStatus)
-  @IsOptional()
   status?: ClassStatus;
 
-  @ApiProperty({ enum: ClassType, default: ClassType.VIDEO })
-  @IsEnum(ClassType)
-  @IsOptional()
+  @EnumInput(Object.values(ClassType), {
+    presence: 'optional',
+    default: ClassType.VIDEO,
+  })
   type?: ClassType;
 
-  @ApiProperty({ required: false, minimum: 0 })
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
+  @NumberInput({ presence: 'optional', min: 0 })
   originalPrice?: number;
 
-  @ApiProperty({
-    required: false,
-    minimum: 0,
+  @NumberInput({
+    presence: 'nullable',
+    min: 0,
     description: 'When greater than 0, must not exceed originalPrice',
   })
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  discountedPrice?: number;
+  discountedPrice?: number | null;
 
   @ApiProperty({
     required: false,
@@ -77,37 +68,20 @@ export class CreateClassDto {
   @CoverAssetIds('class_cover')
   cover_asset_ids?: string[];
 
-  @ApiProperty({ required: false, maxLength: 5000 })
-  @IsString()
-  @MaxLength(5000)
-  @IsOptional()
-  post_purchase_instructions?: string;
+  @ClearableText({ max: 5000 })
+  post_purchase_instructions?: string | null;
 
-  @ApiProperty({
-    required: false,
-    enum: classCategories,
-    description: 'Bidang',
-  })
-  @IsIn(classCategories)
-  @IsOptional()
-  category?: ClassCategory;
+  @EnumInput(classCategories, { presence: 'nullable', description: 'Bidang' })
+  category?: ClassCategory | null;
 
-  @ApiProperty({ required: false, enum: learningLevels })
-  @IsIn(learningLevels)
-  @IsOptional()
-  level?: LearningLevel;
+  @EnumInput(learningLevels, { presence: 'nullable' })
+  level?: LearningLevel | null;
 
-  @ApiProperty({ required: false, maxLength: 60, example: '8 minggu' })
-  @IsString()
-  @MaxLength(60)
-  @IsOptional()
-  duration?: string;
+  @ClearableText({ max: 60, example: '8 minggu' })
+  duration?: string | null;
 
-  @ApiProperty({ required: false, maxLength: 2000, description: 'Prasyarat' })
-  @IsString()
-  @MaxLength(2000)
-  @IsOptional()
-  prerequisites?: string;
+  @ClearableText({ max: 2000, description: 'Prasyarat' })
+  prerequisites?: string | null;
 
   @ApiProperty({
     required: false,

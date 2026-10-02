@@ -1,6 +1,9 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { Submission } from '../../class/entities/submission.entity';
 import { SubmissionAnswer } from '../../class/entities/submission-answer.entity';
+import { SubmitQuizDto } from './dto/learning-assignment.dto';
 import {
   LearningSubmissionService,
   matchAnswers,
@@ -109,6 +112,33 @@ describe('quiz scoring', () => {
     ],
   ])('rejects %s', (_label, input) => {
     expect(() => matchAnswers(quiz, input)).toThrow(BadRequestException);
+  });
+
+  it('matches a trimmed answer to an older option stored with spaces', () => {
+    const padded = [{ ...mc('q1', ' LINE '), options: [' LINE ', 'ARC'] }];
+
+    const [matched] = matchAnswers(padded, answers([['q1', 'LINE']]));
+
+    expect(matched).toMatchObject({ value: 'LINE', isCorrect: true });
+  });
+});
+
+describe('SubmitQuizDto', () => {
+  const questionId = '70000000-0000-4000-8000-000000000001';
+  const parse = (answer: unknown) =>
+    plainToInstance(SubmitQuizDto, {
+      answers: [{ question_id: questionId, answer }],
+    });
+
+  it('trims an answer', async () => {
+    const dto = parse('  LINE ');
+    expect(dto.answers[0].answer).toBe('LINE');
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[''], ['   '], [null]])('rejects the answer %j', async (answer) => {
+    const errors = await validate(parse(answer));
+    expect(errors.map((error) => error.property)).toEqual(['answers']);
   });
 });
 

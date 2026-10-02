@@ -110,9 +110,8 @@ export class MentorService {
       let profile = await manager.findOneBy(Profile, { userId });
       if (!profile) profile = manager.create(Profile, { userId });
       if (input.phone !== undefined) profile.phone = input.phone;
-      if (input.headline !== undefined)
-        profile.headline = input.headline ?? null;
-      if (input.bio !== undefined) profile.bio = input.bio ?? null;
+      if (input.headline !== undefined) profile.headline = input.headline;
+      if (input.bio !== undefined) profile.bio = input.bio;
       if (input.expertise_list !== undefined) {
         mentorProfile.expertise = this.expertiseFromList(input.expertise_list);
       } else if (input.expertise !== undefined) {
@@ -124,7 +123,7 @@ export class MentorService {
       if (input.education !== undefined)
         mentorProfile.education = input.education;
       if (input.portfolio_url !== undefined) {
-        mentorProfile.portfolioUrl = input.portfolio_url ?? null;
+        mentorProfile.portfolioUrl = input.portfolio_url;
       }
       if (input.linkedin_url !== undefined) {
         mentorProfile.linkedinUrl = input.linkedin_url;

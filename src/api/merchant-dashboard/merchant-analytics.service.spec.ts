@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { DataSource } from 'typeorm';
 import {
+  AnalyticsSummaryQueryDto,
   DailySalesQueryDto,
   MonthlyRevenueQueryDto,
   StudentGrowthQueryDto,
@@ -95,6 +96,14 @@ describe('analytics DTOs', () => {
     [DailySalesQueryDto, { month: '2026-10' }, []],
     [MonthlyRevenueQueryDto, { year: '1999' }, ['year']],
     [MonthlyRevenueQueryDto, { year: '2026' }, []],
+    [DailySalesQueryDto, {}, []],
+    [DailySalesQueryDto, { month: '' }, []],
+    [MonthlyRevenueQueryDto, {}, []],
+    [MonthlyRevenueQueryDto, { year: '' }, []],
+    [AnalyticsSummaryQueryDto, {}, []],
+    [AnalyticsSummaryQueryDto, { period: 'Year' }, []],
+    [AnalyticsSummaryQueryDto, { period: 'week' }, ['period']],
+    [TrackVisitDto, { target_type: 'Storefront', target_id: 'toko' }, []],
     [
       TrackVisitDto,
       { target_type: 'page', target_id: 'x', visitor_id: 'x' },
@@ -152,6 +161,53 @@ describe('MerchantAnalyticsService', () => {
   });
 });
 
+describe('analytics defaults', () => {
+  let query: jest.Mock;
+  let service: MerchantAnalyticsService;
+
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-10-31T18:30:00Z'));
+    query = jest.fn().mockResolvedValue([{ id: 'merchant-id' }]);
+    service = new MerchantAnalyticsService({ query } as unknown as DataSource);
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  it('uses the current Asia/Jakarta month and year', async () => {
+    // 18:30 UTC on 31 October is already 1 November in Jakarta.
+    query
+      .mockResolvedValueOnce([{ id: 'merchant-id' }])
+      .mockResolvedValueOnce([]);
+    const daily = await service.findDailySales('user-id');
+    expect(query.mock.calls[1][1]).toEqual(['merchant-id', '2026-11-01']);
+    expect(daily.data.month).toBe('2026-11');
+
+    query
+      .mockResolvedValueOnce([{ id: 'merchant-id' }])
+      .mockResolvedValueOnce([]);
+    const monthly = await service.findMonthlyRevenue('user-id');
+    expect(query.mock.calls[3][1]).toEqual(['merchant-id', 2026]);
+    expect(monthly.data.year).toBe(2026);
+  });
+
+  it('summarises the month by default', async () => {
+    query
+      .mockResolvedValueOnce([{ id: 'merchant-id' }])
+      .mockResolvedValueOnce([]);
+    await service.findSummary('user-id').catch(() => undefined);
+    expect(query.mock.calls[1][1]).toEqual(['merchant-id', 'month']);
+  });
+
+  it('parses the documented values', () => {
+    expect(
+      plainToInstance(AnalyticsSummaryQueryDto, { period: ' Year ' }).period,
+    ).toBe('year');
+    expect(plainToInstance(MonthlyRevenueQueryDto, { year: '2025' }).year).toBe(
+      2025,
+    );
+  });
+});
+
 describe('VisitTrackingService', () => {
   let query: jest.Mock;
   let execute: jest.Mock;
@@ -188,6 +244,19 @@ describe('VisitTrackingService', () => {
       }),
     );
     expect(query.mock.calls[0][0]).toContain('profile.slug = $1');
+  });
+
+  it('needs a visitor id only without a login', async () => {
+    const withoutVisitor = { ...input, visitor_id: undefined };
+    await expect(
+      service.track(withoutVisitor, null, 'Mozilla/5.0'),
+    ).rejects.toThrow(
+      'visitor_id is required when the request has no login token',
+    );
+    await service.track(withoutVisitor, 'user-id', 'Mozilla/5.0');
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({ visitorKey: 'user:user-id' }),
+    );
   });
 
   it('keys a logged-in visitor by user', async () => {

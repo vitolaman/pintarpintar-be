@@ -1,6 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { ClassAttendanceService } from '../../class/class-attendance.service';
+import { CheckInByEmailDto } from './dto/public-attendance.dto';
 import { LearningAttendanceService } from './learning-attendance.service';
 
 const CLASS_ID = '10000000-0000-4000-8000-000000000001';
@@ -118,4 +121,38 @@ describe('LearningAttendanceService', () => {
       service.checkInByEmail(CLASS_ID, input),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+});
+
+describe('CheckInByEmailDto', () => {
+  const valid = { name: 'Ahmad', email: 'ahmad@student.id' };
+  const errorFields = async (input: object) =>
+    (await validate(plainToInstance(CheckInByEmailDto, input))).map(
+      (error) => error.property,
+    );
+
+  it('trims the name and email and clears blank feedback', async () => {
+    const dto = plainToInstance(CheckInByEmailDto, {
+      name: ' Ahmad ',
+      email: ' ahmad@student.id ',
+      feedback: '  ',
+    });
+
+    expect(dto).toMatchObject({
+      name: 'Ahmad',
+      email: 'ahmad@student.id',
+      feedback: null,
+    });
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[''], ['  '], [null]])('rejects the name %j', async (name) => {
+    expect(await errorFields({ ...valid, name })).toEqual(['name']);
+  });
+
+  it.each([[''], [null], ['not-an-email']])(
+    'rejects the email %j',
+    async (email) => {
+      expect(await errorFields({ ...valid, email })).toEqual(['email']);
+    },
+  );
 });

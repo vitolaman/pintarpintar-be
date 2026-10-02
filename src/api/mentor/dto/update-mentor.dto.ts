@@ -8,7 +8,12 @@ import {
 } from 'class-validator';
 import { MentorRegistrationDto } from './mentor-registration.dto';
 
-export class UpdateMentorDto extends PartialType(MentorRegistrationDto) {
+// Every field may be omitted. Null is still validated, so it clears only the
+// clearable fields (headline, bio, portfolio_url) and is rejected for the
+// fields registration requires.
+export class UpdateMentorDto extends PartialType(MentorRegistrationDto, {
+  skipNullProperties: false,
+}) {
   @ApiPropertyOptional({
     type: [String],
     example: ['AutoCAD', 'SAP2000'],

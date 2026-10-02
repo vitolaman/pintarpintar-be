@@ -9,7 +9,7 @@ import {
   CatalogItemRefDto,
   loadCatalogItems,
   referenceId,
-  toReferenceColumns,
+  resolveItemReferences,
 } from '~/common/catalog/catalog-item';
 import { WishlistEntryResponseDto, WishlistQueryDto } from './dto/wishlist.dto';
 import { WishlistItem } from './entities/wishlist-item.entity';
@@ -39,12 +39,12 @@ export class WishlistService {
   }
 
   async add(userId: string, ref: CatalogItemRefDto) {
-    const columns = toReferenceColumns(ref);
     const [entry, created] = await this.dataSource.transaction(
       async (manager) => {
         await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
           `wishlist:${userId}:${ref.id}`,
         ]);
+        const [columns] = await resolveItemReferences(manager, [ref]);
         const existing = await manager.findOneBy(WishlistItem, {
           userId,
           ...columns,
@@ -52,7 +52,7 @@ export class WishlistService {
         if (existing) return [existing, false] as const;
 
         const item = (await loadCatalogItems(manager, [columns])).get(ref.id);
-        if (!item || item.type !== ref.type || !item.is_available) {
+        if (!item || !item.is_available) {
           throw new BadRequestException('Item is not available');
         }
         const saved = await manager.save(
@@ -72,11 +72,18 @@ export class WishlistService {
     };
   }
 
+  // `id` is the wishlist entry id or the id of the wishlisted item.
   async remove(userId: string, id: string): Promise<void> {
-    const result = await this.dataSource.manager.delete(WishlistItem, {
-      id,
-      userId,
-    });
+    const result = await this.dataSource.manager
+      .createQueryBuilder()
+      .delete()
+      .from(WishlistItem)
+      .where('user_id = :userId', { userId })
+      .andWhere(
+        '(id = :id OR class_id = :id OR product_id = :id OR bundle_id = :id)',
+        { id },
+      )
+      .execute();
     if (!result.affected)
       throw new NotFoundException('Wishlist item not found');
   }

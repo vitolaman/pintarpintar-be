@@ -12,6 +12,7 @@ import {
   maskAccountNumber,
 } from './account-number-cipher';
 import { CreatePayoutAccountDto } from './dto/create-payout-account.dto';
+import { UpdatePayoutAccountDto } from './dto/update-payout-account.dto';
 import { MerchantPayoutAccount } from './entities/merchant-payout-account.entity';
 import { PayoutAccountService } from './payout-account.service';
 
@@ -87,8 +88,43 @@ describe('CreatePayoutAccountDto', () => {
     [{ account_number: '88301A2841' }],
     [{ account_number: '12345' }],
     [{ account_holder_name: '' }],
+    [{ account_holder_name: '   ' }],
+    [{ account_holder_name: null }],
   ])('rejects %j', async (override) => {
     expect(await errorsFor({ ...valid, ...override })).not.toHaveLength(0);
+  });
+
+  it('matches the bank name ignoring case and spaces', async () => {
+    const dto = plainToInstance(CreatePayoutAccountDto, {
+      ...valid,
+      bank_name: '  bank syariah indonesia (bsi) ',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.bank_name).toBe('Bank Syariah Indonesia (BSI)');
+  });
+});
+
+describe('UpdatePayoutAccountDto', () => {
+  const errorFields = async (input: Record<string, unknown>) =>
+    (await validate(plainToInstance(UpdatePayoutAccountDto, input))).map(
+      (error) => error.property,
+    );
+
+  it('allows omitting every field', async () => {
+    expect(await errorFields({})).toEqual([]);
+  });
+
+  it.each(['', '  ', null])(
+    'rejects an account holder name of %j',
+    async (account_holder_name) => {
+      expect(await errorFields({ account_holder_name })).toEqual([
+        'account_holder_name',
+      ]);
+    },
+  );
+
+  it('rejects a null bank name', async () => {
+    expect(await errorFields({ bank_name: null })).toEqual(['bank_name']);
   });
 });
 

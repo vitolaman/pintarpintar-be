@@ -184,6 +184,28 @@ export class JobPostingResponseDto {
   is_new: boolean;
   @ApiProperty({ description: 'Posted time' }) created_at: Date;
   @ApiPropertyOptional({ nullable: true }) closed_at: Date | null;
+  @ApiProperty({
+    description:
+      'True when the signed-in caller saved this job ("Lowongan Tersimpan"); false without a token',
+  })
+  is_saved: boolean;
+}
+
+export class SavedJobPostingResponseDto extends JobPostingResponseDto {
+  @ApiProperty({ description: 'When the caller saved the job' })
+  saved_at: Date;
+
+  @ApiProperty({
+    description:
+      'False once the job is closed or removed; it stays in the list until unsaved',
+  })
+  is_open: boolean;
+}
+
+export class SaveJobPostingResponseDto {
+  @ApiProperty({ format: 'uuid' }) job_posting_id: string;
+  @ApiProperty() is_saved: boolean;
+  @ApiPropertyOptional({ nullable: true, type: Date }) saved_at: Date | null;
 }
 
 export class JobBoardResponseDto {

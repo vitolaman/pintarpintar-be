@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { MerchantLevelService } from '../merchant-level/merchant-level.service';
 import { DataSource } from 'typeorm';
 import {
   CustomersQueryDto,
@@ -50,7 +51,10 @@ interface MerchantRow {
 
 @Injectable()
 export class MerchantDashboardService {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly merchantLevels: MerchantLevelService,
+  ) {}
 
   async findDashboard(userId: string, query: DashboardQueryDto) {
     const merchant = await this.findMerchant(userId);
@@ -168,6 +172,7 @@ export class MerchantDashboardService {
         period_days: days,
         balance: Number(merchant.earning_balance ?? 0),
         storage_level: merchant.storage_level,
+        level: await this.merchantLevels.findSummary(merchant.id),
         lifetime_earnings: Number(merchant.lifetime_earnings ?? 0),
         revenue: periodMetric(kpi.revenue, kpi.previous_revenue),
         transactions: periodMetric(kpi.transactions, kpi.previous_transactions),

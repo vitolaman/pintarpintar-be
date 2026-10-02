@@ -14,7 +14,8 @@ export class DigitalFile extends BaseEntity {
   @Column({ name: 'file_format' })
   fileFormat: string;
 
-  @Column({ name: 'file_size', type: 'integer' })
+  // bigint: product files can reach 10 GB; the driver reads it as a string.
+  @Column({ name: 'file_size', type: 'bigint' })
   fileSize: number;
 
   @Column({ name: 'asset_id', type: 'uuid', nullable: true })

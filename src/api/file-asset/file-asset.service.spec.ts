@@ -7,6 +7,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager } from 'typeorm';
 import { FileAsset } from '../profile/entities/file-asset.entity';
+import {
+  Merchant,
+  MerchantStorageLevel,
+} from '../merchant/entities/merchant.entity';
+import { Class } from '~/class/entities/class.entity';
 import { FileAssetService, originalFilename } from './file-asset.service';
 import {
   assertFileFitsPurpose,
@@ -17,6 +22,8 @@ import {
 const USER_ID = '30000000-0000-4000-8000-000000000001';
 const KEY = `uploads/${USER_ID}/1790900000000-logo.png`;
 const MB = 1024 * 1024;
+const GB = 1024 * MB;
+const OWNER = { merchantId: 'merchant-id' };
 
 describe('originalFilename', () => {
   it('drops the upload timestamp prefix', () => {
@@ -185,20 +192,6 @@ describe('field rules by purpose', () => {
     ['a PDF banner', 'merchant_banner', 'b.pdf', 'application/pdf', 1000],
     ['an avatar without a type', 'user_avatar', 'me.png', undefined, 1000],
     [
-      'a 150 MB class resource',
-      'class_resource',
-      'big.pdf',
-      'application/pdf',
-      150 * MB,
-    ],
-    [
-      'a 250 MB product file',
-      'digital_file',
-      'big.zip',
-      'application/zip',
-      250 * MB,
-    ],
-    [
       'a video as a class resource',
       'class_resource',
       'clip.mp4',
@@ -353,9 +346,14 @@ describe('assertOwnedAsset', () => {
     mimeType: 'image/png',
     sizeBytes: String(3 * MB),
   };
+  // Content purposes look up the owning merchant's level (Basic here).
   const manager = (value: unknown) =>
     ({
-      findOneBy: jest.fn().mockResolvedValue(value),
+      findOneBy: jest.fn(async (entity) =>
+        entity === Merchant
+          ? { id: 'merchant-id', storageLevel: 'basic' }
+          : value,
+      ),
     }) as unknown as EntityManager;
 
   it('accepts an owned banner within 4 MB', async () => {
@@ -378,6 +376,7 @@ describe('assertOwnedAsset', () => {
         USER_ID,
         'asset-id',
         'digital_file',
+        OWNER,
       ),
     ).resolves.toMatchObject({ originalFilename: 'plan.dwg' });
   });
@@ -392,7 +391,13 @@ describe('assertOwnedAsset', () => {
     ],
   ])('rejects %s', async (_name, value, purpose) => {
     await expect(
-      assertOwnedAsset(manager(value), USER_ID, 'asset-id', purpose as never),
+      assertOwnedAsset(
+        manager(value),
+        USER_ID,
+        'asset-id',
+        purpose as never,
+        OWNER,
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -409,7 +414,13 @@ describe('assertOwnedAsset', () => {
     ['missing', null, 'merchant_logo'],
   ])('rejects %s', async (_name, value, purpose) => {
     await expect(
-      assertOwnedAsset(manager(value), USER_ID, 'asset-id', purpose as never),
+      assertOwnedAsset(
+        manager(value),
+        USER_ID,
+        'asset-id',
+        purpose as never,
+        OWNER,
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
@@ -427,10 +438,12 @@ describe('assertOwnedAsset claims a pending asset', () => {
   // `stored` is what the row holds after the conditional update ran.
   const claimingManager = (stored: string) => {
     const update = jest.fn();
-    const findOneBy = jest
-      .fn()
-      .mockResolvedValueOnce({ ...pending })
-      .mockResolvedValueOnce({ ...pending, visibility: stored });
+    const assetReads = [{ ...pending }, { ...pending, visibility: stored }];
+    const findOneBy = jest.fn(async (entity) =>
+      entity === Merchant
+        ? { id: 'merchant-id', storageLevel: 'basic' }
+        : assetReads.shift(),
+    );
     return {
       update,
       findOneBy,
@@ -453,7 +466,7 @@ describe('assertOwnedAsset claims a pending asset', () => {
   it('makes it private on its first private field', async () => {
     const { manager, update } = claimingManager('private');
     await expect(
-      assertOwnedAsset(manager, USER_ID, 'asset-id', 'class_resource'),
+      assertOwnedAsset(manager, USER_ID, 'asset-id', 'class_resource', OWNER),
     ).resolves.toMatchObject({ visibility: 'private' });
     expect(update).toHaveBeenCalledWith(
       FileAsset,
@@ -475,5 +488,85 @@ describe('assertOwnedAsset claims a pending asset', () => {
       assertOwnedAsset(manager, USER_ID, 'asset-id', 'application_cv'),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('per-file limit by merchant level', () => {
+  const content = (sizeBytes: number) => ({
+    filename: 'modul.zip',
+    mimeType: 'application/zip',
+    sizeBytes,
+  });
+  const basic = { level: MerchantStorageLevel.BASIC, maxBytes: 1 * GB };
+  const silver = { level: MerchantStorageLevel.SILVER, maxBytes: 5 * GB };
+
+  it('names the level and its limit when a file is too large', () => {
+    expect(() =>
+      assertFileFitsPurpose('digital_file', content(1.5 * GB), basic),
+    ).toThrow('File exceeds the 1 GB limit of the Basic merchant level');
+  });
+
+  it('allows the same file at Silver', () => {
+    expect(() =>
+      assertFileFitsPurpose('class_resource', content(1.5 * GB), silver),
+    ).not.toThrow();
+  });
+
+  it('raises the old 100 and 200 MB caps to the level limit', () => {
+    expect(() =>
+      assertFileFitsPurpose('assignment_resource', content(150 * MB), basic),
+    ).not.toThrow();
+    expect(() =>
+      assertFileFitsPurpose('digital_file', content(250 * MB), basic),
+    ).not.toThrow();
+  });
+
+  it('keeps fixed image caps whatever the level', () => {
+    expect(() =>
+      assertFileFitsPurpose(
+        'product_cover',
+        { filename: 'c.png', mimeType: 'image/png', sizeBytes: 5 * MB },
+        { level: MerchantStorageLevel.GOLD, maxBytes: 10 * GB },
+      ),
+    ).toThrow(BadRequestException);
+  });
+
+  const asset = {
+    id: 'asset-id',
+    uploadedByUserId: USER_ID,
+    status: 'active',
+    visibility: 'private',
+    originalFilename: 'modul.zip',
+    mimeType: 'application/zip',
+    sizeBytes: String(2 * GB),
+  };
+  const classOf = (level: MerchantStorageLevel) =>
+    ({
+      findOneBy: jest.fn(async (entity) => {
+        if (entity === Class) return { id: 'class-id', merchant_id: 'm' };
+        if (entity === Merchant) return { id: 'm', storageLevel: level };
+        return { ...asset };
+      }),
+    }) as unknown as EntityManager;
+
+  it("checks a class material against the class merchant's level", async () => {
+    await expect(
+      assertOwnedAsset(
+        classOf(MerchantStorageLevel.BASIC),
+        USER_ID,
+        'asset-id',
+        'class_resource',
+        { classId: 'class-id' },
+      ),
+    ).rejects.toThrow('1 GB limit of the Basic merchant level');
+    await expect(
+      assertOwnedAsset(
+        classOf(MerchantStorageLevel.SILVER),
+        USER_ID,
+        'asset-id',
+        'class_resource',
+        { classId: 'class-id' },
+      ),
+    ).resolves.toMatchObject({ id: 'asset-id' });
   });
 });

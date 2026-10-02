@@ -126,14 +126,25 @@ Deployment needs the six `PAYMENT_*` variables in `.env.example`. `PAYMENT_GATEW
 
 - `POST /api/v1/merchant/register`
 - `GET /api/v1/merchants/:merchant` — **public** storefront by id or slug; stats, skills (Bidang), landing settings, and `is_owner` for the signed-in owner
-- `GET /api/v1/merchant/profile`
+- `GET /api/v1/merchant/profile` — includes `level` (see Merchant levels)
 - `PATCH /api/v1/merchant/profile` — includes logo (`avatar_asset_id`), banner (`cover_asset_id`), sanitized rich-text description, skills, and landing background and layout
 - `GET /api/v1/merchant/notification-preferences`
 - `PATCH /api/v1/merchant/notification-preferences`
 
+### Merchant levels
+
+Each store is Basic, Silver or Gold by its monthly revenue (net of paid sales, Asia/Jakarta months): Silver from Rp 2,500,000 and Gold from Rp 5,000,000. A daily job (00:30 WIB) evaluates the month that ended, once per store:
+- a store moves straight to the level the month reaches; Gold drops by that month alone, Silver drops to Basic only after two months under Rp 2,500,000;
+- a store with listed items and no paid sale in two counted months gets a warning; a further month without a sale soft-deletes its digital products, classes, bootcamps and bundles, ends buyers' access to them and deactivates its discounts and vouchers. Counted months are full months after tracking started (registration, or deploy for older stores) and after any earlier removal;
+- every evaluation writes `notifications` rows for the owner (`merchant_level_evaluated`, plus `merchant_inactivity_warning` or `merchant_items_removed`) for the email sender.
+
+Per-file upload limit by level: 1, 5 or 10 GB for class materials, assignment attachments and digital-product files. Storage quotas (30, 100, 200 GB) are shown only.
+
+- `GET /api/v1/merchant/level-evaluations` — the store's monthly evaluations, newest first
+
 ### Merchant dashboard
 
-- `GET /api/v1/merchant/dashboard` — summary and merchant level; rating, latest review, and activity cover class and digital-product reviews
+- `GET /api/v1/merchant/dashboard` — summary and `level` (see Merchant levels); rating, latest review, and activity cover class and digital-product reviews
 - `GET /api/v1/merchant/sales` — price, net after code discounts, and payment method per item; revenue figures across the dashboard use the net
 - `GET /api/v1/merchant/sales/export` — CSV
 - `GET /api/v1/merchant/customers`
@@ -260,7 +271,7 @@ Every route requires an active enrollment or product access and answers 404 othe
 
 - `POST /api/v1/upload/initiate`
 - `POST /api/v1/upload/presigned-urls`
-- `POST /api/v1/upload/complete` — also registers the file and returns its `asset_id`; send it in the form field the file is for. The field checks the file when the form is saved: covers, logos, banners, landing backgrounds and the user photo take PNG/JPG/WebP images (2 MB for logo and photo, otherwise 4 MB) and make the file public; class materials and assignment attachments (100 MB), digital-product files (200 MB), submissions (PDF/DWG/ZIP, 20 MB), certificate files (PDF/PNG/JPG, 10 MB) and CVs (PDF/DOC/DOCX, 10 MB) make it private. A file used in a public field cannot go into a private one, or the reverse. Private files are only served through signed links that expire after 10 minutes
+- `POST /api/v1/upload/complete` — also registers the file and returns its `asset_id`; send it in the form field the file is for. The field checks the file when the form is saved: covers, logos, banners, landing backgrounds and the user photo take PNG/JPG/WebP images (2 MB for logo and photo, otherwise 4 MB) and make the file public; class materials, assignment attachments and digital-product files (up to the store level's per-file limit: 1, 5 or 10 GB), submissions (PDF/DWG/ZIP, 20 MB), certificate files (PDF/PNG/JPG, 10 MB) and CVs (PDF/DOC/DOCX, 10 MB) make it private. A file used in a public field cannot go into a private one, or the reverse. Private files are only served through signed links that expire after 10 minutes
 
 ### Mentor
 

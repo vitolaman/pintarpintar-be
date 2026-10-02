@@ -1,3 +1,4 @@
+import { MerchantLevelService } from '../merchant-level/merchant-level.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -11,6 +12,18 @@ import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 import { MerchantService } from './merchant.service';
 
+const LEVEL = {
+  current: 'basic',
+  current_month_revenue: 0,
+  silver_threshold: 2500000,
+  gold_threshold: 5000000,
+  max_upload_bytes: 1073741824,
+  storage_quota_bytes: 32212254720,
+  last_evaluated_month: null,
+  next_evaluation_at: '2026-11-01T00:30:00+07:00',
+  inactivity_warning: false,
+};
+
 describe('MerchantService', () => {
   const userId = '10000000-0000-4000-8000-000000000001';
   const merchantId = '20000000-0000-4000-8000-000000000001';
@@ -20,6 +33,7 @@ describe('MerchantService', () => {
   let merchants: { findOneBy: jest.Mock };
   let wallets: { findOneBy: jest.Mock; query: jest.Mock };
   let preferences: { findOneBy: jest.Mock };
+  let levelSummary: { findSummary: jest.Mock };
   let service: MerchantService;
 
   const registrationInput = {
@@ -47,11 +61,13 @@ describe('MerchantService', () => {
     merchants = { findOneBy: jest.fn() };
     wallets = { findOneBy: jest.fn(), query: jest.fn() };
     preferences = { findOneBy: jest.fn() };
+    levelSummary = { findSummary: jest.fn().mockResolvedValue(LEVEL) };
     service = new MerchantService(
       dataSource as DataSource,
       merchants as unknown as Repository<Merchant>,
       wallets as unknown as Repository<MerchantWallet>,
       preferences as unknown as Repository<UserNotificationPreferences>,
+      levelSummary as unknown as MerchantLevelService,
     );
   });
 
@@ -224,7 +240,9 @@ describe('MerchantService', () => {
 
     await expect(
       (
-        service as unknown as { findMerchantResponse: Function }
+        service as unknown as {
+          findMerchantResponse: (userId: string) => Promise<unknown>;
+        }
       ).findMerchantResponse(userId),
     ).resolves.toEqual({
       ...row,
@@ -232,6 +250,7 @@ describe('MerchantService', () => {
       avatar_url: null,
       cover_url: null,
       skills: ['AutoCAD', 'SAP2000'],
+      level: LEVEL,
       landing: {
         background_asset_id: undefined,
         background_object_key: undefined,
@@ -250,6 +269,7 @@ describe('MerchantService', () => {
     expect(queryBuilder.select).toHaveBeenCalledWith(
       expect.arrayContaining(['merchant.storage_level AS storage_level']),
     );
+    expect(levelSummary.findSummary).toHaveBeenCalledWith(merchantId);
   });
 
   it('rejects a second owned merchant before creating new state', async () => {

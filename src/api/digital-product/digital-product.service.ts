@@ -194,6 +194,7 @@ export class DigitalProductService {
             userId,
             input.file_asset_id,
             'digital_file',
+            { merchantId },
           )
         : null;
       assertPublishable(input.status, file !== null);
@@ -261,6 +262,7 @@ export class DigitalProductService {
             userId,
             input.file_asset_id,
             'digital_file',
+            { merchantId },
           )
         : null;
       const status =

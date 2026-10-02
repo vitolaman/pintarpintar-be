@@ -1,8 +1,18 @@
 import { BadRequestException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { FileAsset } from '../profile/entities/file-asset.entity';
+import {
+  Merchant,
+  MerchantStorageLevel,
+} from '../merchant/entities/merchant.entity';
+import { Class } from '~/class/entities/class.entity';
+import {
+  LARGEST_UPLOAD_BYTES,
+  MERCHANT_LEVEL_RULES,
+} from '../merchant-level/merchant-level-rules';
 
 const MEBIBYTE = 1024 * 1024;
+const GIBIBYTE = 1024 * MEBIBYTE;
 const OCTET_STREAM = 'application/octet-stream';
 
 type FileKind =
@@ -91,7 +101,8 @@ export const PENDING_VISIBILITY = 'pending';
 
 type AssetPurposeRule = {
   kinds: FileKind[];
-  maxBytes: number;
+  // 'merchant_level': the owning merchant's per-file limit for its level.
+  maxBytes: number | 'merchant_level';
   visibility: AssetVisibility;
   // Narrows the kinds to these extensions when set.
   extensions?: string[];
@@ -140,17 +151,17 @@ export const ASSET_PURPOSE_RULES = {
   },
   class_resource: {
     kinds: CLASS_FILE_KINDS,
-    maxBytes: 100 * MEBIBYTE,
+    maxBytes: 'merchant_level',
     visibility: 'private',
   },
   assignment_resource: {
     kinds: CLASS_FILE_KINDS,
-    maxBytes: 100 * MEBIBYTE,
+    maxBytes: 'merchant_level',
     visibility: 'private',
   },
   digital_file: {
     kinds: DIGITAL_FILE_KINDS,
-    maxBytes: 200 * MEBIBYTE,
+    maxBytes: 'merchant_level',
     visibility: 'private',
   },
   submission_file: {
@@ -213,9 +224,19 @@ function resolveKind(extension: string, mimeType: string): FileKind | null {
     : null;
 }
 
+export type UploadLimit = {
+  level: MerchantStorageLevel | null;
+  maxBytes: number;
+};
+
+/**
+ * `merchantLimit` is the owning merchant's limit for purposes sized by
+ * merchant level; without it the largest level limit applies.
+ */
 export function assertFileFitsPurpose(
   purpose: AssetPurpose,
   file: AssetFileFacts,
+  merchantLimit?: UploadLimit,
 ): void {
   const rule: AssetPurposeRule = ASSET_PURPOSE_RULES[purpose];
   const mimeType = (file.mimeType ?? '').toLowerCase();
@@ -234,7 +255,20 @@ export function assertFileFitsPurpose(
         : `This file type is not allowed for ${purpose}`,
     );
   }
-  if (file.sizeBytes > rule.maxBytes) {
+  if (rule.maxBytes === 'merchant_level') {
+    const limit = merchantLimit ?? {
+      level: null,
+      maxBytes: LARGEST_UPLOAD_BYTES,
+    };
+    if (file.sizeBytes > limit.maxBytes) {
+      const gigabytes = limit.maxBytes / GIBIBYTE;
+      throw new BadRequestException(
+        limit.level
+          ? `File exceeds the ${gigabytes} GB limit of the ${MERCHANT_LEVEL_RULES[limit.level].label} merchant level`
+          : `File exceeds the ${gigabytes} GB limit for ${purpose}`,
+      );
+    }
+  } else if (file.sizeBytes > rule.maxBytes) {
     throw new BadRequestException(
       `File exceeds the ${rule.maxBytes / MEBIBYTE} MB limit for ${purpose}`,
     );
@@ -253,11 +287,14 @@ export function purposeVisibility(purpose: AssetPurpose): AssetVisibility {
  * public field. The claim is a conditional update, so concurrent attaches of
  * one pending asset leave it with a single visibility.
  */
+export type UploadLimitOwner = { merchantId: string } | { classId: string };
+
 export async function assertOwnedAsset(
   manager: EntityManager,
   userId: string,
   assetId: string,
   purpose: AssetPurpose,
+  limitOwner?: UploadLimitOwner,
 ): Promise<FileAsset> {
   const asset = await manager.findOneBy(FileAsset, { id: assetId });
   if (
@@ -267,11 +304,19 @@ export async function assertOwnedAsset(
   ) {
     throw new BadRequestException(`File asset for ${purpose} is not available`);
   }
-  assertFileFitsPurpose(purpose, {
-    filename: asset.originalFilename,
-    mimeType: asset.mimeType,
-    sizeBytes: Number(asset.sizeBytes),
-  });
+  const merchantLimit =
+    ASSET_PURPOSE_RULES[purpose].maxBytes === 'merchant_level'
+      ? await ownerUploadLimit(manager, purpose, limitOwner)
+      : undefined;
+  assertFileFitsPurpose(
+    purpose,
+    {
+      filename: asset.originalFilename,
+      mimeType: asset.mimeType,
+      sizeBytes: Number(asset.sizeBytes),
+    },
+    merchantLimit,
+  );
 
   const visibility = purposeVisibility(purpose);
   if (asset.visibility === PENDING_VISIBILITY) {
@@ -289,4 +334,34 @@ export async function assertOwnedAsset(
     );
   }
   return asset;
+}
+
+// The per-file limit of the merchant that owns the class or product a
+// content file is attached to. While no Pro subscription exists, every
+// merchant has its level's limit.
+async function ownerUploadLimit(
+  manager: EntityManager,
+  purpose: AssetPurpose,
+  owner: UploadLimitOwner | undefined,
+): Promise<UploadLimit> {
+  if (!owner) {
+    throw new Error(`${purpose} needs the owning merchant or class`);
+  }
+  let merchantId: string | undefined;
+  if ('merchantId' in owner) {
+    merchantId = owner.merchantId;
+  } else {
+    const cls = await manager.findOneBy(Class, { id: owner.classId });
+    merchantId = cls?.merchant_id;
+  }
+  const merchant = merchantId
+    ? await manager.findOneBy(Merchant, { id: merchantId })
+    : null;
+  if (!merchant) {
+    throw new BadRequestException(`File asset for ${purpose} is not available`);
+  }
+  return {
+    level: merchant.storageLevel,
+    maxBytes: MERCHANT_LEVEL_RULES[merchant.storageLevel].maxUploadBytes,
+  };
 }

@@ -25,6 +25,7 @@ import { Bundle, BundleStatus } from './entities/bundle.entity';
 import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
 import { applyCoverInput, findCovers } from '../item-cover/item-covers';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
+import { assertItemFamily } from '~/common/catalog/catalog-item';
 
 // Current selling price: the discounted price when set, otherwise the list price.
 const CLASS_PRICE_SQL = `(CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric`;
@@ -102,7 +103,7 @@ export class BundleService {
   async create(userId: string, input: CreateBundleDto) {
     const bundleId = await this.dataSource.transaction(async (manager) => {
       const merchant = await this.findMerchant(manager, userId, true);
-      const status = input.status ?? 'published';
+      const status = input.status ?? 'unpublished';
 
       const items = await this.resolveItems(manager, merchant.id, input.items);
       this.assertSellable(items, status, input.bundle_price);
@@ -328,24 +329,29 @@ export class BundleService {
     merchantId: string,
     inputs: BundleItemInputDto[],
   ): Promise<CatalogRow[]> {
-    const keys = inputs.map((input) => `${input.type}:${input.id}`);
-    if (new Set(keys).size !== keys.length) {
+    const ids = inputs.map((input) => input.id);
+    if (new Set(ids).size !== ids.length) {
       throw new BadRequestException('Bundle items must be distinct');
     }
 
     const rows: CatalogRow[] = await manager.query(
       `SELECT * FROM (${CATALOG_SQL}) catalog WHERE catalog.id = ANY($2::uuid[])`,
-      [merchantId, inputs.map((input) => input.id)],
+      [merchantId, ids],
     );
-    const byKey = new Map(rows.map((row) => [`${row.type}:${row.id}`, row]));
+    const byId = new Map(rows.map((row) => [row.id, row]));
 
     return inputs.map((input) => {
-      const row = byKey.get(`${input.type}:${input.id}`);
+      const row = byId.get(input.id);
       if (!row) {
         throw new BadRequestException(
-          `Item ${input.type}:${input.id} is not one of your classes or digital products`,
+          `Item ${input.id} is not one of your classes or digital products`,
         );
       }
+      assertItemFamily(
+        input.id,
+        input.type,
+        row.type === 'kelas' ? 'class' : 'product',
+      );
       return row;
     });
   }

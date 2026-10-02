@@ -3,38 +3,33 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
-  IsInt,
   IsOptional,
-  IsString,
   IsUUID,
-  Max,
-  MaxLength,
-  Min,
-  ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { ClearableText, NumberInput } from '~/common/decorator/input.decorator';
 
 export class EssayScoreDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   question_id: string;
 
-  @ApiProperty({ minimum: 0, description: 'At most the question weight' })
-  @IsInt()
-  @Min(0)
+  @NumberInput({
+    integer: true,
+    min: 0,
+    description: 'At most the question weight',
+  })
   score: number;
 }
 
 export class GradeSubmissionDto {
-  @ApiPropertyOptional({
-    minimum: 0,
-    maximum: 100,
+  @NumberInput({
+    presence: 'optional',
+    integer: true,
+    min: 0,
+    max: 100,
     description: 'File assignments only',
   })
-  @ValidateIf((_, value) => value !== undefined)
-  @IsInt()
-  @Min(0)
-  @Max(100)
   score?: number;
 
   @ApiPropertyOptional({
@@ -48,11 +43,7 @@ export class GradeSubmissionDto {
   @Type(() => EssayScoreDto)
   essay_scores?: EssayScoreDto[];
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 5000 })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(5000)
-  @IsOptional()
+  @ClearableText({ max: 5000 })
   feedback?: string | null;
 }
 

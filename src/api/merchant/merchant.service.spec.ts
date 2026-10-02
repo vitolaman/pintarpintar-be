@@ -3,8 +3,10 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { DataSource, Repository } from 'typeorm';
+import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import { BalanceHistoryQueryDto } from './dto/balance-history.dto';
+import { RegisterMerchantDto } from './dto/register-merchant.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { MerchantProfile } from './entities/merchant-profile.entity';
 import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
@@ -363,6 +365,50 @@ describe('MerchantService', () => {
     expect(profile.categoryLabel).toBeNull();
   });
 
+  it('stores null for cleared description, phone and profile fields', async () => {
+    const merchant = {
+      id: merchantId,
+      userId,
+      storeName: 'Raka Wijaya',
+      storeDescription: '<p>Kelas teknik.</p>',
+    } as Merchant;
+    const profile = {
+      merchantId,
+      slug: 'raka-wijaya',
+      tagline: 'Belajar teknologi',
+      websiteUrl: 'https://akademi.example',
+      experienceYears: 4,
+    } as MerchantProfile;
+    const userProfile = { userId, phone: '+62 812-3456-7890' } as Profile;
+    manager.findOne.mockResolvedValue(merchant);
+    manager.findOneBy.mockImplementation(async (target) =>
+      target === Profile ? userProfile : profile,
+    );
+    jest.spyOn(service, 'findMerchantProfile').mockResolvedValue({
+      data: { id: merchantId } as never,
+      responseMessage: 'Get merchant profile success',
+    });
+
+    await service.updateMerchantProfile(userId, {
+      store_description: null,
+      phone: null,
+      tagline: null,
+      website_url: null,
+      experience_years: null,
+    });
+
+    expect(merchant.storeDescription).toBeNull();
+    expect(manager.save).toHaveBeenCalledWith(
+      Profile,
+      expect.objectContaining({ userId, phone: null }),
+    );
+    expect(profile).toMatchObject({
+      tagline: null,
+      websiteUrl: null,
+      experienceYears: null,
+    });
+  });
+
   it('leaves the stored category unchanged when the field is omitted', async () => {
     const merchant = {
       id: merchantId,
@@ -580,13 +626,120 @@ describe('UpdateMerchantProfileDto category_label', () => {
     );
   });
 
-  it('allows null so the merchant can clear its category', async () => {
-    const errors = await validate(build(null));
-    expect(errors).toHaveLength(0);
+  it('matches a category label ignoring case and spaces', async () => {
+    const dto = build('  teknik & ARSITEKTUR ');
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.category_label).toBe('Teknik & Arsitektur');
+  });
+
+  it.each([null, '', '  '])('clears the category with %j', async (value) => {
+    const dto = build(value);
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.category_label).toBeNull();
   });
 });
 
+describe('UpdateMerchantProfileDto', () => {
+  const parse = (input: object) =>
+    plainToInstance(UpdateMerchantProfileDto, input);
+  const errorFields = async (input: object) =>
+    (await validate(parse(input))).map((error) => error.property);
+
+  it('clears optional text and the experience with "" or null', async () => {
+    const dto = parse({
+      store_description: '',
+      phone: null,
+      tagline: '  ',
+      city: '',
+      public_email: '',
+      website_url: null,
+      instagram_handle: '@',
+      expertise: '',
+      education: null,
+      refund_policy: '',
+      digital_license: '  ',
+      experience_years: null,
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto).toMatchObject({
+      store_description: null,
+      phone: null,
+      tagline: null,
+      city: null,
+      public_email: null,
+      website_url: null,
+      instagram_handle: null,
+      expertise: null,
+      education: null,
+      refund_policy: null,
+      digital_license: null,
+      experience_years: null,
+    });
+  });
+
+  it('treats a blank experience as unset and accepts a numeric string', async () => {
+    expect(parse({ experience_years: '' }).experience_years).toBeUndefined();
+    const dto = parse({ experience_years: '4' });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.experience_years).toBe(4);
+  });
+
+  it('keeps the format rules and strips the handle prefix', async () => {
+    expect(parse({ instagram_handle: ' @akademi ' }).instagram_handle).toBe(
+      'akademi',
+    );
+    expect(
+      await errorFields({ public_email: 'not-an-email', website_url: 'x y' }),
+    ).toEqual(['public_email', 'website_url']);
+  });
+
+  it.each(['', '  ', null])(
+    'rejects a store name of %j',
+    async (store_name) => {
+      expect(await errorFields({ store_name })).toEqual(['store_name']);
+    },
+  );
+});
+
+describe('RegisterMerchantDto', () => {
+  const valid = {
+    store_name: ' Akademi Teknik ',
+    store_description: 'Kelas teknik.',
+  };
+  const errorFields = async (input: object) =>
+    (
+      await validate(
+        plainToInstance(RegisterMerchantDto, { ...valid, ...input }),
+      )
+    ).map((error) => error.property);
+
+  it('trims the store name', () => {
+    expect(plainToInstance(RegisterMerchantDto, valid).store_name).toBe(
+      'Akademi Teknik',
+    );
+  });
+
+  it.each(['', '  ', null])(
+    'rejects a store name or description of %j',
+    async (value) => {
+      expect(
+        await errorFields({ store_name: value, store_description: value }),
+      ).toEqual(['store_name', 'store_description']);
+    },
+  );
+});
+
 describe('BalanceHistoryQueryDto', () => {
+  it('treats a blank type as every entry and matches it in any case', async () => {
+    const blank = plainToInstance(BalanceHistoryQueryDto, { type: ' ' });
+    expect(await validate(blank)).toHaveLength(0);
+    expect(blank.type).toBe('all');
+
+    const income = plainToInstance(BalanceHistoryQueryDto, { type: 'Income' });
+    expect(await validate(income)).toHaveLength(0);
+    expect(income.type).toBe('income');
+  });
+
   it('rejects an unknown entry type', async () => {
     const errors = await validate(
       plainToInstance(BalanceHistoryQueryDto, { type: 'refund' }),

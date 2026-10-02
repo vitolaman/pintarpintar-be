@@ -18,7 +18,7 @@ const OCTET_STREAM = 'application/octet-stream';
 const FILE_NOT_AVAILABLE =
   'The uploaded file was not found, is not yours, or has not finished uploading';
 
-type FileKind =
+export type FileKind =
   | 'image'
   | 'document'
   | 'archive'
@@ -230,6 +230,17 @@ function resolveKind(extension: string, mimeType: string): FileKind | null {
   return kindOfMimeType(mimeType) === byExtension.kind
     ? byExtension.kind
     : null;
+}
+
+/** The kind of an uploaded file, from its name and reported type. */
+export function fileKindOf(file: {
+  filename: string;
+  mimeType: string | undefined;
+}): FileKind | null {
+  return resolveKind(
+    fileExtension(file.filename),
+    (file.mimeType ?? '').toLowerCase(),
+  );
 }
 
 export type UploadLimit = {

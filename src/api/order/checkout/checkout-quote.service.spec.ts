@@ -82,3 +82,71 @@ describe('CheckoutQuoteService discount codes', () => {
     );
   });
 });
+
+describe('CheckoutQuoteService items', () => {
+  const classId = '20000000-0000-4000-8000-000000000001';
+  const productId = '20000000-0000-4000-8000-000000000002';
+  const query = jest.fn(async (sql: string) => {
+    if (sql.includes('AS family')) {
+      return [
+        { id: classId, family: 'class' },
+        { id: productId, family: 'product' },
+      ];
+    }
+    if (sql.includes('FROM enrollments enrollment')) return [];
+    if (sql.includes('FROM (')) {
+      return [
+        {
+          type: 'bootcamp',
+          id: classId,
+          title: 'Bootcamp BIM',
+          image: null,
+          price: '500000',
+          original_price: '500000',
+          merchant_id: 'merchant-id',
+          merchant_name: 'Toko',
+          merchant_slug: 'toko',
+          is_available: true,
+          merchant_active: true,
+        },
+        {
+          type: 'digital',
+          id: productId,
+          title: 'Template RAB',
+          image: null,
+          price: '100000',
+          original_price: '100000',
+          merchant_id: 'merchant-id',
+          merchant_name: 'Toko',
+          merchant_slug: 'toko',
+          is_available: true,
+          merchant_active: true,
+        },
+      ];
+    }
+    return [];
+  });
+  const manager = { query } as unknown as EntityManager;
+  const quote = (items: object[]) =>
+    new CheckoutQuoteService().quote(manager, userId, { items } as never, {
+      lockCodes: false,
+    });
+
+  it('prices items sent by id alone, with their resolved kinds', async () => {
+    const result = await quote([{ id: classId }, { id: productId }]);
+    expect(result.references).toEqual([
+      { classId, productId: null, bundleId: null },
+      { classId: null, productId, bundleId: null },
+    ]);
+    expect(result.pricing.subtotal).toBe(600000);
+  });
+
+  it('accepts kelas for a bootcamp and rejects another family by id', async () => {
+    await expect(
+      quote([{ type: 'kelas', id: classId }]),
+    ).resolves.toBeDefined();
+    await expect(quote([{ type: 'bundle', id: productId }])).rejects.toThrow(
+      `Item ${productId} is a digital product, not bundle`,
+    );
+  });
+});

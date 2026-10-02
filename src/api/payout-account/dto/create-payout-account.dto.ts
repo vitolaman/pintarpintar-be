@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsIn, IsString, Length, Matches } from 'class-validator';
+import { IsString, Matches } from 'class-validator';
+import { EnumInput, RequiredText } from '~/common/decorator/input.decorator';
 
 export const payoutBankNames = [
   'Bank BCA',
@@ -12,18 +13,11 @@ export const payoutBankNames = [
 
 export type PayoutBankName = (typeof payoutBankNames)[number];
 
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
-
 export class CreatePayoutAccountDto {
-  @ApiProperty({ enum: payoutBankNames, example: 'Bank BCA' })
-  @IsIn(payoutBankNames)
+  @EnumInput(payoutBankNames, { example: 'Bank BCA' })
   bank_name: PayoutBankName;
 
-  @ApiProperty({ example: 'Ahmad Santoso', minLength: 1, maxLength: 120 })
-  @Transform(trim)
-  @IsString()
-  @Length(1, 120)
+  @RequiredText({ max: 120, example: 'Ahmad Santoso' })
   account_holder_name: string;
 
   @ApiProperty({ example: '8830192841', description: '6-20 digits' })

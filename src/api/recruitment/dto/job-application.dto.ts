@@ -1,19 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 import {
   IsEmail,
-  IsIn,
   IsISO8601,
   IsOptional,
   IsString,
   IsUrl,
   IsUUID,
-  Length,
   Matches,
   MaxLength,
 } from 'class-validator';
+import {
+  ClearableText,
+  EnumInput,
+  QueryFilter,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
 import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
-import { trimOptionalText, trimText } from '~/common/dto/text-transforms';
 import {
   APPLICATION_STATUSES,
   ApplicationStatus,
@@ -34,28 +36,22 @@ const WEB_URL = {
 const ISO_WITH_OFFSET = /(Z|[+-]\d{2}:\d{2})$/;
 
 export class ApplyJobDto {
-  @ApiProperty({ example: 'Budi Santoso, S.T.' })
-  @Transform(trimText)
-  @IsString()
-  @Length(1, 150)
+  @RequiredText({ max: 150, example: 'Budi Santoso, S.T.' })
   name: string;
 
-  @ApiProperty({ example: 'budi@example.com' })
-  @Transform(trimText)
+  @RequiredText({ max: 255, example: 'budi@example.com' })
   @IsEmail()
-  @MaxLength(255)
   email: string;
 
-  @ApiProperty({ example: '+62 812-3456-7890', description: 'WhatsApp' })
-  @Transform(trimText)
-  @IsString()
-  @Length(1, 32)
+  @RequiredText({
+    max: 32,
+    example: '+62 812-3456-7890',
+    description: 'WhatsApp',
+  })
   phone: string;
 
-  @ApiProperty({ example: 'https://linkedin.com/in/budi' })
-  @Transform(trimText)
+  @RequiredText({ max: 500, example: 'https://linkedin.com/in/budi' })
   @IsUrl(WEB_URL)
-  @MaxLength(500)
   linkedin_url: string;
 
   @ApiProperty({
@@ -68,12 +64,11 @@ export class ApplyJobDto {
   @IsUUID()
   cv_asset_id: string;
 
-  @ApiPropertyOptional({ example: 'Saya sudah mengajar AutoCAD 5 tahun.' })
-  @IsOptional()
-  @Transform(trimOptionalText)
-  @IsString()
-  @MaxLength(2000)
-  note?: string;
+  @ClearableText({
+    max: 2000,
+    example: 'Saya sudah mengajar AutoCAD 5 tahun.',
+  })
+  note?: string | null;
 }
 
 export class ScheduleInterviewDto {
@@ -85,31 +80,32 @@ export class ScheduleInterviewDto {
   @Matches(ISO_WITH_OFFSET, { message: 'interview_at must include an offset' })
   interview_at: string;
 
-  @ApiProperty({ example: 'https://meet.google.com/abc-defg-hij' })
-  @Transform(trimText)
+  @RequiredText({ max: 500, example: 'https://meet.google.com/abc-defg-hij' })
   @IsUrl(WEB_URL)
-  @MaxLength(500)
   interview_url: string;
 }
 
 export class MyApplicationQueryDto extends RequestPaginatedQueryDto {
-  @ApiPropertyOptional({ enum: APPLICATION_STATUSES })
-  @IsOptional()
-  @IsIn(APPLICATION_STATUSES)
+  @EnumInput(APPLICATION_STATUSES, { presence: 'filter' })
   status?: ApplicationStatus;
 }
 
 export class ApplicantQueryDto extends MyApplicationQueryDto {
-  @ApiPropertyOptional({ format: 'uuid', description: 'One vacancy only' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'One vacancy only. A blank value means no filter.',
+  })
+  @QueryFilter()
   @IsOptional()
   @IsUUID()
   job_id?: string;
 
   @ApiPropertyOptional({
-    description: 'Matches name, email or vacancy title (literal)',
+    description:
+      'Matches name, email or vacancy title (literal). A blank value means no filter.',
   })
+  @QueryFilter()
   @IsOptional()
-  @Transform(trimOptionalText)
   @IsString()
   @MaxLength(100)
   search?: string;

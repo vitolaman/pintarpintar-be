@@ -1,9 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { CertificateStatus } from '../../class/entities/certificate.entity';
@@ -77,7 +73,7 @@ export class ProfileService {
       }
 
       if (input.name !== undefined) {
-        user.name = this.requireText(input.name, 'name');
+        user.name = input.name;
         await manager.save(User, user);
       }
 
@@ -101,15 +97,15 @@ export class ProfileService {
       }
 
       if (input.phone !== undefined) {
-        profile.phone = this.requireText(input.phone, 'phone');
+        profile.phone = input.phone;
       }
 
       if (input.headline !== undefined) {
-        profile.headline = this.requireText(input.headline, 'headline');
+        profile.headline = input.headline;
       }
 
       if (input.bio !== undefined) {
-        profile.bio = this.requireText(input.bio, 'bio');
+        profile.bio = input.bio;
       }
 
       await manager.save(Profile, profile);
@@ -473,16 +469,6 @@ export class ProfileService {
       final_score: finalScore,
       grade: finalScore === null ? null : String(finalScore),
     };
-  }
-
-  private requireText(value: string, fieldName: string): string {
-    const normalized = value.trim();
-
-    if (!normalized) {
-      throw new BadRequestException(`${fieldName} must not be empty`);
-    }
-
-    return normalized;
   }
 }
 

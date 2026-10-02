@@ -83,6 +83,65 @@ describe('job posting DTOs', () => {
       await errorFields(PublicJobQueryDto, { work_type: 'Office' }),
     ).toEqual(['work_type']);
   });
+
+  it('matches enums ignoring case and stores them canonically', async () => {
+    const dto = plainToInstance(CreateJobPostingDto, {
+      ...input,
+      category: ' desain teknik & arsitektur ',
+      contract_type: 'part-time',
+      work_type: 'ON-SITE',
+    });
+    expect(dto).toMatchObject({
+      category: 'Desain Teknik & Arsitektur',
+      contract_type: 'Part-Time',
+      work_type: 'On-Site',
+    });
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[''], ['  '], [null]])(
+    'rejects a required text of %j on create and update',
+    async (location) => {
+      expect(
+        await errorFields(CreateJobPostingDto, { ...input, location }),
+      ).toEqual(['location']);
+      expect(await errorFields(UpdateJobPostingDto, { location })).toEqual([
+        'location',
+      ]);
+    },
+  );
+
+  it('treats blank board filters as no filter', async () => {
+    const query = plainToInstance(PublicJobQueryDto, {
+      keyword: '',
+      location: '  ',
+      category: '',
+      contract_type: ' ',
+      work_type: '',
+    });
+    expect(query).toMatchObject({
+      keyword: undefined,
+      location: undefined,
+      category: undefined,
+      contract_type: undefined,
+      work_type: undefined,
+    });
+    expect(await validate(query)).toEqual([]);
+  });
+
+  it('matches board filters ignoring case', async () => {
+    const query = plainToInstance(PublicJobQueryDto, {
+      keyword: ' autocad ',
+      work_type: 'hybrid',
+      contract_type: 'FULL-TIME',
+    });
+    expect(query).toMatchObject({
+      keyword: 'autocad',
+      work_type: 'Hybrid',
+      contract_type: 'Full-Time',
+    });
+    expect(await validate(query)).toEqual([]);
+  });
 });
 
 describe('JobPostingService', () => {

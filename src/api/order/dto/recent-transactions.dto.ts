@@ -1,7 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { OrderStatus } from '../entities/order.entity';
 import { catalogItemTypes } from '~/common/catalog/catalog-item';
+import { EnumInput } from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export class RecentTransactionsQueryDto {
@@ -20,9 +20,7 @@ export class TransactionsQueryDto {
   @LimitQuery()
   limit = 10;
 
-  @ApiPropertyOptional({ enum: OrderStatus })
-  @IsOptional()
-  @IsEnum(OrderStatus)
+  @EnumInput(Object.values(OrderStatus), { presence: 'filter' })
   status?: OrderStatus;
 }
 

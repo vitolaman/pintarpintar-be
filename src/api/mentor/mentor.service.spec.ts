@@ -1,4 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { DataSource, Repository } from 'typeorm';
 
 jest.mock('@nestjs/jwt', () => ({
@@ -7,8 +9,12 @@ jest.mock('@nestjs/jwt', () => ({
 
 import { AuthService } from '../auth/auth.service';
 import { FileAsset } from '../profile/entities/file-asset.entity';
+import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
+import { MentorRegistrationDto } from './dto/mentor-registration.dto';
+import { MentorSignUpDto } from './dto/mentor-sign-up.dto';
+import { UpdateMentorDto } from './dto/update-mentor.dto';
 import { Mentor } from './entities/mentor.entity';
 import { MentorProfile } from './entities/mentor-profile.entity';
 import { MentorDocumentStorageService } from './mentor-document-storage.service';
@@ -321,5 +327,136 @@ describe('MentorService', () => {
 
     expect(mentorProfile.expertise).toBe('BIM, Revit');
     expect(response.data.expertise_list).toEqual(['BIM', 'Revit']);
+  });
+
+  it('saves null for cleared headline, bio and portfolio link', async () => {
+    manager.findOne.mockResolvedValue({ id: mentorId, userId });
+    const mentorProfile = {
+      mentorId,
+      portfolioUrl: 'https://portfolio.example',
+    };
+    const profile = { userId, headline: 'Lama', bio: 'Lama', phone: '+62 1' };
+    manager.findOneBy.mockImplementation(async (target) =>
+      target === MentorProfile ? mentorProfile : profile,
+    );
+    mentorRepository.createQueryBuilder.mockReturnValue({
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        expertise: 'BIM',
+        experience_years: '5',
+      }),
+    });
+
+    await service.updateMyMentor(userId, {
+      headline: null,
+      bio: null,
+      portfolio_url: null,
+    });
+
+    expect(manager.save).toHaveBeenCalledWith(
+      Profile,
+      expect.objectContaining({ headline: null, bio: null, phone: '+62 1' }),
+    );
+    expect(manager.save).toHaveBeenCalledWith(
+      MentorProfile,
+      expect.objectContaining({ portfolioUrl: null }),
+    );
+  });
+});
+
+describe('mentor request DTOs', () => {
+  const registration = {
+    phone: '+62 812-3456-7890',
+    expertise: 'Teknik mesin',
+    experience_years: '5',
+    education: 'S1 Teknik Mesin',
+    linkedin_url: 'https://linkedin.com/in/raka',
+  };
+
+  async function errorFields(target: new () => object, value: object) {
+    const errors = await validate(plainToInstance(target, value));
+    return errors.map((error) => error.property);
+  }
+
+  it('accepts multipart strings and clears blank optional fields', async () => {
+    const dto = plainToInstance(MentorRegistrationDto, {
+      ...registration,
+      headline: '',
+      bio: '   ',
+      portfolio_url: '',
+    });
+    expect(dto).toMatchObject({
+      experience_years: 5,
+      headline: null,
+      bio: null,
+      portfolio_url: null,
+    });
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([
+    ['phone', ''],
+    ['phone', '   '],
+    ['expertise', ''],
+    ['education', '  '],
+    ['linkedin_url', ''],
+    ['experience_years', ''],
+    ['experience_years', 'lima'],
+  ])('requires %s at registration, rejecting %j', async (field, value) => {
+    expect(
+      await errorFields(MentorRegistrationDto, {
+        ...registration,
+        [field]: value,
+      }),
+    ).toEqual([field]);
+  });
+
+  it('requires the account fields on direct sign-up', async () => {
+    expect(
+      await errorFields(MentorSignUpDto, {
+        ...registration,
+        name: '  ',
+        email: 'raka@example.com',
+        password: 'password1',
+      }),
+    ).toEqual(['name']);
+  });
+
+  it('lets the profile update omit any field', async () => {
+    expect(await errorFields(UpdateMentorDto, {})).toEqual([]);
+    expect(
+      plainToInstance(UpdateMentorDto, { experience_years: '' })
+        .experience_years,
+    ).toBeUndefined();
+  });
+
+  it.each([
+    ['phone', null],
+    ['phone', ''],
+    ['expertise', null],
+    ['education', '  '],
+    ['linkedin_url', null],
+    ['experience_years', null],
+  ])('rejects clearing required %s with %j', async (field, value) => {
+    expect(await errorFields(UpdateMentorDto, { [field]: value })).toEqual([
+      field,
+    ]);
+  });
+
+  it('clears headline, bio and portfolio link with null or ""', async () => {
+    const dto = plainToInstance(UpdateMentorDto, {
+      headline: null,
+      bio: '',
+      portfolio_url: null,
+    });
+    expect(dto).toMatchObject({
+      headline: null,
+      bio: null,
+      portfolio_url: null,
+    });
+    expect(await validate(dto)).toEqual([]);
   });
 });

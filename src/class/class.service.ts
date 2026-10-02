@@ -400,7 +400,7 @@ export class ClassService {
            ON mentor_user.id = mentor.user_id AND mentor_user.deleted_at IS NULL
          WHERE lower(mentor_user.email) = lower($1)
            AND mentor.status = 'active' AND mentor.deleted_at IS NULL`,
-        [dto.email.trim()],
+        [dto.email],
       );
       if (!mentor) {
         throw new NotFoundException('No active mentor account uses this email');

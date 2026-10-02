@@ -12,8 +12,8 @@ import { Merchant } from '../api/merchant/entities/merchant.entity';
 import { ClassContentService } from './class-content.service';
 import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
-import { AddResourcesDto } from './dto/resource.dto';
-import { CreateVideoDto } from './dto/video.dto';
+import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
+import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
 import { Chapter } from './entities/chapter.entity';
 import { FileResource } from './entities/file-resource.entity';
 import { Video } from './entities/video.entity';
@@ -178,6 +178,75 @@ describe('ClassContentService', () => {
     expect(manager.save).not.toHaveBeenCalled();
   });
 
+  describe('material types', () => {
+    const ownedFile = (originalFilename: string, mimeType: string) =>
+      manager.findOneBy.mockImplementation(async (entity) => {
+        if (entity === Class)
+          return { id: classId, merchant_id: 'merchant-id' };
+        if (entity === Merchant) {
+          return { id: 'merchant-id', storageLevel: 'basic' };
+        }
+        return {
+          id: assetId,
+          uploadedByUserId: userId,
+          status: 'active',
+          visibility: 'private',
+          originalFilename,
+          mimeType,
+          sizeBytes: '2048',
+        };
+      });
+    const add = (resource: Record<string, unknown>) =>
+      service.addResources(userId, classId, chapterId, {
+        resources: [{ name: 'Materi', ...resource }],
+      } as AddResourcesDto);
+
+    it.each([
+      ['modul.zip', 'application/zip', 'archive'],
+      ['modul.pdf', 'application/pdf', 'pdf'],
+      ['denah.png', 'image/png', 'image'],
+      ['rencana.dwg', 'application/octet-stream', 'file'],
+      [
+        'catatan.docx',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'file',
+      ],
+    ])('stores %s as %s', async (name, mime, type) => {
+      ownedFile(name, mime);
+      await add({ asset_id: assetId });
+      expect(manager.save).toHaveBeenCalledWith(FileResource, [
+        expect.objectContaining({ type }),
+      ]);
+    });
+
+    it('replaces a sent type that disagrees with the file', async () => {
+      ownedFile('modul.zip', 'application/zip');
+      await add({ type: 'image', asset_id: assetId });
+      expect(manager.save).toHaveBeenCalledWith(FileResource, [
+        expect.objectContaining({ type: 'archive' }),
+      ]);
+    });
+
+    it('stores a url without an upload as a link', async () => {
+      await add({ url: 'https://example.com/ref' });
+      expect(manager.save).toHaveBeenCalledWith(FileResource, [
+        expect.objectContaining({ type: 'link', asset_id: null }),
+      ]);
+    });
+
+    it.each([
+      ['neither an upload nor a url', {}, 'needs an uploaded file'],
+      [
+        'both an upload and a url',
+        { asset_id: assetId, url: 'https://example.com' },
+        'not both',
+      ],
+    ])('rejects %s', async (_name, resource, message) => {
+      await expect(add(resource)).rejects.toThrow(message);
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+  });
+
   it('stores a private file resource with its size and no public URL', async () => {
     // The class's merchant decides the per-file limit (Basic: 1 GB).
     manager.findOneBy.mockImplementation(async (entity) => {
@@ -297,6 +366,15 @@ describe('ClassContentService', () => {
       });
     });
 
+    it('infers a file video from an asset_id alone', async () => {
+      owned(upload());
+      const response = await create({ asset_id: assetId });
+      expect(response.data).toMatchObject({
+        source: 'file',
+        asset_id: assetId,
+      });
+    });
+
     it('defaults to a link video for the current frontend', async () => {
       const response = await create({
         youtubeUrl: 'https://www.youtube.com/embed/abc',
@@ -311,8 +389,13 @@ describe('ClassContentService', () => {
         'not youtubeUrl',
       ],
       [
-        'a link video with an upload',
+        'both a URL and an upload',
         { youtubeUrl: 'https://x.test/v', asset_id: assetId },
+        'not both',
+      ],
+      [
+        'an explicit link video with an upload',
+        { source: 'link', asset_id: assetId },
         'not asset_id',
       ],
       ['a file video without an upload', { source: 'file' }, 'needs asset_id'],
@@ -504,7 +587,8 @@ describe('class content validation', () => {
   });
 
   it.each([
-    [{ type: 'pdf', name: 'Modul' }, ['resources']],
+    [{ name: 'Modul' }, []],
+    [{ type: 'Archive', name: 'Zip', url: 'https://example.com' }, []],
     [{ type: 'link', name: 'Ref', url: 'javascript:alert(1)' }, ['resources']],
     [
       {
@@ -542,5 +626,56 @@ describe('class content validation', () => {
     expect(
       await errorFields(CreateMeetingDto, { title: 'Sesi 1', ...input }),
     ).toEqual(fields);
+  });
+});
+
+describe('video and resource inputs', () => {
+  async function errorFields(target: new () => object, input: object) {
+    const errors = await validate(plainToInstance(target, input));
+    return errors.map((error) => error.property);
+  }
+
+  it('clears video and resource text with "" or null', async () => {
+    const video = plainToInstance(UpdateVideoDto, {
+      description: '',
+      duration: null,
+    });
+    expect(video).toMatchObject({ description: null, duration: null });
+    expect(await validate(video)).toEqual([]);
+
+    const resource = plainToInstance(UpdateResourceDto, {
+      description: '   ',
+    });
+    expect(resource.description).toBeNull();
+    expect(await validate(resource)).toEqual([]);
+  });
+
+  it.each([
+    [UpdateVideoDto, { title: '' }, ['title']],
+    [UpdateVideoDto, { title: null }, ['title']],
+    [UpdateVideoDto, { youtubeUrl: null }, ['youtubeUrl']],
+    [UpdateVideoDto, { youtubeUrl: '' }, ['youtubeUrl']],
+    [CreateVideoDto, { title: '  ' }, ['title']],
+    [UpdateResourceDto, { name: '  ' }, ['name']],
+    [UpdateResourceDto, { url: null }, ['url']],
+    [
+      AddResourcesDto,
+      { resources: [{ type: 'link', name: '', url: 'https://a.co' }] },
+      ['resources'],
+    ],
+  ])('rejects %p %j', async (target, input, fields) => {
+    expect(await errorFields(target as never, input)).toEqual(fields);
+  });
+
+  it('trims a video title and link', () => {
+    expect(
+      plainToInstance(CreateVideoDto, {
+        title: ' Pengenalan ',
+        youtubeUrl: ' https://www.youtube.com/embed/x ',
+      }),
+    ).toMatchObject({
+      title: 'Pengenalan',
+      youtubeUrl: 'https://www.youtube.com/embed/x',
+    });
   });
 });

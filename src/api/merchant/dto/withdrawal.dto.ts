@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsOptional, IsUUID } from 'class-validator';
+import { NumberInput } from '~/common/decorator/input.decorator';
 import { MerchantWalletResponseDto } from './merchant-wallet-response.dto';
 
 // Rules shown on the merchant balance page.
@@ -7,14 +8,13 @@ export const MINIMUM_WITHDRAWAL = 100_000;
 export const WITHDRAWAL_FEE = 5_000;
 
 export class RequestWithdrawalDto {
-  @ApiProperty({
+  @NumberInput({
+    integer: true,
+    min: MINIMUM_WITHDRAWAL,
+    max: 10_000_000_000,
     example: 500000,
-    minimum: MINIMUM_WITHDRAWAL,
     description: 'Whole rupiah taken from the settled (withdrawable) balance',
   })
-  @IsInt()
-  @Min(MINIMUM_WITHDRAWAL)
-  @Max(10_000_000_000)
   amount: number;
 
   @ApiPropertyOptional({

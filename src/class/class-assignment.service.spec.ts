@@ -126,6 +126,10 @@ describe('ClassAssignmentService', () => {
       quiz([{ ...choice, correct_answer: 'ARC' }]),
     ],
     [
+      'a multiple-choice question without a correct answer',
+      quiz([{ ...choice, correct_answer: null }]),
+    ],
+    [
       'a due date in the past',
       { ...quiz([choice]), due: '2020-01-01T00:00:00Z' },
     ],
@@ -230,7 +234,6 @@ describe('CreateAssignmentDto validation', () => {
     [quiz([{ ...choice, options: ['A', 'B', 'C', 'D', 'E'] }]), ['questions']],
     [quiz([{ ...choice, options: ['A'] }]), ['questions']],
     [quiz([{ ...choice, score_weight: -1 }]), ['questions']],
-    [quiz([{ ...choice, correct_answer: undefined }]), ['questions']],
     [{ ...quiz([choice]), questions: undefined }, ['questions']],
     [{ ...quiz([choice]), due: '15/10/2026' }, ['due']],
     [{ ...quiz([choice]), type: 'file' }, ['type']],
@@ -238,5 +241,68 @@ describe('CreateAssignmentDto validation', () => {
     [{ title: 'Tugas', due: FUTURE, type: AssignmentType.FILE_UPLOAD }, []],
   ])('%j fails on %j', async (input, fields) => {
     expect(await errorFields(input)).toEqual(fields);
+  });
+});
+
+describe('CreateAssignmentDto inputs', () => {
+  const parse = (input: object) => plainToInstance(CreateAssignmentDto, input);
+
+  it('clears the description and an essay answer key', async () => {
+    const dto = parse({
+      ...quiz([
+        { question_text: 'Jelaskan', type: 'Essay', correct_answer: '  ' },
+      ]),
+      description: null,
+    });
+
+    expect(dto.description).toBeNull();
+    expect(dto.questions?.[0]).toMatchObject({
+      type: QuestionType.ESSAY,
+      correct_answer: null,
+    });
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it('stores types canonically, trims options and accepts a numeric weight', async () => {
+    const dto = parse({
+      ...quiz([
+        {
+          question_text: ' Perintah garis? ',
+          type: 'Multiple_Choice',
+          options: [' LINE ', 'CIRCLE'],
+          correct_answer: 'LINE ',
+          score_weight: '10',
+        },
+      ]),
+      type: 'QUIZ',
+    });
+
+    expect(dto.type).toBe(AssignmentType.QUIZ);
+    expect(dto.questions?.[0]).toMatchObject({
+      question_text: 'Perintah garis?',
+      type: QuestionType.MULTIPLE_CHOICE,
+      options: ['LINE', 'CIRCLE'],
+      correct_answer: 'LINE',
+      score_weight: 10,
+    });
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[''], ['  '], [null]])(
+    'rejects the required title %j',
+    async (title) => {
+      const errors = await validate(parse({ ...quiz([choice]), title }));
+      expect(errors.map((error) => error.property)).toEqual(['title']);
+    },
+  );
+
+  it.each([
+    [{ question_text: '' }],
+    [{ question_text: null }],
+    [{ options: ['LINE', '  '] }],
+    [{ score_weight: null }],
+  ])('rejects question %j', async (change) => {
+    const errors = await validate(parse(quiz([{ ...choice, ...change }])));
+    expect(errors.map((error) => error.property)).toEqual(['questions']);
   });
 });

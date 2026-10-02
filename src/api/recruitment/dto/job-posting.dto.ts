@@ -3,17 +3,19 @@ import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
-  IsIn,
   IsOptional,
   IsString,
   IsUUID,
-  Length,
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import {
+  EnumInput,
+  QueryFilter,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
-import { trimOptionalText, trimText } from '~/common/dto/text-transforms';
 import {
   CONTRACT_TYPES,
   ContractType,
@@ -48,45 +50,35 @@ const toSkillList = ({ value }: { value: unknown }) => {
 };
 
 export class CreateJobPostingDto {
-  @ApiProperty({ example: 'Instruktur Senior AutoCAD & 3D Modeling' })
-  @Transform(trimText)
-  @IsString()
-  @Length(1, 150)
+  @RequiredText({
+    max: 150,
+    example: 'Instruktur Senior AutoCAD & 3D Modeling',
+  })
   title: string;
 
-  @ApiProperty({ enum: JOB_CATEGORIES, example: 'Desain Teknik & Arsitektur' })
-  @IsIn(JOB_CATEGORIES)
+  @EnumInput(JOB_CATEGORIES, { example: 'Desain Teknik & Arsitektur' })
   category: JobCategory;
 
-  @ApiProperty({ enum: CONTRACT_TYPES, example: 'Part-Time' })
-  @IsIn(CONTRACT_TYPES)
+  @EnumInput(CONTRACT_TYPES, { example: 'Part-Time' })
   contract_type: ContractType;
 
-  @ApiProperty({ enum: WORK_TYPES, example: 'Remote' })
-  @IsIn(WORK_TYPES)
+  @EnumInput(WORK_TYPES, { example: 'Remote' })
   work_type: WorkType;
 
-  @ApiProperty({ example: 'Full Remote (Seluruh Indonesia)' })
-  @Transform(trimText)
-  @IsString()
-  @Length(1, 150)
+  @RequiredText({ max: 150, example: 'Full Remote (Seluruh Indonesia)' })
   location: string;
 
-  @ApiProperty({
+  @RequiredText({
+    max: 100,
     example: 'Rp 5.000.000 - Rp 8.000.000 / bulan',
     description: 'Free text, as entered',
   })
-  @Transform(trimText)
-  @IsString()
-  @Length(1, 100)
   salary: string;
 
-  @ApiProperty({
+  @RequiredText({
+    max: 5000,
     example: 'Minimal 3 tahun pengalaman AutoCAD 2024 dan SketchUp.',
   })
-  @Transform(trimText)
-  @IsString()
-  @Length(1, 5000)
   requirements: string;
 
   @ApiPropertyOptional({
@@ -121,34 +113,32 @@ export class UpdateJobPostingDto extends PartialType(CreateJobPostingDto, {
 
 export class PublicJobQueryDto extends RequestPaginatedQueryDto {
   @ApiPropertyOptional({
-    description: 'Matches title, merchant, category or skills (literal)',
+    description:
+      'Matches title, merchant, category or skills (literal). A blank value means no filter.',
   })
+  @QueryFilter()
   @IsOptional()
-  @Transform(trimOptionalText)
   @IsString()
   @MaxLength(100)
   keyword?: string;
 
-  @ApiPropertyOptional({ example: 'Jakarta' })
+  @ApiPropertyOptional({
+    example: 'Jakarta',
+    description: 'A blank value means no filter',
+  })
+  @QueryFilter()
   @IsOptional()
-  @Transform(trimOptionalText)
   @IsString()
   @MaxLength(100)
   location?: string;
 
-  @ApiPropertyOptional({ enum: JOB_CATEGORIES })
-  @IsOptional()
-  @IsIn(JOB_CATEGORIES)
+  @EnumInput(JOB_CATEGORIES, { presence: 'filter' })
   category?: JobCategory;
 
-  @ApiPropertyOptional({ enum: CONTRACT_TYPES })
-  @IsOptional()
-  @IsIn(CONTRACT_TYPES)
+  @EnumInput(CONTRACT_TYPES, { presence: 'filter' })
   contract_type?: ContractType;
 
-  @ApiPropertyOptional({ enum: WORK_TYPES })
-  @IsOptional()
-  @IsIn(WORK_TYPES)
+  @EnumInput(WORK_TYPES, { presence: 'filter' })
   work_type?: WorkType;
 }
 

@@ -1,35 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsIn, IsString, IsUUID, Length } from 'class-validator';
+import { IsUUID } from 'class-validator';
 import { ThreadBadge } from '../../../class/entities/discussion-thread.entity';
+import { EnumInput, RequiredText } from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const threadBadges = Object.values(ThreadBadge);
 export const discussionRoles = ['merchant', 'mentor', 'student'] as const;
 export type DiscussionRole = (typeof discussionRoles)[number];
 
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
-
 export class CreateThreadDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   class_id: string;
 
-  @ApiProperty({ maxLength: 160, example: 'Jadwal sesi minggu depan' })
-  @Transform(trim)
-  @IsString()
-  @Length(1, 160)
+  @RequiredText({ max: 160, example: 'Jadwal sesi minggu depan' })
   title: string;
 
-  @ApiProperty({ enum: threadBadges, example: ThreadBadge.PENGUMUMAN })
-  @IsIn(threadBadges)
-  badge: ThreadBadge;
+  @EnumInput(threadBadges, {
+    presence: 'optional',
+    example: ThreadBadge.PENGUMUMAN,
+    default: ThreadBadge.TANYA_JAWAB,
+  })
+  badge?: ThreadBadge;
 
-  @ApiProperty({ maxLength: 5000 })
-  @Transform(trim)
-  @IsString()
-  @Length(1, 5000)
+  @RequiredText({ max: 5000 })
   content: string;
 }
 
@@ -38,10 +32,7 @@ export class CreateCommentDto {
   @IsUUID()
   thread_id: string;
 
-  @ApiProperty({ maxLength: 2000 })
-  @Transform(trim)
-  @IsString()
-  @Length(1, 2000)
+  @RequiredText({ max: 2000 })
   content: string;
 }
 

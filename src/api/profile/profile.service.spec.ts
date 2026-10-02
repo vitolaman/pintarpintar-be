@@ -1,6 +1,9 @@
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { ProfileService } from './profile.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { FileAsset } from './entities/file-asset.entity';
 import { Product } from './entities/product.entity';
 import { Profile } from './entities/profile.entity';
@@ -347,7 +350,7 @@ describe('ProfileService', () => {
 
     await expect(
       service.updateCurrent(userId, {
-        name: '  Jane Santoso  ',
+        name: 'Jane Santoso',
         phone: '+62 812-3456-7890',
         headline: 'Pelajar',
         bio: 'Belajar desain teknik.',
@@ -394,3 +397,21 @@ function chainableSingleQuery(row: unknown) {
 
   return query;
 }
+
+describe('UpdateProfileDto', () => {
+  const parse = (input: object) => plainToInstance(UpdateProfileDto, input);
+
+  it('clears the phone, headline and bio with "" or null', async () => {
+    const dto = parse({ phone: '', headline: null, bio: '   ' });
+    expect(dto).toMatchObject({ phone: null, headline: null, bio: null });
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it('trims the name and rejects a blank or null one', async () => {
+    expect(parse({ name: '  Jane  ' }).name).toBe('Jane');
+    for (const name of ['', '  ', null]) {
+      const errors = await validate(parse({ name }));
+      expect(errors.map((error) => error.property)).toEqual(['name']);
+    }
+  });
+});

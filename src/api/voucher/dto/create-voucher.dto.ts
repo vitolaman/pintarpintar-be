@@ -1,90 +1,57 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import {
-  IsBoolean,
-  IsDateString,
-  IsIn,
-  IsInt,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Length,
-  Matches,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsDateString, IsOptional, Matches } from 'class-validator';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
-import { trimOptionalText, trimText } from '~/common/dto/text-transforms';
+import {
+  ClearableText,
+  EnumInput,
+  NumberInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
 
 export const voucherDiscountTypes = ['percentage', 'nominal'] as const;
 
-const optionalNumber = ({ value }: { value?: unknown }) =>
-  value === '' || value === undefined
-    ? undefined
-    : value === null
-      ? null
-      : Number(value);
-const optionalLimit = ({ value }: { value?: unknown }) => {
-  const numberValue = optionalNumber({ value });
-  return numberValue === 0 ? null : numberValue;
-};
+// A usage limit of 0 is the form's "unlimited", stored as no limit.
+const zeroMeansUnlimited = ({ value }: { value: unknown }) =>
+  value === 0 || value === '0' ? null : value;
 
 export class CreateVoucherDto {
-  @ApiProperty({ example: 'Voucher Pengguna Baru' })
-  @IsString()
-  @Length(1, 160)
-  @Transform(trimText)
+  @RequiredText({ max: 160, example: 'Voucher Pengguna Baru' })
   name: string;
 
-  @ApiProperty({ example: 'NEWSTUDENT15' })
-  @IsString()
-  @Length(1, 64)
+  @RequiredText({ max: 64, example: 'NEWSTUDENT15' })
   @Matches(/^[A-Za-z0-9_-]+$/)
-  @Transform(trimText)
   code: string;
 
-  @ApiProperty({ enum: voucherDiscountTypes, example: 'percentage' })
-  @IsIn(voucherDiscountTypes)
+  @EnumInput(voucherDiscountTypes, { example: 'percentage' })
   discount_type: (typeof voucherDiscountTypes)[number];
 
-  @ApiProperty({ example: 15 })
-  @IsNumber()
-  @Min(0.01)
-  @Transform(optionalNumber)
+  @NumberInput({ min: 0.01, example: 15 })
   discount_value: number;
 
-  @ApiPropertyOptional({ example: 'Potongan harga untuk pembeli pertama.' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 2_000)
-  @Transform(trimOptionalText)
-  description?: string;
+  @ClearableText({
+    max: 2_000,
+    example: 'Potongan harga untuk pembeli pertama.',
+  })
+  description?: string | null;
 
-  @ApiPropertyOptional({ example: 'Berlaku untuk produk yang dipilih.' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 2_000)
-  @Transform(trimOptionalText)
-  terms?: string;
+  @ClearableText({ max: 2_000, example: 'Berlaku untuk produk yang dipilih.' })
+  terms?: string | null;
 
-  @ApiPropertyOptional({ example: 50000 })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Transform(optionalNumber)
+  @NumberInput({ presence: 'nullable', min: 0, example: 50000 })
   minimum_order_amount?: number | null;
 
-  @ApiPropertyOptional({ example: 30000 })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Transform(optionalNumber)
+  @NumberInput({ presence: 'nullable', min: 0, example: 30000 })
   maximum_discount_amount?: number | null;
 
-  @ApiPropertyOptional({ example: 200, description: 'Use 0 for unlimited.' })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Transform(optionalLimit)
+  @Transform(zeroMeansUnlimited)
+  @NumberInput({
+    presence: 'nullable',
+    integer: true,
+    min: 0,
+    example: 200,
+    description: 'Use 0 for unlimited.',
+  })
   max_uses?: number | null;
 
   @ApiPropertyOptional({ example: '2026-10-01T00:00:00.000Z' })

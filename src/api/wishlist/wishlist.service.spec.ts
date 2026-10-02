@@ -20,15 +20,41 @@ const catalogRow = (override: Record<string, unknown> = {}) => ({
   ...override,
 });
 
+// Routes the service's SQL: the advisory lock, the id lookup, and the
+// catalog details.
+const routedQuery =
+  (row: Record<string, unknown> = {}, family = 'class') =>
+  async (sql: string) => {
+    if (sql.includes('advisory')) return [];
+    if (sql.includes('AS family')) return [{ id: CLASS_ID, family }];
+    return [catalogRow(row)];
+  };
+
 describe('WishlistService', () => {
   let manager: Record<string, jest.Mock>;
   let service: WishlistService;
+  let deleted: { affected: number };
+  let deleteConditions: unknown[][];
 
   beforeEach(() => {
+    deleted = { affected: 1 };
+    deleteConditions = [];
+    const deleteBuilder = {
+      delete: () => deleteBuilder,
+      from: () => deleteBuilder,
+      where: (...args: unknown[]) => {
+        deleteConditions.push(args);
+        return deleteBuilder;
+      },
+      andWhere: (...args: unknown[]) => {
+        deleteConditions.push(args);
+        return deleteBuilder;
+      },
+      execute: async () => deleted,
+    };
     manager = {
-      query: jest.fn(async (sql: string) =>
-        sql.includes('advisory') ? [] : [catalogRow()],
-      ),
+      query: jest.fn(routedQuery()),
+      createQueryBuilder: jest.fn(() => deleteBuilder),
       findOneBy: jest.fn(async () => null),
       create: jest.fn((_entity, value) => value),
       save: jest.fn(async (_entity, value) => ({
@@ -86,14 +112,19 @@ describe('WishlistService', () => {
     expect(response.responseMessage).toBe('Item already in wishlist');
   });
 
+  it('accepts kelas for a bootcamp, and an id without a type', async () => {
+    manager.query.mockImplementation(routedQuery({ type: 'bootcamp' }));
+    await service.add('user-id', { type: 'kelas', id: CLASS_ID });
+    await service.add('user-id', { id: CLASS_ID });
+    expect(manager.save).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
-    ['unavailable', { is_available: false }],
-    ['of an inactive merchant', { merchant_active: false }],
-    ['of another type', { type: 'bootcamp' }],
-  ])('rejects an item that is %s', async (_case, override) => {
-    manager.query.mockImplementation(async (sql: string) =>
-      sql.includes('advisory') ? [] : [catalogRow(override)],
-    );
+    ['unavailable', { is_available: false }, 'class'],
+    ['of an inactive merchant', { merchant_active: false }, 'class'],
+    ['of another family', {}, 'product'],
+  ])('rejects an item that is %s', async (_case, override, family) => {
+    manager.query.mockImplementation(routedQuery(override, family));
     await expect(
       service.add('user-id', { type: 'kelas', id: CLASS_ID }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -118,14 +149,17 @@ describe('WishlistService', () => {
     });
   });
 
-  it("removes only the caller's entry", async () => {
-    await service.remove('user-id', 'entry-id');
-    expect(manager.delete).toHaveBeenCalledWith(WishlistItem, {
-      id: 'entry-id',
-      userId: 'user-id',
-    });
+  it("removes only the caller's entry, by entry id or item id", async () => {
+    await service.remove('user-id', CLASS_ID);
+    expect(deleteConditions).toEqual([
+      ['user_id = :userId', { userId: 'user-id' }],
+      [
+        '(id = :id OR class_id = :id OR product_id = :id OR bundle_id = :id)',
+        { id: CLASS_ID },
+      ],
+    ]);
 
-    manager.delete.mockResolvedValueOnce({ affected: 0 });
+    deleted = { affected: 0 };
     await expect(service.remove('user-id', 'other')).rejects.toBeInstanceOf(
       NotFoundException,
     );

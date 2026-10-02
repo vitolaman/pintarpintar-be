@@ -1,18 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
-  IsIn,
-  IsInt,
   IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   Matches,
-  Max,
-  Min,
 } from 'class-validator';
 import { trimText } from '~/common/dto/text-transforms';
+import {
+  EnumInput,
+  NumberInput,
+  QueryFilter,
+} from '~/common/decorator/input.decorator';
 
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -43,40 +44,48 @@ export class StudentGrowthQueryDto {
   @IsISO8601({ strict: true }, { message: 'to must be a real date' })
   to: string;
 
-  @ApiPropertyOptional({
-    enum: GRANULARITIES,
+  @EnumInput(GRANULARITIES, {
+    presence: 'filter',
     description:
       'Defaults to the page rule: day within one month, month within one year, otherwise year',
   })
-  @IsOptional()
-  @IsIn(GRANULARITIES)
   granularity?: Granularity;
 }
 
 export class DailySalesQueryDto {
-  @ApiProperty({ example: '2026-10', description: 'YYYY-MM' })
+  @ApiPropertyOptional({
+    example: '2026-10',
+    description: 'YYYY-MM; defaults to the current Asia/Jakarta month',
+  })
+  @QueryFilter()
+  @IsOptional()
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'month must be YYYY-MM' })
-  month: string;
+  month?: string;
 }
 
 export class MonthlyRevenueQueryDto {
-  @ApiProperty({ example: 2026 })
-  @Transform(({ value }) => (value === '' ? value : Number(value)))
-  @IsInt()
-  @Min(2000)
-  @Max(2100)
-  year: number;
+  @NumberInput({
+    presence: 'optional',
+    integer: true,
+    min: 2000,
+    max: 2100,
+    example: 2026,
+    description: 'Defaults to the current Asia/Jakarta year',
+  })
+  year?: number;
 }
 
 export class AnalyticsSummaryQueryDto {
-  @ApiProperty({ enum: SUMMARY_PERIODS })
-  @IsIn(SUMMARY_PERIODS)
-  period: SummaryPeriod;
+  @EnumInput(SUMMARY_PERIODS, {
+    presence: 'filter',
+    default: 'month',
+    description: 'Defaults to month',
+  })
+  period?: SummaryPeriod;
 }
 
 export class TrackVisitDto {
-  @ApiProperty({ enum: VISIT_TARGETS })
-  @IsIn(VISIT_TARGETS)
+  @EnumInput(VISIT_TARGETS)
   target_type: VisitTarget;
 
   @ApiProperty({
@@ -88,13 +97,15 @@ export class TrackVisitDto {
   @Length(1, 120)
   target_id: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     format: 'uuid',
     description:
-      'Random id the browser keeps; ignored when the request is logged in',
+      'Random id the browser keeps; required only without a login token, and ignored with one',
   })
+  @QueryFilter()
+  @IsOptional()
   @IsUUID()
-  visitor_id: string;
+  visitor_id?: string;
 }
 
 export class StudentGrowthPointDto {

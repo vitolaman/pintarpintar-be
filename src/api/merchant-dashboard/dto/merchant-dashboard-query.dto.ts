@@ -8,6 +8,7 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
+import { EnumInput, QueryFilter } from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const dashboardPeriods = [7, 30, 90, 365] as const;
@@ -20,20 +21,26 @@ export const saleStatuses = [
   'cancelled',
 ] as const;
 export const sortOrders = ['asc', 'desc'] as const;
+const saleSorts = ['date', 'amount'] as const;
+const customerSorts = ['total_spent', 'joined_at'] as const;
 
 export type SaleType = (typeof saleTypes)[number];
 export type SortOrder = (typeof sortOrders)[number];
 
-const toNumber = ({ value }: { value: unknown }) => Number(value);
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+const DEFAULT_PERIOD_DAYS = 30;
+
+// A blank period means the default period rather than 0 days.
+const toPeriodDays = ({ value }: { value: unknown }) =>
+  typeof value === 'string' && value.trim() === ''
+    ? DEFAULT_PERIOD_DAYS
+    : Number(value);
 
 export class DashboardQueryDto {
-  @ApiPropertyOptional({ enum: dashboardPeriods, default: 30 })
+  @ApiPropertyOptional({ enum: dashboardPeriods, default: DEFAULT_PERIOD_DAYS })
   @IsOptional()
-  @Transform(toNumber)
+  @Transform(toPeriodDays)
   @IsIn(dashboardPeriods)
-  period_days: (typeof dashboardPeriods)[number] = 30;
+  period_days: (typeof dashboardPeriods)[number] = DEFAULT_PERIOD_DAYS;
 }
 
 class PagedQueryDto {
@@ -43,42 +50,40 @@ class PagedQueryDto {
   @LimitQuery()
   limit = 10;
 
-  @ApiPropertyOptional({ enum: sortOrders, default: 'desc' })
-  @IsOptional()
-  @IsIn(sortOrders)
+  @EnumInput(sortOrders, { presence: 'filter', default: 'desc' })
   sort_order: SortOrder = 'desc';
 
-  @ApiPropertyOptional({ maxLength: 100 })
+  @ApiPropertyOptional({
+    maxLength: 100,
+    description: 'A blank value means no search',
+  })
+  @QueryFilter()
   @IsOptional()
-  @Transform(trim)
   @IsString()
   @MaxLength(100)
   search?: string;
 }
 
 export class SalesFilterQueryDto {
-  @ApiPropertyOptional({ enum: saleTypes })
-  @IsOptional()
-  @IsIn(saleTypes)
+  @EnumInput(saleTypes, { presence: 'filter' })
   type?: SaleType;
 
-  @ApiPropertyOptional({ enum: saleStatuses })
-  @IsOptional()
-  @IsIn(saleStatuses)
+  @EnumInput(saleStatuses, { presence: 'filter' })
   status?: (typeof saleStatuses)[number];
 
   @ApiPropertyOptional({
     maxLength: 100,
-    description: 'Buyer name or item title',
+    description: 'Buyer name or item title; a blank value means no search',
   })
+  @QueryFilter()
   @IsOptional()
-  @Transform(trim)
   @IsString()
   @MaxLength(100)
   search?: string;
 
   @ApiPropertyOptional({
-    description: 'Comma-separated item ids (class, digital product, or bundle)',
+    description:
+      'Comma-separated item ids (class, digital product, or bundle); a blank value means every item',
     type: String,
   })
   @IsOptional()
@@ -94,14 +99,10 @@ export class SalesFilterQueryDto {
   @IsUUID('all', { each: true })
   item_ids?: string[];
 
-  @ApiPropertyOptional({ enum: ['date', 'amount'], default: 'date' })
-  @IsOptional()
-  @IsIn(['date', 'amount'])
-  sort_by: 'date' | 'amount' = 'date';
+  @EnumInput(saleSorts, { presence: 'filter', default: 'date' })
+  sort_by: (typeof saleSorts)[number] = 'date';
 
-  @ApiPropertyOptional({ enum: sortOrders, default: 'desc' })
-  @IsOptional()
-  @IsIn(sortOrders)
+  @EnumInput(sortOrders, { presence: 'filter', default: 'desc' })
   sort_order: SortOrder = 'desc';
 }
 
@@ -114,11 +115,6 @@ export class SalesQueryDto extends SalesFilterQueryDto {
 }
 
 export class CustomersQueryDto extends PagedQueryDto {
-  @ApiPropertyOptional({
-    enum: ['total_spent', 'joined_at'],
-    default: 'total_spent',
-  })
-  @IsOptional()
-  @IsIn(['total_spent', 'joined_at'])
-  sort_by: 'total_spent' | 'joined_at' = 'total_spent';
+  @EnumInput(customerSorts, { presence: 'filter', default: 'total_spent' })
+  sort_by: (typeof customerSorts)[number] = 'total_spent';
 }

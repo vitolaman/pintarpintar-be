@@ -289,9 +289,10 @@ export class MerchantService {
 
       if (input.store_name !== undefined) merchant.storeName = input.store_name;
       if (input.store_description !== undefined) {
-        merchant.storeDescription = this.sanitizeDescription(
-          input.store_description,
-        );
+        merchant.storeDescription =
+          input.store_description === null
+            ? null
+            : this.sanitizeDescription(input.store_description);
       }
       if (input.phone !== undefined) {
         await this.savePrivatePhone(manager, userId, input.phone);
@@ -745,7 +746,7 @@ export class MerchantService {
   private async savePrivatePhone(
     manager: EntityManager,
     userId: string,
-    phone: string,
+    phone: string | null,
   ): Promise<void> {
     const profile = await manager.findOneBy(Profile, { userId });
     await manager.save(

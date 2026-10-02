@@ -17,6 +17,11 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
+import {
+  canonicalValue,
+  EnumInput,
+  QueryFilter,
+} from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const catalogCardTypes = ['kelas', 'bootcamp', 'digital'] as const;
@@ -58,51 +63,57 @@ function expandFileFormats(value: unknown): unknown {
   return formats.length > 0 ? [...new Set(formats)] : undefined;
 }
 
+function parseTypeFilters(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const types = value
+    .split(',')
+    .map((type) => type.trim())
+    .filter(Boolean)
+    .map((type) => canonicalValue(catalogTypeFilters, type));
+  return types.length > 0 ? types : undefined;
+}
+
 export class CatalogQueryDto {
   @ApiPropertyOptional({
-    description: `Comma-separated: ${catalogTypeFilters.join(', ')}`,
+    description: `Comma-separated, ignoring case: ${catalogTypeFilters.join(', ')}. A blank value means every type.`,
     type: String,
   })
   @IsOptional()
-  @Transform(({ value }) =>
-    typeof value === 'string'
-      ? value
-          .split(',')
-          .map((type) => type.trim())
-          .filter(Boolean)
-      : value,
-  )
+  @Transform(({ value }) => parseTypeFilters(value))
   @ArrayMaxSize(4)
   @IsIn(catalogTypeFilters, { each: true })
   type?: string[];
 
-  @ApiPropertyOptional({ maxLength: 100 })
+  @ApiPropertyOptional({
+    maxLength: 100,
+    description: 'A blank value means no search',
+  })
+  @QueryFilter()
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MaxLength(100)
   search?: string;
 
-  @ApiPropertyOptional({ enum: catalogLevels })
-  @IsOptional()
-  @IsIn(catalogLevels)
+  @EnumInput(catalogLevels, { presence: 'filter' })
   level?: string;
 
   @ApiPropertyOptional({
     example: 'template-canva',
     description:
-      'Digital category slug or name, or class Bidang (ignoring case), e.g. Template Canva or Sipil',
+      'Digital category slug or name, or class Bidang (ignoring case), e.g. Template Canva or Sipil. A blank value means every category.',
   })
+  @QueryFilter()
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MaxLength(100)
   category?: string;
 
   @ApiPropertyOptional({
     format: 'uuid',
-    description: "Only this merchant's items",
+    description:
+      "Only this merchant's items; a blank value means every merchant",
   })
+  @QueryFilter()
   @IsOptional()
   @IsUUID()
   merchant_id?: string;
@@ -119,9 +130,8 @@ export class CatalogQueryDto {
   @IsString({ each: true })
   file_format?: string[];
 
-  @ApiPropertyOptional({ enum: catalogSorts, default: 'terbaru' })
-  @IsOptional()
-  @IsIn(catalogSorts)
+  // a blank sort means the default order, not an unknown one.
+  @EnumInput(catalogSorts, { presence: 'filter', default: 'terbaru' })
   sort: CatalogSort = 'terbaru';
 
   @PageQuery()

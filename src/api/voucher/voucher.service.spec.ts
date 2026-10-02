@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { DataSource } from 'typeorm';
+import { CreateVoucherDto } from './dto/create-voucher.dto';
+import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { Voucher } from './entities/voucher.entity';
 import { VoucherService } from './voucher.service';
 
@@ -299,5 +303,73 @@ describe('VoucherService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('voucher DTOs', () => {
+  const valid = {
+    name: 'Voucher Pengguna Baru',
+    code: 'NEWSTUDENT15',
+    discount_type: 'percentage',
+    discount_value: 15,
+  };
+  const errorFields = async (target: new () => object, input: object) =>
+    (await validate(plainToInstance(target, input))).map(
+      (error) => error.property,
+    );
+
+  it('accepts numeric strings and stores the discount type canonically', async () => {
+    const dto = plainToInstance(CreateVoucherDto, {
+      ...valid,
+      discount_type: ' Nominal ',
+      discount_value: '15000',
+      minimum_order_amount: '50000',
+      maximum_discount_amount: '',
+      max_uses: '200',
+    });
+    expect(await validate(dto)).toEqual([]);
+    expect(dto).toMatchObject({
+      discount_type: 'nominal',
+      discount_value: 15000,
+      minimum_order_amount: 50000,
+      max_uses: 200,
+    });
+    expect(dto.maximum_discount_amount).toBeUndefined();
+  });
+
+  it('treats a usage limit of 0 as unlimited', async () => {
+    for (const max_uses of [0, '0']) {
+      const dto = plainToInstance(CreateVoucherDto, { ...valid, max_uses });
+      expect(await validate(dto)).toEqual([]);
+      expect(dto.max_uses).toBeNull();
+    }
+  });
+
+  it('clears the description and terms with "" or null', async () => {
+    const dto = plainToInstance(UpdateVoucherDto, {
+      description: '  ',
+      terms: null,
+    });
+    expect(await validate(dto)).toEqual([]);
+    expect(dto).toMatchObject({ description: null, terms: null });
+  });
+
+  it.each(['', '  ', null])('rejects a name or code of %j', async (value) => {
+    expect(
+      await errorFields(CreateVoucherDto, {
+        ...valid,
+        name: value,
+        code: value,
+      }),
+    ).toEqual(['name', 'code']);
+    expect(
+      await errorFields(UpdateVoucherDto, { name: value, code: value }),
+    ).toEqual(['name', 'code']);
+  });
+
+  it('rejects clearing a required number on update', async () => {
+    expect(
+      await errorFields(UpdateVoucherDto, { discount_value: null }),
+    ).toEqual(['discount_value']);
   });
 });

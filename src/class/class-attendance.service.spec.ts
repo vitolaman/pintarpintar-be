@@ -94,6 +94,14 @@ describe('ClassAttendanceService', () => {
     expect(saved()).toMatchObject({ checkInTime: '18:00:00', notes: 'Revisi' });
   });
 
+  it('clears the review of a repeat check-in with null', async () => {
+    existing = { status: 'hadir', checkInTime: '18:00:00', notes: 'Awal' };
+
+    await service.checkIn(userId, meetingId, null);
+
+    expect(saved()).toMatchObject({ checkInTime: '18:00:00', notes: null });
+  });
+
   it('refuses a check-in before the meeting starts', async () => {
     meeting = { ...meeting, has_started: false };
 

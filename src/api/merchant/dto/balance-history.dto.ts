@@ -1,5 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { EnumInput } from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const balanceHistoryTypes = ['income', 'withdraw'] as const;
@@ -12,9 +12,7 @@ export const balanceHistoryTypeFilters = [
 ] as const;
 
 export class BalanceHistoryQueryDto {
-  @ApiPropertyOptional({ enum: balanceHistoryTypeFilters, default: 'all' })
-  @IsOptional()
-  @IsIn(balanceHistoryTypeFilters)
+  @EnumInput(balanceHistoryTypeFilters, { presence: 'filter', default: 'all' })
   type: (typeof balanceHistoryTypeFilters)[number] = 'all';
 
   @PageQuery()

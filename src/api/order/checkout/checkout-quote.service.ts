@@ -5,7 +5,7 @@ import {
   CatalogItemColumns,
   findOwnedItemIds,
   loadCatalogItems,
-  toReferenceColumns,
+  resolveItemReferences,
 } from '~/common/catalog/catalog-item';
 import { CheckoutRequestDto } from '../dto/checkout.dto';
 import {
@@ -66,7 +66,8 @@ export class CheckoutQuoteService {
     request: CheckoutRequestDto,
     options: { lockCodes: boolean },
   ): Promise<CheckoutQuote> {
-    const items = await this.loadItems(manager, userId, request);
+    const references = await resolveItemReferences(manager, request.items);
+    const items = await this.loadItems(manager, userId, request, references);
     const rules = await this.loadCodes(
       manager,
       userId,
@@ -76,7 +77,7 @@ export class CheckoutQuoteService {
 
     return {
       pricing: priceSelection(items, rules),
-      references: request.items.map(toReferenceColumns),
+      references,
       voucher: (rules.find((rule) => rule.kind === 'voucher') ??
         null) as VoucherRule | null,
       discountCode: (rules.find((rule) => rule.kind === 'discount') ??
@@ -88,6 +89,7 @@ export class CheckoutQuoteService {
     manager: EntityManager,
     userId: string,
     request: CheckoutRequestDto,
+    references: CatalogItemColumns[],
   ): Promise<PricingItem[]> {
     const seen = new Set<string>();
     for (const ref of request.items) {
@@ -99,7 +101,6 @@ export class CheckoutQuoteService {
       seen.add(ref.id);
     }
 
-    const references = request.items.map(toReferenceColumns);
     const [details, owned] = await Promise.all([
       loadCatalogItems(manager, references),
       findOwnedItemIds(manager, userId, references),
@@ -107,10 +108,7 @@ export class CheckoutQuoteService {
 
     return request.items.map((ref) => {
       const item = details.get(ref.id);
-      if (!item || item.type !== ref.type) {
-        throw new BadRequestException(`Item ${ref.id} is not a ${ref.type}`);
-      }
-      if (!item.is_available) {
+      if (!item || !item.is_available) {
         throw new BadRequestException(`Item ${ref.id} is not available`);
       }
       if (owned.has(ref.id)) {

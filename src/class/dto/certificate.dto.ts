@@ -1,12 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsInt,
-  IsUUID,
-  Max,
-  Min,
-  ValidateIf,
-} from 'class-validator';
+import { IsBoolean, IsUUID, ValidateIf } from 'class-validator';
+import { NumberInput } from '~/common/decorator/input.decorator';
 import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 
 export class UpdateCertificateSettingsDto {
@@ -15,18 +9,10 @@ export class UpdateCertificateSettingsDto {
   @IsBoolean()
   auto_issue?: boolean;
 
-  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
-  @ValidateIf((_, value) => value !== undefined)
-  @IsInt()
-  @Min(0)
-  @Max(100)
+  @NumberInput({ presence: 'optional', integer: true, min: 0, max: 100 })
   min_attendance_percent?: number;
 
-  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
-  @ValidateIf((_, value) => value !== undefined)
-  @IsInt()
-  @Min(0)
-  @Max(100)
+  @NumberInput({ presence: 'optional', integer: true, min: 0, max: 100 })
   min_score?: number;
 }
 

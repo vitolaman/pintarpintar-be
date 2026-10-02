@@ -1,32 +1,22 @@
-import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MaxLength,
-  Min,
-} from 'class-validator';
+  ClearableText,
+  NumberInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
+import { MAX_DESCRIPTION_LENGTH } from './content-validation';
 
 export class CreateChapterDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
+  @RequiredText({ max: 255 })
   title: string;
 
-  @ApiProperty({ required: false })
-  @IsString()
-  @IsOptional()
-  description?: string;
+  @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
+  description?: string | null;
 
-  @ApiProperty({
-    required: false,
-    minimum: 0,
+  @NumberInput({
+    presence: 'optional',
+    integer: true,
+    min: 0,
     description: 'Defaults to after the last chapter',
   })
-  @IsInt()
-  @Min(0)
-  @IsOptional()
   order?: number;
 }

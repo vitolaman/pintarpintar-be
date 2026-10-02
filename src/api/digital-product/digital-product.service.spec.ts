@@ -12,6 +12,7 @@ import { DigitalProductService } from './digital-product.service';
 import {
   CreateDigitalProductDto,
   DigitalProductListQueryDto,
+  UpdateDigitalProductDto,
 } from './dto/digital-product-request.dto';
 import { Category } from './entities/category.entity';
 import { DigitalFile } from './entities/digital-file.entity';
@@ -216,6 +217,15 @@ describe('DigitalProductService', () => {
     ).toBe(false);
   });
 
+  it('creates an unpublished product when no status is sent', async () => {
+    await create({ status: undefined });
+
+    expect(savedProduct()).toMatchObject({
+      publicationStatus: 'unpublished',
+      isPublished: false,
+    });
+  });
+
   it.each([
     ['publishing without a file', { status: 'published' as const }],
     ['a discount above the list price', { discount_price: 200000 }],
@@ -335,24 +345,79 @@ describe('digital product DTO validation', () => {
   };
 
   it.each([
-    [{ ...valid, status: 'Published' }, ['status']],
+    [{ ...valid, status: 'draft' }, ['status']],
+    [{ ...valid, status: null }, ['status']],
     [{ ...valid, category_slug: 'Template Canva' }, ['category_slug']],
     [{ ...valid, original_price: -1 }, ['original_price']],
     [{ ...valid, discount_price: -1 }, ['discount_price']],
     [{ ...valid, file_asset_id: 'x' }, ['file_asset_id']],
     [{ ...valid, title: '   ' }, ['title']],
+    [{ ...valid, title: null }, ['title']],
     [valid, []],
   ])('create %j fails on %j', async (input, fields) => {
     expect(await errorFields(CreateDigitalProductDto, input)).toEqual(fields);
+  });
+
+  it('stores a status label canonically and accepts numeric strings', async () => {
+    const dto = plainToInstance(CreateDigitalProductDto, {
+      ...valid,
+      status: 'Published',
+      original_price: '150000',
+      discount_price: '99000.5',
+    });
+    expect(await validate(dto)).toEqual([]);
+    expect(dto).toMatchObject({
+      status: 'published',
+      original_price: 150000,
+      discount_price: 99000.5,
+    });
+  });
+
+  it('clears the description and instructions with "" or null', async () => {
+    const dto = plainToInstance(UpdateDigitalProductDto, {
+      description: '',
+      post_purchase_instructions: null,
+    });
+    expect(await validate(dto)).toEqual([]);
+    expect(dto).toMatchObject({
+      description: null,
+      post_purchase_instructions: null,
+    });
+  });
+
+  it.each(['', '  ', null])('rejects an update title of %j', async (title) => {
+    expect(await errorFields(UpdateDigitalProductDto, { title })).toEqual([
+      'title',
+    ]);
+  });
+
+  it('rejects clearing the list price or status on update', async () => {
+    expect(
+      await errorFields(UpdateDigitalProductDto, {
+        original_price: null,
+        status: null,
+      }),
+    ).toEqual(['original_price', 'status']);
   });
 
   it.each([
     [{ limit: '101' }, []],
     [{ status: 'draft' }, ['status']],
     [{ status: 'unlisted', limit: '100', search: 'rab' }, []],
+    [{ status: '', search: '  ' }, []],
   ])('list query %j fails on %j', async (input, fields) => {
     expect(await errorFields(DigitalProductListQueryDto, input)).toEqual(
       fields,
     );
+  });
+
+  it('treats blank list filters as no filter and matches status in any case', () => {
+    expect(
+      plainToInstance(DigitalProductListQueryDto, { status: ' ', search: '' }),
+    ).toMatchObject({ status: undefined, search: undefined });
+    expect(
+      plainToInstance(DigitalProductListQueryDto, { status: 'Unlisted' })
+        .status,
+    ).toBe('unlisted');
   });
 });

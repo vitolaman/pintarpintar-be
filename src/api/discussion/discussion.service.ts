@@ -6,7 +6,10 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { Comment } from '../../class/entities/comment.entity';
-import { DiscussionThread } from '../../class/entities/discussion-thread.entity';
+import {
+  DiscussionThread,
+  ThreadBadge,
+} from '../../class/entities/discussion-thread.entity';
 import { assetUrl } from '../../common/storage/asset-url';
 import {
   CreateCommentDto,
@@ -119,7 +122,7 @@ export class DiscussionService {
           author_role: role,
           title: input.title,
           content: input.content,
-          badge: input.badge,
+          badge: input.badge ?? ThreadBadge.TANYA_JAWAB,
         }),
       );
       return thread.id;

@@ -26,6 +26,7 @@ import { DiscountCode } from './entities/discount-code.entity';
 import { DiscountProduct } from './entities/discount-product.entity';
 import { Discount } from './entities/discount.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
+import { assertItemFamily } from '~/common/catalog/catalog-item';
 
 // Uppercase letters and digits without look-alikes (0/O, 1/I/L).
 // Bounds one request's work; a `once` entry generates one row per code.
@@ -250,25 +251,30 @@ export class DiscountService {
     merchantId: string,
     inputs: DiscountTargetInputDto[],
   ): Promise<CatalogRow[]> {
-    const keys = inputs.map((input) => `${input.type}:${input.id}`);
-    if (new Set(keys).size !== keys.length) {
+    const ids = inputs.map((input) => input.id);
+    if (new Set(ids).size !== ids.length) {
       throw new BadRequestException('Discount targets must be distinct');
     }
     if (inputs.length === 0) return [];
 
     const rows: CatalogRow[] = await manager.query(
       `SELECT * FROM (${CATALOG_SQL}) catalog WHERE catalog.id = ANY($2::uuid[])`,
-      [merchantId, inputs.map((input) => input.id)],
+      [merchantId, ids],
     );
-    const byKey = new Map(rows.map((row) => [`${row.type}:${row.id}`, row]));
+    const byId = new Map(rows.map((row) => [row.id, row]));
 
     return inputs.map((input) => {
-      const row = byKey.get(`${input.type}:${input.id}`);
+      const row = byId.get(input.id);
       if (!row) {
         throw new BadRequestException(
-          `Target ${input.type}:${input.id} is not one of your classes or digital products`,
+          `Target ${input.id} is not one of your classes or digital products`,
         );
       }
+      assertItemFamily(
+        input.id,
+        input.type,
+        row.type === 'kelas' ? 'class' : 'product',
+      );
       return row;
     });
   }

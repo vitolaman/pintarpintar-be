@@ -12,6 +12,7 @@ import {
 import {
   AddDiscountCodesDto,
   CreateDiscountDto,
+  UpdateDiscountDto,
 } from './dto/discount-request.dto';
 import { DiscountCode } from './entities/discount-code.entity';
 import { DiscountProduct } from './entities/discount-product.entity';
@@ -72,6 +73,56 @@ describe('Discount DTOs', () => {
   ])('rejects %j', async (override) => {
     const dto = plainToInstance(CreateDiscountDto, { ...valid, ...override });
     expect(await validate(dto)).not.toHaveLength(0);
+  });
+
+  it.each(['', '  ', null])('rejects a name of %j', async (name) => {
+    const create = plainToInstance(CreateDiscountDto, { ...valid, name });
+    const update = plainToInstance(UpdateDiscountDto, { name });
+    for (const dto of [create, update]) {
+      const errors = await validate(dto);
+      expect(errors.map((error) => error.property)).toEqual(['name']);
+    }
+  });
+
+  it('accepts numeric strings and matches enums ignoring case', async () => {
+    const dto = plainToInstance(CreateDiscountDto, {
+      ...valid,
+      discount_type: ' Nominal ',
+      discount_value: '25000',
+      minimum_purchase: '100000.50',
+      codes: [{ code_type: 'Once', usage_limit: '10' }],
+    });
+    expect(await validate(dto)).toEqual([]);
+    expect(dto).toMatchObject({
+      discount_type: 'nominal',
+      discount_value: 25000,
+      minimum_purchase: 100000.5,
+      codes: [{ code_type: 'once', usage_limit: 10 }],
+    });
+  });
+
+  it('clears the minimum purchase with null and ignores a blank one', async () => {
+    const cleared = plainToInstance(UpdateDiscountDto, {
+      minimum_purchase: null,
+    });
+    expect(await validate(cleared)).toEqual([]);
+    expect(cleared.minimum_purchase).toBeNull();
+
+    const blank = plainToInstance(UpdateDiscountDto, { minimum_purchase: '' });
+    expect(await validate(blank)).toEqual([]);
+    expect(blank.minimum_purchase).toBeUndefined();
+  });
+
+  it('rejects clearing the discount type or value on update', async () => {
+    const dto = plainToInstance(UpdateDiscountDto, {
+      discount_type: null,
+      discount_value: null,
+    });
+    const errors = await validate(dto);
+    expect(errors.map((error) => error.property)).toEqual([
+      'discount_type',
+      'discount_value',
+    ]);
   });
 
   it('rejects a client-supplied code string', async () => {
@@ -250,6 +301,20 @@ describe('DiscountService', () => {
         }),
       ),
     ).rejects.toThrow(/distinct/);
+  });
+
+  it('takes targets by id alone and rejects another family by id', async () => {
+    manager.query.mockImplementation(async (sql: string) =>
+      sql.includes('FROM (') && sql.includes('catalog.id = ANY')
+        ? [{ id: CLASS_ID, type: 'kelas', title: 'AutoCAD' }]
+        : [],
+    );
+    await expect(
+      service.create(
+        'user-id',
+        input({ targets: [{ type: 'digital', id: CLASS_ID }] }),
+      ),
+    ).rejects.toThrow(`Item ${CLASS_ID} is a class, not digital`);
   });
 
   it('hides other merchants discounts behind 404', async () => {

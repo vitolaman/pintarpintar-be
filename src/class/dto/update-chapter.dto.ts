@@ -1,23 +1,13 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MaxLength,
-  ValidateIf,
-} from 'class-validator';
+  ClearableText,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
+import { MAX_DESCRIPTION_LENGTH } from './content-validation';
 
 export class UpdateChapterDto {
-  @ApiPropertyOptional()
-  @ValidateIf((_, value) => value !== undefined)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
+  @RequiredText({ max: 255, optional: true })
   title?: string;
 
-  @ApiPropertyOptional({ nullable: true })
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @IsOptional()
+  @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
   description?: string | null;
 }

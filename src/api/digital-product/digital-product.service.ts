@@ -194,7 +194,8 @@ export class DigitalProductService {
             { merchantId },
           )
         : null;
-      assertPublishable(input.status, file !== null);
+      const status = input.status ?? 'unpublished';
+      assertPublishable(status, file !== null);
 
       const product = manager.create(Product, {
         merchantId,
@@ -207,7 +208,7 @@ export class DigitalProductService {
         postPurchaseInstructions: input.post_purchase_instructions ?? null,
         publishedAt: null,
       });
-      applyStatus(product, input.status);
+      applyStatus(product, status);
       const saved = await manager.save(Product, product);
       const main = await applyCoverInput(
         manager,

@@ -1,16 +1,14 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsEmail, IsIn, IsObject, IsOptional } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsObject, IsOptional } from 'class-validator';
+import { EnumInput, RequiredText } from '~/common/decorator/input.decorator';
 import { TUTOR_ROLES, TutorRole } from '../class-permissions';
 
 export class InviteMentorDto {
-  @ApiProperty({ example: 'mentor@example.com' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @RequiredText({ max: 255, example: 'mentor@example.com' })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ enum: TUTOR_ROLES, example: 'lead' })
-  @IsIn(TUTOR_ROLES)
+  @EnumInput(TUTOR_ROLES, { example: 'lead' })
   role: TutorRole;
 
   @ApiPropertyOptional({

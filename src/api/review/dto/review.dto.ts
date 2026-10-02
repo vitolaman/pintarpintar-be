@@ -1,15 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import {
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Max,
-  MaxLength,
-  Min,
-  ValidateIf,
-} from 'class-validator';
+import { IsUUID, ValidateIf } from 'class-validator';
+import { ClearableText, NumberInput } from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export class CreateReviewDto {
@@ -28,17 +19,10 @@ export class CreateReviewDto {
   @IsUUID()
   product_id?: string;
 
-  @ApiProperty({ minimum: 1, maximum: 5, example: 5 })
-  @IsInt()
-  @Min(1)
-  @Max(5)
+  @NumberInput({ integer: true, min: 1, max: 5, example: 5 })
   rating: number;
 
-  @ApiPropertyOptional({ maxLength: 2000, nullable: true })
-  @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString()
-  @MaxLength(2000)
+  @ClearableText({ max: 2000 })
   comment?: string | null;
 }
 

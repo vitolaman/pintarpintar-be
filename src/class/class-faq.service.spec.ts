@@ -44,12 +44,24 @@ describe('class FAQ and duplication DTOs', () => {
       { question: 'Q?', answer: 'x'.repeat(3001) },
       ['answer'],
     ],
+    [CreateClassFaqDto, { question: 'Q?', answer: '' }, ['answer']],
     [UpdateClassFaqDto, { answer: null }, ['answer']],
+    [UpdateClassFaqDto, { question: '' }, ['question']],
     [UpdateClassFaqDto, {}, []],
     [DuplicateClassDto, { type: 'video' }, []],
+    [DuplicateClassDto, { type: ' Live-Bootcamp ' }, []],
     [DuplicateClassDto, { type: 'LIVE' }, ['type']],
   ])('validates %p %j', async (target, value, fields) => {
     expect(await errorFields(target as never, value)).toEqual(fields);
+  });
+
+  it('trims FAQ text and stores the duplicate type canonically', () => {
+    expect(
+      plainToInstance(CreateClassFaqDto, { question: ' Q? ', answer: ' A. ' }),
+    ).toMatchObject({ question: 'Q?', answer: 'A.' });
+    expect(plainToInstance(DuplicateClassDto, { type: 'VIDEO' }).type).toBe(
+      ClassType.VIDEO,
+    );
   });
 
   it('keeps the copy title within 255 characters', () => {

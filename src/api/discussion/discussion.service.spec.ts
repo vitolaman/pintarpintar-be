@@ -1,6 +1,9 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { ThreadBadge } from '../../class/entities/discussion-thread.entity';
+import { CreateCommentDto, CreateThreadDto } from './dto/discussion.dto';
 import { DiscussionService } from './discussion.service';
 
 describe('DiscussionService', () => {
@@ -70,6 +73,17 @@ describe('DiscussionService', () => {
       role: 'mentor',
       avatar_url: null,
     });
+  });
+
+  it('starts a thread as Tanya Jawab when no badge is sent', async () => {
+    manager.query.mockResolvedValue([{ role: 'mentor' }]);
+
+    await service.createThread(userId, { ...threadInput, badge: undefined });
+
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ badge: ThreadBadge.TANYA_JAWAB }),
+    );
   });
 
   it('forbids an enrolled learner from starting a thread', async () => {
@@ -168,4 +182,52 @@ describe('DiscussionService', () => {
     });
     expect(response.meta.total).toBe(1);
   });
+});
+
+describe('discussion request DTOs', () => {
+  const thread = {
+    class_id: '30000000-0000-4000-8000-000000000001',
+    title: 'Jadwal sesi',
+    content: 'Sesi dimulai pukul 19.00 WIB.',
+  };
+
+  async function errorFields(target: new () => object, value: object) {
+    const errors = await validate(plainToInstance(target, value));
+    return errors.map((error) => error.property);
+  }
+
+  it('makes the badge optional and matches it ignoring case', async () => {
+    expect(await errorFields(CreateThreadDto, thread)).toEqual([]);
+    const dto = plainToInstance(CreateThreadDto, {
+      ...thread,
+      badge: ' tanya jawab ',
+    });
+    expect(dto.badge).toBe(ThreadBadge.TANYA_JAWAB);
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[null], ['Info']])('rejects a badge of %j', async (badge) => {
+    expect(await errorFields(CreateThreadDto, { ...thread, badge })).toEqual([
+      'badge',
+    ]);
+  });
+
+  it.each([[''], ['   '], [null]])(
+    'rejects a title, content or reply of %j',
+    async (text) => {
+      expect(
+        await errorFields(CreateThreadDto, {
+          ...thread,
+          title: text,
+          content: text,
+        }),
+      ).toEqual(['title', 'content']);
+      expect(
+        await errorFields(CreateCommentDto, {
+          thread_id: '40000000-0000-4000-8000-000000000001',
+          content: text,
+        }),
+      ).toEqual(['content']);
+    },
+  );
 });

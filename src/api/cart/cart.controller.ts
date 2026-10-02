@@ -13,7 +13,7 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CatalogItemRefDto } from '~/common/catalog/catalog-item';
 import {
   DefaultResponse,
@@ -47,6 +47,12 @@ export class CartController {
 
   @Delete('items/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiParam({
+    name: 'id',
+    format: 'uuid',
+    description:
+      'The cart entry id, or the id of the class, digital product or bundle in it',
+  })
   @EmptyResponse([BadRequestException, NotFoundException])
   remove(
     @Req() req: AuthenticatedRequest,

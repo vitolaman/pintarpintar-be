@@ -65,6 +65,84 @@ describe('Dashboard query DTOs', () => {
       await validate(plainToInstance(type as never, query)),
     ).not.toHaveLength(0);
   });
+
+  it('treats a blank period as the default period', async () => {
+    const query = plainToInstance(DashboardQueryDto, { period_days: '' });
+
+    expect(await validate(query)).toHaveLength(0);
+    expect(query.period_days).toBe(30);
+  });
+
+  it('treats blank sales filters as no filter and keeps the default sort', async () => {
+    const query = plainToInstance(SalesQueryDto, {
+      type: '',
+      status: ' ',
+      search: '',
+      item_ids: '',
+      sort_by: '',
+      sort_order: '',
+    });
+
+    expect(await validate(query)).toHaveLength(0);
+    expect(query).toMatchObject({
+      type: undefined,
+      status: undefined,
+      search: undefined,
+      sort_by: 'date',
+      sort_order: 'desc',
+    });
+    expect(query.item_ids).toEqual([]);
+  });
+
+  it('treats a blank customer search and sort as none and the default', async () => {
+    const query = plainToInstance(CustomersQueryDto, {
+      search: '  ',
+      sort_by: '',
+      sort_order: ' ',
+    });
+
+    expect(await validate(query)).toHaveLength(0);
+    expect(query).toMatchObject({
+      search: undefined,
+      sort_by: 'total_spent',
+      sort_order: 'desc',
+    });
+  });
+
+  it('matches sales and customer enums ignoring case and spaces', async () => {
+    const sales = plainToInstance(SalesQueryDto, {
+      type: ' Bootcamp ',
+      status: 'PAID',
+      sort_by: 'Amount',
+      sort_order: 'ASC',
+      search: ' Budi ',
+    });
+    const customers = plainToInstance(CustomersQueryDto, {
+      sort_by: 'Joined_At',
+      sort_order: ' Asc',
+    });
+
+    expect(await validate(sales)).toHaveLength(0);
+    expect(sales).toMatchObject({
+      type: 'bootcamp',
+      status: 'paid',
+      sort_by: 'amount',
+      sort_order: 'asc',
+      search: 'Budi',
+    });
+    expect(await validate(customers)).toHaveLength(0);
+    expect(customers).toMatchObject({
+      sort_by: 'joined_at',
+      sort_order: 'asc',
+    });
+  });
+
+  it('rejects an unknown sale status', async () => {
+    const errors = await validate(
+      plainToInstance(SalesQueryDto, { status: 'refunded' }),
+    );
+    expect(errors.map((error) => error.property)).toEqual(['status']);
+  });
 });
 
 describe('MerchantDashboardService', () => {

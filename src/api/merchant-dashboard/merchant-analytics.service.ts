@@ -16,12 +16,14 @@ import {
   SummaryPeriod,
   SummaryWindowDto,
 } from './dto/merchant-analytics.dto';
+import * as moment from 'moment-timezone';
 import { PAID_SALES_SQL } from './merchant-sales-sql';
 
 // Stored timestamps are UTC wall time; analytics days are Asia/Jakarta.
 const WIB = (column: string) =>
   `((${column} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Jakarta')`;
 const WIB_NOW = `(now() AT TIME ZONE 'Asia/Jakarta')`;
+const JAKARTA = 'Asia/Jakarta';
 
 const MAX_CHECKPOINTS = 400;
 const RETENTION_WINDOW_DAYS = 90;
@@ -95,7 +97,8 @@ export class MerchantAnalyticsService {
     return { data, responseMessage: 'Get student growth success' };
   }
 
-  async findDailySales(userId: string, month: string) {
+  async findDailySales(userId: string, requestedMonth?: string) {
+    const month = requestedMonth ?? moment().tz(JAKARTA).format('YYYY-MM');
     const merchantId = await this.findMerchantId(userId);
     const days = await this.dataSource.query(
       `WITH days AS (
@@ -132,7 +135,8 @@ export class MerchantAnalyticsService {
     return { data, responseMessage: 'Get daily sales success' };
   }
 
-  async findMonthlyRevenue(userId: string, year: number) {
+  async findMonthlyRevenue(userId: string, requestedYear?: number) {
+    const year = requestedYear ?? moment().tz(JAKARTA).year();
     const merchantId = await this.findMerchantId(userId);
     const rows = await this.dataSource.query(
       `WITH months AS (
@@ -162,7 +166,7 @@ export class MerchantAnalyticsService {
     return { data, responseMessage: 'Get monthly revenue success' };
   }
 
-  async findSummary(userId: string, period: SummaryPeriod) {
+  async findSummary(userId: string, period: SummaryPeriod = 'month') {
     const merchantId = await this.findMerchantId(userId);
     const unit = PERIOD_UNITS[period];
     // The previous window covers the same elapsed span: today and month add the

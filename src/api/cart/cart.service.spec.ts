@@ -9,7 +9,7 @@ import { DataSource, QueryFailedError } from 'typeorm';
 import {
   CatalogItemRefDto,
   referenceId,
-  toReferenceColumns,
+  resolveItemReferences,
 } from '~/common/catalog/catalog-item';
 import { RecentTransactionsQueryDto } from '../order/dto/recent-transactions.dto';
 import { OrderService } from '../order/order.service';
@@ -35,43 +35,88 @@ const catalogRow = (override: Record<string, unknown> = {}) => ({
 });
 
 describe('catalog item references', () => {
+  const managerFor = (family: string | null) =>
+    ({
+      query: jest.fn(async () => (family ? [{ id: ID, family }] : [])),
+    }) as never;
+
   it.each([
-    ['kelas', { classId: ID, productId: null, bundleId: null }],
-    ['bootcamp', { classId: ID, productId: null, bundleId: null }],
-    ['digital', { classId: null, productId: ID, bundleId: null }],
-    ['bundle', { classId: null, productId: null, bundleId: ID }],
-  ])('maps %s to one reference column', (type, columns) => {
-    const ref = { type, id: ID } as CatalogItemRefDto;
-    expect(toReferenceColumns(ref)).toEqual(columns);
-    expect(referenceId(columns)).toBe(ID);
+    ['class', undefined, { classId: ID, productId: null, bundleId: null }],
+    ['class', 'kelas', { classId: ID, productId: null, bundleId: null }],
+    ['class', 'bootcamp', { classId: ID, productId: null, bundleId: null }],
+    ['product', 'digital', { classId: null, productId: ID, bundleId: null }],
+    ['bundle', undefined, { classId: null, productId: null, bundleId: ID }],
+  ])('resolves a %s sent as %s', async (family, type, columns) => {
+    const [resolved] = await resolveItemReferences(managerFor(family), [
+      { id: ID, type: type as never },
+    ]);
+    expect(resolved).toEqual(columns);
+    expect(referenceId(resolved)).toBe(ID);
   });
 
-  it('rejects unknown types and non-uuid ids', async () => {
+  it('rejects another family and an unknown id, naming the item', async () => {
+    await expect(
+      resolveItemReferences(managerFor('class'), [{ id: ID, type: 'digital' }]),
+    ).rejects.toThrow(`Item ${ID} is a class, not digital`);
+    await expect(
+      resolveItemReferences(managerFor(null), [{ id: ID }]),
+    ).rejects.toThrow(`Item ${ID} is not available`);
+  });
+
+  it('makes type optional, case-insensitive, and still validated', async () => {
+    const errorsOf = async (input: object) =>
+      validate(plainToInstance(CatalogItemRefDto, input));
+    expect(await errorsOf({ id: ID })).toHaveLength(0);
     expect(
-      await validate(
-        plainToInstance(CatalogItemRefDto, { type: 'voucher', id: ID }),
-      ),
-    ).not.toHaveLength(0);
-    expect(
-      await validate(
-        plainToInstance(CatalogItemRefDto, { type: 'kelas', id: 'x' }),
-      ),
-    ).not.toHaveLength(0);
+      plainToInstance(CatalogItemRefDto, { type: 'Bootcamp', id: ID }).type,
+    ).toBe('bootcamp');
+    expect(await errorsOf({ type: 'voucher', id: ID })).not.toHaveLength(0);
+    expect(await errorsOf({ type: 'kelas', id: 'x' })).not.toHaveLength(0);
   });
 });
+
+// Routes the service's SQL to canned rows: the id lookup, the catalog
+// details, and the ownership check.
+const routedQuery =
+  (rows: { family?: string; catalog?: object[]; owned?: boolean }) =>
+  async (sql: string) => {
+    if (sql.includes('AS family'))
+      return [{ id: ID, family: rows.family ?? 'class' }];
+    if (sql.includes('advisory')) return undefined;
+    if (sql.includes('AS owned')) return [{ owned: rows.owned ?? false }];
+    return rows.catalog ?? [catalogRow()];
+  };
 
 describe('CartService', () => {
   let manager: Record<string, jest.Mock>;
   let service: CartService;
+  let deleted: { affected: number };
+  let deleteWhere: jest.Mock;
 
   beforeEach(() => {
+    deleted = { affected: 1 };
+    deleteWhere = jest.fn();
+    const deleteBuilder = {
+      delete: jest.fn(() => deleteBuilder),
+      from: jest.fn(() => deleteBuilder),
+      where: jest.fn((...args) => {
+        deleteWhere(...args);
+        return deleteBuilder;
+      }),
+      andWhere: jest.fn((...args) => {
+        deleteWhere(...args);
+        return deleteBuilder;
+      }),
+      execute: jest.fn(async () => deleted),
+    };
     manager = {
-      query: jest.fn(),
+      query: jest.fn(routedQuery({})),
       findOneBy: jest.fn().mockResolvedValue(null),
       find: jest.fn().mockResolvedValue([]),
       create: jest.fn((_target, value) => ({ ...value })),
       save: jest.fn(),
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
+      createQueryBuilder: jest.fn(() => deleteBuilder),
     };
     service = new CartService({
       manager,
@@ -79,13 +124,13 @@ describe('CartService', () => {
     } as unknown as DataSource);
   });
 
-  const add = () =>
-    service.add('user-id', { type: 'kelas', id: ID } as CatalogItemRefDto);
+  const add = (ref: object = { id: ID }) =>
+    service.add('user-id', ref as CatalogItemRefDto);
 
-  it('adds an available, unowned item', async () => {
-    manager.query
-      .mockResolvedValueOnce([catalogRow()])
-      .mockResolvedValueOnce([{ owned: false }]);
+  it('adds an item by id alone, resolving its kind', async () => {
+    manager.query.mockImplementation(
+      routedQuery({ catalog: [catalogRow({ type: 'bootcamp' })] }),
+    );
     await add();
     expect(manager.save).toHaveBeenCalledWith(
       CartItem,
@@ -97,30 +142,34 @@ describe('CartService', () => {
     );
   });
 
-  it('rejects unavailable, mistyped, and owned items', async () => {
-    manager.query.mockResolvedValueOnce([catalogRow({ is_available: false })]);
+  it('accepts kelas for a bootcamp class', async () => {
+    manager.query.mockImplementation(
+      routedQuery({ catalog: [catalogRow({ type: 'bootcamp' })] }),
+    );
+    await add({ type: 'kelas', id: ID });
+    expect(manager.save).toHaveBeenCalled();
+  });
+
+  it('rejects unavailable, wrong-family, and owned items', async () => {
+    manager.query.mockImplementation(
+      routedQuery({ catalog: [catalogRow({ is_available: false })] }),
+    );
     await expect(add()).rejects.toThrow(/not available/);
 
-    manager.query.mockResolvedValueOnce([catalogRow({ type: 'bootcamp' })]);
-    await expect(add()).rejects.toThrow(/not available/);
+    manager.query.mockImplementation(routedQuery({ family: 'bundle' }));
+    await expect(add({ type: 'digital', id: ID })).rejects.toThrow(
+      /is a bundle, not digital/,
+    );
 
-    manager.query
-      .mockResolvedValueOnce([catalogRow()])
-      .mockResolvedValueOnce([{ owned: true }]);
+    manager.query.mockImplementation(routedQuery({ owned: true }));
     await expect(add()).rejects.toThrow(/already own/);
     expect(manager.save).not.toHaveBeenCalled();
   });
 
   it('reports duplicates, including a concurrent unique violation, as 409', async () => {
-    manager.query
-      .mockResolvedValueOnce([catalogRow()])
-      .mockResolvedValueOnce([{ owned: false }]);
     manager.findOneBy.mockResolvedValueOnce({ id: 'existing' });
     await expect(add()).rejects.toBeInstanceOf(ConflictException);
 
-    manager.query
-      .mockResolvedValueOnce([catalogRow()])
-      .mockResolvedValueOnce([{ owned: false }]);
     manager.save.mockRejectedValueOnce(
       Object.assign(new QueryFailedError('INSERT', [], new Error('dup')), {
         code: '23505',
@@ -161,8 +210,19 @@ describe('CartService', () => {
     expect(data.subtotal).toBe(299000);
   });
 
-  it('returns 404 when removing another user entry', async () => {
-    manager.delete.mockResolvedValueOnce({ affected: 0 });
+  it("removes the caller's entry by entry id or item id", async () => {
+    await service.remove('user-id', ID);
+    expect(deleteWhere).toHaveBeenCalledWith('user_id = :userId', {
+      userId: 'user-id',
+    });
+    expect(deleteWhere).toHaveBeenCalledWith(
+      '(id = :id OR class_id = :id OR product_id = :id OR bundle_id = :id)',
+      { id: ID },
+    );
+  });
+
+  it('returns 404 when nothing of the caller matches', async () => {
+    deleted = { affected: 0 };
     await expect(service.remove('user-id', 'x')).rejects.toBeInstanceOf(
       NotFoundException,
     );
@@ -175,9 +235,7 @@ describe('WishlistService', () => {
 
   beforeEach(() => {
     manager = {
-      query: jest.fn(async (sql: string) =>
-        sql.includes('advisory') ? undefined : [catalogRow()],
-      ),
+      query: jest.fn(routedQuery({})),
       findOneBy: jest.fn().mockResolvedValue(null),
       create: jest.fn((_target, value) => ({ ...value })),
       save: jest.fn(async (_target, value) => ({
@@ -192,11 +250,8 @@ describe('WishlistService', () => {
     } as unknown as DataSource);
   });
 
-  it('adds once and returns the existing entry afterwards', async () => {
-    const first = await service.add('user-id', {
-      type: 'kelas',
-      id: ID,
-    } as CatalogItemRefDto);
+  it('adds once by id alone and returns the existing entry afterwards', async () => {
+    const first = await service.add('user-id', { id: ID } as CatalogItemRefDto);
     expect(first.responseMessage).toBe('Add to wishlist success');
     expect(first.data.item.merchant_slug).toBe('akademi-teknik-budi');
 
@@ -214,13 +269,11 @@ describe('WishlistService', () => {
   });
 
   it('rejects unavailable items', async () => {
-    manager.query.mockImplementation(async (sql: string) =>
-      sql.includes('advisory')
-        ? undefined
-        : [catalogRow({ is_available: false })],
+    manager.query.mockImplementation(
+      routedQuery({ catalog: [catalogRow({ is_available: false })] }),
     );
     await expect(
-      service.add('user-id', { type: 'kelas', id: ID } as CatalogItemRefDto),
+      service.add('user-id', { id: ID } as CatalogItemRefDto),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

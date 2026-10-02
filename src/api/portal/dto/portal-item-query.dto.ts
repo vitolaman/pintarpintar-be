@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { EnumInput, QueryFilter } from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const portalItemTypes = [
@@ -16,23 +17,22 @@ export const portalItemTypeFilters = ['all', ...portalItemTypes] as const;
 export type PortalItemTypeFilter = (typeof portalItemTypeFilters)[number];
 
 export class PortalItemQueryDto {
-  @ApiPropertyOptional({
-    description: 'Library tab to show',
-    enum: portalItemTypeFilters,
+  // a blank tab means every tab.
+  @EnumInput(portalItemTypeFilters, {
+    presence: 'filter',
     default: 'all',
+    description: 'Library tab to show',
   })
-  @IsOptional()
-  @IsIn(portalItemTypeFilters)
   type: PortalItemTypeFilter = 'all';
 
   @ApiPropertyOptional({
-    description: 'Case-insensitive title search',
+    description: 'Case-insensitive title search; a blank value means none',
     maxLength: 100,
   })
+  @QueryFilter()
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   search?: string;
 
   @PageQuery()

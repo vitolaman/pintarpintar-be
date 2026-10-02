@@ -33,6 +33,8 @@ Every route requires a Bearer token except those marked **public**. The full req
 
 Responses are `{data, responseMessage}`. Paginated lists take `page` (default 1) and `limit` (default 10, at most 100; the promo lists at most 6). A blank or non-numeric value means the default and an out-of-range value is clamped to the nearest bound, so paging never fails a request. They return `meta: {page, limit, total, totalPage}` next to `data`, also when the list sits inside an object (job board, applications, class grades, reviews). Errors are `{statusCode, error, responseMessage}`: `error` is the status name (`BAD_REQUEST`, `UNAUTHORIZED`, `NOT_FOUND`, …) and `responseMessage` lists the reasons in plain words.
 
+Request fields follow the same rules everywhere. An optional text field is cleared with `""` or `null`; a field the data needs (a title, a name, a mentor's phone) rejects `""`, whitespace and `null`. Text is trimmed. Choice values (`type`, `status`, `level`, `badge`, sort values) match ignoring case and surrounding spaces and are stored in their canonical spelling. Numbers may be sent as numeric strings, and a blank optional number means "not sent". A blank query filter (`?search=`, `?category=`, `?status=`) means no filter. Wherever an item id is sent (cart, wishlist, checkout, bundle items, discount targets), `type` is optional: the server resolves it from the id, and a sent `type` only has to name the right family (`kelas` and `bootcamp` both accept any class).
+
 ### Authentication and user
 
 - `POST /api/v1/auth/sign-up` — **public**; `data.token`
@@ -101,12 +103,12 @@ Responses are `{data, responseMessage}`. Paginated lists take `page` (default 1)
 
 ### Wishlist, cart, and transactions
 
-- `POST /api/v1/wishlist/items`
+- `POST /api/v1/wishlist/items` — `{id}` (`type` optional)
 - `GET /api/v1/wishlist`
-- `DELETE /api/v1/wishlist/items/:id`
-- `POST /api/v1/cart/items` — rejects items the user already owns
+- `DELETE /api/v1/wishlist/items/:id` — the entry id or the item's own id
+- `POST /api/v1/cart/items` — `{id}` (`type` optional); rejects items the user already owns
 - `GET /api/v1/cart`
-- `DELETE /api/v1/cart/items/:id`
+- `DELETE /api/v1/cart/items/:id` — the entry id or the item's own id
 - `DELETE /api/v1/cart`
 - `GET /api/v1/orders/recent` — last 3 orders, with order numbers
 - `GET /api/v1/orders` — full history, paginated, filter by `status` (`pending`, `paid`, `expired`, `failed`, `cancelled`)
@@ -159,10 +161,10 @@ Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos,
 Asia/Jakarta days; paid orders only, dated at payment; revenue is the merchant's net, as on the dashboard; a transaction is a paid order with the merchant's items.
 
 - `GET /api/v1/merchant/analytics/student-growth` — `from`, `to` (YYYY-MM-DD), optional `granularity` (`day`/`month`/`year`; by default daily within a month, monthly within a year, otherwise yearly); running total of distinct class students (a person counts once; digital products excluded); at most 400 points
-- `GET /api/v1/merchant/analytics/daily-sales` — `month` (YYYY-MM); transactions and revenue for every day, plus totals
-- `GET /api/v1/merchant/analytics/monthly-revenue` — `year`; revenue for each month, plus the year total
-- `GET /api/v1/merchant/analytics/summary` — `period` (`today`/`month`/`year`); conversion (buyers ÷ distinct visitors, at most 100%, null without visits), retention (buyers with another purchase from the merchant in the previous 90 days), and average order value, each compared with the same elapsed span of the previous period
-- `POST /api/v1/analytics/visits` — **public**; `{target_type: storefront|class|digital_product, target_id, visitor_id}` from the storefront and detail pages; one visit per merchant, visitor, and day (a login makes the user the visitor); the merchant's own visits and bots are ignored; 60 per minute per client
+- `GET /api/v1/merchant/analytics/daily-sales` — `month` (YYYY-MM, default the current Asia/Jakarta month); transactions and revenue for every day, plus totals
+- `GET /api/v1/merchant/analytics/monthly-revenue` — `year` (default the current Asia/Jakarta year); revenue for each month, plus the year total
+- `GET /api/v1/merchant/analytics/summary` — `period` (`today`/`month`/`year`, default `month`); conversion (buyers ÷ distinct visitors, at most 100%, null without visits), retention (buyers with another purchase from the merchant in the previous 90 days), and average order value, each compared with the same elapsed span of the previous period
+- `POST /api/v1/analytics/visits` — **public**; `{target_type: storefront|class|digital_product, target_id, visitor_id}` from the storefront and detail pages; `visitor_id` is needed only without a login token; one visit per merchant, visitor, and day (a login makes the user the visitor); the merchant's own visits and bots are ignored; 60 per minute per client
 
 ### Merchant payout accounts (Rekening)
 
@@ -192,7 +194,7 @@ Each item has up to 5 ordered covers; the first is the main cover, returned as `
 ### Merchant bundles
 
 - `GET /api/v1/merchant/bundles/eligible-items`
-- `POST /api/v1/merchant/bundles`
+- `POST /api/v1/merchant/bundles` — items are `{id}` (`type` optional); a bundle without `status` starts `unpublished`
 - `GET /api/v1/merchant/bundles`
 - `GET /api/v1/merchant/bundles/:id`
 - `PATCH /api/v1/merchant/bundles/:id`
@@ -203,7 +205,7 @@ Each item has up to 5 ordered covers; the first is the main cover, returned as `
 
 - `GET /api/v1/merchant/digital-products` — own products with downloads, rating, and revenue; filter by `status` (`published`, `unpublished`, `unlisted`) and `search`
 - `GET /api/v1/merchant/digital-products/:id` — includes a signed download link for the product file
-- `POST /api/v1/merchant/digital-products` — `category_slug`, prices, status, cover image, one file (required to publish), post-purchase instructions
+- `POST /api/v1/merchant/digital-products` — `category_slug`, prices, status (default `unpublished`), cover image, one file (required to publish), post-purchase instructions
 - `PATCH /api/v1/merchant/digital-products/:id` — a new `file_asset_id` replaces the single file
 - `DELETE /api/v1/merchant/digital-products/:id` — 409 while the product is in a published or unlisted bundle; buyers keep access
 
@@ -224,10 +226,10 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId` — also removes its videos and resources
 - `PUT /api/v1/classes/:classId/chapters/order` — the complete `chapter_ids` list in the new bab order; new babs go last
 - `PUT /api/v1/classes/:classId/chapters/:chapterId/order` — complete `video_ids` and `resource_ids` lists
-- `POST /api/v1/classes/:classId/chapters/:chapterId/videos` — `source` `link` (default; https `youtubeUrl`) or `file` (`asset_id` of an uploaded MP4/MOV/WebM, within the store level's per-file limit)
+- `POST /api/v1/classes/:classId/chapters/:chapterId/videos` — a link video (https `youtubeUrl`) or a file video (`asset_id` of an uploaded MP4/MOV/WebM, within the store level's per-file limit); `source` is inferred from the field sent
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
-- `POST /api/v1/classes/:classId/chapters/:chapterId/resources` — `pdf`, `archive`, `image`, `file` (an uploaded file) or `link` (https); `data` is the array of added materials
+- `POST /api/v1/classes/:classId/chapters/:chapterId/resources` — each material is a `name` with an uploaded `asset_id` or an https `url`; `type` (`pdf`, `archive`, `image`, `file`, `link`) is derived from the file or the link; `data` is the array of added materials
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId/resources/:resourceId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId/resources/:resourceId`
 - `GET /api/v1/classes/:classId/meetings`
@@ -324,7 +326,7 @@ Merchants publish teaching vacancies; any logged-in user applies once per vacanc
 Open to the class's merchant owner, its assigned mentors, and enrolled learners; learners can reply but not start threads.
 
 - `GET /api/v1/discussions/threads` — `class_id` query parameter (required)
-- `POST /api/v1/discussions/threads`
+- `POST /api/v1/discussions/threads` — `badge` defaults to `Tanya Jawab`
 - `POST /api/v1/discussions/comments`
 
 ## Swagger

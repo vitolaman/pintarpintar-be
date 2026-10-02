@@ -29,21 +29,26 @@ describe('PortalItemQueryDto', () => {
   const errorsFor = async (query: Record<string, string>) =>
     validate(plainToInstance(PortalItemQueryDto, query));
 
-  it('defaults to every tab, the first page, and 20 items', async () => {
+  it('defaults to every tab, the first page, and 10 items', async () => {
     const query = plainToInstance(PortalItemQueryDto, {});
 
     expect(await validate(query)).toHaveLength(0);
-    expect(query).toMatchObject({ type: 'all', page: 1, limit: 20 });
+    expect(query).toMatchObject({ type: 'all', page: 1, limit: 10 });
+  });
+
+  it('rejects an unknown tab', async () => {
+    expect(await errorsFor({ type: 'sertifikasi' })).not.toHaveLength(0);
   });
 
   it.each([
-    [{ type: 'sertifikasi' }],
-    [{ page: '0' }],
-    [{ limit: '0' }],
-    [{ limit: '101' }],
-    [{ page: 'abc' }],
-  ])('rejects %j', async (query) => {
-    expect(await errorsFor(query)).not.toHaveLength(0);
+    [{ page: '0' }, { page: 1 }],
+    [{ limit: '0' }, { limit: 1 }],
+    [{ limit: '101' }, { limit: 100 }],
+    [{ page: 'abc' }, { page: 1 }],
+  ])('clamps %j', async (input, expected) => {
+    const query = plainToInstance(PortalItemQueryDto, input);
+    expect(await validate(query)).toHaveLength(0);
+    expect(query).toMatchObject(expected);
   });
 
   it('accepts every frontend tab value', async () => {
@@ -105,7 +110,7 @@ describe('PortalService', () => {
 
     await expect(service.findItems('user-id', request())).resolves.toEqual({
       data: [],
-      meta: { page: 1, limit: 20, total: 0, totalPage: 0 },
+      meta: { page: 1, limit: 10, total: 0, totalPage: 0 },
       responseMessage: 'Get portal items success',
     });
     expect(query).toHaveBeenCalledTimes(1);

@@ -15,6 +15,8 @@ import { assertWithinStorageQuota } from '../merchant-level/merchant-storage';
 const MEBIBYTE = 1024 * 1024;
 const GIBIBYTE = 1024 * MEBIBYTE;
 const OCTET_STREAM = 'application/octet-stream';
+const FILE_NOT_AVAILABLE =
+  'The uploaded file was not found, is not yours, or has not finished uploading';
 
 type FileKind =
   | 'image'
@@ -235,9 +237,59 @@ export type UploadLimit = {
   maxBytes: number;
 };
 
+function allowedExtensions(rule: AssetPurposeRule): string[] {
+  return (
+    rule.extensions ??
+    Object.entries(FILE_FORMATS)
+      .filter(([, format]) => rule.kinds.includes(format.kind))
+      .map(([extension]) => extension)
+  );
+}
+
+function joinWithOr(items: string[]): string {
+  if (items.length <= 1) {
+    return items.join('');
+  }
+  return `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`;
+}
+
+function gigabytes(bytes: number): string {
+  return `${bytes / GIBIBYTE} GB`;
+}
+
+/** The accepted file types of a field, for example "PNG, JPG, JPEG or WEBP". */
+export function allowedTypesText(purpose: AssetPurpose): string {
+  const rule: AssetPurposeRule = ASSET_PURPOSE_RULES[purpose];
+  return joinWithOr(
+    allowedExtensions(rule).map((extension) => extension.toUpperCase()),
+  );
+}
+
+/** The size limit of a field, for example "4 MB". */
+export function sizeLimitText(purpose: AssetPurpose): string {
+  const rule: AssetPurposeRule = ASSET_PURPOSE_RULES[purpose];
+  if (rule.maxBytes !== 'merchant_level') {
+    return `${rule.maxBytes / MEBIBYTE} MB`;
+  }
+  const levels = Object.values(MERCHANT_LEVEL_RULES).map(
+    (level) => `${level.label} ${gigabytes(level.maxUploadBytes)}`,
+  );
+  return `the store's level limit (${levels.join(', ')})`;
+}
+
+/** Swagger text for a request field that takes an uploaded file. */
+export function assetFieldDescription(
+  purpose: AssetPurpose,
+  note?: string,
+): string {
+  const rule = `An asset_id from POST /api/v1/upload/complete: ${allowedTypesText(purpose)}, up to ${sizeLimitText(purpose)}.`;
+  return note ? `${rule} ${note}` : rule;
+}
+
 /**
  * `merchantLimit` is the owning merchant's limit for purposes sized by
- * merchant level; without it the largest level limit applies.
+ * merchant level; without it the largest level limit applies. Messages name
+ * the rule in plain words because they are shown to end users.
  */
 export function assertFileFitsPurpose(
   purpose: AssetPurpose,
@@ -249,16 +301,11 @@ export function assertFileFitsPurpose(
   const extension = fileExtension(file.filename);
   const kind = resolveKind(extension, mimeType);
 
-  if (rule.extensions && !rule.extensions.includes(extension)) {
+  const extensionAllowed =
+    !rule.extensions || rule.extensions.includes(extension);
+  if (!extensionAllowed || !kind || !rule.kinds.includes(kind)) {
     throw new BadRequestException(
-      `Only ${rule.extensions.join(', ').toUpperCase()} files are allowed for ${purpose}`,
-    );
-  }
-  if (!kind || !rule.kinds.includes(kind)) {
-    throw new BadRequestException(
-      rule.kinds === IMAGE_ONLY
-        ? 'Only PNG, JPEG, or WEBP images are allowed'
-        : `This file type is not allowed for ${purpose}`,
+      `Allowed file types: ${allowedTypesText(purpose)}`,
     );
   }
   if (rule.maxBytes === 'merchant_level') {
@@ -267,16 +314,15 @@ export function assertFileFitsPurpose(
       maxBytes: LARGEST_UPLOAD_BYTES,
     };
     if (file.sizeBytes > limit.maxBytes) {
-      const gigabytes = limit.maxBytes / GIBIBYTE;
       throw new BadRequestException(
         limit.level
-          ? `File exceeds the ${gigabytes} GB limit of the ${MERCHANT_LEVEL_RULES[limit.level].label} merchant level`
-          : `File exceeds the ${gigabytes} GB limit for ${purpose}`,
+          ? `The file must be ${gigabytes(limit.maxBytes)} or smaller on the ${MERCHANT_LEVEL_RULES[limit.level].label} merchant level`
+          : `The file must be ${gigabytes(limit.maxBytes)} or smaller`,
       );
     }
   } else if (file.sizeBytes > rule.maxBytes) {
     throw new BadRequestException(
-      `File exceeds the ${rule.maxBytes / MEBIBYTE} MB limit for ${purpose}`,
+      `The file must be ${sizeLimitText(purpose)} or smaller`,
     );
   }
 }
@@ -308,7 +354,7 @@ export async function assertOwnedAsset(
     asset.uploadedByUserId !== userId ||
     asset.status !== 'active'
   ) {
-    throw new BadRequestException(`File asset for ${purpose} is not available`);
+    throw new BadRequestException(FILE_NOT_AVAILABLE);
   }
   const owner =
     ASSET_PURPOSE_RULES[purpose].maxBytes === 'merchant_level'
@@ -340,7 +386,7 @@ export async function assertOwnedAsset(
   }
   if (asset.visibility !== visibility) {
     throw new BadRequestException(
-      `This file is already used as a ${asset.visibility} file; upload it again for ${purpose}`,
+      `This file is already used as a ${asset.visibility} file; upload it again for this field`,
     );
   }
   return asset;
@@ -368,7 +414,7 @@ async function ownerMerchant(
     ? await manager.findOneBy(Merchant, { id: merchantId })
     : null;
   if (!merchant) {
-    throw new BadRequestException(`File asset for ${purpose} is not available`);
+    throw new BadRequestException(FILE_NOT_AVAILABLE);
   }
   return { id: merchant.id, level: merchant.storageLevel };
 }

@@ -18,6 +18,7 @@ import { UpdateCertificateSettingsDto } from './dto/certificate.dto';
 import { Certificate, CertificateStatus } from './entities/certificate.entity';
 import { ClassCertificateSettings } from './entities/class-certificate-settings.entity';
 import { LearnerMetrics, loadLearnerMetrics } from './learner-metrics';
+import { paginationMeta } from '../common/dto/response-meta.dto';
 
 export interface CertificateSettings {
   auto_issue: boolean;
@@ -95,7 +96,7 @@ export class ClassCertificateService {
     userId: string,
     classId: string,
     page = 1,
-    limit = 50,
+    limit = 10,
   ) {
     await this.classAccess.requireAction(
       userId,
@@ -137,7 +138,8 @@ export class ClassCertificateService {
           states.findIndex((state) => state.user_id === learner.user_id)
         ],
       })),
-      meta: { total, page, limit },
+      meta: paginationMeta(page, limit, total),
+      responseMessage: 'Get class certificates success',
     };
   }
 

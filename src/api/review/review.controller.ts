@@ -15,7 +15,10 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
-import { DefaultResponse } from '~/common/decorator/response.decorator';
+import {
+  DefaultResponse,
+  PaginatedObjectResponse,
+} from '~/common/decorator/response.decorator';
 import {
   ClassReviewSummaryDto,
   CreateReviewDto,
@@ -49,12 +52,10 @@ export class ReviewController {
 
   @Get('classes/:classId')
   @Public()
-  @DefaultResponse(
-    ClassReviewSummaryDto,
-    'Get class reviews success',
-    HttpStatus.OK,
-    [BadRequestException, NotFoundException],
-  )
+  @PaginatedObjectResponse(ClassReviewSummaryDto, 'Get class reviews success', [
+    BadRequestException,
+    NotFoundException,
+  ])
   findClassReviews(
     @Param('classId', ParseUUIDPipe) classId: string,
     @Query() query: ReviewListQueryDto,
@@ -64,10 +65,9 @@ export class ReviewController {
 
   @Get('digital-products/:productId')
   @Public()
-  @DefaultResponse(
+  @PaginatedObjectResponse(
     ClassReviewSummaryDto,
     'Get product reviews success',
-    HttpStatus.OK,
     [BadRequestException, NotFoundException],
   )
   findProductReviews(
@@ -79,10 +79,9 @@ export class ReviewController {
 
   @Get('merchants/:merchantId')
   @Public()
-  @DefaultResponse(
+  @PaginatedObjectResponse(
     MerchantReviewSummaryDto,
     'Get merchant reviews success',
-    HttpStatus.OK,
     [BadRequestException, NotFoundException],
   )
   findMerchantReviews(

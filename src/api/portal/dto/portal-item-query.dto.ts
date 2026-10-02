@@ -1,14 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import {
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  MaxLength,
-  Min,
-} from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const portalItemTypes = [
   'kelas-video',
@@ -42,18 +35,9 @@ export class PortalItemQueryDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   search?: string;
 
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
+  @LimitQuery()
+  limit = 10;
 }

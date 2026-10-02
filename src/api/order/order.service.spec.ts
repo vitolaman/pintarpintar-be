@@ -91,10 +91,10 @@ describe('OrderService', () => {
   });
 
   it.each([
-    [{ limit: '51' }, true],
+    [{ limit: '51' }, false],
     [{ status: 'refunded' }, true],
     [{ status: 'cancelled' }, false],
-    [{ page: '0' }, true],
+    [{ page: '0' }, false],
     [{ page: '2', limit: '50', status: 'paid' }, false],
   ])('validates %j', async (input, hasErrors) => {
     const errors = await validate(plainToInstance(TransactionsQueryDto, input));

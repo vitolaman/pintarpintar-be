@@ -1,12 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsIn, IsOptional } from 'class-validator';
 import { catalogSorts, CatalogSort } from '../../catalog/dto/catalog.dto';
 import { PublicVoucherResponseDto } from '../../voucher/dto/voucher-response.dto';
+import { LimitQuery } from '~/common/dto/request-paginated.dto';
 
 export const promoItemTypes = ['kelas', 'digital'] as const;
-
-const toNumber = ({ value }: { value: unknown }) => Number(value);
 
 export class PromoItemsQueryDto {
   @ApiPropertyOptional({
@@ -27,27 +25,20 @@ export class PromoItemsQueryDto {
   @IsIn(catalogSorts)
   sort?: CatalogSort;
 
-  @ApiPropertyOptional({ default: 6, minimum: 1, maximum: 6 })
-  @IsOptional()
-  @Transform(toNumber)
-  @IsInt()
-  @Min(1)
-  @Max(6)
+  @LimitQuery({
+    defaultLimit: 6,
+    maxLimit: 6,
+    description: 'Number of items.',
+  })
   limit = 6;
 }
 
 export class PromoVouchersQueryDto {
-  @ApiPropertyOptional({
-    default: 6,
-    minimum: 1,
-    maximum: 6,
-    description: 'Size of the voucher list below the featured strip',
+  @LimitQuery({
+    defaultLimit: 6,
+    maxLimit: 6,
+    description: 'Size of the voucher list below the featured strip.',
   })
-  @IsOptional()
-  @Transform(toNumber)
-  @IsInt()
-  @Min(1)
-  @Max(6)
   limit = 6;
 }
 

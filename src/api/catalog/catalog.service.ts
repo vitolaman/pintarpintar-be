@@ -20,6 +20,7 @@ import {
   CategoryNodeDto,
 } from './dto/catalog.dto';
 import { findCovers } from '../item-cover/item-covers';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // Current selling price follows the PM rule: the discounted price when set,
 // otherwise the list price.
@@ -222,7 +223,7 @@ export class CatalogService {
 
     return {
       data,
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get catalog items success',
     };
   }

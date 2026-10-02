@@ -18,6 +18,7 @@ import {
 } from 'class-validator';
 import { AssignmentType } from '../entities/assignment.entity';
 import { QuestionType } from '../entities/assignment-question.entity';
+import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 
 export class CreateQuestionDto {
   @ApiProperty()
@@ -88,7 +89,7 @@ export class CreateAssignmentDto {
   @ApiProperty({
     required: false,
     format: 'uuid',
-    description: 'Upload registered as assignment_resource',
+    description: assetFieldDescription('assignment_resource'),
   })
   @IsUUID()
   @IsOptional()

@@ -16,6 +16,7 @@ import {
   DiscussionThreadDto,
   ThreadListQueryDto,
 } from './dto/discussion.dto';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // The caller's role in the class: the merchant owner and active assigned
 // mentors run the discussion; enrolled learners take part in it.
@@ -97,12 +98,7 @@ export class DiscussionService {
           .filter((comment) => comment.thread_id === thread.id)
           .map((comment) => this.toComment(comment)),
       })),
-      meta: {
-        page,
-        limit,
-        total: countRow.total,
-        totalPage: Math.ceil(countRow.total / limit),
-      },
+      meta: paginationMeta(page, limit, countRow.total),
       responseMessage: 'Get class threads success',
     };
   }

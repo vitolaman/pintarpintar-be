@@ -21,6 +21,7 @@ import {
   AssignmentQuestion,
   QuestionType,
 } from './entities/assignment-question.entity';
+import { paginationMeta } from '../common/dto/response-meta.dto';
 
 @Injectable()
 export class ClassAssignmentService {
@@ -113,7 +114,8 @@ export class ClassAssignmentService {
     });
     return {
       data: await this.toResponses(manager, assignments, access),
-      meta: { total, page, limit },
+      meta: paginationMeta(page, limit, total),
+      responseMessage: 'Get class assignments success',
     };
   }
 

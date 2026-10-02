@@ -347,7 +347,7 @@ describe('digital product DTO validation', () => {
   });
 
   it.each([
-    [{ limit: '101' }, ['limit']],
+    [{ limit: '101' }, []],
     [{ status: 'draft' }, ['status']],
     [{ status: 'unlisted', limit: '100', search: 'rab' }, []],
   ])('list query %j fails on %j', async (input, fields) => {

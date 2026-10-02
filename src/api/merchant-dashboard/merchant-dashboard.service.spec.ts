@@ -58,7 +58,6 @@ describe('Dashboard query DTOs', () => {
   it.each([
     [SalesQueryDto, { type: 'gift' }],
     [SalesQueryDto, { sort_by: 'buyer' }],
-    [SalesQueryDto, { limit: '101' }],
     [CustomersQueryDto, { sort_by: 'email' }],
     [CustomersQueryDto, { sort_order: 'up' }],
   ])('rejects %p %j', async (type, query) => {
@@ -170,7 +169,7 @@ describe('MerchantDashboardService', () => {
       null,
       '50\\%\\_',
       [ITEM_ID],
-      20,
+      10,
       0,
     ]);
     expect(pageSql).toContain('ORDER BY sale.amount ASC, sale.id ASC');
@@ -181,7 +180,7 @@ describe('MerchantDashboardService', () => {
       platform_fee: null,
       transaction_fee: null,
     });
-    expect(result.meta).toEqual({ page: 1, limit: 20, total: 1, totalPage: 1 });
+    expect(result.meta).toEqual({ page: 1, limit: 10, total: 1, totalPage: 1 });
   });
 
   it('reports export truncation beyond 5000 rows', async () => {

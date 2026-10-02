@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -13,13 +15,16 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiQuery, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import {
   ArrayResponse,
   DefaultResponse,
   EmptyResponse,
+  PaginatedObjectResponse,
   PaginatedResponse,
 } from '../common/decorator/response.decorator';
+import { RequestPaginatedQueryDto } from '../common/dto/request-paginated.dto';
+import { ChapterListQueryDto } from './dto/chapter-list-query.dto';
 import { ClassService } from './class.service';
 import { ClassContentService } from './class-content.service';
 import { ClassAssignmentService } from './class-assignment.service';
@@ -115,20 +120,17 @@ export class ClassController {
   }
 
   @Get(':classId/chapters')
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(ChapterResponseDto, 'Get class chapters success')
   getClassChapters(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
-    @Query('page') page: number,
-    @Query('limit') limit: number,
+    @Query() query: ChapterListQueryDto,
   ) {
     return this.classContentService.getChapters(
       req.user.id,
       classId,
-      Math.max(Number(page) || 1, 1),
-      Math.min(Math.max(Number(limit) || 10, 1), 100),
+      query.page,
+      query.limit,
     );
   }
 
@@ -241,9 +243,10 @@ export class ClassController {
   }
 
   @Post(':classId/chapters/:chapterId/resources')
-  @DefaultResponse(
+  @ArrayResponse(
     FileResourceResponseDto,
     'Add resources success',
+    [BadRequestException, NotFoundException],
     HttpStatus.CREATED,
   )
   uploadResources(
@@ -363,8 +366,6 @@ export class ClassController {
   }
 
   @Get(':classId/certificates')
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(
     ClassCertificateLearnerDto,
     'Get class certificates success',
@@ -372,14 +373,13 @@ export class ClassController {
   findCertificates(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
-    @Query('page') page: number,
-    @Query('limit') limit: number,
+    @Query() query: RequestPaginatedQueryDto,
   ) {
     return this.classCertificateService.findCertificates(
       req.user.id,
       classId,
-      Math.max(Number(page) || 1, 1),
-      Math.min(Math.max(Number(limit) || 50, 1), 100),
+      query.page,
+      query.limit,
     );
   }
 
@@ -471,20 +471,17 @@ export class ClassController {
   }
 
   @Get(':classId/meetings')
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(MeetingResponseDto, 'Get class meetings success')
   getClassMeetings(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
-    @Query('page') page: number,
-    @Query('limit') limit: number,
+    @Query() query: RequestPaginatedQueryDto,
   ) {
     return this.classService.getClassMeetings(
       req.user.id,
       classId,
-      page || 1,
-      limit || 10,
+      query.page,
+      query.limit,
     );
   }
 
@@ -507,20 +504,17 @@ export class ClassController {
   }
 
   @Get(':classId/assignments')
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(AssignmentResponseDto, 'Get class assignments success')
   getClassAssignments(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
-    @Query('page') page: number,
-    @Query('limit') limit: number,
+    @Query() query: RequestPaginatedQueryDto,
   ) {
     return this.classAssignmentService.getAssignments(
       req.user.id,
       classId,
-      Math.max(Number(page) || 1, 1),
-      Math.min(Math.max(Number(limit) || 10, 1), 100),
+      query.page,
+      query.limit,
     );
   }
 
@@ -540,22 +534,19 @@ export class ClassController {
   }
 
   @Get(':classId/assignments/:assignmentId/submissions')
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(SubmissionViewDto, 'Get submissions success')
   findSubmissions(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
     @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
-    @Query('page') page: number,
-    @Query('limit') limit: number,
+    @Query() query: RequestPaginatedQueryDto,
   ) {
     return this.classGradingService.findSubmissions(
       req.user.id,
       classId,
       assignmentId,
-      Math.max(Number(page) || 1, 1),
-      Math.min(Math.max(Number(limit) || 20, 1), 100),
+      query.page,
+      query.limit,
     );
   }
 
@@ -576,20 +567,17 @@ export class ClassController {
   }
 
   @Get(':classId/grades')
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
-  @DefaultResponse(GradeTableDto, 'Get class grades success')
+  @PaginatedObjectResponse(GradeTableDto, 'Get class grades success')
   findGrades(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
-    @Query('page') page: number,
-    @Query('limit') limit: number,
+    @Query() query: RequestPaginatedQueryDto,
   ) {
     return this.classGradingService.findGradeTable(
       req.user.id,
       classId,
-      Math.max(Number(page) || 1, 1),
-      Math.min(Math.max(Number(limit) || 50, 1), 100),
+      query.page,
+      query.limit,
     );
   }
 
@@ -639,38 +627,32 @@ export class ClassController {
   }
 
   @Get(':classId/mentors')
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(ClassTutorResponseDto, 'Get class mentors success')
   getClassMentors(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
-    @Query('page') page: number,
-    @Query('limit') limit: number,
+    @Query() query: RequestPaginatedQueryDto,
   ) {
     return this.classService.getClassMentors(
       req.user.id,
       classId,
-      page || 1,
-      limit || 10,
+      query.page,
+      query.limit,
     );
   }
 
   @Get(':classId/students')
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
   @PaginatedResponse(StudentResponseDto, 'Get class students success')
   getClassStudents(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
-    @Query('page') page: number,
-    @Query('limit') limit: number,
+    @Query() query: RequestPaginatedQueryDto,
   ) {
     return this.classService.getClassStudents(
       req.user.id,
       classId,
-      page || 1,
-      limit || 10,
+      query.page,
+      query.limit,
     );
   }
 }

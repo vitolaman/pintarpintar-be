@@ -5,7 +5,9 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { WinstonModule, utilities as WinstonNestUtilities } from 'nest-winston';
 import * as Winston from 'winston';
 import { ValidationPipe } from '@nestjs/common';
+import { ErrorResponseDto } from './common/dto/error-response.dto';
 import { CustomHttpExceptionFilter } from './common/filters/exception-error.filter';
+import { documentErrorResponses } from './common/swagger/error-responses';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -38,7 +40,9 @@ async function bootstrap() {
       .setVersion('1.0')
       .addBearerAuth()
       .build(),
+    { extraModels: [ErrorResponseDto] },
   );
+  documentErrorResponses(app, document);
 
   SwaggerModule.setup('api', app, document);
   await app.listen(3001, () => {

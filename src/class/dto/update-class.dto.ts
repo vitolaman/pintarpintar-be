@@ -22,6 +22,7 @@ import {
 } from '../../common/catalog/class-details';
 import { ClassStatus, ClassType } from '../entities/class.entity';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
+import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 
 // Omitted fields stay unchanged; null clears a nullable field and is
 // rejected for the others.
@@ -73,7 +74,10 @@ export class UpdateClassDto {
   @ApiPropertyOptional({
     format: 'uuid',
     nullable: true,
-    description: 'File asset registered with purpose class_cover',
+    description: assetFieldDescription(
+      'class_cover',
+      'Sets the main cover and keeps the others; null removes the main cover and the next one takes its place.',
+    ),
   })
   @ValidateIf((_, value) => value !== null)
   @IsUUID()

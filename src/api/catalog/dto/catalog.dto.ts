@@ -12,14 +12,12 @@ import {
   ArrayMaxSize,
   IsArray,
   IsIn,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
-  Max,
   MaxLength,
-  Min,
 } from 'class-validator';
+import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const catalogCardTypes = ['kelas', 'bootcamp', 'digital'] as const;
 // `kelas-live` is an FE filter value with no class type behind it yet.
@@ -38,8 +36,6 @@ export const catalogSorts = [
 
 export type CatalogCardType = (typeof catalogCardTypes)[number];
 export type CatalogSort = (typeof catalogSorts)[number];
-
-const toNumber = ({ value }: { value: unknown }) => Number(value);
 
 // Frontend file-type filters and the stored digital_files.file_format values
 // each one matches (compared in lower case).
@@ -128,20 +124,11 @@ export class CatalogQueryDto {
   @IsIn(catalogSorts)
   sort: CatalogSort = 'terbaru';
 
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(toNumber)
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
-  @IsOptional()
-  @Transform(toNumber)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit = 20;
+  @LimitQuery()
+  limit = 10;
 }
 
 export class CatalogMerchantDto {

@@ -9,6 +9,7 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
 
 export class LearnerResourceDto {
   @ApiProperty() name: string;
@@ -65,7 +66,7 @@ export class LearnerQuizDto extends LearnerAssignmentDto {
 export class SubmitAssignmentDto {
   @ApiProperty({
     format: 'uuid',
-    description: 'Upload registered as submission_file (PDF, DWG or ZIP)',
+    description: assetFieldDescription('submission_file'),
   })
   @IsUUID()
   file_asset_id: string;

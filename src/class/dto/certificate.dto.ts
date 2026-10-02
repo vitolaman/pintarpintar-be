@@ -7,6 +7,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 
 export class UpdateCertificateSettingsDto {
   @ApiPropertyOptional({ description: 'Issue automatically on eligibility' })
@@ -38,7 +39,7 @@ export class CertificateSettingsDto {
 export class AttachCertificateFileDto {
   @ApiProperty({
     format: 'uuid',
-    description: 'Upload registered as certificate_file (PDF, PNG or JPG)',
+    description: assetFieldDescription('certificate_file'),
   })
   @IsUUID()
   asset_id: string;

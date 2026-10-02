@@ -16,18 +16,6 @@ import { Merchant } from '../merchant/entities/merchant.entity';
 // Public store, catalog and voucher queries show active merchants only.
 const MERCHANT_INACTIVE = 'inactive';
 
-export interface PublicUser {
-  id: string;
-  name: string;
-  email: string;
-  is_mentor: boolean;
-  is_merchant: boolean;
-  mentor_id: string | null;
-  merchant_id: string | null;
-  created_at: Date;
-  updated_at: Date;
-}
-
 @Injectable()
 export class UserService {
   constructor(
@@ -97,9 +85,18 @@ export class UserService {
   }
 
   async findCurrentUser(id: string): Promise<UserResponseDto> {
-    const raw = await this.users.createQueryBuilder('user')
-      .leftJoin(Mentor, 'mentor', 'mentor.user_id = user.id AND mentor.deleted_at IS NULL')
-      .leftJoin(Merchant, 'merchant', 'merchant.user_id = user.id AND merchant.deleted_at IS NULL')
+    const raw = await this.users
+      .createQueryBuilder('user')
+      .leftJoin(
+        Mentor,
+        'mentor',
+        'mentor.user_id = user.id AND mentor.deleted_at IS NULL',
+      )
+      .leftJoin(
+        Merchant,
+        'merchant',
+        'merchant.user_id = user.id AND merchant.deleted_at IS NULL',
+      )
       .select([
         'user.id AS id',
         'user.name AS name',
@@ -109,7 +106,7 @@ export class UserService {
         'user.created_at AS created_at',
         'user.updated_at AS updated_at',
         'mentor.id AS mentor_id',
-        'merchant.id AS merchant_id'
+        'merchant.id AS merchant_id',
       ])
       .where('user.id = :id', { id })
       .andWhere('user.deleted_at IS NULL')
@@ -122,19 +119,22 @@ export class UserService {
     return raw as UserResponseDto;
   }
 
-  async updateCurrentUser(id: string, name: string): Promise<PublicUser> {
+  async updateCurrentUser(id: string, name: string): Promise<UserResponseDto> {
     const user = await this.findActiveEntity(id);
     user.name = this.normalizeName(name);
+    await this.users.save(user);
 
-    return this.toPublicUser(await this.users.save(user));
+    return this.findCurrentUser(id);
   }
 
   // The account is soft-deleted, which frees its email for a new sign-up
   // (emails are unique among active users only), and its merchant goes
   // inactive so the store and its items leave public pages. Buyers' access
   // rows are left untouched.
-  async deleteCurrentUser(id: string): Promise<PublicUser> {
+  // The response is the account as it was, read before the soft delete hides it.
+  async deleteCurrentUser(id: string): Promise<UserResponseDto> {
     const user = await this.findActiveEntity(id);
+    const deleted = await this.findCurrentUser(id);
     await this.users.manager.transaction(async (manager) => {
       user.deletedBy = id;
       await manager.save(User, user);
@@ -146,21 +146,7 @@ export class UserService {
       );
     });
 
-    return this.toPublicUser(user);
-  }
-
-  toPublicUser(user: User): PublicUser {
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      is_mentor: user.isMentor,
-      is_merchant: user.isMerchant,
-      mentor_id: null, // Basic toPublicUser doesn't fetch this unless we join it
-      merchant_id: null,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-    };
+    return deleted;
   }
 
   private async findActiveEntity(id: string): Promise<User> {

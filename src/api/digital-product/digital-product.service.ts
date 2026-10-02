@@ -33,6 +33,7 @@ import { DigitalFile } from './entities/digital-file.entity';
 import { ProductCategory } from './entities/product-category.entity';
 import { applyCoverInput, findCovers } from '../item-cover/item-covers';
 import { ItemCoverDto } from '../item-cover/dto/item-cover.dto';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 const PRICE_FIELDS = { list: 'original_price', discount: 'discount_price' };
 
@@ -159,7 +160,8 @@ export class DigitalProductService {
       data: await Promise.all(
         ids.map((id) => this.toResponse(byId.get(id), false, covers.get(id))),
       ),
-      meta: { total, page, limit },
+      meta: paginationMeta(page, limit, total),
+      responseMessage: 'Get digital products success',
     };
   }
 

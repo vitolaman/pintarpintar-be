@@ -132,18 +132,47 @@ describe('UserService', () => {
     );
   });
 
-  it('updates only the current user name after normalization', async () => {
+  const currentUserRow = (overrides: Record<string, unknown> = {}) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    is_mentor: false,
+    is_merchant: true,
+    created_at: user.created_at,
+    updated_at: user.updated_at,
+    mentor_id: null,
+    merchant_id: 'c8a64b8f-2f0b-4c4e-9a43-2f4c1f2d7a10',
+    ...overrides,
+  });
+
+  const mockCurrentUserQuery = (row: Record<string, unknown>) => {
+    const builder = {
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue(row),
+    };
+    repository.createQueryBuilder = jest.fn().mockReturnValue(builder);
+  };
+
+  it('updates only the current user name and returns the full current user', async () => {
     repository.findOneBy.mockResolvedValue({ ...user });
     repository.save.mockImplementation(
       (async (input) => ({ ...user, ...input }) as User) as never,
     );
+    mockCurrentUserQuery(currentUserRow({ name: 'Jane Doe' }));
 
     const result = await service.updateCurrentUser(user.id, '  Jane Doe  ');
 
     expect(repository.save).toHaveBeenCalledWith(
       expect.objectContaining({ id: user.id, name: 'Jane Doe' }),
     );
-    expect(result).toMatchObject({ id: user.id, name: 'Jane Doe' });
+    expect(result).toMatchObject({
+      id: user.id,
+      name: 'Jane Doe',
+      merchant_id: 'c8a64b8f-2f0b-4c4e-9a43-2f4c1f2d7a10',
+    });
     expect(result).not.toHaveProperty('passwordHash');
   });
 
@@ -157,6 +186,7 @@ describe('UserService', () => {
       transaction: jest.fn((callback) => callback(manager)),
     };
     repository.findOneBy.mockResolvedValue({ ...user });
+    mockCurrentUserQuery(currentUserRow());
 
     const result = await service.deleteCurrentUser(user.id);
 
@@ -171,6 +201,10 @@ describe('UserService', () => {
       { status: 'inactive' },
     );
     expect(result).not.toHaveProperty('passwordHash');
-    expect(result).toMatchObject({ id: user.id, email: user.email });
+    expect(result).toMatchObject({
+      id: user.id,
+      email: user.email,
+      merchant_id: 'c8a64b8f-2f0b-4c4e-9a43-2f4c1f2d7a10',
+    });
   });
 });

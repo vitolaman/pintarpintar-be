@@ -33,6 +33,7 @@ import { MerchantMentor } from './entities/merchant-mentor.entity';
 import { ApplicationStatus } from './recruitment.constants';
 import { findOwnMerchant } from './recruitment-merchant';
 import { PUBLIC_JOB_SQL } from './recruitment-sql';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -191,7 +192,7 @@ export class JobApplicationService {
     ]);
     return {
       data: { counts, applications },
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get my applications success',
     };
   }
@@ -245,7 +246,7 @@ export class JobApplicationService {
     ]);
     return {
       data: { counts, applicants: rows.map(toApplicant) },
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get applicants success',
     };
   }

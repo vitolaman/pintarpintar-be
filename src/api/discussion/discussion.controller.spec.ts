@@ -51,7 +51,7 @@ describe('DiscussionController threads', () => {
     expect(discussionService.findThreads).toHaveBeenCalledWith(
       userId,
       classId,
-      expect.objectContaining({ class_id: classId, page: 2, limit: 20 }),
+      expect.objectContaining({ class_id: classId, page: 2, limit: 10 }),
     );
   });
 

@@ -16,7 +16,9 @@ import { FileAssetService, originalFilename } from './file-asset.service';
 import {
   assertFileFitsPurpose,
   assertOwnedAsset,
+  assetFieldDescription,
   purposeVisibility,
+  sizeLimitText,
 } from './asset-purpose-rules';
 
 const USER_ID = '30000000-0000-4000-8000-000000000001';
@@ -497,6 +499,46 @@ describe('assertOwnedAsset claims a pending asset', () => {
   });
 });
 
+describe('upload rule messages', () => {
+  const image = (sizeBytes: number) => ({
+    filename: 'avatar.png',
+    mimeType: 'image/png',
+    sizeBytes,
+  });
+
+  it('states a fixed size limit without the internal field key', () => {
+    expect(() => assertFileFitsPurpose('user_avatar', image(3 * MB))).toThrow(
+      new BadRequestException('The file must be 2 MB or smaller'),
+    );
+  });
+
+  it('lists the allowed file types', () => {
+    expect(() =>
+      assertFileFitsPurpose('user_avatar', {
+        filename: 'cv.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: MB,
+      }),
+    ).toThrow('Allowed file types: PNG, JPG, JPEG or WEBP');
+    expect(() =>
+      assertFileFitsPurpose('submission_file', {
+        filename: 'tugas.rar',
+        mimeType: 'application/vnd.rar',
+        sizeBytes: MB,
+      }),
+    ).toThrow('Allowed file types: PDF, DWG or ZIP');
+  });
+
+  it('describes each field from its rule', () => {
+    expect(assetFieldDescription('class_cover')).toBe(
+      'An asset_id from POST /api/v1/upload/complete: PNG, JPG, JPEG or WEBP, up to 4 MB.',
+    );
+    expect(sizeLimitText('digital_file')).toBe(
+      "the store's level limit (Basic 1 GB, Silver 5 GB, Gold 10 GB)",
+    );
+  });
+});
+
 describe('per-file limit by merchant level', () => {
   const content = (sizeBytes: number) => ({
     filename: 'modul.zip',
@@ -509,7 +551,7 @@ describe('per-file limit by merchant level', () => {
   it('names the level and its limit when a file is too large', () => {
     expect(() =>
       assertFileFitsPurpose('digital_file', content(1.5 * GB), basic),
-    ).toThrow('File exceeds the 1 GB limit of the Basic merchant level');
+    ).toThrow('The file must be 1 GB or smaller on the Basic merchant level');
   });
 
   it('allows the same file at Silver', () => {
@@ -565,7 +607,7 @@ describe('per-file limit by merchant level', () => {
         'class_resource',
         { classId: 'class-id' },
       ),
-    ).rejects.toThrow('1 GB limit of the Basic merchant level');
+    ).rejects.toThrow('1 GB or smaller on the Basic merchant level');
     await expect(
       assertOwnedAsset(
         classOf(MerchantStorageLevel.SILVER),

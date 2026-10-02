@@ -29,6 +29,7 @@ import {
   LevelEvaluationQueryDto,
   MerchantLevelSummaryDto,
 } from './dto/merchant-level.dto';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // Paid sales of merchant $1 with their sale time in Asia/Jakarta.
 const LOCAL_SALES_SQL = `
@@ -258,7 +259,7 @@ export class MerchantLevelService {
         removed_items: row.removedItems,
         evaluated_at: row.created_at,
       })),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get level evaluations success',
     };
   }

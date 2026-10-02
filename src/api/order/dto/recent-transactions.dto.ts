@@ -1,33 +1,23 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsOptional } from 'class-validator';
 import { OrderStatus } from '../entities/order.entity';
 import { catalogItemTypes } from '~/common/catalog/catalog-item';
+import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export class RecentTransactionsQueryDto {
-  @ApiPropertyOptional({ default: 3, minimum: 1, maximum: 20 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  @Max(20)
+  @LimitQuery({
+    defaultLimit: 3,
+    maxLimit: 20,
+    description: 'Number of recent transactions.',
+  })
   limit = 3;
 }
 
 export class TransactionsQueryDto {
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
+  @PageQuery()
   page = 1;
 
-  @ApiPropertyOptional({ default: 10, minimum: 1, maximum: 50 })
-  @IsOptional()
-  @Transform(({ value }) => Number(value))
-  @IsInt()
-  @Min(1)
-  @Max(50)
+  @LimitQuery()
   limit = 10;
 
   @ApiPropertyOptional({ enum: OrderStatus })

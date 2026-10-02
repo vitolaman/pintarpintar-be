@@ -25,6 +25,7 @@ import {
 import { DiscountCode } from './entities/discount-code.entity';
 import { DiscountProduct } from './entities/discount-product.entity';
 import { Discount } from './entities/discount.entity';
+import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 // Uppercase letters and digits without look-alikes (0/O, 1/I/L).
 // Bounds one request's work; a `once` entry generates one row per code.
@@ -121,7 +122,7 @@ export class DiscountService {
 
     return {
       data: await this.toResponses(discounts),
-      meta: { page, limit, total, totalPage: Math.ceil(total / limit) },
+      meta: paginationMeta(page, limit, total),
       responseMessage: 'Get discounts success',
     };
   }

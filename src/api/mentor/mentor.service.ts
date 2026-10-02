@@ -4,35 +4,36 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import {
+  ObjectStorage,
+  createObjectStorage,
+} from '../../common/storage/object-storage';
+import { signedDownloadUrl } from '../../common/storage/signed-download-url';
 import { joinSkills, splitSkills } from '../../common/util/skill-list';
-import { AuthService } from '../auth/auth.service';
-import { FileAsset } from '../profile/entities/file-asset.entity';
+import { classKindSql } from '../../common/catalog/item-kind';
+import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
+import { STORAGE_PROVIDER } from '../file-asset/file-asset.service';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
-import { UserService } from '../user/user.service';
 import {
   MentorAssignmentsResponseDto,
   MentorDocumentResponseDto,
   MentorResponseDto,
   PublicMentorResponseDto,
 } from './dto/mentor-response.dto';
-import { MentorRegistrationDto } from './dto/mentor-registration.dto';
-import { MentorSignUpInput } from './dto/mentor-sign-up.dto';
-import { UpdateMentorDto } from './dto/update-mentor.dto';
 import {
-  MENTOR_DOCUMENT_PROVIDER,
-  MentorDocumentStorageService,
-  StoredMentorDocument,
-} from './mentor-document-storage.service';
+  MentorRegisterDto,
+  UpdateMentorDocumentsDto,
+} from './dto/mentor-documents.dto';
+import { MentorRegistrationDto } from './dto/mentor-registration.dto';
+import { UpdateMentorDto } from './dto/update-mentor.dto';
 import { Mentor } from './entities/mentor.entity';
 import { MentorProfile } from './entities/mentor-profile.entity';
 
-type MentorFiles = {
-  cv?: Express.Multer.File[];
-  skill_certificate?: Express.Multer.File[];
-};
+type MentorDocumentIds = { cvAssetId: string; certificateAssetId: string };
 
 const EXPERTISE_MAX_LENGTH = 160;
 
@@ -42,48 +43,28 @@ export class MentorService {
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectRepository(Mentor)
     private readonly mentors: Repository<Mentor>,
-    private readonly userService: UserService,
-    private readonly authService: AuthService,
-    private readonly documentStorage: MentorDocumentStorageService,
-  ) {}
-
-  async signUp(input: MentorSignUpInput, files: MentorFiles) {
-    const documents = await this.documentStorage.storeRequiredDocuments(files);
-    try {
-      let userId = '';
-      await this.dataSource.transaction(async (manager) => {
-        const user = await this.userService.createWithManager(manager, input, {
-          isMentor: true,
-        });
-        userId = user.id;
-        await this.createMentor(manager, user, input, documents);
-      });
-      return this.authService.createTokenResponse('Account Created!', userId);
-    } catch (error) {
-      await this.documentStorage.remove([documents.cv, documents.certificate]);
-      throw error;
-    }
+    configService: ConfigService,
+  ) {
+    this.storage = createObjectStorage(configService);
   }
 
-  async register(
-    userId: string,
-    input: MentorRegistrationDto,
-    files: MentorFiles,
-  ) {
-    const documents = await this.documentStorage.storeRequiredDocuments(files);
-    try {
-      await this.dataSource.transaction(async (manager) => {
-        const user = await manager.findOne(User, {
-          where: { id: userId },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!user) throw new NotFoundException('User not found');
-        await this.createMentor(manager, user, input, documents);
+  private readonly storage: ObjectStorage;
+
+  // The CV and certificate are uploads of the caller (the normal upload
+  // flow), checked against the job-application CV and certificate rules.
+  async register(userId: string, input: MentorRegisterDto) {
+    await this.dataSource.transaction(async (manager) => {
+      const user = await manager.findOne(User, {
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
       });
-    } catch (error) {
-      await this.documentStorage.remove([documents.cv, documents.certificate]);
-      throw error;
-    }
+      if (!user) throw new NotFoundException('User not found');
+      const documents = await this.claimDocuments(manager, userId, {
+        cvAssetId: input.cv_asset_id,
+        certificateAssetId: input.skill_certificate_asset_id,
+      });
+      await this.createMentor(manager, user, input, documents);
+    });
 
     return this.findProfile(userId).then((response) => ({
       ...response,
@@ -138,53 +119,41 @@ export class MentorService {
     }));
   }
 
-  async updateDocuments(userId: string, files: MentorFiles) {
-    const documents =
-      await this.documentStorage.storeReplacementDocuments(files);
-    const stored = [documents.cv, documents.certificate].filter(
-      (document): document is StoredMentorDocument => !!document,
-    );
-    let replaced: FileAsset[] = [];
-    try {
-      replaced = await this.dataSource.transaction(async (manager) => {
-        const mentor = await this.findOwnedMentor(manager, userId, true);
-        const mentorProfile = await manager.findOneBy(MentorProfile, {
-          mentorId: mentor.id,
-        });
-        if (!mentorProfile) {
-          throw new NotFoundException('Mentor profile not found');
-        }
-
-        await this.saveDocuments(manager, userId, stored);
-        const previousIds: string[] = [];
-        if (documents.cv) {
-          previousIds.push(mentorProfile.cvAssetId);
-          mentorProfile.cvAssetId = documents.cv.assetId;
-        }
-        if (documents.certificate) {
-          previousIds.push(mentorProfile.skillCertificateAssetId);
-          mentorProfile.skillCertificateAssetId = documents.certificate.assetId;
-        }
-        await manager.save(MentorProfile, mentorProfile);
-
-        const previous = await manager.findByIds(FileAsset, previousIds);
-        if (previous.length > 0) {
-          await manager.update(FileAsset, previousIds, { status: 'deleted' });
-          await manager.softDelete(FileAsset, previousIds);
-        }
-        return previous;
-      });
-    } catch (error) {
-      await this.documentStorage.remove(stored);
-      throw error;
+  // The previous files are kept: an upload may also be the CV of a job
+  // application.
+  async updateDocuments(userId: string, input: UpdateMentorDocumentsDto) {
+    if (!input.cv_asset_id && !input.skill_certificate_asset_id) {
+      throw new BadRequestException(
+        'Send cv_asset_id, skill_certificate_asset_id, or both',
+      );
     }
+    await this.dataSource.transaction(async (manager) => {
+      const mentor = await this.findOwnedMentor(manager, userId, true);
+      const mentorProfile = await manager.findOneBy(MentorProfile, {
+        mentorId: mentor.id,
+      });
+      if (!mentorProfile) {
+        throw new NotFoundException('Mentor profile not found');
+      }
+      const current = {
+        cvAssetId: mentorProfile.cvAssetId,
+        certificateAssetId: mentorProfile.skillCertificateAssetId,
+      };
+      const documents = await this.claimDocuments(
+        manager,
+        userId,
+        {
+          cvAssetId: input.cv_asset_id ?? current.cvAssetId,
+          certificateAssetId:
+            input.skill_certificate_asset_id ?? current.certificateAssetId,
+        },
+        current,
+      );
+      mentorProfile.cvAssetId = documents.cvAssetId;
+      mentorProfile.skillCertificateAssetId = documents.certificateAssetId;
+      await manager.save(MentorProfile, mentorProfile);
+    });
 
-    // Old objects are removed only after the profile points at the new ones.
-    await this.documentStorage.remove(
-      replaced.filter(
-        (asset) => asset.storageProvider === MENTOR_DOCUMENT_PROVIDER,
-      ),
-    );
     return this.findDocuments(userId).then((response) => ({
       ...response,
       responseMessage: 'Update mentor documents success',
@@ -229,8 +198,9 @@ export class MentorService {
         size_bytes: Number(row.size_bytes),
         uploaded_at: row.uploaded_at,
         download_url:
-          row.storage_provider === MENTOR_DOCUMENT_PROVIDER
-            ? await this.documentStorage.signedDownloadUrl(
+          row.storage_provider === STORAGE_PROVIDER
+            ? await signedDownloadUrl(
+                this.storage,
                 row.object_key,
                 row.filename,
               )
@@ -255,7 +225,7 @@ export class MentorService {
           [userId],
         ),
         this.dataSource.query(
-          `SELECT assignment.product_id, product.title, product.product_type, assignment.role, assignment.sort_order
+          `SELECT assignment.product_id, product.title, 'digital' AS type, assignment.role, assignment.sort_order
          FROM product_mentors assignment
          INNER JOIN products product ON product.id = assignment.product_id AND product.deleted_at IS NULL
          WHERE assignment.mentor_user_id = $1 AND assignment.deleted_at IS NULL
@@ -263,7 +233,7 @@ export class MentorService {
           [userId],
         ),
         this.dataSource.query(
-          `SELECT link.id, link.class_id, class.title, class.type, class.status,
+          `SELECT link.id, link.class_id, class.title, ${classKindSql('class.type')} AS type, class.status,
                 class.merchant_id, merchant.store_name, link.role, link.permissions,
                 link.created_at AS assigned_at
          FROM class_mentors link
@@ -331,7 +301,7 @@ export class MentorService {
     manager: EntityManager,
     user: User,
     input: MentorRegistrationDto,
-    documents: { cv: StoredMentorDocument; certificate: StoredMentorDocument },
+    documents: MentorDocumentIds,
   ): Promise<void> {
     const mentor =
       (await this.findProfilelessMentor(manager, user.id)) ??
@@ -339,10 +309,6 @@ export class MentorService {
         Mentor,
         manager.create(Mentor, { userId: user.id, status: 'active' }),
       ));
-    await this.saveDocuments(manager, user.id, [
-      documents.cv,
-      documents.certificate,
-    ]);
     await manager.save(
       MentorProfile,
       manager.create(MentorProfile, {
@@ -352,8 +318,8 @@ export class MentorService {
         education: input.education,
         portfolioUrl: input.portfolio_url ?? null,
         linkedinUrl: input.linkedin_url,
-        cvAssetId: documents.cv.assetId,
-        skillCertificateAssetId: documents.certificate.assetId,
+        cvAssetId: documents.cvAssetId,
+        skillCertificateAssetId: documents.certificateAssetId,
       }),
     );
 
@@ -390,28 +356,36 @@ export class MentorService {
     return existing;
   }
 
-  private async saveDocuments(
+  // Checks ownership, type and size; an unchanged document is not checked
+  // again, so a legacy file keeps working until it is replaced.
+  private async claimDocuments(
     manager: EntityManager,
     userId: string,
-    documents: StoredMentorDocument[],
-  ): Promise<void> {
-    await manager.save(
-      FileAsset,
-      documents.map((document) =>
-        manager.create(FileAsset, {
-          id: document.assetId,
-          uploadedByUserId: userId,
-          storageProvider: MENTOR_DOCUMENT_PROVIDER,
-          objectKey: document.objectKey,
-          originalFilename: document.originalFilename,
-          mimeType: document.mimeType,
-          sizeBytes: String(document.sizeBytes),
-          checksumSha256: document.checksumSha256,
-          visibility: 'private',
-          status: 'active',
-        }),
-      ),
-    );
+    documents: MentorDocumentIds,
+    current?: MentorDocumentIds,
+  ): Promise<MentorDocumentIds> {
+    if (documents.cvAssetId === documents.certificateAssetId) {
+      throw new BadRequestException(
+        'The CV and the skill certificate must be different files',
+      );
+    }
+    if (documents.cvAssetId !== current?.cvAssetId) {
+      await assertOwnedAsset(
+        manager,
+        userId,
+        documents.cvAssetId,
+        'application_cv',
+      );
+    }
+    if (documents.certificateAssetId !== current?.certificateAssetId) {
+      await assertOwnedAsset(
+        manager,
+        userId,
+        documents.certificateAssetId,
+        'certificate_file',
+      );
+    }
+    return documents;
   }
 
   private async findOwnedMentor(

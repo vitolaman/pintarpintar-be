@@ -51,15 +51,26 @@ describe('PortalItemQueryDto', () => {
     expect(query).toMatchObject(expected);
   });
 
-  it('accepts every frontend tab value', async () => {
-    for (const type of [
-      'all',
-      'kelas-video',
-      'live-bootcamp',
-      'produk-digital',
-    ]) {
+  it('accepts every item-kind tab', async () => {
+    for (const type of ['all', 'kelas', 'bootcamp', 'digital']) {
       expect(await errorsFor({ type })).toHaveLength(0);
     }
+  });
+
+  it.each(['kelas-video', 'live-bootcamp', 'produk-digital', 'bundle'])(
+    'rejects the tab %s',
+    async (type) => {
+      expect(await errorsFor({ type })).not.toHaveLength(0);
+    },
+  );
+
+  it('rejects an unknown query field', async () => {
+    const errors = await validate(
+      plainToInstance(PortalItemQueryDto, { keyword: 'autocad' }),
+      { whitelist: true, forbidNonWhitelisted: true },
+    );
+
+    expect(errors.map((error) => error.property)).toEqual(['keyword']);
   });
 
   it('treats a blank tab and search as every tab and no search', async () => {
@@ -74,12 +85,12 @@ describe('PortalItemQueryDto', () => {
 
   it('matches the tab ignoring case and trims the search', async () => {
     const query = plainToInstance(PortalItemQueryDto, {
-      type: ' Live-Bootcamp ',
+      type: ' Bootcamp ',
       search: '  autocad ',
     });
 
     expect(await validate(query)).toHaveLength(0);
-    expect(query).toMatchObject({ type: 'live-bootcamp', search: 'autocad' });
+    expect(query).toMatchObject({ type: 'bootcamp', search: 'autocad' });
   });
 });
 
@@ -130,7 +141,7 @@ describe('PortalService', () => {
 
     await expect(service.findItems('user-id', request())).resolves.toEqual({
       data: [],
-      meta: { page: 1, limit: 10, total: 0, totalPage: 0 },
+      meta: { page: 1, limit: 10, total: 0, total_page: 0 },
       responseMessage: 'Get portal items success',
     });
     expect(query).toHaveBeenCalledTimes(1);
@@ -142,7 +153,7 @@ describe('PortalService', () => {
     const result = await service.findItems(
       'user-id',
       request({
-        type: 'live-bootcamp',
+        type: 'bootcamp',
         search: '50%_off\\',
         page: 2,
         limit: 20,
@@ -154,11 +165,11 @@ describe('PortalService', () => {
 
     expect(countSql).toContain('enrollment.user_id = $1');
     expect(countSql).toContain('access.user_id = $1');
-    expect(countParams).toEqual([
-      'user-id',
-      'live-bootcamp',
-      '50\\%\\_off\\\\',
-    ]);
+    expect(countSql).toContain(
+      "(CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END) AS item_type",
+    );
+    expect(countSql).toContain("'digital',");
+    expect(countParams).toEqual(['user-id', 'bootcamp', '50\\%\\_off\\\\']);
     expect(pageSql).toContain(
       'ORDER BY owned.acquired_at DESC, owned.item_id DESC',
     );
@@ -167,7 +178,7 @@ describe('PortalService', () => {
       page: 2,
       limit: 20,
       total: 25,
-      totalPage: 2,
+      total_page: 2,
     });
   });
 
@@ -176,7 +187,7 @@ describe('PortalService', () => {
       {
         ...baseRow,
         item_id: 'video-class-id',
-        item_type: 'kelas-video',
+        item_type: 'kelas',
         title: 'Belajar AutoCAD dari Nol',
         raw_progress: '70',
         module_count: '12',
@@ -186,7 +197,7 @@ describe('PortalService', () => {
       {
         ...baseRow,
         item_id: 'bootcamp-id',
-        item_type: 'live-bootcamp',
+        item_type: 'bootcamp',
         title: 'PLC Programming Bootcamp',
         raw_progress: '40',
         has_certificate: true,
@@ -198,7 +209,7 @@ describe('PortalService', () => {
       {
         ...baseRow,
         item_id: 'product-id',
-        item_type: 'produk-digital',
+        item_type: 'digital',
         title: 'Template RAB Excel',
         image: 'products/covers/rab.png',
       },
@@ -208,8 +219,8 @@ describe('PortalService', () => {
 
     expect(data[0]).toMatchObject({
       id: 'video-class-id',
-      type: 'kelas-video',
-      image: null,
+      type: 'kelas',
+      image_url: null,
       progress: 70,
       module_count: 12,
       assignment_count: 2,
@@ -219,7 +230,7 @@ describe('PortalService', () => {
       merchant_slug: 'akademi-teknik-nusantara',
     });
     expect(data[1]).toMatchObject({
-      type: 'live-bootcamp',
+      type: 'bootcamp',
       progress: null,
       module_count: null,
       has_certificate: true,
@@ -232,8 +243,7 @@ describe('PortalService', () => {
       },
     });
     expect(data[2]).toMatchObject({
-      type: 'produk-digital',
-      image: 'products/covers/rab.png',
+      type: 'digital',
       progress: null,
       has_certificate: null,
       next_meeting: null,
@@ -247,7 +257,7 @@ describe('PortalService', () => {
         {
           ...baseRow,
           item_id: 'product-id',
-          item_type: 'produk-digital',
+          item_type: 'digital',
           title: 'Template RAB Excel',
           image: 'products/covers/rab.png',
           merchant_avatar_object_key: 'merchants/logo.png',
@@ -255,7 +265,7 @@ describe('PortalService', () => {
         {
           ...baseRow,
           item_id: 'class-id',
-          item_type: 'kelas-video',
+          item_type: 'kelas',
           title: 'AutoCAD',
         },
       ]);
@@ -263,11 +273,11 @@ describe('PortalService', () => {
       const { data } = await service.findItems('user-id', request());
 
       expect(data[0]).toMatchObject({
-        image: 'products/covers/rab.png',
         image_url: 'https://cdn.example.com/products/covers/rab.png',
-        merchant_avatar_object_key: 'merchants/logo.png',
         merchant_avatar_url: 'https://cdn.example.com/merchants/logo.png',
       });
+      expect(data[0]).not.toHaveProperty('image');
+      expect(data[0]).not.toHaveProperty('merchant_avatar_object_key');
       expect(data[1]).toMatchObject({
         image_url: null,
         merchant_avatar_url: null,

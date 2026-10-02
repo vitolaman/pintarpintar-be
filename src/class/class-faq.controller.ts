@@ -26,7 +26,7 @@ import {
   UpdateClassFaqDto,
 } from './dto/class-faq.dto';
 import { ClassResponseDto } from './dto/class-response.dto';
-import { ClassType } from './entities/class.entity';
+import { classTypeOf } from '../common/catalog/item-kind';
 
 type AuthenticatedRequest = { user: { id: string } };
 
@@ -99,7 +99,7 @@ export class ClassFaqController {
     return this.classDuplicationService.duplicate(
       req.user.id,
       classId,
-      input.type as ClassType,
+      classTypeOf(input.type),
     );
   }
 }

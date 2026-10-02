@@ -19,6 +19,8 @@ import {
   CatalogMentorDto,
   CatalogQueryDto,
   CatalogSort,
+  CatalogSortField,
+  catalogSort,
   CategoryNodeDto,
 } from './dto/catalog.dto';
 import { findCovers } from '../item-cover/item-covers';
@@ -163,17 +165,26 @@ const VIEWER_ITEM_STATE_SQL = (itemColumn: 'class_id' | 'product_id') => `
     WHERE ${itemColumn} = $1 AND user_id = $2 AND deleted_at IS NULL) AS has_reviewed
 `;
 
-const SORT_SQL: Record<CatalogSort | 'random', string> = {
-  terbaru: 'created_at DESC',
-  terlama: 'created_at ASC',
-  terpopuler: 'students_count DESC',
-  'terkurang-populer': 'students_count ASC',
-  termurah: 'price ASC',
-  termahal: 'price DESC',
-  rating: 'rating DESC, review_count DESC',
-  title: 'title ASC',
-  random: 'random()',
+// Resources store their size as text: bytes for uploads, while older rows may
+// hold a display label such as "2.5 MB", which is reported as unknown.
+const RESOURCE_SIZE_BYTES_SQL = `(CASE WHEN resource.size ~ '^[0-9]+$' THEN resource.size::bigint END)`;
+
+const SORT_COLUMNS: Record<CatalogSortField, string[]> = {
+  created_at: ['created_at'],
+  popularity: ['students_count'],
+  price: ['price'],
+  rating: ['rating', 'review_count'],
+  title: ['title'],
 };
+
+// Fixed column names and directions only; the card id breaks ties.
+function sortSql(sort: CatalogSort | 'random'): string {
+  if (sort === 'random') return 'random()';
+  const direction = sort.order === 'asc' ? 'ASC' : 'DESC';
+  return SORT_COLUMNS[sort.by]
+    .map((column) => `${column} ${direction}`)
+    .join(', ');
+}
 
 export interface CardFilter {
   types?: string[];
@@ -243,7 +254,12 @@ export class CatalogService {
     const cards =
       total === 0
         ? []
-        : await this.findCards(filter, query.sort, limit, (page - 1) * limit);
+        : await this.findCards(
+            filter,
+            catalogSort(query.sort_by, query.sort_order),
+            limit,
+            (page - 1) * limit,
+          );
     const data = await this.withViewerFlags(viewerId, cards);
 
     return {
@@ -261,7 +277,7 @@ export class CatalogService {
   ): Promise<CatalogCardDto[]> {
     const rows: CardRow[] = await this.dataSource.query(
       `${PAGE_DETAILS_SQL(
-        `SELECT cards.*, row_number() OVER (ORDER BY ${SORT_SQL[sort]}, cards.id) AS position
+        `SELECT cards.*, row_number() OVER (ORDER BY ${sortSql(sort)}, cards.id) AS position
          FROM (${CARD_SQL}) cards
          ORDER BY position
          LIMIT $10 OFFSET $11`,
@@ -309,8 +325,8 @@ export class CatalogService {
         [id],
       ),
       this.dataSource.query(
-        `SELECT resource.id, resource.chapter_id, resource.name, resource.type, resource.size,
-                resource.description, resource.created_at
+        `SELECT resource.id, resource.chapter_id, resource.name, resource.type,
+                ${RESOURCE_SIZE_BYTES_SQL} AS size, resource.description, resource.created_at
          FROM file_resources resource INNER JOIN chapters chapter ON chapter.id = resource.chapter_id
          WHERE chapter.class_id = $1 AND resource.deleted_at IS NULL AND chapter.deleted_at IS NULL
          ORDER BY resource."order", resource.created_at, resource.id`,
@@ -376,7 +392,7 @@ export class CatalogService {
             id: file.id,
             name: file.name,
             type: file.type,
-            size: file.size,
+            size: file.size === null ? null : Number(file.size),
             description: file.description,
             created_at: file.created_at,
           })),
@@ -516,7 +532,6 @@ function toCard(row: CardRow): CatalogCardDto {
     id: row.id,
     type: row.type,
     title: row.title,
-    image: row.image,
     category: row.category,
     level: row.level,
     price,
@@ -533,7 +548,6 @@ function toCard(row: CardRow): CatalogCardDto {
       id: row.merchant_id,
       name: row.merchant_name,
       slug: row.merchant_slug,
-      avatar_object_key: row.merchant_avatar_object_key,
       avatar_url: assetUrl(row.merchant_avatar_object_key),
     },
     image_url: assetUrl(row.image),
@@ -554,7 +568,6 @@ function toMentor(row: MentorRow): CatalogMentorDto {
     id: row.id,
     name: row.name,
     headline: row.headline,
-    avatar_object_key: row.avatar_object_key,
     avatar_url: assetUrl(row.avatar_object_key),
     role: row.role,
   };

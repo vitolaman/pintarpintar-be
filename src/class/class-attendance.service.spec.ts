@@ -86,7 +86,7 @@ describe('ClassAttendanceService', () => {
     ]);
   });
 
-  it('keeps the first check-in time and replaces the review', async () => {
+  it('keeps the first check-in time and replaces the feedback', async () => {
     existing = { status: 'hadir', checkInTime: '18:00:00', notes: 'Awal' };
 
     await service.checkIn(userId, meetingId, 'Revisi');
@@ -94,12 +94,52 @@ describe('ClassAttendanceService', () => {
     expect(saved()).toMatchObject({ checkInTime: '18:00:00', notes: 'Revisi' });
   });
 
-  it('clears the review of a repeat check-in with null', async () => {
+  it('clears the feedback of a repeat check-in with null', async () => {
     existing = { status: 'hadir', checkInTime: '18:00:00', notes: 'Awal' };
 
     await service.checkIn(userId, meetingId, null);
 
     expect(saved()).toMatchObject({ checkInTime: '18:00:00', notes: null });
+  });
+
+  it('answers with the class kind and the feedback in API names', async () => {
+    const response = await service.checkIn(userId, meetingId, 'Materi jelas');
+
+    expect(response.data.class.type).toBe('bootcamp');
+    const attendanceSql = manager.query.mock.calls
+      .map(([sql]) => sql as string)
+      .find((sql) => sql.includes('FROM attendances attendance'));
+    expect(attendanceSql).toContain('attendance.notes AS feedback');
+  });
+
+  it('lists each learner with their check-in feedback', async () => {
+    const answer = manager.query.getMockImplementation();
+    manager.query.mockImplementation(async (sql: string) =>
+      sql.includes('FROM enrollments enrollment')
+        ? [
+            {
+              user_id: 'learner-id',
+              name: 'Budi',
+              email: 'budi@example.com',
+              avatar_object_key: null,
+              status: 'hadir',
+              check_in_time: '19:05',
+              feedback: 'Materi jelas',
+            },
+          ]
+        : answer(sql),
+    );
+
+    const response = await service.findRecap(userId, classId, meetingId);
+
+    expect(response.data.learners).toEqual([
+      expect.objectContaining({ status: 'hadir', feedback: 'Materi jelas' }),
+    ]);
+    expect(response.data.learners[0]).not.toHaveProperty('notes');
+    const recapSql = manager.query.mock.calls
+      .map(([sql]) => sql as string)
+      .find((sql) => sql.includes('FROM enrollments enrollment'));
+    expect(recapSql).toContain('attendance.notes AS feedback');
   });
 
   it('refuses a check-in before the meeting starts', async () => {

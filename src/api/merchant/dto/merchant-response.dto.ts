@@ -1,15 +1,19 @@
 import { MerchantLevelSummaryDto } from '../../merchant-level/dto/merchant-level.dto';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 export class MerchantLandingResponseDto {
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Landing background asset; send it back to keep it',
+  })
   background_asset_id: string | null;
 
-  @ApiPropertyOptional()
-  background_object_key: string | null;
-
   @ApiPropertyOptional({
-    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+    nullable: true,
+    type: String,
+    description:
+      'Null without a background or when ASSET_PUBLIC_BASE_URL is unset',
   })
   background_url: string | null;
 
@@ -29,6 +33,12 @@ export class MerchantLandingResponseDto {
   })
   item_order: Record<string, string[]>;
 }
+
+// The public storefront shows the background but not the editor's asset id.
+export class PublicMerchantLandingDto extends OmitType(
+  MerchantLandingResponseDto,
+  ['background_asset_id'] as const,
+) {}
 
 export class MerchantResponseDto {
   @ApiProperty()
@@ -106,25 +116,31 @@ export class MerchantResponseDto {
   @ApiPropertyOptional()
   terms_accepted_at: Date | null;
 
-  @ApiPropertyOptional({ nullable: true, description: 'Store logo asset' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Store logo asset; send it back to keep it',
+  })
   avatar_asset_id: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
-  avatar_object_key: string | null;
-
-  @ApiPropertyOptional({ nullable: true, description: 'Store banner asset' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Store banner asset; send it back to keep it',
+  })
   cover_asset_id: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
-  cover_object_key: string | null;
-
   @ApiPropertyOptional({
-    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+    nullable: true,
+    type: String,
+    description: 'Null without a logo or when ASSET_PUBLIC_BASE_URL is unset',
   })
   avatar_url: string | null;
 
   @ApiPropertyOptional({
-    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+    nullable: true,
+    type: String,
+    description: 'Null without a banner or when ASSET_PUBLIC_BASE_URL is unset',
   })
   cover_url: string | null;
 

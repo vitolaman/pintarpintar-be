@@ -170,7 +170,7 @@ export class LearningController {
     @Param('meetingId', ParseUUIDPipe) meetingId: string,
     @Body() input: CheckInDto,
   ) {
-    return this.classAttendance.checkIn(req.user.id, meetingId, input.review);
+    return this.classAttendance.checkIn(req.user.id, meetingId, input.feedback);
   }
 
   @Get('learning/classes/:classId/grades')

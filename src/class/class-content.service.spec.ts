@@ -107,7 +107,7 @@ describe('ClassContentService', () => {
     await expect(
       service.createVideo(userId, classId, chapterId, {
         title: 'Intro',
-        youtubeUrl: 'https://youtu.be/x',
+        youtube_url: 'https://youtu.be/x',
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
@@ -115,7 +115,7 @@ describe('ClassContentService', () => {
   it('recomputes learner progress when videos change', async () => {
     await service.createVideo(userId, classId, chapterId, {
       title: 'Intro',
-      youtubeUrl: 'https://youtu.be/x',
+      youtube_url: 'https://youtu.be/x',
     });
     await service.deleteChapter(userId, classId, chapterId);
     manager.findOne.mockImplementation(async (entity) =>
@@ -146,10 +146,15 @@ describe('ClassContentService', () => {
 
     const response = await service.createVideo(userId, classId, chapterId, {
       title: 'Intro',
-      youtubeUrl: 'https://www.youtube.com/embed/abc',
+      youtube_url: 'https://www.youtube.com/embed/abc',
     });
 
-    expect(response.data).toMatchObject({ order: 5, chapter_id: chapterId });
+    expect(response.data).toMatchObject({
+      order: 5,
+      chapter_id: chapterId,
+      youtube_url: 'https://www.youtube.com/embed/abc',
+    });
+    expect(response.data).not.toHaveProperty('youtubeUrl');
   });
 
   it('soft-deletes a chapter together with its videos and resources', async () => {
@@ -264,12 +269,17 @@ describe('ClassContentService', () => {
       };
     });
 
-    await service.addResources(userId, classId, chapterId, {
+    const response = await service.addResources(userId, classId, chapterId, {
       resources: [
         { type: 'pdf', name: 'Modul', asset_id: assetId },
         { type: 'link', name: 'Referensi', url: 'https://example.com' },
       ],
     } as AddResourcesDto);
+
+    expect(response.data.map((resource) => resource.size)).toEqual([
+      2048,
+      null,
+    ]);
 
     expect(manager.save).toHaveBeenCalledWith(FileResource, [
       expect.objectContaining({
@@ -362,7 +372,7 @@ describe('ClassContentService', () => {
       expect(response.data).toMatchObject({
         source: 'file',
         asset_id: assetId,
-        youtubeUrl: null,
+        youtube_url: null,
       });
     });
 
@@ -377,7 +387,7 @@ describe('ClassContentService', () => {
 
     it('defaults to a link video for the current frontend', async () => {
       const response = await create({
-        youtubeUrl: 'https://www.youtube.com/embed/abc',
+        youtube_url: 'https://www.youtube.com/embed/abc',
       });
       expect(response.data).toMatchObject({ source: 'link', asset_id: null });
     });
@@ -385,12 +395,12 @@ describe('ClassContentService', () => {
     it.each([
       [
         'a file video with a URL',
-        { source: 'file', asset_id: assetId, youtubeUrl: 'https://x.test/v' },
-        'not youtubeUrl',
+        { source: 'file', asset_id: assetId, youtube_url: 'https://x.test/v' },
+        'not youtube_url',
       ],
       [
         'both a URL and an upload',
-        { youtubeUrl: 'https://x.test/v', asset_id: assetId },
+        { youtube_url: 'https://x.test/v', asset_id: assetId },
         'not both',
       ],
       [
@@ -399,7 +409,7 @@ describe('ClassContentService', () => {
         'not asset_id',
       ],
       ['a file video without an upload', { source: 'file' }, 'needs asset_id'],
-      ['a link video without a URL', {}, 'needs youtubeUrl'],
+      ['a link video without a URL', {}, 'needs youtube_url'],
     ])('rejects %s', async (_name, body, message) => {
       owned(upload());
       await expect(create(body)).rejects.toThrow(message);
@@ -450,13 +460,13 @@ describe('ClassContentService', () => {
       expect(switched.data).toMatchObject({
         source: 'file',
         asset_id: assetId,
-        youtubeUrl: null,
+        youtube_url: null,
       });
       await expect(
         service.updateVideo(userId, classId, chapterId, 'video-id', {
           source: 'link',
         }),
-      ).rejects.toThrow('needs youtubeUrl');
+      ).rejects.toThrow('needs youtube_url');
     });
   });
 
@@ -520,7 +530,7 @@ describe('ClassContentService', () => {
         page: 1,
         limit: 12,
         total: 12,
-        totalPage: 1,
+        total_page: 1,
       });
     });
 
@@ -540,7 +550,7 @@ describe('ClassContentService', () => {
         page: 2,
         limit: 2,
         total: 12,
-        totalPage: 6,
+        total_page: 6,
       });
     });
 
@@ -553,7 +563,7 @@ describe('ClassContentService', () => {
         page: 1,
         limit: 1,
         total: 0,
-        totalPage: 0,
+        total_page: 0,
       });
     });
 
@@ -577,12 +587,12 @@ describe('class content validation', () => {
   }
 
   it.each([
-    ['javascript:alert(1)', ['youtubeUrl']],
-    ['http://youtube.com/watch?v=x', ['youtubeUrl']],
+    ['javascript:alert(1)', ['youtube_url']],
+    ['http://youtube.com/watch?v=x', ['youtube_url']],
     ['https://www.youtube.com/embed/x', []],
-  ])('video link %s', async (youtubeUrl, fields) => {
+  ])('video link %s', async (youtube_url, fields) => {
     expect(
-      await errorFields(CreateVideoDto, { title: 'V', youtubeUrl }),
+      await errorFields(CreateVideoDto, { title: 'V', youtube_url }),
     ).toEqual(fields);
   });
 
@@ -618,10 +628,13 @@ describe('class content validation', () => {
     [{ date: '2026-02-30', time: '19:00' }, ['date']],
     [{ date: '15/10/2026', time: '19:00' }, ['date']],
     [
-      { date: '2026-10-15', time: '19:00', liveUrl: 'http://zoom.us/j/1' },
-      ['liveUrl'],
+      { date: '2026-10-15', time: '19:00', live_url: 'http://zoom.us/j/1' },
+      ['live_url'],
     ],
-    [{ date: '2026-10-15', time: '19:00', liveUrl: 'https://zoom.us/j/1' }, []],
+    [
+      { date: '2026-10-15', time: '19:00', live_url: 'https://zoom.us/j/1' },
+      [],
+    ],
   ])('meeting %j', async (input, fields) => {
     expect(
       await errorFields(CreateMeetingDto, { title: 'Sesi 1', ...input }),
@@ -653,8 +666,8 @@ describe('video and resource inputs', () => {
   it.each([
     [UpdateVideoDto, { title: '' }, ['title']],
     [UpdateVideoDto, { title: null }, ['title']],
-    [UpdateVideoDto, { youtubeUrl: null }, ['youtubeUrl']],
-    [UpdateVideoDto, { youtubeUrl: '' }, ['youtubeUrl']],
+    [UpdateVideoDto, { youtube_url: null }, ['youtube_url']],
+    [UpdateVideoDto, { youtube_url: '' }, ['youtube_url']],
     [CreateVideoDto, { title: '  ' }, ['title']],
     [UpdateResourceDto, { name: '  ' }, ['name']],
     [UpdateResourceDto, { url: null }, ['url']],
@@ -671,11 +684,11 @@ describe('video and resource inputs', () => {
     expect(
       plainToInstance(CreateVideoDto, {
         title: ' Pengenalan ',
-        youtubeUrl: ' https://www.youtube.com/embed/x ',
+        youtube_url: ' https://www.youtube.com/embed/x ',
       }),
     ).toMatchObject({
       title: 'Pengenalan',
-      youtubeUrl: 'https://www.youtube.com/embed/x',
+      youtube_url: 'https://www.youtube.com/embed/x',
     });
   });
 });

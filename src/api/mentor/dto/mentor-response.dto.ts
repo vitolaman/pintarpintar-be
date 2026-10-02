@@ -1,3 +1,5 @@
+import { ClassKind, classKinds } from '~/common/catalog/item-kind';
+import { TUTOR_ROLES } from '~/class/class-permissions';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class MentorResponseDto {
@@ -50,19 +52,57 @@ export class MentorResponseDto {
   skill_certificate_asset_id: string;
 }
 
-export class MentorAssignmentsResponseDto {
-  @ApiProperty({ type: [Object] })
-  merchant_assignments: Array<Record<string, unknown>>;
+export class MentorMerchantAssignmentDto {
+  @ApiProperty({ format: 'uuid' }) merchant_id: string;
+  @ApiProperty() store_name: string;
+  @ApiProperty({ example: 'active' }) status: string;
+  @ApiProperty({ nullable: true, type: String, format: 'date-time' })
+  joined_at: Date | null;
+}
 
-  @ApiProperty({ type: [Object] })
-  product_assignments: Array<Record<string, unknown>>;
+export class MentorProductAssignmentDto {
+  @ApiProperty({ format: 'uuid' }) product_id: string;
+  @ApiProperty() title: string;
+  @ApiProperty({ enum: ['digital'] }) type: 'digital';
+  @ApiProperty() role: string;
+  @ApiProperty() sort_order: number;
+}
+
+export class MentorClassAssignmentDto {
+  @ApiProperty({ format: 'uuid', description: 'Tutor assignment id' })
+  id: string;
+  @ApiProperty({ format: 'uuid' }) class_id: string;
+  @ApiProperty() title: string;
+  @ApiProperty({ enum: classKinds }) type: ClassKind;
+  @ApiProperty() status: string;
+  @ApiProperty({ format: 'uuid' }) merchant_id: string;
+  @ApiProperty() store_name: string;
+  @ApiProperty({ enum: TUTOR_ROLES }) role: string;
+  @ApiProperty({
+    type: 'object',
+    description: 'Areas × actions (lihat, tambah, edit, delete) booleans',
+    additionalProperties: {
+      type: 'object',
+      additionalProperties: { type: 'boolean' },
+    },
+  })
+  permissions: Record<string, Record<string, boolean>>;
+  @ApiProperty({ type: String, format: 'date-time' }) assigned_at: Date;
+}
+
+export class MentorAssignmentsResponseDto {
+  @ApiProperty({ type: [MentorMerchantAssignmentDto] })
+  merchant_assignments: MentorMerchantAssignmentDto[];
+
+  @ApiProperty({ type: [MentorProductAssignmentDto] })
+  product_assignments: MentorProductAssignmentDto[];
 
   @ApiProperty({
-    type: [Object],
+    type: [MentorClassAssignmentDto],
     description:
       'Active tutor assignments: class, merchant, role, and permission matrix',
   })
-  class_assignments: Array<Record<string, unknown>>;
+  class_assignments: MentorClassAssignmentDto[];
 }
 
 export class PublicMentorResponseDto {

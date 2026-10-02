@@ -28,14 +28,14 @@ describe('VoucherService', () => {
     terms: null,
     discount_type: 'percentage',
     discount_value: '15',
-    minimum_order_amount: null,
+    minimum_purchase: null,
     maximum_discount_amount: null,
-    max_uses: null,
+    usage_limit: null,
     starts_at: null,
-    expires_at: null,
+    ends_at: null,
     is_active: true,
     created_at: new Date('2026-09-18T00:00:00.000Z'),
-    usage_count: '0',
+    used_count: '0',
   };
 
   const publicVoucherRow = {
@@ -45,13 +45,12 @@ describe('VoucherService', () => {
     description: null,
     discount_type: 'percentage',
     discount_value: '15',
-    minimum_order_amount: null,
+    minimum_purchase: null,
     maximum_discount_amount: '50000',
-    expires_at: null,
+    ends_at: null,
     merchant_id: merchantId,
     merchant_name: 'Akademi Teknik Raka',
     merchant_slug: 'akademi-teknik-raka',
-    merchant_avatar_asset_id: null,
     merchant_avatar_object_key: null,
     merchant_tagline: null,
     merchant_category_label: 'Pemrograman & IT',
@@ -185,7 +184,6 @@ describe('VoucherService', () => {
     try {
       const logoRow = {
         ...publicVoucherRow,
-        merchant_avatar_asset_id: '50000000-0000-4000-8000-000000000001',
         merchant_avatar_object_key: 'merchants/raka/logo.png',
       };
       dataSource.query.mockImplementation((sql: string) => {
@@ -203,9 +201,7 @@ describe('VoucherService', () => {
         logoUrl,
         null,
       ]);
-      expect(page.data[0]).toMatchObject({
-        merchant_avatar_asset_id: '50000000-0000-4000-8000-000000000001',
-      });
+      expect(page.data[0]).not.toHaveProperty('merchant_avatar_asset_id');
       expect(page.data[0]).not.toHaveProperty('merchant_avatar_object_key');
       expect(featured.data[0].merchant_avatar_url).toBe(logoUrl);
       expect(promo[0].merchant_avatar_url).toBe(logoUrl);
@@ -274,7 +270,7 @@ describe('VoucherService', () => {
       service.findPublic({ category_slug: 'kuliner-jasa' }),
     ).resolves.toEqual({
       data: [],
-      meta: { page: 1, limit: 10, total: 0, totalPage: 0 },
+      meta: { page: 1, limit: 10, total: 0, total_page: 0 },
       responseMessage: 'Get public vouchers success',
     });
 
@@ -318,8 +314,8 @@ describe('VoucherService', () => {
   it.each([
     ['inactive', { is_active: false }],
     ['scheduled', { starts_at: new Date('2999-01-01T00:00:00.000Z') }],
-    ['expired', { expires_at: new Date('2000-01-01T00:00:00.000Z') }],
-    ['limit_reached', { max_uses: 1, usage_count: '1' }],
+    ['expired', { ends_at: new Date('2000-01-01T00:00:00.000Z') }],
+    ['limit_reached', { usage_limit: 1, used_count: '1' }],
     ['active', {}],
   ])('derives the %s merchant status', (status, changes) => {
     const response = (
@@ -329,6 +325,112 @@ describe('VoucherService', () => {
     ).toVoucherResponse({ ...voucherRow, ...changes });
 
     expect(response.status).toBe(status);
+  });
+
+  it('saves minimum_purchase, usage_limit and ends_at and returns them with used_count', async () => {
+    dataSource.query.mockResolvedValue([
+      {
+        ...voucherRow,
+        minimum_purchase: '50000',
+        usage_limit: 200,
+        ends_at: new Date('2026-12-31T23:59:59.000Z'),
+        used_count: '3',
+      },
+    ]);
+
+    const response = await service.create(userId, {
+      name: 'Welcome voucher',
+      code: 'WELCOME15',
+      discount_type: 'percentage',
+      discount_value: 15,
+      minimum_purchase: 50000,
+      usage_limit: 200,
+      ends_at: '2026-12-31T23:59:59.000Z',
+    });
+
+    expect(manager.save).toHaveBeenCalledWith(
+      Voucher,
+      expect.objectContaining({
+        minimumOrderAmount: '50000',
+        maxUses: 200,
+        expiresAt: new Date('2026-12-31T23:59:59.000Z'),
+      }),
+    );
+    expect(response.data).toMatchObject({
+      minimum_purchase: 50000,
+      usage_limit: 200,
+      ends_at: new Date('2026-12-31T23:59:59.000Z'),
+      used_count: 3,
+    });
+    for (const oldName of [
+      'minimum_order_amount',
+      'max_uses',
+      'usage_count',
+      'expires_at',
+    ]) {
+      expect(response.data).not.toHaveProperty(oldName);
+    }
+    const [merchantSql] = dataSource.query.mock.calls[0];
+    expect(merchantSql).toContain(
+      'coupon.minimum_order_amount AS minimum_purchase',
+    );
+    expect(merchantSql).toContain('coupon.max_uses AS usage_limit');
+    expect(merchantSql).toContain('coupon.expires_at AS ends_at');
+    expect(merchantSql).toContain('AS used_count');
+  });
+
+  it('updates the renamed fields on the stored voucher', async () => {
+    const stored = {
+      id: voucherId,
+      merchantId,
+      discountType: 'percentage',
+      discountValue: '15',
+      startsAt: null,
+      expiresAt: null,
+    };
+    manager.findOne
+      .mockResolvedValueOnce({ id: merchantId, userId })
+      .mockResolvedValueOnce(stored);
+
+    await service.update(userId, voucherId, {
+      minimum_purchase: 75000,
+      usage_limit: 10,
+      ends_at: '2026-12-31T23:59:59.000Z',
+    });
+
+    expect(manager.save).toHaveBeenCalledWith(
+      Voucher,
+      expect.objectContaining({
+        minimumOrderAmount: '75000',
+        maxUses: 10,
+        expiresAt: new Date('2026-12-31T23:59:59.000Z'),
+      }),
+    );
+  });
+
+  it('returns the renamed fields on public vouchers', async () => {
+    dataSource.query.mockImplementation((sql: string) => {
+      if (sql.includes('WITH visible') && !sql.includes('COUNT(*)'))
+        return Promise.resolve([
+          {
+            ...publicVoucherRow,
+            minimum_purchase: '100000',
+            ends_at: new Date('2026-12-31T23:59:59.000Z'),
+          },
+        ]);
+      return Promise.resolve([{ total: '1' }]);
+    });
+
+    const page = await service.findPublic({});
+
+    expect(page.data[0]).toMatchObject({
+      minimum_purchase: 100000,
+      ends_at: new Date('2026-12-31T23:59:59.000Z'),
+    });
+    expect(page.data[0]).not.toHaveProperty('minimum_order_amount');
+    expect(page.data[0]).not.toHaveProperty('expires_at');
+    const [rowsSql] = dataSource.query.mock.calls[0];
+    expect(rowsSql).not.toContain('AS merchant_avatar_asset_id');
   });
 
   it('rejects a percentage above 100 before entering a transaction', async () => {
@@ -362,25 +464,25 @@ describe('voucher DTOs', () => {
       ...valid,
       discount_type: ' Nominal ',
       discount_value: '15000',
-      minimum_order_amount: '50000',
+      minimum_purchase: '50000',
       maximum_discount_amount: '',
-      max_uses: '200',
+      usage_limit: '200',
     });
     expect(await validate(dto)).toEqual([]);
     expect(dto).toMatchObject({
       discount_type: 'nominal',
       discount_value: 15000,
-      minimum_order_amount: 50000,
-      max_uses: 200,
+      minimum_purchase: 50000,
+      usage_limit: 200,
     });
     expect(dto.maximum_discount_amount).toBeUndefined();
   });
 
   it('treats a usage limit of 0 as unlimited', async () => {
-    for (const max_uses of [0, '0']) {
-      const dto = plainToInstance(CreateVoucherDto, { ...valid, max_uses });
+    for (const usage_limit of [0, '0']) {
+      const dto = plainToInstance(CreateVoucherDto, { ...valid, usage_limit });
       expect(await validate(dto)).toEqual([]);
-      expect(dto.max_uses).toBeNull();
+      expect(dto.usage_limit).toBeNull();
     }
   });
 
@@ -404,6 +506,41 @@ describe('voucher DTOs', () => {
     expect(
       await errorFields(UpdateVoucherDto, { name: value, code: value }),
     ).toEqual(['name', 'code']);
+  });
+
+  it.each([
+    [CreateVoucherDto, 'minimum_order_amount', 50000],
+    [CreateVoucherDto, 'max_uses', 10],
+    [CreateVoucherDto, 'expires_at', '2026-12-31T23:59:59.000Z'],
+    [UpdateVoucherDto, 'minimum_order_amount', 50000],
+    [UpdateVoucherDto, 'max_uses', 10],
+    [UpdateVoucherDto, 'expires_at', '2026-12-31T23:59:59.000Z'],
+  ])(
+    '%p rejects the old request field %s',
+    async (target: new () => object, oldName: string, value: unknown) => {
+      const body = target === CreateVoucherDto ? { ...valid } : {};
+      const errors = await validate(
+        plainToInstance(target, { ...body, [oldName]: value }),
+        { whitelist: true, forbidNonWhitelisted: true },
+      );
+
+      expect(errors.map((error) => error.property)).toEqual([oldName]);
+    },
+  );
+
+  it('accepts the renamed request fields under strict validation', async () => {
+    const errors = await validate(
+      plainToInstance(CreateVoucherDto, {
+        ...valid,
+        minimum_purchase: 50000,
+        usage_limit: 10,
+        starts_at: '2026-10-01T00:00:00.000Z',
+        ends_at: '2026-12-31T23:59:59.000Z',
+      }),
+      { whitelist: true, forbidNonWhitelisted: true },
+    );
+
+    expect(errors).toEqual([]);
   });
 
   it('rejects clearing a required number on update', async () => {

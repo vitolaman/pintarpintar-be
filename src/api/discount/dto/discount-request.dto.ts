@@ -39,10 +39,6 @@ import {
 // Matches the most single-use codes one request can generate.
 const MAX_REMOVED_CODES_PER_REQUEST = 1000;
 
-export const discountTargetTypes = ['kelas', 'digital'] as const;
-
-export type DiscountTargetType = (typeof discountTargetTypes)[number];
-
 export class DiscountTargetInputDto {
   @EnumInput(contentItemTypes, {
     presence: 'filter',

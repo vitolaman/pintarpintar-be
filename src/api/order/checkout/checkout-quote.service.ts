@@ -153,7 +153,7 @@ export class CheckoutQuoteService {
         type: item.type,
         id: item.id,
         title: item.title,
-        image: item.image,
+        imageUrl: item.image_url,
         merchantId: item.merchant_id,
         merchantName: item.merchant_name,
         price: item.price,

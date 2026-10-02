@@ -1,5 +1,6 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { EnumInput, RequiredText } from '~/common/decorator/input.decorator';
+import { ClassKind, classKinds } from '../../common/catalog/item-kind';
 
 export const MAX_CLASS_FAQS = 50;
 
@@ -26,6 +27,8 @@ export class ClassFaqResponseDto {
 }
 
 export class DuplicateClassDto {
-  @EnumInput(['video', 'live-bootcamp'] as const)
-  type: 'video' | 'live-bootcamp';
+  @EnumInput(classKinds, {
+    description: 'Kind of the copy: `kelas` (video class) or `bootcamp`',
+  })
+  type: ClassKind;
 }

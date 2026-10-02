@@ -51,6 +51,7 @@ describe('LearningClassService', () => {
             chapter_id: 'chapter-1',
             name: 'Modul',
             type: 'pdf',
+            size: '2048',
             url: null,
             object_key: 'uploads/1-modul.pdf',
             original_filename: 'modul.pdf',
@@ -60,6 +61,7 @@ describe('LearningClassService', () => {
             chapter_id: 'chapter-1',
             name: 'Referensi',
             type: 'link',
+            size: null,
             url: 'https://example.com',
             object_key: null,
           },
@@ -115,6 +117,8 @@ describe('LearningClassService', () => {
       is_completed: true,
     });
     const [file, link] = chapter.files;
+    expect(file.size).toBe(2048);
+    expect(link.size).toBeNull();
     expect(file.url).toBeNull();
     expect(file.download_url).toContain('X-Amz-Expires=600');
     expect(link).toMatchObject({
@@ -122,6 +126,7 @@ describe('LearningClassService', () => {
       download_url: null,
     });
     expect(data).toMatchObject({
+      type: 'kelas',
       status: 'archived',
       progress: 100,
       certificate: { status: 'ineligible' },

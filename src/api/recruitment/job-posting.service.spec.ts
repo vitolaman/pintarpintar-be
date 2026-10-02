@@ -113,14 +113,14 @@ describe('job posting DTOs', () => {
 
   it('treats blank board filters as no filter', async () => {
     const query = plainToInstance(PublicJobQueryDto, {
-      keyword: '',
+      search: '',
       location: '  ',
       category: '',
       contract_type: ' ',
       work_type: '',
     });
     expect(query).toMatchObject({
-      keyword: undefined,
+      search: undefined,
       location: undefined,
       category: undefined,
       contract_type: undefined,
@@ -129,14 +129,22 @@ describe('job posting DTOs', () => {
     expect(await validate(query)).toEqual([]);
   });
 
+  it('rejects the old keyword filter', async () => {
+    const errors = await validate(
+      plainToInstance(PublicJobQueryDto, { keyword: 'autocad' }),
+      { whitelist: true, forbidNonWhitelisted: true },
+    );
+    expect(errors.map((error) => error.property)).toEqual(['keyword']);
+  });
+
   it('matches board filters ignoring case', async () => {
     const query = plainToInstance(PublicJobQueryDto, {
-      keyword: ' autocad ',
+      search: ' autocad ',
       work_type: 'hybrid',
       contract_type: 'FULL-TIME',
     });
     expect(query).toMatchObject({
-      keyword: 'autocad',
+      search: 'autocad',
       work_type: 'Hybrid',
       contract_type: 'Full-Time',
     });
@@ -229,6 +237,23 @@ describe('JobPostingService', () => {
     job = { ...job, status: 'closed' };
     await service.close(userId, jobId);
     expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('searches the board by title, merchant, category and skills', async () => {
+    dataSource.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ total: 0 }])
+      .mockResolvedValueOnce([{ active_jobs: 0, recruiting_merchants: 0 }]);
+
+    await service.findPublic(
+      plainToInstance(PublicJobQueryDto, { search: ' 50%_cad ' }),
+    );
+
+    const [sql, params] = dataSource.query.mock.calls[0];
+    expect(sql).toContain(
+      "job.title ILIKE $1 OR merchant.store_name ILIKE $1\n        OR job.category ILIKE $1 OR array_to_string(job.skills, ' ') ILIKE $1",
+    );
+    expect(params).toEqual(['%50\\%\\_cad%', 10, 0]);
   });
 
   it("hides another merchant's vacancy", async () => {

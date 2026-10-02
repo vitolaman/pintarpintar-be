@@ -33,15 +33,18 @@ describe('ProfileService', () => {
     );
   });
 
+  afterEach(() => {
+    delete process.env.ASSET_PUBLIC_BASE_URL;
+  });
+
   it('lists digital access and class enrollments with progress states', async () => {
     dataSource.query.mockResolvedValueOnce([
       {
         access_id: 'enrollment-id',
-        product_id: 'class-id',
+        item_id: 'class-id',
         title: 'Bootcamp Revit',
-        product_type: 'bootcamp',
+        item_type: 'bootcamp',
         level: 'Pemula',
-        cover_asset_id: 'asset-id',
         cover_object_key: 'uploads/revit.png',
         completion_percentage: 40,
         total_time_spent: '0',
@@ -50,11 +53,10 @@ describe('ProfileService', () => {
       },
       {
         access_id: 'access-not-started',
-        product_id: 'product-not-started',
+        item_id: 'product-not-started',
         title: 'Template RAB',
-        product_type: 'digital',
+        item_type: 'digital',
         level: null,
-        cover_asset_id: null,
         cover_object_key: null,
         completion_percentage: '0',
         total_time_spent: '0',
@@ -63,11 +65,10 @@ describe('ProfileService', () => {
       },
       {
         access_id: 'access-complete',
-        product_id: 'product-complete',
+        item_id: 'product-complete',
         title: 'AutoCAD',
-        product_type: 'digital',
+        item_type: 'digital',
         level: 'Menengah',
-        cover_asset_id: null,
         cover_object_key: null,
         completion_percentage: '100',
         total_time_spent: '7200',
@@ -79,24 +80,33 @@ describe('ProfileService', () => {
     const response = await service.findLearning(userId);
 
     expect(
-      response.data.map((item) => [item.product_type, item.progress_status]),
+      response.data.map((item) => [item.item_type, item.progress_status]),
     ).toEqual([
       ['bootcamp', 'in_progress'],
       ['digital', 'not_started'],
       ['digital', 'completed'],
     ]);
     expect(response.data[0]).toMatchObject({
-      product_id: 'class-id',
+      item_id: 'class-id',
+      item_type: 'bootcamp',
       completion_percentage: 40,
-      cover_object_key: 'uploads/revit.png',
     });
+    for (const removed of [
+      'product_id',
+      'product_type',
+      'cover_asset_id',
+      'cover_object_key',
+    ]) {
+      expect(response.data[0]).not.toHaveProperty(removed);
+    }
     expect(response.data[2].total_time_spent).toBe(7200);
     const [sql, params] = dataSource.query.mock.calls[0];
     expect(params).toEqual([userId]);
     expect(sql).toContain('FROM enrollments enrollment');
     expect(sql).toContain(
-      "WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas'",
+      "(CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END)",
     );
+    expect(sql).toContain("'digital' AS item_type");
     expect(sql).toContain('access.expires_at > now()');
   });
 
@@ -223,7 +233,6 @@ describe('ProfileService', () => {
         is_mentor: true,
         is_merchant: false,
         avatar_asset_id: null,
-        avatar_object_key: null,
         phone: '+62 812-3456-7890',
         headline: null,
         bio: null,
@@ -302,6 +311,7 @@ describe('ProfileService', () => {
   });
 
   it('creates a profile record while updating authenticated user-owned fields', async () => {
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
     const manager = {
       findOneBy: jest.fn((entity) => {
         if (entity === User) {
@@ -358,7 +368,11 @@ describe('ProfileService', () => {
       }),
     ).resolves.toMatchObject({
       responseMessage: 'Update profile success',
-      data: expect.objectContaining({ name: 'Jane Santoso' }),
+      data: expect.objectContaining({
+        name: 'Jane Santoso',
+        avatar_asset_id: 'asset-id',
+        avatar_url: 'https://cdn.example.com/avatars/jane.png',
+      }),
     });
 
     expect(manager.create).toHaveBeenCalledWith(

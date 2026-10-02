@@ -120,7 +120,7 @@ export class PublicJobQueryDto extends RequestPaginatedQueryDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  keyword?: string;
+  search?: string;
 
   @ApiPropertyOptional({
     example: 'Jakarta',

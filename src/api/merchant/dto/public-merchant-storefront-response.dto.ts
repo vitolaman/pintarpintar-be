@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MerchantLandingResponseDto } from './merchant-response.dto';
+import { PublicMerchantLandingDto } from './merchant-response.dto';
 
 export class PublicMerchantStorefrontResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -50,18 +50,6 @@ export class PublicMerchantStorefrontResponseDto {
   @ApiPropertyOptional()
   expertise: string | null;
 
-  @ApiPropertyOptional({ format: 'uuid' })
-  avatar_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  avatar_object_key: string | null;
-
-  @ApiPropertyOptional({ format: 'uuid' })
-  cover_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  cover_object_key: string | null;
-
   @ApiProperty()
   created_at: Date;
 
@@ -81,12 +69,16 @@ export class PublicMerchantStorefrontResponseDto {
   review_count: number;
 
   @ApiPropertyOptional({
-    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+    nullable: true,
+    type: String,
+    description: 'Null without a logo or when ASSET_PUBLIC_BASE_URL is unset',
   })
   avatar_url: string | null;
 
   @ApiPropertyOptional({
-    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+    nullable: true,
+    type: String,
+    description: 'Null without a banner or when ASSET_PUBLIC_BASE_URL is unset',
   })
   cover_url: string | null;
 
@@ -97,8 +89,8 @@ export class PublicMerchantStorefrontResponseDto {
   })
   skills: string[];
 
-  @ApiProperty({ type: MerchantLandingResponseDto })
-  landing: MerchantLandingResponseDto;
+  @ApiProperty({ type: PublicMerchantLandingDto })
+  landing: PublicMerchantLandingDto;
 
   @ApiProperty({
     description: 'True only when the signed-in caller owns this merchant',

@@ -73,7 +73,7 @@ describe('MerchantController classes', () => {
 
     await request(app.getHttpServer())
       .post('/api/v1/merchant/classes')
-      .send({ title: 'Kelas', type: 'video' })
+      .send({ title: 'Kelas', type: 'kelas' })
       .expect(201);
 
     expect(classService.createClass).toHaveBeenCalledWith(

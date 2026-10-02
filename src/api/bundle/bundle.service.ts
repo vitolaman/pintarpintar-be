@@ -9,7 +9,6 @@ import { assetUrl } from '../../common/storage/asset-url';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import {
   BundleItemInputDto,
-  BundleItemType,
   BundleListQueryDto,
   CreateBundleDto,
   PublicBundleQueryDto,
@@ -25,7 +24,11 @@ import { Bundle, BundleStatus } from './entities/bundle.entity';
 import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
 import { applyCoverInput, findCovers } from '../item-cover/item-covers';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
-import { assertItemFamily } from '~/common/catalog/catalog-item';
+import {
+  assertItemFamily,
+  ContentItemType,
+} from '~/common/catalog/catalog-item';
+import { classKindSql } from '~/common/catalog/item-kind';
 
 // Current selling price: the discounted price when set, otherwise the list price.
 const CLASS_PRICE_SQL = `(CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric`;
@@ -33,7 +36,7 @@ const PRODUCT_PRICE_SQL = `(CASE WHEN product.discount_price > 0 THEN product.di
 
 // The merchant's own classes and digital products that can be bundled.
 const CATALOG_SQL = `
-  SELECT class.id, 'kelas' AS type, class.type AS class_type, class.title,
+  SELECT class.id, ${classKindSql('class.type')} AS type, class.title,
          ${CLASS_PRICE_SQL} AS price, class_cover.object_key AS image,
          class.status IN ('published', 'archived') AS is_available
   FROM classes class
@@ -41,7 +44,7 @@ const CATALOG_SQL = `
     ON class_cover.id = class.cover_asset_id AND class_cover.deleted_at IS NULL
   WHERE class.merchant_id = $1 AND class.deleted_at IS NULL
   UNION ALL
-  SELECT product.id, 'digital', NULL, product.title,
+  SELECT product.id, 'digital', product.title,
          ${PRODUCT_PRICE_SQL}, cover.object_key, product.is_published
   FROM products product
   LEFT JOIN file_assets cover
@@ -53,8 +56,7 @@ const PUBLIC_STATUSES: BundleStatus[] = ['published', 'unlisted'];
 
 interface CatalogRow {
   id: string;
-  type: BundleItemType;
-  class_type: string | null;
+  type: ContentItemType;
   title: string;
   price: string;
   image: string | null;
@@ -90,7 +92,9 @@ export class BundleService {
   async findEligibleItems(userId: string) {
     const merchant = await this.findMerchant(this.dataSource.manager, userId);
     const rows: CatalogRow[] = await this.dataSource.query(
-      `SELECT * FROM (${CATALOG_SQL}) catalog ORDER BY catalog.type, catalog.title, catalog.id`,
+      // Digital products first, then classes, each by title.
+      `SELECT * FROM (${CATALOG_SQL}) catalog
+       ORDER BY catalog.type <> 'digital', catalog.title, catalog.id`,
       [merchant.id],
     );
 
@@ -106,7 +110,7 @@ export class BundleService {
       const status = input.status ?? 'unpublished';
 
       const items = await this.resolveItems(manager, merchant.id, input.items);
-      this.assertSellable(items, status, input.bundle_price);
+      this.assertSellable(items, status, input.price);
 
       const bundle = await manager.save(
         Bundle,
@@ -114,7 +118,7 @@ export class BundleService {
           merchantId: merchant.id,
           title: input.title,
           description: input.description,
-          bundlePrice: String(input.bundle_price),
+          bundlePrice: String(input.price),
           postPurchaseInstructions: input.post_purchase_instructions ?? null,
           status,
         }),
@@ -213,15 +217,13 @@ export class BundleService {
       id: bundle.id,
       title: bundle.title,
       description: bundle.description,
-      cover_asset_id: bundle.cover_asset_id,
-      cover_object_key: bundle.cover_object_key,
       cover_url: bundle.cover_url,
       covers: bundle.covers,
       items: bundle.items,
-      original_total: bundle.original_total,
-      bundle_price: bundle.bundle_price,
-      saving_amount: bundle.saving_amount,
-      saving_percent: bundle.saving_percent,
+      original_price: bundle.original_price,
+      price: bundle.price,
+      discount_amount: bundle.discount_amount,
+      discount_percent: bundle.discount_percent,
       sales_count: bundle.sales_count,
       created_at: bundle.created_at,
       merchant: {
@@ -265,8 +267,8 @@ export class BundleService {
       if (input.description !== undefined) {
         bundle.description = input.description;
       }
-      if (input.bundle_price !== undefined) {
-        bundle.bundlePrice = String(input.bundle_price);
+      if (input.price !== undefined) {
+        bundle.bundlePrice = String(input.price);
       }
       if (input.post_purchase_instructions !== undefined) {
         bundle.postPurchaseInstructions = input.post_purchase_instructions;
@@ -350,7 +352,7 @@ export class BundleService {
       assertItemFamily(
         input.id,
         input.type,
-        row.type === 'kelas' ? 'class' : 'product',
+        row.type === 'digital' ? 'product' : 'class',
       );
       return row;
     });
@@ -376,7 +378,7 @@ export class BundleService {
     const total = sumPrices(items);
     if (!(bundlePrice > 0 && bundlePrice < total)) {
       throw new BadRequestException(
-        `bundle_price must be greater than 0 and lower than the items total (${total})`,
+        `price must be greater than 0 and lower than the items total (${total})`,
       );
     }
   }
@@ -391,7 +393,7 @@ export class BundleService {
       items.map((item, index) =>
         manager.create(BundleItem, {
           bundleId,
-          classId: item.type === 'kelas' ? item.id : null,
+          classId: item.type === 'digital' ? null : item.id,
           productId: item.type === 'digital' ? item.id : null,
           displayOrder: index,
         }),
@@ -431,8 +433,7 @@ export class BundleService {
       this.dataSource.query(
         `SELECT item.bundle_id,
                 COALESCE(class.id, product.id) AS id,
-                CASE WHEN item.class_id IS NOT NULL THEN 'kelas' ELSE 'digital' END AS type,
-                class.type AS class_type,
+                CASE WHEN item.class_id IS NOT NULL THEN ${classKindSql('class.type')} ELSE 'digital' END AS type,
                 COALESCE(class.title, product.title) AS title,
                 CASE WHEN item.class_id IS NOT NULL THEN ${CLASS_PRICE_SQL} ELSE ${PRODUCT_PRICE_SQL} END AS price,
                 cover.object_key AS image,
@@ -468,24 +469,25 @@ export class BundleService {
 
     return rows.map((row) => {
       const items = itemRows.filter((item) => item.bundle_id === row.id);
-      const originalTotal = sumPrices(items);
-      const bundlePrice = Number(row.bundle_price);
-      const saving = Math.max(originalTotal - bundlePrice, 0);
+      const originalPrice = sumPrices(items);
+      const price = Number(row.bundle_price);
+      const discountAmount = Math.max(originalPrice - price, 0);
 
       return {
         id: row.id,
         title: row.title,
         description: row.description,
         cover_asset_id: row.cover_asset_id,
-        cover_object_key: row.cover_object_key,
         cover_url: assetUrl(row.cover_object_key),
         covers: covers.get(row.id) ?? [],
         items: items.map((item) => this.toItem(item)),
-        original_total: originalTotal,
-        bundle_price: bundlePrice,
-        saving_amount: saving,
-        saving_percent:
-          originalTotal > 0 ? Math.round((saving / originalTotal) * 100) : 0,
+        original_price: originalPrice,
+        price,
+        discount_amount: discountAmount,
+        discount_percent:
+          originalPrice > 0
+            ? Math.round((discountAmount / originalPrice) * 100)
+            : 0,
         sales_count: salesByBundle.get(row.id) ?? 0,
         status: row.status,
         post_purchase_instructions: row.post_purchase_instructions,
@@ -498,10 +500,8 @@ export class BundleService {
     return {
       id: row.id,
       type: row.type,
-      class_type: row.class_type,
       title: row.title,
       price: Number(row.price),
-      image: row.image,
       image_url: assetUrl(row.image),
       is_available: row.is_available,
     };

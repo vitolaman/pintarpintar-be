@@ -4,6 +4,7 @@ import { IsUUID } from 'class-validator';
 import { EntityManager } from 'typeorm';
 import { EnumInput } from '../decorator/input.decorator';
 import { assetUrl } from '../storage/asset-url';
+import { classKindSql } from './item-kind';
 
 /**
  * Purchasable catalog items across the separate catalogs: Vito's classes
@@ -122,13 +123,6 @@ export class CatalogItemDetailsDto {
 
   @ApiProperty({
     nullable: true,
-    description:
-      'Cover object key (null for classes and bundles without a cover)',
-  })
-  image: string | null;
-
-  @ApiProperty({
-    nullable: true,
     description: 'Public cover URL (null without a cover)',
   })
   image_url: string | null;
@@ -159,7 +153,7 @@ export class CatalogItemDetailsDto {
 // live details. Deleted items, and items of an inactive or deleted merchant,
 // are included and reported unavailable.
 const CATALOG_DETAILS_SQL = `
-  SELECT CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END AS type,
+  SELECT ${classKindSql('class.type')} AS type,
          class.id, class.title, class_cover.object_key AS image,
          (CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric AS price,
          COALESCE(class."originalPrice", 0)::numeric AS original_price,
@@ -222,7 +216,6 @@ export async function loadCatalogItems(
         type: row.type,
         id: row.id,
         title: row.title,
-        image: row.image,
         image_url: assetUrl(row.image),
         price: Number(row.price),
         original_price: Number(row.original_price),

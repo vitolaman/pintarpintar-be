@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
+import { classKindOf } from '../common/catalog/item-kind';
 import { assetUrl } from '../common/storage/asset-url';
 import { ClassAccessService } from './class-access.service';
 import { ClassCertificateService } from './class-certificate.service';
@@ -48,7 +49,7 @@ const MEETING_SQL = `
 
 const ATTENDANCE_FIELDS = `attendance.status,
   to_char(attendance."checkInTime", 'HH24:MI') AS check_in_time,
-  attendance.notes, attendance.created_at AS recorded_at`;
+  attendance.notes AS feedback, attendance.created_at AS recorded_at`;
 
 // Learners check themselves in once a meeting has started; tutors with the
 // `meeting` permission read the recap and correct statuses. A learner with no
@@ -72,8 +73,8 @@ export class ClassAttendanceService {
   }
 
   // The account is the identity; any name or email a client sends is ignored.
-  // A repeat check-in keeps the first time and replaces the review.
-  async checkIn(userId: string, meetingId: string, review?: string | null) {
+  // A repeat check-in keeps the first time and replaces the feedback.
+  async checkIn(userId: string, meetingId: string, feedback?: string | null) {
     return this.dataSource.transaction(async (manager) => {
       const meeting = await this.findLearnerMeeting(manager, userId, meetingId);
       if (!meeting.has_started) {
@@ -86,7 +87,7 @@ export class ClassAttendanceService {
         where: { meeting_id: meetingId, user_id: userId },
       });
       if (existing) {
-        if (review !== undefined) existing.notes = review;
+        if (feedback !== undefined) existing.notes = feedback;
         existing.status = AttendanceStatus.HADIR;
         existing.checkInTime ??= await jakartaTime(manager);
         existing.updated_by = userId;
@@ -99,7 +100,7 @@ export class ClassAttendanceService {
             user_id: userId,
             status: AttendanceStatus.HADIR,
             checkInTime: await jakartaTime(manager),
-            notes: review ?? null,
+            notes: feedback ?? null,
             created_by: userId,
           }),
         );
@@ -123,7 +124,7 @@ export class ClassAttendanceService {
               avatar.object_key AS avatar_object_key,
               COALESCE(attendance.status, 'alpa') AS status,
               to_char(attendance."checkInTime", 'HH24:MI') AS check_in_time,
-              attendance.notes
+              attendance.notes AS feedback
        FROM enrollments enrollment
        INNER JOIN users learner ON learner.id = enrollment.user_id
        LEFT JOIN user_profiles profile ON profile.user_id = learner.id AND profile.deleted_at IS NULL
@@ -148,7 +149,7 @@ export class ClassAttendanceService {
           avatar_url: assetUrl(learner.avatar_object_key),
           status: learner.status,
           check_in_time: learner.check_in_time,
-          notes: learner.notes,
+          feedback: learner.feedback,
         })),
       },
       responseMessage: 'Get attendance success',
@@ -299,7 +300,7 @@ export class ClassAttendanceService {
       class: {
         id: context.id,
         title: context.title,
-        type: context.type,
+        type: classKindOf(context.type),
         merchant_name: context.merchant_name,
       },
       mentor_names: mentors.map((mentor) => mentor.name),

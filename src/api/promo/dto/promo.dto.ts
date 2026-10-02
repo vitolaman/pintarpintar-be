@@ -1,26 +1,56 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { catalogSorts, CatalogSort } from '../../catalog/dto/catalog.dto';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { ArrayMaxSize, IsArray, IsIn } from 'class-validator';
+import {
+  CatalogCardType,
+  catalogCardTypes,
+  CatalogSortField,
+  catalogSortFields,
+  SORT_FIELD_DESCRIPTION,
+  SORT_ORDER_DESCRIPTION,
+  SortOrder,
+  sortOrders,
+} from '../../catalog/dto/catalog.dto';
 import { PublicVoucherResponseDto } from '../../voucher/dto/voucher-response.dto';
-import { EnumInput } from '~/common/decorator/input.decorator';
+import { canonicalValue, EnumInput } from '~/common/decorator/input.decorator';
 import { LimitQuery } from '~/common/dto/request-paginated.dto';
 
-export const promoItemTypes = ['kelas', 'digital'] as const;
+// The promo page shows video classes and bootcamps in one section.
+const DEFAULT_PROMO_TYPES: CatalogCardType[] = ['kelas', 'bootcamp'];
+
+function parsePromoTypes(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const types = value
+    .split(',')
+    .map((type) => type.trim())
+    .filter(Boolean)
+    .map((type) => canonicalValue(catalogCardTypes, type));
+  return types.length > 0 ? types : DEFAULT_PROMO_TYPES;
+}
 
 export class PromoItemsQueryDto {
-  // a blank type means the default tab.
-  @EnumInput(promoItemTypes, {
-    presence: 'filter',
-    default: 'kelas',
-    description:
-      'kelas = video classes and bootcamps; digital = digital products',
+  @ApiPropertyOptional({
+    type: String,
+    example: 'kelas,bootcamp',
+    description: `Comma-separated, ignoring case: ${catalogCardTypes.join(', ')}. Defaults to kelas,bootcamp.`,
   })
-  type: (typeof promoItemTypes)[number] = 'kelas';
+  @Transform(({ value }) => parsePromoTypes(value))
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsIn(catalogCardTypes, { each: true })
+  type: CatalogCardType[] = DEFAULT_PROMO_TYPES;
 
-  @EnumInput(catalogSorts, {
+  @EnumInput(catalogSortFields, {
     presence: 'filter',
-    description: 'Omit, or send a blank value, for a random pick',
+    description: `${SORT_FIELD_DESCRIPTION}. Omit for a random pick.`,
   })
-  sort?: CatalogSort;
+  sort_by?: CatalogSortField;
+
+  @EnumInput(sortOrders, {
+    presence: 'filter',
+    description: `${SORT_ORDER_DESCRIPTION}. Applies only with sort_by.`,
+  })
+  sort_order?: SortOrder;
 
   @LimitQuery({
     defaultLimit: 6,

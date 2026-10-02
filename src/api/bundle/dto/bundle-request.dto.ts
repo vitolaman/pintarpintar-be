@@ -25,10 +25,6 @@ import {
   contentItemTypes,
 } from '~/common/catalog/catalog-item';
 
-export const bundleItemTypes = ['kelas', 'digital'] as const;
-
-export type BundleItemType = (typeof bundleItemTypes)[number];
-
 export class BundleItemInputDto {
   @EnumInput(contentItemTypes, {
     presence: 'filter',
@@ -70,10 +66,10 @@ export class CreateBundleDto {
   @NumberInput({
     min: 0.01,
     example: 349000,
-    description: 'Must be below the items total',
+    description: 'Bundle selling price; must be below the items total',
   })
   @IsNumber({ maxDecimalPlaces: 2 })
-  bundle_price: number;
+  price: number;
 
   @ClearableText({ max: 5000 })
   post_purchase_instructions?: string | null;

@@ -27,7 +27,7 @@ export class VisitTrackingController {
   constructor(private readonly visitTrackingService: VisitTrackingService) {}
 
   // Public; a sent login token makes the user the visitor. Called by the
-  // storefront and the class, bootcamp and digital product detail pages.
+  // storefront and the class, bootcamp, digital product and bundle pages.
   @Post('visits')
   @Public()
   @UseGuards(ClientAddressThrottlerGuard)

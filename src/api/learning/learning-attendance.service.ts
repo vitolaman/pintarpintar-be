@@ -14,6 +14,7 @@ import {
   MEETING_STATUS_SQL,
   MeetingMentor,
 } from '../../class/meeting-sql';
+import { classKindOf } from '../../common/catalog/item-kind';
 import { assetUrl } from '../../common/storage/asset-url';
 import {
   PublicAttendanceMeetingDto,
@@ -68,7 +69,7 @@ export class LearningAttendanceService {
     const data: AttendanceSessionDto = {
       class_id: session.id,
       class_title: session.title,
-      class_type: session.type,
+      type: classKindOf(session.type),
       cover_url: assetUrl(session.cover_object_key),
       merchant_name: session.merchant_name,
       mentor_names: session.mentor_names,

@@ -1,21 +1,27 @@
+import { CLASS_ACTIONS, CLASS_AREAS } from '../class-permissions';
 import { ItemCoverDto } from '../../api/item-cover/dto/item-cover.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   classCategories,
   learningLevels,
 } from '../../common/catalog/class-details';
-import { ClassStatus, ClassType } from '../entities/class.entity';
+import { ClassStatus } from '../entities/class.entity';
+import { ClassKind, classKinds } from '../../common/catalog/item-kind';
 import { ResourceType } from '../entities/file-resource.entity';
 
 export class ClassResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() merchant_id: string;
   @ApiProperty() title: string;
-  @ApiPropertyOptional() description: string;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
   @ApiProperty({ enum: ClassStatus }) status: ClassStatus;
-  @ApiProperty({ enum: ClassType }) type: ClassType;
-  @ApiPropertyOptional() originalPrice: number;
-  @ApiPropertyOptional() discountedPrice: number;
+  @ApiProperty({ enum: classKinds }) type: ClassKind;
+  @ApiPropertyOptional({ nullable: true }) original_price: number | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Selling price when greater than 0',
+  })
+  discount_price: number | null;
   @ApiPropertyOptional({ nullable: true }) cover_asset_id: string | null;
   @ApiPropertyOptional({
     nullable: true,
@@ -52,7 +58,12 @@ export class FileResourceResponseDto {
   })
   url: string | null;
   @ApiPropertyOptional({ nullable: true }) asset_id: string | null;
-  @ApiPropertyOptional({ description: 'Bytes' }) size: string;
+  @ApiPropertyOptional({
+    type: 'integer',
+    nullable: true,
+    description: 'Bytes; null when unknown',
+  })
+  size: number | null;
   @ApiPropertyOptional({
     nullable: true,
     description: 'Signed download link for uploaded files, valid 10 minutes',
@@ -67,16 +78,16 @@ export class VideoResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() chapter_id: string;
   @ApiProperty() title: string;
-  @ApiPropertyOptional() description: string;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
   @ApiProperty({ enum: ['link', 'file'] }) source: string;
-  @ApiPropertyOptional({ nullable: true }) youtubeUrl: string | null;
+  @ApiPropertyOptional({ nullable: true }) youtube_url: string | null;
   @ApiPropertyOptional({
     nullable: true,
     format: 'uuid',
     description: 'Upload of a file video',
   })
   asset_id: string | null;
-  @ApiPropertyOptional() duration: string;
+  @ApiPropertyOptional({ nullable: true }) duration: string | null;
   @ApiProperty() order: number;
   @ApiProperty() created_at: Date;
   @ApiProperty() updated_at: Date;
@@ -86,7 +97,7 @@ export class ChapterResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() class_id: string;
   @ApiProperty() title: string;
-  @ApiPropertyOptional() description: string;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
   @ApiProperty() order: number;
   @ApiProperty({ type: [VideoResponseDto] }) videos: VideoResponseDto[];
   @ApiProperty({ type: [FileResourceResponseDto] })
@@ -113,7 +124,7 @@ export class MeetingResponseDto {
   @ApiProperty({ example: '2026-10-15' }) date: string;
   @ApiProperty({ example: '19:30', description: 'HH:mm, Asia/Jakarta' })
   time: string;
-  @ApiPropertyOptional({ nullable: true }) liveUrl: string | null;
+  @ApiPropertyOptional({ nullable: true }) live_url: string | null;
   @ApiProperty({
     enum: ['upcoming', 'completed'],
     description: MEETING_STATUS_DESCRIPTION,
@@ -156,7 +167,7 @@ export class AssignmentResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() class_id: string;
   @ApiProperty() title: string;
-  @ApiPropertyOptional() description: string;
+  @ApiPropertyOptional({ nullable: true }) description: string | null;
   @ApiProperty() due: Date;
   @ApiProperty() type: string;
   @ApiPropertyOptional({ type: AssignmentResourceResponseDto, nullable: true })
@@ -179,7 +190,20 @@ export class ClassTutorResponseDto {
   @ApiPropertyOptional({ nullable: true }) avatar_url: string | null;
   @ApiProperty({ enum: ['lead', 'assistant', 'moderator'] }) role: string;
   @ApiProperty({
+    type: 'object',
     description: 'Areas × actions (lihat, tambah, edit, delete) booleans',
+    properties: Object.fromEntries(
+      CLASS_AREAS.map((area) => [
+        area,
+        {
+          type: 'object',
+          properties: Object.fromEntries(
+            CLASS_ACTIONS.map((action) => [action, { type: 'boolean' }]),
+          ),
+          required: [...CLASS_ACTIONS],
+        },
+      ]),
+    ),
   })
   permissions: Record<string, Record<string, boolean>>;
   @ApiProperty() created_at: Date;
@@ -195,7 +219,7 @@ export class StudentResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() user_id: string;
   @ApiProperty() class_id: string;
-  @ApiPropertyOptional() joinDate: string;
+  @ApiPropertyOptional() join_date: string;
   @ApiPropertyOptional() progress: string;
   @ApiProperty() created_at: Date;
   @ApiProperty({ type: StudentUserResponseDto }) user: StudentUserResponseDto;

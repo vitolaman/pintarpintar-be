@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CatalogQueryDto } from './catalog.dto';
+import { catalogSort, CatalogQueryDto } from './catalog.dto';
 
 describe('CatalogQueryDto file_format', () => {
   it('expands frontend file types to stored formats', async () => {
@@ -42,7 +42,8 @@ describe('CatalogQueryDto filters', () => {
       category: ' ',
       merchant_id: '',
       file_format: '',
-      sort: '',
+      sort_by: '',
+      sort_order: '',
     });
 
     expect(await validate(query)).toEqual([]);
@@ -53,7 +54,8 @@ describe('CatalogQueryDto filters', () => {
       category: undefined,
       merchant_id: undefined,
       file_format: undefined,
-      sort: 'terbaru',
+      sort_by: 'created_at',
+      sort_order: undefined,
     });
   });
 
@@ -68,20 +70,47 @@ describe('CatalogQueryDto filters', () => {
     const query = parse({
       type: ' Kelas,BOOTCAMP ',
       level: ' mahir ',
-      sort: 'Termurah',
+      sort_by: 'Price',
+      sort_order: ' DESC ',
     });
 
     expect(await validate(query)).toEqual([]);
     expect(query).toMatchObject({
       type: ['kelas', 'bootcamp'],
       level: 'Mahir',
-      sort: 'termurah',
+      sort_by: 'price',
+      sort_order: 'desc',
     });
   });
 
   it('rejects unknown enum values', async () => {
     expect(await errorFields({ type: 'kelas,webinar' })).toEqual(['type']);
     expect(await errorFields({ level: 'expert' })).toEqual(['level']);
-    expect(await errorFields({ sort: 'cheapest' })).toEqual(['sort']);
+    expect(await errorFields({ sort_by: 'cheapest' })).toEqual(['sort_by']);
+    expect(await errorFields({ sort_order: 'up' })).toEqual(['sort_order']);
+  });
+
+  it('keeps the frontend filter "Kelas Live" as an accepted value', async () => {
+    expect(await errorFields({ type: 'kelas-live' })).toEqual([]);
+  });
+
+  it('rejects the old sort parameter as an unknown field', async () => {
+    const errors = await validate(parse({ sort: 'terbaru' }), {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+    expect(errors.map((error) => error.property)).toEqual(['sort']);
+  });
+
+  it.each([
+    ['created_at', undefined, { by: 'created_at', order: 'desc' }],
+    ['popularity', undefined, { by: 'popularity', order: 'desc' }],
+    ['price', undefined, { by: 'price', order: 'asc' }],
+    ['rating', undefined, { by: 'rating', order: 'desc' }],
+    ['title', undefined, { by: 'title', order: 'asc' }],
+    ['price', 'desc', { by: 'price', order: 'desc' }],
+    [undefined, undefined, { by: 'created_at', order: 'desc' }],
+  ])('sorts by %s %s as %j', (by, order, expected) => {
+    expect(catalogSort(by as never, order as never)).toEqual(expected);
   });
 });

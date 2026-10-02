@@ -24,12 +24,6 @@ export class HomeMerchantCardResponseDto {
   @ApiPropertyOptional()
   slug: string | null;
 
-  @ApiPropertyOptional({ format: 'uuid' })
-  avatar_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  avatar_object_key: string | null;
-
   @ApiProperty({
     nullable: true,
     type: String,
@@ -39,12 +33,6 @@ export class HomeMerchantCardResponseDto {
 
   @ApiPropertyOptional()
   best_product_title: string | null;
-
-  @ApiPropertyOptional({ format: 'uuid' })
-  best_product_cover_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  best_product_cover_object_key: string | null;
 
   @ApiProperty({
     nullable: true,
@@ -72,12 +60,6 @@ export class HomeTestimonialResponseDto {
 
   @ApiProperty()
   user_name: string;
-
-  @ApiPropertyOptional({ format: 'uuid' })
-  user_avatar_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  user_avatar_object_key: string | null;
 
   @ApiProperty({
     nullable: true,

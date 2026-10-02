@@ -31,9 +31,36 @@ $ yarn db:local:migrate
 
 Every route requires a Bearer token except those marked **public**. The full request and response schemas are in Swagger (below). Routes follow `/api/v1/<resource>[/<id>][/<action>]`: the HTTP method is the operation, `merchant/…`, `mentor/…` and `profile/…` act on the signed-in user's own store, mentor workspace and profile, and plural resources (`merchants/:merchant`, `mentors/:id`) are public pages.
 
-Responses are `{data, responseMessage}`. Paginated lists take `page` (default 1) and `limit` (default 10, at most 100; the promo lists at most 6). A blank or non-numeric value means the default and an out-of-range value is clamped to the nearest bound, so paging never fails a request. They return `meta: {page, limit, total, totalPage}` next to `data`, also when the list sits inside an object (job board, applications, class grades, reviews). Errors are `{statusCode, error, responseMessage}`: `error` is the status name (`BAD_REQUEST`, `UNAUTHORIZED`, `NOT_FOUND`, …) and `responseMessage` lists the reasons in plain words. Some errors add a `details` object, for example the pending `order_id` of the "awaiting payment" 409. Every stored image in a response comes with a ready `*_url` (`image_url`, `cover_url`, `avatar_url`, …), `null` without an image, so the client never needs the storage base URL.
+Responses are `{data, responseMessage}`. Paginated lists take `page` (default 1) and `limit` (default 10, at most 100; the promo lists at most 6). A blank or non-numeric value means the default and an out-of-range value is clamped to the nearest bound, so paging never fails a request. They return `meta: {page, limit, total, total_page}` next to `data`, also when the list sits inside an object (job board, applications, class grades, reviews). Errors are `{statusCode, error, responseMessage, errors?}`: `error` is the status name (`BAD_REQUEST`, `UNAUTHORIZED`, `NOT_FOUND`, …), `responseMessage` is one message in plain words, and a validation failure also lists every reason in `errors`. Some errors add a `details` object, for example the pending `order_id` of the "awaiting payment" 409. Every stored image in a response comes with a ready `*_url` (`image_url`, `cover_url`, `avatar_url`, …), `null` without an image, so the client never needs the storage base URL; responses carry no storage object keys.
 
 Request fields follow the same rules everywhere. An optional text field is cleared with `""` or `null`; a field the data needs (a title, a name, a mentor's phone) rejects `""`, whitespace and `null`. Text is trimmed. Choice values (`type`, `status`, `level`, `badge`, sort values) match ignoring case and surrounding spaces and are stored in their canonical spelling. Numbers may be sent as numeric strings, and a blank optional number means "not sent". A blank query filter (`?search=`, `?category=`, `?status=`) means no filter. Wherever an item id is sent (cart, wishlist, checkout, bundle items, discount targets), `type` is optional: the server resolves it from the id, and a sent `type` only has to name the right family (`kelas` and `bootcamp` both accept any class).
+
+Naming is the same everywhere: fields are snake_case (the envelope keys `responseMessage` and `statusCode`, and the S3 upload and Duitku callback bodies, are the documented exceptions), and an item kind is always `kelas` (video class), `bootcamp`, `digital` or `bundle`. Prices are `price`, `original_price`, `discount_price`, `discount_amount` and `discount_percent`; discounts and vouchers share `minimum_purchase`, `starts_at`, `ends_at`, `usage_limit` and `used_count`. Lists search with `search` and order with `sort_by` and `sort_order` (`asc`/`desc`). A request body or query field the endpoint does not define — a typo or an old name — is a 400 naming it (the Duitku callback ignores the extra fields Duitku sends).
+
+The 2026-10-03 renames (one coordinated frontend release):
+
+| Where                                                                    | Before                                                                                             | Now                                                                                                                                                                                   |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| class create/update/response                                             | `originalPrice`, `discountedPrice`                                                                 | `original_price`, `discount_price`                                                                                                                                                    |
+| class `type` (management, learner, mentor workspace, roster, attendance) | `video`, `live-bootcamp`; attendance `class_type`                                                  | `kelas`, `bootcamp`; `type`                                                                                                                                                           |
+| videos, meetings, students                                               | `youtubeUrl`, `liveUrl`, `joinDate`                                                                | `youtube_url`, `live_url`, `join_date`                                                                                                                                                |
+| check-in and attendance comment                                          | `review`, `notes`                                                                                  | `feedback`                                                                                                                                                                            |
+| class and learning file `size`, catalog chapter file `size`              | text                                                                                               | number of bytes (null when unknown)                                                                                                                                                   |
+| pagination `meta`                                                        | `totalPage`                                                                                        | `total_page`                                                                                                                                                                          |
+| error body                                                               | `responseMessage: string[]`                                                                        | `responseMessage: string`, `errors: string[]`                                                                                                                                         |
+| vouchers                                                                 | `minimum_order_amount`, `expires_at`, `max_uses`, `usage_count`                                    | `minimum_purchase`, `ends_at`, `usage_limit`, `used_count`                                                                                                                            |
+| discounts `status`                                                       | —                                                                                                  | adds `limit_reached`                                                                                                                                                                  |
+| bundles                                                                  | `bundle_price`, `original_total`, `saving_amount`, `saving_percent`; item `class_type`             | `price`, `original_price`, `discount_amount`, `discount_percent`; item `type` `kelas`/`bootcamp`/`digital`                                                                            |
+| portal items and `?type=`                                                | `kelas-video`, `live-bootcamp`, `produk-digital`                                                   | `kelas`, `bootcamp`, `digital` (and `all`)                                                                                                                                            |
+| `/profile/learning`                                                      | `product_id`, `product_type`                                                                       | `item_id`, `item_type`                                                                                                                                                                |
+| visits `target_type`                                                     | `class`, `digital_product`                                                                         | `kelas`, `bootcamp`, `digital`, `bundle` (and `storefront`)                                                                                                                           |
+| catalog `?sort=`                                                         | `terbaru`, `terlama`, `terpopuler`, `terkurang-populer`, `termurah`, `termahal`, `rating`, `title` | `sort_by` `created_at`, `popularity`, `price`, `rating`, `title` with `sort_order`; each field has a natural default (newest, most popular, best rated first; cheapest and A–Z first) |
+| promo `?type=`, `?sort=`                                                 | `kelas` (classes and bootcamps) or `digital`; `sort`                                               | comma-separated kinds (default `kelas,bootcamp`); `sort_by`/`sort_order` (omit for a random pick)                                                                                     |
+| job board `?keyword=`                                                    | `keyword`                                                                                          | `search`                                                                                                                                                                              |
+| images                                                                   | `*_object_key`, image-only `*_asset_id`                                                            | removed; use the `*_url` siblings (editors keep the asset ids they send back)                                                                                                         |
+| mentor registration                                                      | multipart `cv`, `skill_certificate`; the public mentor sign-up (removed)                           | JSON `cv_asset_id`, `skill_certificate_asset_id` from the normal upload flow; sign up as a user first                                                                                 |
+
+The catalog keeps accepting `type=kelas-live` (the "Kelas Live" filter) and returns no items until that kind exists (PM item 21).
 
 ### Authentication and user
 
@@ -56,7 +83,7 @@ Request fields follow the same rules everywhere. An optional text field is clear
 
 ### Catalog (Kelas, Bootcamp, Produk Digital)
 
-- `GET /api/v1/catalog/items` — **public**; filter by type, search (title, merchant name, category name, file format), level, category (slug or name), merchant (`merchant_id`), and digital file type (`file_format`); sort; paginate; with a login token each card has `in_wishlist` (also on the home and promo cards)
+- `GET /api/v1/catalog/items` — **public**; filter by type, search (title, merchant name, category name, file format), level, category (slug or name), merchant (`merchant_id`), and digital file type (`file_format`); `sort_by` + `sort_order`; paginate; with a login token each card has `in_wishlist` (also on the home and promo cards)
 - `GET /api/v1/catalog/categories` — **public**; category tree
 - `GET /api/v1/catalog/classes/:id` — **public**; with a login token `in_wishlist`, `in_cart`, `has_reviewed` and `is_owned` (also on the digital product detail); `covers`, syllabus, mentors, FAQ, and the bootcamp meeting schedule (status, duration, mentor), without video, file, or meeting links
 - `GET /api/v1/catalog/digital-products/:id` — **public**; `covers`, file formats and sizes, without download links
@@ -150,7 +177,7 @@ Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos,
 
 - `GET /api/v1/merchant/dashboard` — summary and `level` (see Merchant levels); rating, latest review, and activity cover class and digital-product reviews
 - `GET /api/v1/merchant/sales` — price, net after code discounts, and payment method per item; revenue figures across the dashboard use the net
-- `GET /api/v1/merchant/sales/export` — CSV
+- `GET /api/v1/merchant/sales/export` — the filtered sales as JSON `rows` (up to 5,000, `truncated` when there are more) for the page to save as a spreadsheet; same filters as the list
 - `GET /api/v1/merchant/customers`
 - `GET /api/v1/merchant/wallet` — earning, settled (withdrawable), and lifetime balances
 - `GET /api/v1/merchant/balance-history`
@@ -164,7 +191,7 @@ Asia/Jakarta days; paid orders only, dated at payment; revenue is the merchant's
 - `GET /api/v1/merchant/analytics/daily-sales` — `month` (YYYY-MM, default the current Asia/Jakarta month); transactions and revenue for every day, plus totals
 - `GET /api/v1/merchant/analytics/monthly-revenue` — `year` (default the current Asia/Jakarta year); revenue for each month, plus the year total
 - `GET /api/v1/merchant/analytics/summary` — `period` (`today`/`month`/`year`, default `month`); conversion (buyers ÷ distinct visitors, at most 100%, null without visits), retention (buyers with another purchase from the merchant in the previous 90 days), and average order value, each compared with the same elapsed span of the previous period
-- `POST /api/v1/analytics/visits` — **public**; `{target_type: storefront|class|digital_product, target_id, visitor_id}` from the storefront and detail pages; `visitor_id` is needed only without a login token; one visit per merchant, visitor, and day (a login makes the user the visitor); the merchant's own visits and bots are ignored; 60 per minute per client
+- `POST /api/v1/analytics/visits` — **public**; `{target_type: storefront|kelas|bootcamp|digital|bundle, target_id, visitor_id}` from the storefront and detail pages; `visitor_id` is needed only without a login token; one visit per merchant, visitor, and day (a login makes the user the visitor); the merchant's own visits and bots are ignored; 60 per minute per client
 
 ### Merchant payout accounts (Rekening)
 
@@ -227,7 +254,7 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId` — also removes its videos and resources
 - `PUT /api/v1/classes/:classId/chapters/order` — the complete `chapter_ids` list in the new bab order; new babs go last
 - `PUT /api/v1/classes/:classId/chapters/:chapterId/order` — complete `video_ids` and `resource_ids` lists
-- `POST /api/v1/classes/:classId/chapters/:chapterId/videos` — a link video (https `youtubeUrl`) or a file video (`asset_id` of an uploaded MP4/MOV/WebM, within the store level's per-file limit); `source` is inferred from the field sent
+- `POST /api/v1/classes/:classId/chapters/:chapterId/videos` — a link video (https `youtube_url`) or a file video (`asset_id` of an uploaded MP4/MOV/WebM, within the store level's per-file limit); `source` is inferred from the field sent
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
 - `POST /api/v1/classes/:classId/chapters/:chapterId/resources` — each material is a `name` with an uploaded `asset_id` or an https `url`; `type` (`pdf`, `archive`, `image`, `file`, `link`) is derived from the file or the link; `data` is the array of added materials
@@ -286,8 +313,7 @@ Every route requires an active enrollment or product access and answers 404 othe
 
 ### Mentor
 
-- `POST /api/v1/mentors/sign-up` — **public**; multipart with CV and skill certificate
-- `POST /api/v1/mentor/register` — multipart with CV and skill certificate; also completes the mentor record of an accepted job applicant
+- `POST /api/v1/mentor/register` — the mentor fields plus `cv_asset_id` (PDF, DOC or DOCX) and `skill_certificate_asset_id` (PDF, PNG or JPG), each an upload of the caller; a new mentor signs up as a user first; also completes the mentor record of an accepted job applicant
 - `GET /api/v1/mentors/:id` — **public**
 - `GET /api/v1/mentor/profile`
 - `PATCH /api/v1/mentor/profile`
@@ -296,13 +322,13 @@ Every route requires an active enrollment or product access and answers 404 othe
 - `GET /api/v1/mentor/classes` — assigned classes (Kelas-kelas) with `cover_url`, filterable by type and search
 - `GET /api/v1/mentor/teaching-history` — teaching history (Kelas Mentor on the profile)
 - `GET /api/v1/mentor/documents` — CV and skill certificate with short-lived download URLs
-- `PATCH /api/v1/mentor/documents` — replaces the CV and/or skill certificate (multipart)
+- `PATCH /api/v1/mentor/documents` — `cv_asset_id` and/or `skill_certificate_asset_id`; the previous files are kept
 
 ### Karir (job board and mentor recruitment)
 
 Merchants publish teaching vacancies; any logged-in user applies once per vacancy. Statuses: `review` → `interview` → `accepted` or `rejected` (a rejected applicant can still be accepted; acceptance is final). Accepting makes the applicant an active mentor (`is_mentor`), adds them to the merchant's mentor list, and, when the vacancy has a class, assigns them as its `assistant` tutor.
 
-- `GET /api/v1/job-postings` — **public**; active vacancies of active merchants with `keyword` (title, merchant, category, skills), `location`, `category`, `contract_type`, `work_type`, paging, applicant counts, `is_new` (7 days), and the board totals
+- `GET /api/v1/job-postings` — **public**; active vacancies of active merchants with `search` (title, merchant, category, skills), `location`, `category`, `contract_type`, `work_type`, paging, applicant counts, `is_new` (7 days), and the board totals
 - `GET /api/v1/job-postings/:id` — **public**; 404 once closed
 - Job responses carry `is_saved`: true when the signed-in caller saved the job, false without a token (the board and detail stay public)
 - `GET /api/v1/job-postings/saved` — the caller's saved jobs ("Lowongan Tersimpan"), newest save first, paginated; each has the job fields plus `saved_at` and `is_open` (false once closed or removed; it stays listed until unsaved)
@@ -399,7 +425,7 @@ Every variable is listed in `.env.example`.
 - `DB_*`.
 - `JWT_ADMIN_KEY`: the application refuses to start without it. Changing it signs every user out.
 - The S3 settings (`AWS_*`) for uploads and private files.
-- `ASSET_PUBLIC_BASE_URL`, or image URLs are `null`.
+- `ASSET_PUBLIC_BASE_URL`: responses carry image URLs only (no storage keys), so without it every avatar and cover is `null`; the application logs an error at startup when it is missing.
 - The six `PAYMENT_*` settings, or paid checkout answers 503.
 
 **Optional:**

@@ -15,7 +15,8 @@ import {
   classCategories,
   learningLevels,
 } from '../../common/catalog/class-details';
-import { ClassStatus, ClassType } from '../entities/class.entity';
+import { ClassStatus } from '../entities/class.entity';
+import { ClassKind, classKinds } from '../../common/catalog/item-kind';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 import {
@@ -40,21 +41,23 @@ export class CreateClassDto {
   })
   status?: ClassStatus;
 
-  @EnumInput(Object.values(ClassType), {
+  @EnumInput(classKinds, {
     presence: 'optional',
-    default: ClassType.VIDEO,
+    default: 'kelas',
+    description: '`kelas` is a video class, `bootcamp` a live bootcamp',
   })
-  type?: ClassType;
+  type?: ClassKind;
 
   @NumberInput({ presence: 'optional', min: 0 })
-  originalPrice?: number;
+  original_price?: number;
 
   @NumberInput({
     presence: 'nullable',
     min: 0,
-    description: 'When greater than 0, must not exceed originalPrice',
+    description:
+      'Selling price when greater than 0; must not exceed original_price',
   })
-  discountedPrice?: number | null;
+  discount_price?: number | null;
 
   @ApiProperty({
     required: false,

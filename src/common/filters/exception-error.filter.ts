@@ -28,10 +28,16 @@ export class CustomHttpExceptionFilter implements ExceptionFilter {
       exception: exception.toString(),
     });
 
+    // One readable message for a toast; validation failures also list every
+    // reason in `errors`.
+    const messages: string[] = (
+      Array.isArray(message) ? message : [message]
+    ).map(String);
     const errorResponse = {
-      responseMessage: Array.isArray(message) ? message : [message],
-      error: HttpStatus[status] || 'Internal Server Error',
       statusCode: status,
+      error: HttpStatus[status] || 'INTERNAL_SERVER_ERROR',
+      responseMessage: messages[0] ?? 'Internal server error',
+      ...(Array.isArray(message) ? { errors: messages } : {}),
     };
     const details = errorDetails(exception);
 

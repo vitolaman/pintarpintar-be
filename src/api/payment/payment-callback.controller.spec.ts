@@ -1,5 +1,4 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { DuitkuCallbackDto } from './dto/duitku-callback.dto';
 import { DuitkuClient } from './duitku/duitku.client';
 import { OrderPaymentService } from './order-payment.service';
 import { PaymentCallbackController } from './payment-callback.controller';
@@ -16,7 +15,7 @@ describe('PaymentCallbackController', () => {
     } as unknown as DuitkuClient,
     { applyGatewayResult } as unknown as OrderPaymentService,
   );
-  const callback = (override: Partial<DuitkuCallbackDto> = {}) =>
+  const callback = (override: Record<string, unknown> = {}) =>
     ({
       merchantCode: 'DMOCK1',
       amount: '150000',
@@ -27,7 +26,7 @@ describe('PaymentCallbackController', () => {
       paymentCode: 'BC',
       settlementDate: '2026-10-02',
       ...override,
-    }) as DuitkuCallbackDto;
+    }) as Record<string, unknown>;
 
   beforeEach(() => applyGatewayResult.mockReset());
 
@@ -52,6 +51,29 @@ describe('PaymentCallbackController', () => {
   ])('rejects %s without applying it', async (_case, override) => {
     await expect(
       controller.handleDuitkuCallback(callback(override)),
+    ).rejects.toThrow(BadRequestException);
+    expect(applyGatewayResult).not.toHaveBeenCalled();
+  });
+
+  it('accepts the fields Duitku sends that this API does not use', async () => {
+    await expect(
+      controller.handleDuitkuCallback(
+        callback({
+          productDetail: 'Pembayaran ORD-20260930-0001',
+          additionalParam: '',
+          merchantUserId: 'buyer@example.com',
+          publisherOrderId: 'PUB123',
+          spUserHash: 'hash',
+          issuerCode: '93600014',
+        }),
+      ),
+    ).resolves.toEqual({ responseMessage: 'Callback processed' });
+    expect(applyGatewayResult).toHaveBeenCalledTimes(1);
+  });
+
+  it('still validates the fields it uses', async () => {
+    await expect(
+      controller.handleDuitkuCallback(callback({ signature: undefined })),
     ).rejects.toThrow(BadRequestException);
     expect(applyGatewayResult).not.toHaveBeenCalled();
   });

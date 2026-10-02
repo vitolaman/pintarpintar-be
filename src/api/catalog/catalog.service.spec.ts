@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CatalogService } from './catalog.service';
+import { catalogSort } from './dto/catalog.dto';
 
 describe('CatalogService', () => {
   const classId = '30000000-0000-4000-8000-000000000001';
@@ -46,7 +47,7 @@ describe('CatalogService', () => {
 
     const cards = await service.findCards(
       { types: ['bootcamp'] },
-      'terbaru',
+      catalogSort('created_at'),
       6,
     );
 
@@ -79,6 +80,22 @@ describe('CatalogService', () => {
     ]);
   });
 
+  it.each([
+    [{ by: 'title', order: 'asc' }, 'ORDER BY title ASC, cards.id'],
+    [{ by: 'title', order: 'desc' }, 'ORDER BY title DESC, cards.id'],
+    [{ by: 'price', order: 'asc' }, 'ORDER BY price ASC, cards.id'],
+    [
+      { by: 'rating', order: 'desc' },
+      'ORDER BY rating DESC, review_count DESC, cards.id',
+    ],
+    [{ by: 'popularity', order: 'desc' }, 'ORDER BY students_count DESC'],
+    ['random', 'ORDER BY random(), cards.id'],
+  ])('orders the cards by %j', async (sort, sql) => {
+    dataSource.query.mockResolvedValueOnce([]);
+    await service.findCards({}, sort as never, 5);
+    expect(dataSource.query.mock.calls.at(-1)[0]).toContain(sql);
+  });
+
   it('escapes LIKE wildcards and pages the catalog list', async () => {
     dataSource.query
       .mockResolvedValueOnce([{ total: 25 }])
@@ -87,7 +104,7 @@ describe('CatalogService', () => {
     const response = await service.findItems({
       type: ['kelas', 'bootcamp'],
       search: '50%_off',
-      sort: 'termurah',
+      sort_by: 'price',
       page: 2,
       limit: 10,
     } as never);
@@ -96,7 +113,7 @@ describe('CatalogService', () => {
       page: 2,
       limit: 10,
       total: 25,
-      totalPage: 3,
+      total_page: 3,
     });
     const [sql, params] = dataSource.query.mock.calls[1];
     expect(sql).toContain('ORDER BY price ASC, cards.id');
@@ -125,7 +142,7 @@ describe('CatalogService', () => {
       file_format: ['pdf', 'dwg'],
       page: 1,
       limit: 12,
-      sort: 'terbaru',
+      sort_by: 'created_at',
     } as never);
 
     expect(response.data[0]).toMatchObject({
@@ -158,7 +175,7 @@ describe('CatalogService', () => {
       ]);
 
     const response = await service.findItems(
-      { page: 1, limit: 12, sort: 'terbaru' } as never,
+      { page: 1, limit: 12, sort_by: 'created_at' } as never,
       viewerId,
     );
 
@@ -187,7 +204,7 @@ describe('CatalogService', () => {
     const response = await service.findItems({
       page: 1,
       limit: 12,
-      sort: 'terbaru',
+      sort_by: 'created_at',
     } as never);
 
     expect(response.data[0].in_wishlist).toBe(false);
@@ -202,7 +219,7 @@ describe('CatalogService', () => {
         cardRow,
       ]);
 
-      const cards = await service.findCards({}, 'terbaru', 2);
+      const cards = await service.findCards({}, catalogSort('created_at'), 2);
 
       expect(cards.map((card) => card.merchant.avatar_url)).toEqual([
         'https://cdn.example.com/merchants/logo.png',
@@ -219,7 +236,7 @@ describe('CatalogService', () => {
     const response = await service.findItems({
       page: 1,
       limit: 12,
-      sort: 'terbaru',
+      sort_by: 'created_at',
     } as never);
 
     expect(response.data).toEqual([]);
@@ -250,7 +267,14 @@ describe('CatalogService', () => {
             chapter_id: 'chapter-id',
             name: 'Modul',
             type: 'pdf',
-            size: '1 MB',
+            size: '1048576',
+          },
+          {
+            id: 'link-id',
+            chapter_id: 'chapter-id',
+            name: 'Referensi',
+            type: 'link',
+            size: null,
           },
         ]);
       if (sql.includes('FROM meetings'))
@@ -274,13 +298,20 @@ describe('CatalogService', () => {
         title: 'Dasar',
         description: null,
         videos: [{ id: 'video-id', title: 'Intro', duration: '10:00' }],
-        files: [{ id: 'file-id', name: 'Modul', type: 'pdf', size: '1 MB' }],
+        files: [
+          { id: 'file-id', name: 'Modul', type: 'pdf', size: 1048576 },
+          { id: 'link-id', name: 'Referensi', type: 'link', size: null },
+        ],
       },
     ]);
     expect(data.meetings).toHaveLength(1);
     const detailSql = dataSource.query.mock.calls
       .map(([sql]) => sql)
       .join('\n');
+    // Only a stored byte count is reported; a legacy label becomes null.
+    expect(detailSql).toContain(
+      "CASE WHEN resource.size ~ '^[0-9]+$' THEN resource.size::bigint END",
+    );
     expect(detailSql).not.toMatch(/"?(videoUrl|fileUrl|liveUrl)"?/);
   });
 
@@ -381,15 +412,15 @@ describe('CatalogService', () => {
       const { data } = await service.findClass(classId);
 
       expect(data.merchant).toMatchObject({
-        avatar_object_key: 'merchants/logo.png',
         avatar_url: 'https://cdn.example.com/merchants/logo.png',
       });
+      expect(data.merchant).not.toHaveProperty('avatar_object_key');
+      expect(data).not.toHaveProperty('image');
       expect(data.mentors).toEqual([
         {
           id: 'mentor-id',
           name: 'Budi',
           headline: 'Arsitek',
-          avatar_object_key: 'avatars/budi.png',
           avatar_url: 'https://cdn.example.com/avatars/budi.png',
           role: 'Lead Mentor',
         },
@@ -397,7 +428,6 @@ describe('CatalogService', () => {
           id: 'mentor-2',
           name: 'Sari',
           headline: null,
-          avatar_object_key: null,
           avatar_url: null,
           role: 'Mentor',
         },

@@ -25,22 +25,46 @@ import {
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export const catalogCardTypes = ['kelas', 'bootcamp', 'digital'] as const;
-// `kelas-live` is an FE filter value with no class type behind it yet.
+// `kelas-live` is the frontend's "Kelas Live" filter, a kind not offered yet
+// (PM item 21); it is accepted and matches no items, so the filter shows an
+// empty list instead of failing.
 export const catalogTypeFilters = [...catalogCardTypes, 'kelas-live'] as const;
 export const catalogLevels = learningLevels;
-export const catalogSorts = [
-  'terbaru',
-  'terlama',
-  'terpopuler',
-  'terkurang-populer',
-  'termurah',
-  'termahal',
+export const catalogSortFields = [
+  'created_at',
+  'popularity',
+  'price',
   'rating',
   'title',
 ] as const;
+export const sortOrders = ['asc', 'desc'] as const;
 
 export type CatalogCardType = (typeof catalogCardTypes)[number];
-export type CatalogSort = (typeof catalogSorts)[number];
+export type CatalogSortField = (typeof catalogSortFields)[number];
+export type SortOrder = (typeof sortOrders)[number];
+export type CatalogSort = { by: CatalogSortField; order: SortOrder };
+
+// Each field has a natural direction, so "Termurah" or "Nama (A-Z)" need only
+// sort_by: newest, most popular and best rated first; cheapest and A-Z first.
+export const DEFAULT_SORT_ORDER: Record<CatalogSortField, SortOrder> = {
+  created_at: 'desc',
+  popularity: 'desc',
+  price: 'asc',
+  rating: 'desc',
+  title: 'asc',
+};
+
+export const SORT_FIELD_DESCRIPTION =
+  'created_at (newest), popularity (students), price, rating, title';
+export const SORT_ORDER_DESCRIPTION =
+  'Defaults per field: created_at, popularity and rating desc; price and title asc';
+
+export function catalogSort(
+  by: CatalogSortField = 'created_at',
+  order?: SortOrder,
+): CatalogSort {
+  return { by, order: order ?? DEFAULT_SORT_ORDER[by] };
+}
 
 // Frontend file-type filters and the stored digital_files.file_format values
 // each one matches (compared in lower case).
@@ -130,9 +154,18 @@ export class CatalogQueryDto {
   @IsString({ each: true })
   file_format?: string[];
 
-  // a blank sort means the default order, not an unknown one.
-  @EnumInput(catalogSorts, { presence: 'filter', default: 'terbaru' })
-  sort: CatalogSort = 'terbaru';
+  @EnumInput(catalogSortFields, {
+    presence: 'filter',
+    default: 'created_at',
+    description: SORT_FIELD_DESCRIPTION,
+  })
+  sort_by: CatalogSortField = 'created_at';
+
+  @EnumInput(sortOrders, {
+    presence: 'filter',
+    description: SORT_ORDER_DESCRIPTION,
+  })
+  sort_order?: SortOrder;
 
   @PageQuery()
   page = 1;
@@ -150,9 +183,6 @@ export class CatalogMerchantDto {
 
   @ApiProperty({ nullable: true })
   slug: string | null;
-
-  @ApiProperty({ nullable: true })
-  avatar_object_key: string | null;
 
   @ApiProperty({
     nullable: true,
@@ -186,12 +216,6 @@ export class CatalogCardDto {
 
   @ApiProperty()
   title: string;
-
-  @ApiProperty({
-    nullable: true,
-    description: 'Cover object key; null for classes',
-  })
-  image: string | null;
 
   @ApiProperty({
     nullable: true,
@@ -276,9 +300,6 @@ export class CatalogMentorDto {
   @ApiProperty({ nullable: true })
   headline: string | null;
 
-  @ApiProperty({ nullable: true })
-  avatar_object_key: string | null;
-
   @ApiProperty({
     nullable: true,
     type: String,
@@ -317,8 +338,13 @@ export class CatalogFileDto {
   @ApiProperty({ example: 'pdf' })
   type: string;
 
-  @ApiProperty({ nullable: true, example: '2.5 MB' })
-  size: string | null;
+  @ApiProperty({
+    type: 'integer',
+    nullable: true,
+    example: 2621440,
+    description: 'Bytes; null when unknown',
+  })
+  size: number | null;
 
   @ApiProperty({ nullable: true })
   description: string | null;

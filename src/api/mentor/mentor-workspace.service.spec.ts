@@ -75,7 +75,8 @@ describe('MentorWorkspaceService', () => {
       rating: 4.7,
       review_count: 9,
     });
-    expect(data.upcoming_sessions[0].class_type).toBe('bootcamp');
+    expect(data.upcoming_sessions[0].type).toBe('bootcamp');
+    expect(data.upcoming_sessions[0]).not.toHaveProperty('class_type');
     expect(data.class_progress[0]).toMatchObject({
       type: 'bootcamp',
       average_progress: 62.5,
@@ -89,6 +90,17 @@ describe('MentorWorkspaceService', () => {
     await service.findClasses(userId, { type: 'kelas', search: '50%_off' });
 
     expect(query.mock.calls[1][1]).toEqual([mentorId, 'video', '50\\%\\_off']);
+  });
+
+  it.each([
+    ['bootcamp', 'live-bootcamp'],
+    [undefined, null],
+  ] as const)('filters classes of kind %s', async (type, stored) => {
+    query.mockResolvedValueOnce([{ id: mentorId }]).mockResolvedValueOnce([]);
+
+    await service.findClasses(userId, { type });
+
+    expect(query.mock.calls[1][1]).toEqual([mentorId, stored, null]);
   });
 
   describe('class covers', () => {

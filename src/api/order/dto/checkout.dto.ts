@@ -57,9 +57,6 @@ export class CheckoutItemResponseDto {
   @ApiProperty({ example: 'Belajar AutoCAD dari Nol' })
   title: string;
 
-  @ApiProperty({ nullable: true, description: 'Cover object key' })
-  image: string | null;
-
   @ApiProperty({
     nullable: true,
     description: 'Public cover URL (null without a cover)',

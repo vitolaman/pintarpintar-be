@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { MEETING_END_SQL } from '../../class/meeting-sql';
 import { assetUrl } from '../../common/storage/asset-url';
+import { classKindSql } from '../../common/catalog/item-kind';
 import {
   PortalItemQueryDto,
   PortalItemType,
@@ -17,7 +18,7 @@ import { paginationMeta } from '~/common/dto/response-meta.dto';
 const OWNED_ITEMS_SQL = `
   SELECT
     class.id AS item_id,
-    CASE class.type WHEN 'live-bootcamp' THEN 'live-bootcamp' ELSE 'kelas-video' END AS item_type,
+    ${classKindSql('class.type')} AS item_type,
     class.title,
     class_cover.object_key AS image,
     COALESCE(enrollment."joinDate"::timestamp, enrollment.created_at) AS acquired_at,
@@ -34,7 +35,7 @@ const OWNED_ITEMS_SQL = `
 
   SELECT
     product.id,
-    'produk-digital',
+    'digital',
     product.title,
     cover.object_key,
     access.granted_at,
@@ -115,15 +116,15 @@ export class PortalService {
                merchant.store_name AS merchant_name,
                profile.slug AS merchant_slug,
                avatar.object_key AS merchant_avatar_object_key,
-               CASE WHEN page.item_type = 'kelas-video' THEN (
+               CASE WHEN page.item_type = 'kelas' THEN (
                  SELECT count(*) FROM chapters chapter
                  WHERE chapter.class_id = page.item_id AND chapter.deleted_at IS NULL
                ) END AS module_count,
-               CASE WHEN page.item_type = 'kelas-video' THEN (
+               CASE WHEN page.item_type = 'kelas' THEN (
                  SELECT count(*) FROM assignments assignment
                  WHERE assignment.class_id = page.item_id AND assignment.deleted_at IS NULL
                ) END AS assignment_count,
-               CASE WHEN page.item_type <> 'produk-digital' THEN EXISTS (
+               CASE WHEN page.item_type <> 'digital' THEN EXISTS (
                  SELECT 1 FROM certificates certificate
                  WHERE certificate.class_id = page.item_id
                    AND certificate.user_id = $1
@@ -146,7 +147,7 @@ export class PortalService {
                  to_char(meeting."time", 'HH24:MI') AS meeting_time,
                  meeting."liveUrl" AS live_url
                FROM meetings meeting
-               WHERE page.item_type = 'live-bootcamp'
+               WHERE page.item_type = 'bootcamp'
                  AND meeting.class_id = page.item_id
                  AND meeting.deleted_at IS NULL
                  AND meeting."date" IS NOT NULL
@@ -170,19 +171,17 @@ export class PortalService {
   }
 
   private toItem(row: PortalItemRow): PortalItemResponseDto {
-    const isVideoClass = row.item_type === 'kelas-video';
+    const isVideoClass = row.item_type === 'kelas';
 
     return {
       id: row.item_id,
       type: row.item_type,
       title: row.title,
-      image: row.image,
       image_url: assetUrl(row.image),
       acquired_at: row.acquired_at,
       merchant_id: row.merchant_id,
       merchant_name: row.merchant_name,
       merchant_slug: row.merchant_slug,
-      merchant_avatar_object_key: row.merchant_avatar_object_key,
       merchant_avatar_url: assetUrl(row.merchant_avatar_object_key),
       progress: isVideoClass ? parseProgress(row.raw_progress) : null,
       module_count: row.module_count === null ? null : Number(row.module_count),

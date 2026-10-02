@@ -13,7 +13,11 @@ import {
   PeriodMetricDto,
   SaleResponseDto,
 } from './dto/merchant-dashboard-response.dto';
-import { MERCHANT_SALES_SQL } from './merchant-sales-sql';
+import {
+  MERCHANT_PAID_SALES_SQL,
+  MERCHANT_PENDING_SALES_SQL,
+  MERCHANT_SALES_SQL,
+} from './merchant-sales-sql';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 const EXPORT_LIMIT = 5000;
@@ -80,7 +84,7 @@ export class MerchantDashboardService {
              count(*) FILTER (WHERE created_at < ${NOW_UTC} - make_interval(days => $2))::integer AS previous_transactions,
              count(DISTINCT user_id) FILTER (WHERE created_at >= ${NOW_UTC} - make_interval(days => $2))::integer AS students,
              count(DISTINCT user_id) FILTER (WHERE created_at < ${NOW_UTC} - make_interval(days => $2))::integer AS previous_students
-           FROM (${MERCHANT_SALES_SQL}) sale
+           FROM (${MERCHANT_PAID_SALES_SQL}) sale
            WHERE sale.status = 'paid'
              AND sale.created_at >= ${NOW_UTC} - make_interval(days => $2 * 2)`,
         params,
@@ -95,7 +99,7 @@ export class MerchantDashboardService {
            ), daily AS (
              SELECT ${WIB_DATE('sale.created_at')} AS day,
                     count(*)::integer AS transactions, sum(sale.amount) AS revenue
-             FROM (${MERCHANT_SALES_SQL}) sale
+             FROM (${MERCHANT_PAID_SALES_SQL}) sale
              WHERE sale.status = 'paid'
                AND sale.created_at >= ${NOW_UTC} - make_interval(days => $2 + 1)
              GROUP BY 1
@@ -134,22 +138,30 @@ export class MerchantDashboardService {
         [merchant.id],
       ),
       this.dataSource.query(
+        // Each source keeps only its own newest ten before the merge, so a
+        // large store does not sort its whole history for ten rows.
         `SELECT * FROM (
-             SELECT 'enrollment' AS type, student.name AS actor_name, class.title AS item_title,
-                    NULL::integer AS rating, enrollment.created_at AS occurred_at
-             FROM enrollments enrollment
-             INNER JOIN classes class ON class.id = enrollment.class_id
-             INNER JOIN users student ON student.id = enrollment.user_id
-             WHERE class.merchant_id = $1 AND enrollment.deleted_at IS NULL
+             (SELECT 'enrollment' AS type, student.name AS actor_name, class.title AS item_title,
+                     NULL::integer AS rating, enrollment.created_at AS occurred_at
+              FROM enrollments enrollment
+              INNER JOIN classes class ON class.id = enrollment.class_id
+              INNER JOIN users student ON student.id = enrollment.user_id
+              WHERE class.merchant_id = $1 AND enrollment.deleted_at IS NULL
+              ORDER BY enrollment.created_at DESC
+              LIMIT 10)
              UNION ALL
-             SELECT 'review', reviewer.name, review.item_title, review.rating, review.created_at
-             FROM (${MERCHANT_REVIEWS_SQL}) review
-             INNER JOIN users reviewer ON reviewer.id = review.user_id
+             (SELECT 'review', reviewer.name, review.item_title, review.rating, review.created_at
+              FROM (${MERCHANT_REVIEWS_SQL}) review
+              INNER JOIN users reviewer ON reviewer.id = review.user_id
+              ORDER BY review.created_at DESC
+              LIMIT 10)
              UNION ALL
-             SELECT 'purchase', buyer.name, sale.item_title, NULL, sale.created_at
-             FROM (${MERCHANT_SALES_SQL}) sale
-             INNER JOIN users buyer ON buyer.id = sale.user_id
-             WHERE sale.status = 'paid' AND sale.type IN ('digital', 'bundle')
+             (SELECT 'purchase', buyer.name, sale.item_title, NULL, sale.created_at
+              FROM (${MERCHANT_PAID_SALES_SQL}) sale
+              INNER JOIN users buyer ON buyer.id = sale.user_id
+              WHERE sale.type IN ('digital', 'bundle')
+              ORDER BY sale.created_at DESC
+              LIMIT 10)
            ) activity
            ORDER BY activity.occurred_at DESC
            LIMIT 10`,
@@ -159,7 +171,7 @@ export class MerchantDashboardService {
         `SELECT sale.order_id, sale.item_title, sale.amount AS price, sale.created_at AS checkout_at,
                   buyer.name AS buyer_name, buyer.email AS buyer_email, profile.phone AS buyer_phone,
                   CASE WHEN sale.expires_at > now() THEN sale.payment_url END AS payment_link
-           FROM (${MERCHANT_SALES_SQL}) sale
+           FROM (${MERCHANT_PENDING_SALES_SQL}) sale
            INNER JOIN users buyer ON buyer.id = sale.user_id
            LEFT JOIN user_profiles profile ON profile.user_id = buyer.id AND profile.deleted_at IS NULL
            WHERE sale.status = 'pending'
@@ -185,11 +197,14 @@ export class MerchantDashboardService {
         review_count: rating.total,
         latest_review: latestReview
           ? {
-              ...latestReview,
+              reviewer_name: latestReview.reviewer_name,
               reviewer_avatar_url: assetUrl(
                 latestReview.reviewer_avatar_object_key,
               ),
               rating: Number(latestReview.rating),
+              comment: latestReview.comment,
+              item_title: latestReview.item_title,
+              created_at: latestReview.created_at,
             }
           : null,
         chart: chart.map((point) => ({
@@ -267,7 +282,7 @@ export class MerchantDashboardService {
     const customersSql = `
       WITH customer AS (
         SELECT sale.user_id, sum(sale.amount) AS total_spent, min(sale.created_at) AS joined_at
-        FROM (${MERCHANT_SALES_SQL}) sale
+        FROM (${MERCHANT_PAID_SALES_SQL}) sale
         WHERE sale.status = 'paid'
         GROUP BY sale.user_id
       )

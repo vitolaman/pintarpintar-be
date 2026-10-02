@@ -63,7 +63,7 @@ function errorExample(status: string, messages: string[]) {
   return {
     statusCode: Number(status),
     error,
-    responseMessage: messages.length ? messages : [error],
+    responseMessage: messages[0] ?? error,
   };
 }
 

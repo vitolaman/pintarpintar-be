@@ -159,7 +159,7 @@ describe('ClassService access control', () => {
         id: 'enrollment-id',
         user_id: 'student-id',
         class_id: classId,
-        joinDate: '2026-09-01',
+        join_date: '2026-09-01',
         progress: '40',
         created_at: new Date('2026-09-01T00:00:00.000Z'),
         student_id: 'student-id',
@@ -210,7 +210,7 @@ describe('ClassService access control', () => {
     query.mockResolvedValue([{ '?column?': 1 }]);
     const input = {
       title: 'Kelas Baru',
-      originalPrice: 100000,
+      original_price: 100000,
       id: 'existing-class-of-another-merchant',
       merchant_id: 'someone-else',
     };
@@ -242,12 +242,68 @@ describe('ClassService access control', () => {
     await expect(
       service.createClass(userId, merchantId, {
         title: 'X',
-        originalPrice: 100000,
-        discountedPrice: 120000,
+        original_price: 100000,
+        discount_price: 120000,
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toThrow('discount_price must not exceed original_price');
     expect(manager.save).not.toHaveBeenCalled();
   });
+
+  it('stores the class kind and prices and answers in API names', async () => {
+    query.mockResolvedValue([{ '?column?': 1 }]);
+
+    const response = await service.createClass(userId, merchantId, {
+      title: 'Bootcamp',
+      type: 'bootcamp',
+      original_price: 300000,
+      discount_price: 250000,
+    });
+
+    expect(manager.create).toHaveBeenCalledWith(
+      Class,
+      expect.objectContaining({
+        type: ClassType.LIVE_BOOTCAMP,
+        originalPrice: 300000,
+        discountedPrice: 250000,
+      }),
+    );
+    expect(response.data).toMatchObject({
+      type: 'bootcamp',
+      original_price: 300000,
+      discount_price: 250000,
+    });
+    expect(response.data).not.toHaveProperty('originalPrice');
+    expect(response.data).not.toHaveProperty('discountedPrice');
+  });
+
+  it.each([
+    ['kelas', ClassType.VIDEO],
+    ['bootcamp', ClassType.LIVE_BOOTCAMP],
+  ] as const)(
+    'filters the merchant class list by kind %s',
+    async (kind, stored) => {
+      query.mockResolvedValue([{ '?column?': 1 }]);
+      const builder: Record<string, jest.Mock> = {};
+      for (const method of [
+        'where',
+        'andWhere',
+        'orderBy',
+        'addOrderBy',
+        'skip',
+        'take',
+      ]) {
+        builder[method] = jest.fn(() => builder);
+      }
+      builder.getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+      classes.createQueryBuilder = jest.fn(() => builder);
+
+      await service.getClassesByMerchant(userId, merchantId, { type: kind });
+
+      expect(builder.andWhere).toHaveBeenCalledWith('class.type = :type', {
+        type: stored,
+      });
+    },
+  );
 
   it('lists students without any credential field', async () => {
     query.mockResolvedValue([{ is_owner: true }]);
@@ -259,7 +315,7 @@ describe('ClassService access control', () => {
         id: 'enrollment-id',
         user_id: 'student-id',
         class_id: classId,
-        joinDate: '2026-09-01',
+        join_date: '2026-09-01',
         progress: '40',
         created_at: new Date('2026-09-01T00:00:00.000Z'),
         user: {
@@ -270,6 +326,10 @@ describe('ClassService access control', () => {
       },
     ]);
     expect(JSON.stringify(response)).not.toMatch(/password/i);
+    const builder = enrollments.createQueryBuilder.mock.results[0].value;
+    expect(builder.select).toHaveBeenCalledWith(
+      expect.arrayContaining(['enrollment."joinDate" AS join_date']),
+    );
   });
 });
 
@@ -340,7 +400,7 @@ describe('ClassService.updateClass', () => {
 
     const response = await service.updateClass(userId, classId, {
       status: ClassStatus.PUBLISHED,
-      discountedPrice: 199000,
+      discount_price: 199000,
     });
 
     expect(manager.findOne).toHaveBeenCalledWith(Class, {
@@ -348,15 +408,15 @@ describe('ClassService.updateClass', () => {
       lock: { mode: 'pessimistic_write' },
     });
     expect(response).toMatchObject({
-      data: { status: 'published', discountedPrice: 199000, title: 'Lama' },
+      data: { status: 'published', discount_price: 199000, title: 'Lama' },
       responseMessage: 'Update class success',
     });
   });
 
   it.each([
-    [{ discountedPrice: 350000 }],
-    [{ originalPrice: 200000 }],
-    [{ originalPrice: 100000, discountedPrice: 150000 }],
+    [{ discount_price: 350000 }],
+    [{ original_price: 200000 }],
+    [{ original_price: 100000, discount_price: 150000 }],
   ])('rejects a discount above the list price (%j)', async (input) => {
     accessAs({ is_owner: true });
 
@@ -374,7 +434,7 @@ describe('ClassService.updateClass', () => {
       description: null,
       category: null,
       duration: null,
-      discountedPrice: null,
+      discount_price: null,
     });
 
     expect(manager.save).toHaveBeenCalledWith(
@@ -408,8 +468,8 @@ describe('ClassService.updateClass', () => {
 
     manager.save.mockClear();
     await expect(
-      service.updateClass(userId, classId, { originalPrice: 1 }),
-    ).rejects.toThrow('Only the class owner can change: originalPrice');
+      service.updateClass(userId, classId, { original_price: 1 }),
+    ).rejects.toThrow('Only the class owner can change: original_price');
     expect(manager.save).not.toHaveBeenCalled();
   });
 
@@ -468,7 +528,7 @@ describe('ClassService.updateClass', () => {
     manager.count = jest.fn().mockResolvedValue(2);
 
     await expect(
-      service.updateClass(userId, classId, { type: ClassType.VIDEO }),
+      service.updateClass(userId, classId, { type: 'kelas' }),
     ).rejects.toThrow(
       'A live bootcamp that has meetings cannot become a video class',
     );
@@ -484,8 +544,11 @@ describe('ClassService.updateClass', () => {
     manager.count = jest.fn().mockResolvedValue(0);
 
     await expect(
-      service.updateClass(userId, classId, { type: ClassType.VIDEO }),
-    ).resolves.toMatchObject({ data: { type: ClassType.VIDEO } });
+      service.updateClass(userId, classId, { type: 'kelas' }),
+    ).resolves.toMatchObject({ data: { type: 'kelas' } });
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({ type: ClassType.VIDEO }),
+    );
   });
 
   it('rejects a cover the caller did not register', async () => {
@@ -676,7 +739,10 @@ describe('ClassService meetings', () => {
 
   it('creates a bootcamp meeting with a duration and an assigned tutor', async () => {
     await expect(
-      service.createMeeting(userId, classId, input),
+      service.createMeeting(userId, classId, {
+        ...input,
+        live_url: 'https://zoom.us/j/1',
+      }),
     ).resolves.toEqual({
       data: response,
       responseMessage: 'Create meeting success',
@@ -685,11 +751,17 @@ describe('ClassService meetings', () => {
       Meeting,
       expect.objectContaining({
         class_id: classId,
+        liveUrl: 'https://zoom.us/j/1',
         duration_minutes: 90,
         mentor_id: mentorId,
         created_by: userId,
       }),
     );
+    const responseSql = query.mock.calls
+      .map(([sql]) => sql as string)
+      .find((sql) => sql.includes('json_build_object'));
+    expect(responseSql).toContain('AS live_url');
+    expect(responseSql).not.toContain('AS "liveUrl"');
   });
 
   it('rejects a meeting for a video class', async () => {
@@ -713,7 +785,7 @@ describe('ClassService meetings', () => {
   it('clears the content, link, duration and mentor with null', async () => {
     await service.updateMeeting(userId, classId, meetingId, {
       content: null,
-      liveUrl: null,
+      live_url: null,
       duration_minutes: null,
       mentor_id: null,
     });

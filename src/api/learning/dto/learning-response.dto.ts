@@ -7,6 +7,7 @@ import {
   MeetingMentorDto,
 } from '../../../class/dto/class-response.dto';
 import { AttendanceStatus } from '../../../class/entities/attendance.entity';
+import { ClassKind, classKinds } from '../../../common/catalog/item-kind';
 
 export class NextVideoDto {
   @ApiProperty() id: string;
@@ -48,7 +49,12 @@ export class LearningVideoDto {
   @ApiProperty() title: string;
   @ApiPropertyOptional({ nullable: true }) description: string | null;
   @ApiPropertyOptional({ nullable: true }) duration: string | null;
-  @ApiProperty() youtube_url: string;
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Null for a file video',
+  })
+  youtube_url: string | null;
   @ApiPropertyOptional({
     nullable: true,
     description: 'Set for YouTube links; null for other embeds',
@@ -70,8 +76,12 @@ export class LearningResourceDto {
   @ApiProperty() chapter_id: string;
   @ApiProperty() name: string;
   @ApiProperty({ example: 'pdf' }) type: string;
-  @ApiPropertyOptional({ nullable: true, description: 'Bytes' })
-  size: string | null;
+  @ApiPropertyOptional({
+    type: 'integer',
+    nullable: true,
+    description: 'Bytes; null when unknown',
+  })
+  size: number | null;
   @ApiPropertyOptional({ nullable: true }) description: string | null;
   @ApiPropertyOptional({
     nullable: true,
@@ -132,7 +142,7 @@ export class LearningMeetingDto {
 export class LearningClassResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() title: string;
-  @ApiProperty({ enum: ['video', 'live-bootcamp'] }) type: string;
+  @ApiProperty({ enum: classKinds }) type: ClassKind;
   @ApiProperty() status: string;
   @ApiPropertyOptional({ nullable: true }) description: string | null;
   @ApiPropertyOptional({

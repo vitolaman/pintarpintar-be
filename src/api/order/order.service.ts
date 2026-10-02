@@ -10,6 +10,7 @@ import {
 import { Order, OrderStatus } from './entities/order.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 import { assetUrl } from '~/common/storage/asset-url';
+import { classKindSql } from '~/common/catalog/item-kind';
 
 // An unpaid order past its expiry reads as expired even before the sweep
 // records it.
@@ -79,8 +80,7 @@ export class OrderService {
                 COALESCE(class_cover.object_key, product_cover.object_key, bundle_cover.object_key) AS image,
                 merchant.id AS merchant_id, merchant.store_name AS merchant_name,
                 CASE
-                  WHEN item.class_id IS NOT NULL AND class.type = 'live-bootcamp' THEN 'bootcamp'
-                  WHEN item.class_id IS NOT NULL THEN 'kelas'
+                  WHEN item.class_id IS NOT NULL THEN ${classKindSql('class.type')}
                   WHEN item.product_id IS NOT NULL THEN 'digital'
                   ELSE 'bundle'
                 END AS type
@@ -120,7 +120,6 @@ export class OrderService {
         type: item.type,
         item_id: item.item_id,
         title: item.title,
-        image: item.image,
         image_url: assetUrl(item.image),
         merchant_id: item.merchant_id,
         merchant_name: item.merchant_name,
@@ -159,8 +158,7 @@ export class OrderService {
               COALESCE(class_cover.object_key, product_cover.object_key, bundle_cover.object_key) AS image,
               merchant.store_name AS merchant_name,
               CASE
-                WHEN item.class_id IS NOT NULL AND class.type = 'live-bootcamp' THEN 'bootcamp'
-                WHEN item.class_id IS NOT NULL THEN 'kelas'
+                WHEN item.class_id IS NOT NULL THEN ${classKindSql('class.type')}
                 WHEN item.product_id IS NOT NULL THEN 'digital'
                 ELSE 'bundle'
               END AS type

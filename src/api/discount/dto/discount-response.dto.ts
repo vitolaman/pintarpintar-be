@@ -1,21 +1,30 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { discountCodeTypes } from '../entities/discount-code.entity';
 import { discountTypes } from '../entities/discount.entity';
-import { discountTargetTypes } from './discount-request.dto';
+import {
+  ContentItemType,
+  contentItemTypes,
+} from '~/common/catalog/catalog-item';
 
 export const discountStatuses = [
   'inactive',
   'scheduled',
-  'expired',
   'active',
+  'expired',
+  'limit_reached',
 ] as const;
+
+export type DiscountStatus = (typeof discountStatuses)[number];
 
 export class DiscountTargetResponseDto {
   @ApiProperty()
   id: string;
 
-  @ApiProperty({ enum: discountTargetTypes })
-  type: string;
+  @ApiProperty({
+    enum: contentItemTypes,
+    description: 'kelas or bootcamp for a class, digital for a digital product',
+  })
+  type: ContentItemType;
 
   @ApiProperty({ example: 'Belajar AutoCAD dari Nol' })
   title: string;
@@ -80,8 +89,12 @@ export class DiscountResponseDto {
   @ApiProperty()
   is_active: boolean;
 
-  @ApiProperty({ enum: discountStatuses })
-  status: string;
+  @ApiProperty({
+    enum: discountStatuses,
+    description:
+      'inactive: switched off; scheduled: starts later; expired: ended; limit_reached: every code is used up (used_count >= usage_limit); active: usable',
+  })
+  status: DiscountStatus;
 
   @ApiProperty({
     description: 'True when the discount has no explicit targets',

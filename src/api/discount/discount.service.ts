@@ -15,19 +15,23 @@ import {
   DiscountCodeInputDto,
   DiscountListQueryDto,
   DiscountTargetInputDto,
-  DiscountTargetType,
   RemoveDiscountCodesDto,
   UpdateDiscountDto,
 } from './dto/discount-request.dto';
 import {
   DiscountEligibleItemResponseDto,
   DiscountResponseDto,
+  DiscountStatus,
 } from './dto/discount-response.dto';
 import { DiscountCode } from './entities/discount-code.entity';
 import { DiscountProduct } from './entities/discount-product.entity';
 import { Discount } from './entities/discount.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
-import { assertItemFamily } from '~/common/catalog/catalog-item';
+import {
+  assertItemFamily,
+  ContentItemType,
+} from '~/common/catalog/catalog-item';
+import { classKindSql } from '~/common/catalog/item-kind';
 import { assetUrl } from '~/common/storage/asset-url';
 
 // Uppercase letters and digits without look-alikes (0/O, 1/I/L).
@@ -40,7 +44,7 @@ const MAX_CODE_ATTEMPTS = 5;
 
 // The merchant's own classes and digital products that a discount can target.
 const CATALOG_SQL = `
-  SELECT class.id, 'kelas' AS type, class.title
+  SELECT class.id, ${classKindSql('class.type')} AS type, class.title
   FROM classes class
   WHERE class.merchant_id = $1 AND class.deleted_at IS NULL
   UNION ALL
@@ -54,9 +58,10 @@ const CATALOG_SQL = `
 const CLASS_PRICE_SQL = `(CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric`;
 const PRODUCT_PRICE_SQL = `(CASE WHEN product.discount_price > 0 THEN product.discount_price ELSE COALESCE(product.original_price, 0) END)::numeric`;
 
+// Digital products first, then classes, each by title.
 const ELIGIBLE_ITEMS_SQL = `
   SELECT * FROM (
-    SELECT class.id, 'kelas' AS type, class.title,
+    SELECT class.id, ${classKindSql('class.type')} AS type, class.title,
            ${CLASS_PRICE_SQL} AS price, class_cover.object_key AS image,
            class.status IN ('published', 'archived') AS is_available
     FROM classes class
@@ -71,12 +76,12 @@ const ELIGIBLE_ITEMS_SQL = `
       ON cover.id = product.cover_asset_id AND cover.deleted_at IS NULL
     WHERE product.merchant_id = $1 AND product.deleted_at IS NULL
   ) catalog
-  ORDER BY catalog.type, catalog.title, catalog.id
+  ORDER BY catalog.type <> 'digital', catalog.title, catalog.id
 `;
 
 interface CatalogRow {
   id: string;
-  type: DiscountTargetType;
+  type: ContentItemType;
   title: string;
 }
 
@@ -345,7 +350,7 @@ export class DiscountService {
       assertItemFamily(
         input.id,
         input.type,
-        row.type === 'kelas' ? 'class' : 'product',
+        row.type === 'digital' ? 'product' : 'class',
       );
       return row;
     });
@@ -362,7 +367,7 @@ export class DiscountService {
       targets.map((target) =>
         manager.create(DiscountProduct, {
           discountId,
-          classId: target.type === 'kelas' ? target.id : null,
+          classId: target.type === 'digital' ? null : target.id,
           productId: target.type === 'digital' ? target.id : null,
         }),
       ),
@@ -430,7 +435,7 @@ export class DiscountService {
       this.dataSource.query(
         `SELECT target.discount_id,
                 COALESCE(class.id, product.id) AS id,
-                CASE WHEN target.class_id IS NOT NULL THEN 'kelas' ELSE 'digital' END AS type,
+                CASE WHEN target.class_id IS NOT NULL THEN ${classKindSql('class.type')} ELSE 'digital' END AS type,
                 COALESCE(class.title, product.title) AS title
          FROM discount_products target
          LEFT JOIN classes class ON class.id = target.class_id
@@ -466,7 +471,7 @@ export class DiscountService {
         starts_at: discount.startsAt,
         ends_at: discount.endsAt,
         is_active: discount.isActive,
-        status: deriveStatus(discount, now),
+        status: deriveStatus(discount, discountCodes, now),
         applies_to_all: targets.length === 0,
         targets: targets.map(({ id, type, title }) => ({ id, type, title })),
         codes: discountCodes.map((code) => ({
@@ -494,13 +499,20 @@ export function generateDiscountCode(): string {
   return CODE_PREFIX + suffix;
 }
 
+// `codes` are the discount's live (not deleted) codes. A discount without
+// codes has no usage to exhaust, so it is not limit_reached.
 export function deriveStatus(
   discount: Pick<Discount, 'isActive' | 'startsAt' | 'endsAt'>,
+  codes: Pick<DiscountCode, 'usageLimit' | 'usedCount'>[],
   now: Date,
-): 'inactive' | 'scheduled' | 'expired' | 'active' {
+): DiscountStatus {
   if (!discount.isActive) return 'inactive';
   if (discount.startsAt && now < discount.startsAt) return 'scheduled';
   if (discount.endsAt && now >= discount.endsAt) return 'expired';
+  const usedUp =
+    codes.length > 0 &&
+    codes.every((code) => code.usedCount >= code.usageLimit);
+  if (usedUp) return 'limit_reached';
   return 'active';
 }
 

@@ -30,7 +30,7 @@ export class CreateMeetingDto {
 
   @ClearableText({ max: 2048, example: 'https://zoom.us/j/123456789' })
   @IsUrl(HTTPS_URL)
-  liveUrl?: string | null;
+  live_url?: string | null;
 
   @NumberInput({
     presence: 'nullable',

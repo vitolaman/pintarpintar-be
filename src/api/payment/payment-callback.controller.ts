@@ -9,11 +9,14 @@ import {
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBody,
   ApiConsumes,
   ApiOkResponse,
   ApiServiceUnavailableResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { Public } from '~/common/decorator/public.decorator';
 import { DuitkuCallbackDto } from './dto/duitku-callback.dto';
 import { DuitkuClient } from './duitku/duitku.client';
@@ -37,14 +40,25 @@ export class PaymentCallbackController {
   @Post('duitku/callback')
   @HttpCode(HttpStatus.OK)
   @ApiConsumes('application/x-www-form-urlencoded')
-  @ApiOkResponse({ description: 'Notification processed' })
+  @ApiOkResponse({
+    description: 'Notification processed',
+    schema: {
+      type: 'object',
+      properties: {
+        responseMessage: { type: 'string', example: 'Callback processed' },
+      },
+      required: ['responseMessage'],
+    },
+  })
   @ApiBadRequestResponse({
     description: 'Invalid signature, unknown order, or amount mismatch',
   })
   @ApiServiceUnavailableResponse({
     description: 'Payment gateway is not configured',
   })
-  async handleDuitkuCallback(@Body() callback: DuitkuCallbackDto) {
+  @ApiBody({ type: DuitkuCallbackDto })
+  async handleDuitkuCallback(@Body() body: Record<string, unknown>) {
+    const callback = await parseDuitkuCallback(body);
     const { merchantCode, apiKey } = this.duitku.requireConfig();
     if (
       callback.merchantCode !== merchantCode ||
@@ -70,4 +84,21 @@ export class PaymentCallbackController {
     }
     return { responseMessage: 'Callback processed' };
   }
+}
+
+// Duitku is an external contract: its notification carries fields this API
+// does not use (productDetail, merchantUserId, spUserHash, ...), so the body is
+// typed without the global unknown-field rejection, which would answer every
+// real notification with 400. The fields that are used are still validated.
+async function parseDuitkuCallback(
+  body: Record<string, unknown>,
+): Promise<DuitkuCallbackDto> {
+  const callback = plainToInstance(DuitkuCallbackDto, body ?? {});
+  const errors = await validate(callback, { whitelist: true });
+  if (errors.length > 0) {
+    throw new BadRequestException(
+      errors.flatMap((error) => Object.values(error.constraints ?? {})),
+    );
+  }
+  return callback;
 }

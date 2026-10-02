@@ -12,6 +12,8 @@ import {
   MEETING_MENTOR_SQL,
   MEETING_STATUS_SQL,
 } from '../../class/meeting-sql';
+import { resourceSizeBytes } from '../../class/resource-size';
+import { classKindOf } from '../../common/catalog/item-kind';
 import { assetUrl } from '../../common/storage/asset-url';
 import {
   ObjectStorage,
@@ -174,7 +176,7 @@ export class LearningClassService {
     const data: LearningClassResponseDto = {
       id: header.id,
       title: header.title,
-      type: header.type,
+      type: classKindOf(header.type),
       status: header.status,
       description: header.description,
       post_purchase_instructions: header.post_purchase_instructions,
@@ -229,7 +231,7 @@ export class LearningClassService {
       chapter_id: row.chapter_id,
       name: row.name,
       type: row.type,
-      size: row.size,
+      size: resourceSizeBytes(row.size),
       description: row.description,
       url: row.object_key ? null : row.url,
       download_url: row.object_key

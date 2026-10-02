@@ -24,10 +24,8 @@ describe('HomeService', () => {
               id: 'merchant-id',
               name: 'Pintar CAD',
               slug: 'pintar-cad',
-              avatar_asset_id: null,
               avatar_object_key: null,
               best_product_title: 'AutoCAD dari Nol',
-              best_product_cover_asset_id: null,
               best_product_cover_object_key: null,
               best_product_rating: '4.9',
             },
@@ -42,7 +40,6 @@ describe('HomeService', () => {
               comment: 'Materinya jelas dan mudah diikuti.',
               created_at: new Date('2026-09-01T00:00:00.000Z'),
               user_name: 'Alya Pratama',
-              user_avatar_asset_id: null,
               user_avatar_object_key: null,
               class_id: 'class-id',
               class_title: 'Revit Architecture untuk Pemula',
@@ -114,9 +111,9 @@ describe('HomeService', () => {
 
     expect(products.query).toHaveBeenCalledTimes(3);
     expect(catalogService.findCards.mock.calls).toEqual([
-      [{ types: ['bootcamp'] }, 'terbaru', 10],
-      [{ types: ['kelas'] }, 'terbaru', 10],
-      [{ types: ['digital'] }, 'terbaru', 10],
+      [{ types: ['bootcamp'] }, { by: 'created_at', order: 'desc' }, 10],
+      [{ types: ['kelas'] }, { by: 'created_at', order: 'desc' }, 10],
+      [{ types: ['digital'] }, { by: 'created_at', order: 'desc' }, 10],
     ]);
     expect(products.query).toHaveBeenCalledWith(
       expect.stringContaining('FROM merchants merchant'),
@@ -132,7 +129,7 @@ describe('HomeService', () => {
     );
   });
 
-  it('adds image URLs next to the merchant and testimonial keys', async () => {
+  it('returns merchant and testimonial images as URLs only', async () => {
     process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
     try {
       const products = {
@@ -144,10 +141,8 @@ describe('HomeService', () => {
                     id: 'merchant-id',
                     name: 'Pintar CAD',
                     slug: null,
-                    avatar_asset_id: 'avatar-asset',
                     avatar_object_key: 'merchants/logo.png',
                     best_product_title: null,
-                    best_product_cover_asset_id: null,
                     best_product_cover_object_key: null,
                     best_product_rating: null,
                   },
@@ -155,10 +150,8 @@ describe('HomeService', () => {
                     id: 'merchant-2',
                     name: 'Sari Studio',
                     slug: null,
-                    avatar_asset_id: null,
                     avatar_object_key: null,
                     best_product_title: 'Template RAB',
-                    best_product_cover_asset_id: 'cover-asset',
                     best_product_cover_object_key: 'covers/rab.png',
                     best_product_rating: '4.5',
                   },
@@ -170,7 +163,6 @@ describe('HomeService', () => {
                     comment: 'Bagus',
                     created_at: new Date('2026-09-01T00:00:00.000Z'),
                     user_name: 'Alya',
-                    user_avatar_asset_id: 'user-avatar',
                     user_avatar_object_key: 'avatars/alya.png',
                     class_id: 'class-id',
                     class_title: 'Revit',
@@ -196,9 +188,24 @@ describe('HomeService', () => {
         ['https://cdn.example.com/merchants/logo.png', null],
         [null, 'https://cdn.example.com/covers/rab.png'],
       ]);
-      expect(testimonials.data[0]).toMatchObject({
-        user_avatar_object_key: 'avatars/alya.png',
+      expect(merchants.data[1]).toEqual({
+        id: 'merchant-2',
+        name: 'Sari Studio',
+        slug: null,
+        avatar_url: null,
+        best_product_title: 'Template RAB',
+        best_product_cover_url: 'https://cdn.example.com/covers/rab.png',
+        best_product_rating: 4.5,
+      });
+      expect(testimonials.data[0]).toEqual({
+        id: 'review-id',
+        rating: 5,
+        comment: 'Bagus',
+        created_at: new Date('2026-09-01T00:00:00.000Z'),
+        user_name: 'Alya',
         user_avatar_url: 'https://cdn.example.com/avatars/alya.png',
+        class_id: 'class-id',
+        class_title: 'Revit',
       });
     } finally {
       delete process.env.ASSET_PUBLIC_BASE_URL;

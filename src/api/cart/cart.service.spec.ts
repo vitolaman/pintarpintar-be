@@ -232,9 +232,9 @@ describe('CartService', () => {
       const { data } = await service.findCart('user-id');
 
       expect(data.items[0].item).toMatchObject({
-        image: 'uploads/cover.png',
         image_url: 'https://cdn.example.com/uploads/cover.png',
       });
+      expect(data.items[0].item).not.toHaveProperty('image');
     } finally {
       process.env.ASSET_PUBLIC_BASE_URL = baseUrl;
       if (baseUrl === undefined) delete process.env.ASSET_PUBLIC_BASE_URL;

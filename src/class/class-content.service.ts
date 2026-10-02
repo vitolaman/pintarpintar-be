@@ -34,6 +34,7 @@ import { Chapter } from './entities/chapter.entity';
 import { FileResource, ResourceType } from './entities/file-resource.entity';
 import { Video, VideoSource } from './entities/video.entity';
 import { paginationMeta } from '../common/dto/response-meta.dto';
+import { resourceSizeBytes } from './resource-size';
 
 type ChildEntity = typeof Video | typeof FileResource;
 
@@ -217,7 +218,7 @@ export class ClassContentService {
       if (dto.description !== undefined) video.description = dto.description;
       if (
         dto.source !== undefined ||
-        dto.youtubeUrl !== undefined ||
+        dto.youtube_url !== undefined ||
         dto.asset_id !== undefined
       ) {
         Object.assign(
@@ -597,7 +598,7 @@ export class ClassContentService {
           description: resource.description,
           url: resource.url,
           asset_id: resource.asset_id,
-          size: resource.size,
+          size: resourceSizeBytes(resource.size),
           download_url: asset
             ? await signedDownloadUrl(
                 this.storage,
@@ -621,7 +622,7 @@ function toVideoResponse(video: Video): VideoResponseDto {
     title: video.title,
     description: video.description,
     source: video.source,
-    youtubeUrl: video.youtubeUrl,
+    youtube_url: video.youtubeUrl,
     asset_id: video.asset_id,
     duration: video.duration,
     order: video.order,
@@ -632,12 +633,12 @@ function toVideoResponse(video: Video): VideoResponseDto {
 
 type VideoSourceInput = Pick<
   CreateVideoDto,
-  'source' | 'youtubeUrl' | 'asset_id'
+  'source' | 'youtube_url' | 'asset_id'
 >;
 
 /**
  * The video's source fields after a create or update: a link video has
- * youtubeUrl and no asset, a file video has an owned class_video upload
+ * a link and no asset, a file video has an owned class_video upload
  * (within the class merchant's per-file limit) and no URL. Fields not sent
  * keep the current video's values for the same source.
  */
@@ -660,10 +661,10 @@ function inferredVideoSource(
   current: Video | null,
 ): VideoSource {
   const sentFile = input.asset_id !== undefined;
-  const sentLink = input.youtubeUrl !== undefined;
+  const sentLink = input.youtube_url !== undefined;
   if (sentFile && sentLink) {
     throw new BadRequestException(
-      'Send either youtubeUrl or asset_id, not both',
+      'Send either youtube_url or asset_id, not both',
     );
   }
   if (sentFile) return 'file';
@@ -682,21 +683,21 @@ async function resolveVideoSource(
   if (source === 'link') {
     if (input.asset_id !== undefined) {
       throw new BadRequestException(
-        'A link video takes youtubeUrl, not asset_id',
+        'A link video takes youtube_url, not asset_id',
       );
     }
     const youtubeUrl =
-      input.youtubeUrl ??
+      input.youtube_url ??
       (current?.source === 'link' ? current.youtubeUrl : undefined);
     if (!youtubeUrl) {
-      throw new BadRequestException('A link video needs youtubeUrl');
+      throw new BadRequestException('A link video needs youtube_url');
     }
     return { source, youtubeUrl, asset_id: null };
   }
 
-  if (input.youtubeUrl !== undefined) {
+  if (input.youtube_url !== undefined) {
     throw new BadRequestException(
-      'A file video takes asset_id, not youtubeUrl',
+      'A file video takes asset_id, not youtube_url',
     );
   }
   const assetId =

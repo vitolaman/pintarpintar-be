@@ -1,13 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { EnumInput, QueryFilter } from '~/common/decorator/input.decorator';
-
-export const mentorClassTypes = ['bootcamp', 'kelas'] as const;
-export type MentorClassType = (typeof mentorClassTypes)[number];
+import { ClassKind, classKinds } from '~/common/catalog/item-kind';
 
 export class MentorClassesQueryDto {
-  @EnumInput(mentorClassTypes, { presence: 'filter' })
-  type?: MentorClassType;
+  @EnumInput(classKinds, { presence: 'filter' })
+  type?: ClassKind;
 
   @ApiPropertyOptional({
     description: 'Matches the class title or merchant name',
@@ -63,8 +61,8 @@ export class MentorUpcomingSessionDto {
   @ApiProperty()
   class_title: string;
 
-  @ApiProperty({ enum: mentorClassTypes })
-  class_type: MentorClassType;
+  @ApiProperty({ enum: classKinds, description: 'Kind of the class' })
+  type: ClassKind;
 
   @ApiProperty()
   student_count: number;
@@ -106,8 +104,8 @@ export class MentorClassProgressDto {
   @ApiProperty()
   title: string;
 
-  @ApiProperty({ enum: mentorClassTypes })
-  type: MentorClassType;
+  @ApiProperty({ enum: classKinds })
+  type: ClassKind;
 
   @ApiProperty()
   enrolled_count: number;
@@ -145,8 +143,8 @@ export class MentorClassResponseDto {
   @ApiProperty()
   title: string;
 
-  @ApiProperty({ enum: mentorClassTypes })
-  type: MentorClassType;
+  @ApiProperty({ enum: classKinds })
+  type: ClassKind;
 
   @ApiProperty({ example: 'published' })
   status: string;

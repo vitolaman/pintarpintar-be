@@ -19,6 +19,7 @@ import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import {
   MerchantLandingResponseDto,
+  PublicMerchantLandingDto,
   MerchantResponseDto,
   NotificationPreferencesResponseDto,
 } from './dto/merchant-response.dto';
@@ -396,9 +397,8 @@ export class MerchantService {
           profile.city, profile.public_email, profile.public_phone,
           profile.website_url, profile.instagram_handle, profile.youtube_url,
           profile.linkedin_url, profile.expertise,
-          profile.avatar_asset_id, avatar_asset.object_key AS avatar_object_key,
-          profile.cover_asset_id, cover_asset.object_key AS cover_object_key,
-          profile.landing_background_asset_id,
+          avatar_asset.object_key AS avatar_object_key,
+          cover_asset.object_key AS cover_object_key,
           landing_asset.object_key AS landing_background_object_key,
           profile.landing_layout,
           COALESCE((
@@ -614,6 +614,8 @@ export class MerchantService {
     if (!row) throw new NotFoundException('Merchant not found');
 
     const {
+      avatar_object_key,
+      cover_object_key,
       landing_background_asset_id,
       landing_background_object_key,
       landing_layout,
@@ -623,8 +625,8 @@ export class MerchantService {
       ...merchant,
       experience_years:
         row.experience_years === null ? null : Number(row.experience_years),
-      avatar_url: assetUrl(row.avatar_object_key),
-      cover_url: assetUrl(row.cover_object_key),
+      avatar_url: assetUrl(avatar_object_key),
+      cover_url: assetUrl(cover_object_key),
       skills: await this.findSkills(row.id),
       level: await this.merchantLevels.findSummary(row.id),
       landing: this.toLanding(
@@ -718,7 +720,17 @@ export class MerchantService {
   ): MerchantLandingResponseDto {
     return {
       background_asset_id: backgroundAssetId,
-      background_object_key: backgroundObjectKey,
+      background_url: assetUrl(backgroundObjectKey),
+      section_order: layout?.section_order ?? [...LANDING_SECTIONS],
+      item_order: layout?.item_order ?? {},
+    };
+  }
+
+  private toPublicLanding(
+    backgroundObjectKey: string | null,
+    layout: LandingLayout | null,
+  ): PublicMerchantLandingDto {
+    return {
       background_url: assetUrl(backgroundObjectKey),
       section_order: layout?.section_order ?? [...LANDING_SECTIONS],
       item_order: layout?.item_order ?? {},
@@ -796,7 +808,8 @@ export class MerchantService {
   ): PublicMerchantStorefrontResponseDto {
     const {
       owner_user_id,
-      landing_background_asset_id,
+      avatar_object_key,
+      cover_object_key,
       landing_background_object_key,
       landing_layout,
       ...storefront
@@ -804,11 +817,10 @@ export class MerchantService {
     return {
       ...storefront,
       category_slug: merchantCategorySlugForLabel(row.category_label),
-      avatar_url: assetUrl(row.avatar_object_key),
-      cover_url: assetUrl(row.cover_object_key),
+      avatar_url: assetUrl(avatar_object_key),
+      cover_url: assetUrl(cover_object_key),
       skills: row.skills ?? [],
-      landing: this.toLanding(
-        landing_background_asset_id,
+      landing: this.toPublicLanding(
         landing_background_object_key,
         layout ?? landing_layout,
       ),
@@ -845,6 +857,8 @@ interface MerchantRow
     'experience_years' | 'avatar_url' | 'cover_url' | 'skills' | 'landing'
   > {
   experience_years: string | null;
+  avatar_object_key: string | null;
+  cover_object_key: string | null;
   landing_background_asset_id: string | null;
   landing_background_object_key: string | null;
   landing_layout: LandingLayout | null;
@@ -865,7 +879,8 @@ interface StorefrontRow
     | 'review_count'
   > {
   owner_user_id: string;
-  landing_background_asset_id: string | null;
+  avatar_object_key: string | null;
+  cover_object_key: string | null;
   landing_background_object_key: string | null;
   landing_layout: LandingLayout | null;
   total_students: number | string;

@@ -145,7 +145,7 @@ describe('WishlistService', () => {
       page: 2,
       limit: 10,
       total: 11,
-      totalPage: 2,
+      total_page: 2,
     });
   });
 

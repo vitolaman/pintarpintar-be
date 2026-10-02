@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ClearableText, EnumInput } from '~/common/decorator/input.decorator';
 import { AttendanceStatus } from '../entities/attendance.entity';
+import { ClassKind, classKinds } from '../../common/catalog/item-kind';
 import {
   MEETING_DURATION_DESCRIPTION,
   MEETING_STATUS_DESCRIPTION,
@@ -11,9 +12,9 @@ export class CheckInDto {
   @ClearableText({
     max: 2000,
     description:
-      'Optional review of the session. Name and email come from the account; any sent are ignored.',
+      'Optional feedback on the session (Ulasan & Masukan). Name and email come from the account; any sent are ignored.',
   })
-  review?: string | null;
+  feedback?: string | null;
 }
 
 export class SetAttendanceStatusDto {
@@ -49,14 +50,14 @@ export class MyAttendanceDto {
   @ApiProperty({ enum: AttendanceStatus }) status: string;
   @ApiPropertyOptional({ nullable: true, description: 'HH:mm Asia/Jakarta' })
   check_in_time: string | null;
-  @ApiPropertyOptional({ nullable: true }) notes: string | null;
+  @ApiPropertyOptional({ nullable: true }) feedback: string | null;
   @ApiProperty() recorded_at: Date;
 }
 
 export class AttendanceClassDto {
   @ApiProperty() id: string;
   @ApiProperty() title: string;
-  @ApiProperty() type: string;
+  @ApiProperty({ enum: classKinds }) type: ClassKind;
   @ApiProperty() merchant_name: string;
 }
 
@@ -79,7 +80,7 @@ export class AttendanceLearnerDto {
   })
   status: string;
   @ApiPropertyOptional({ nullable: true }) check_in_time: string | null;
-  @ApiPropertyOptional({ nullable: true }) notes: string | null;
+  @ApiPropertyOptional({ nullable: true }) feedback: string | null;
 }
 
 export class AttendanceCountsDto {

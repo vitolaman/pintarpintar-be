@@ -11,11 +11,18 @@ export class ErrorResponseDto {
   error: string;
 
   @ApiProperty({
-    type: [String],
-    example: ['limit must be an integer number'],
-    description: 'Human-readable reasons; one entry per validation failure',
+    example: 'name should not be empty',
+    description:
+      'A human-readable message; the first reason of a validation failure',
   })
-  responseMessage: string[];
+  responseMessage: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['name should not be empty', 'email must be an email'],
+    description: 'Every reason of a validation failure',
+  })
+  errors?: string[];
 
   @ApiPropertyOptional({
     type: 'object',

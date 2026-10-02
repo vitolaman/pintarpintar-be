@@ -7,7 +7,7 @@ export interface PricingItem {
   type: CatalogItemType;
   id: string;
   title: string;
-  image: string | null;
+  imageUrl: string | null;
   merchantId: string;
   merchantName: string | null;
   // Current selling price in whole rupiah.

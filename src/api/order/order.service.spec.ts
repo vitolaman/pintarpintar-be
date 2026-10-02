@@ -1,5 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { classKindSql } from '~/common/catalog/item-kind';
 import { TransactionsQueryDto } from './dto/recent-transactions.dto';
 import { OrderStatus } from './entities/order.entity';
 import { OrderService } from './order.service';
@@ -72,7 +73,7 @@ describe('OrderService', () => {
       page: 2,
       limit: 10,
       total: 11,
-      totalPage: 2,
+      total_page: 2,
     });
     expect(response.data[0]).toMatchObject({
       order_number: 'ORD-20260930-0001',
@@ -166,9 +167,12 @@ describe('OrderService', () => {
       const detail = await service.findDetail('user-id', 'order-1');
 
       expect(detail.items[0]).toMatchObject({
-        image: 'uploads/cover.png',
         image_url: 'https://cdn.example.com/uploads/cover.png',
       });
+      expect(detail.items[0]).not.toHaveProperty('image');
+      expect(query.mock.calls[0][0]).toContain(
+        `WHEN item.class_id IS NOT NULL THEN ${classKindSql('class.type')}`,
+      );
     } finally {
       process.env.ASSET_PUBLIC_BASE_URL = baseUrl;
       if (baseUrl === undefined) delete process.env.ASSET_PUBLIC_BASE_URL;

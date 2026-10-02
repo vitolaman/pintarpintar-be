@@ -14,6 +14,7 @@ import {
   NumberInput,
   QueryFilter,
 } from '~/common/decorator/input.decorator';
+import { itemKinds } from '~/common/catalog/item-kind';
 
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -23,11 +24,7 @@ export type Granularity = (typeof GRANULARITIES)[number];
 export const SUMMARY_PERIODS = ['today', 'month', 'year'] as const;
 export type SummaryPeriod = (typeof SUMMARY_PERIODS)[number];
 
-export const VISIT_TARGETS = [
-  'storefront',
-  'class',
-  'digital_product',
-] as const;
+export const VISIT_TARGETS = ['storefront', ...itemKinds] as const;
 export type VisitTarget = (typeof VISIT_TARGETS)[number];
 
 export class StudentGrowthQueryDto {
@@ -90,7 +87,7 @@ export class TrackVisitDto {
 
   @ApiProperty({
     description:
-      'Merchant id or slug for the storefront; class or digital product id otherwise',
+      'Merchant id or slug for storefront; class id for kelas and bootcamp; digital product id for digital; bundle id for bundle',
   })
   @Transform(trimText)
   @IsString()

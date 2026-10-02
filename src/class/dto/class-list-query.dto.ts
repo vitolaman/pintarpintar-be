@@ -1,4 +1,5 @@
-import { ClassStatus, ClassType } from '../entities/class.entity';
+import { ClassStatus } from '../entities/class.entity';
+import { ClassKind, classKinds } from '../../common/catalog/item-kind';
 import { EnumInput } from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
@@ -12,6 +13,6 @@ export class ClassListQueryDto {
   @EnumInput(Object.values(ClassStatus), { presence: 'filter' })
   status?: ClassStatus;
 
-  @EnumInput(Object.values(ClassType), { presence: 'filter' })
-  type?: ClassType;
+  @EnumInput(classKinds, { presence: 'filter' })
+  type?: ClassKind;
 }

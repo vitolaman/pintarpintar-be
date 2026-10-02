@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { assetUrl } from '../../common/storage/asset-url';
 import { CatalogService } from '../catalog/catalog.service';
+import { catalogSort } from '../catalog/dto/catalog.dto';
 import { Product } from '../profile/entities/product.entity';
 import {
   HomeMerchantCardResponseDto,
@@ -28,7 +29,7 @@ export class HomeService {
   async getBootcamps(limit: number, viewerId?: string) {
     const cards = await this.catalogService.findCards(
       { types: ['bootcamp'] },
-      'terbaru',
+      catalogSort('created_at'),
       limit,
     );
     return {
@@ -40,7 +41,7 @@ export class HomeService {
   async getVideoClasses(limit: number, viewerId?: string) {
     const cards = await this.catalogService.findCards(
       { types: ['kelas'] },
-      'terbaru',
+      catalogSort('created_at'),
       limit,
     );
     return {
@@ -52,7 +53,7 @@ export class HomeService {
   async getDigitalProducts(limit: number, viewerId?: string) {
     const cards = await this.catalogService.findCards(
       { types: ['digital'] },
-      'terbaru',
+      catalogSort('created_at'),
       limit,
     );
     return {
@@ -120,10 +121,8 @@ export class HomeService {
           merchant.id,
           merchant.store_name AS name,
           merchant_profile.slug,
-          merchant_profile.avatar_asset_id,
           merchant_avatar.object_key AS avatar_object_key,
           latest_product.title AS best_product_title,
-          latest_product.cover_asset_id AS best_product_cover_asset_id,
           latest_product_cover.object_key AS best_product_cover_object_key,
           latest_product.rating AS best_product_rating
         FROM merchants merchant
@@ -164,12 +163,8 @@ export class HomeService {
       id: row.id,
       name: row.name,
       slug: row.slug,
-      avatar_asset_id: row.avatar_asset_id,
-      avatar_object_key: row.avatar_object_key,
       avatar_url: assetUrl(row.avatar_object_key),
       best_product_title: row.best_product_title,
-      best_product_cover_asset_id: row.best_product_cover_asset_id,
-      best_product_cover_object_key: row.best_product_cover_object_key,
       best_product_cover_url: assetUrl(row.best_product_cover_object_key),
       best_product_rating:
         row.best_product_rating === null
@@ -190,7 +185,6 @@ export class HomeService {
           review.comment,
           review.created_at,
           reviewer.name AS user_name,
-          reviewer_profile.avatar_asset_id AS user_avatar_asset_id,
           reviewer_avatar.object_key AS user_avatar_object_key,
           class.id AS class_id,
           class.title AS class_title
@@ -221,8 +215,6 @@ export class HomeService {
       comment: row.comment,
       created_at: row.created_at,
       user_name: row.user_name,
-      user_avatar_asset_id: row.user_avatar_asset_id,
-      user_avatar_object_key: row.user_avatar_object_key,
       user_avatar_url: assetUrl(row.user_avatar_object_key),
       class_id: row.class_id,
       class_title: row.class_title,
@@ -241,10 +233,8 @@ interface MerchantCardRow {
   id: string;
   name: string;
   slug: string | null;
-  avatar_asset_id: string | null;
   avatar_object_key: string | null;
   best_product_title: string | null;
-  best_product_cover_asset_id: string | null;
   best_product_cover_object_key: string | null;
   best_product_rating: string | null;
 }
@@ -255,7 +245,6 @@ interface TestimonialRow {
   comment: string;
   created_at: Date;
   user_name: string;
-  user_avatar_asset_id: string | null;
   user_avatar_object_key: string | null;
   class_id: string;
   class_title: string;

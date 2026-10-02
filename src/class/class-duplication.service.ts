@@ -110,6 +110,8 @@ export class ClassDuplicationService {
           title: video.title,
           description: video.description,
           youtubeUrl: video.youtubeUrl,
+          source: video.source,
+          asset_id: video.asset_id,
           duration: video.duration,
           order: video.order,
           created_at: video.created_at,

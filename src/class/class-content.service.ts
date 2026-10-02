@@ -24,6 +24,7 @@ import { ReorderChapterItemsDto } from './dto/reorder-chapter-items.dto';
 import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
 import { UpdateChapterDto } from './dto/update-chapter.dto';
 import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
+import { ReorderChaptersDto } from './dto/reorder-chapters.dto';
 import { Chapter } from './entities/chapter.entity';
 import { FileResource, ResourceType } from './entities/file-resource.entity';
 import { Video } from './entities/video.entity';
@@ -150,13 +151,20 @@ export class ClassContentService {
         manager,
       );
       await this.lockChapter(manager, classId, chapterId);
+      const source = await resolveVideoSource(
+        manager,
+        userId,
+        classId,
+        null,
+        dto,
+      );
       const video = await manager.save(
         Video,
         manager.create(Video, {
           chapter_id: chapterId,
           title: dto.title,
           description: dto.description,
-          youtubeUrl: dto.youtubeUrl,
+          ...source,
           duration: dto.duration,
           order: await this.nextPosition(manager, Video, {
             chapter_id: chapterId,
@@ -196,7 +204,16 @@ export class ClassContentService {
       );
       if (dto.title !== undefined) video.title = dto.title;
       if (dto.description !== undefined) video.description = dto.description;
-      if (dto.youtubeUrl !== undefined) video.youtubeUrl = dto.youtubeUrl;
+      if (
+        dto.source !== undefined ||
+        dto.youtubeUrl !== undefined ||
+        dto.asset_id !== undefined
+      ) {
+        Object.assign(
+          video,
+          await resolveVideoSource(manager, userId, classId, video, dto),
+        );
+      }
       if (dto.duration !== undefined) video.duration = dto.duration;
       video.updated_by = userId;
       const saved = await manager.save(video);
@@ -319,6 +336,52 @@ export class ClassContentService {
       FileResource,
       resourceId,
     );
+  }
+
+  async reorderChapters(
+    userId: string,
+    classId: string,
+    dto: ReorderChaptersDto,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      await this.classAccess.requireAction(
+        userId,
+        classId,
+        'materi',
+        'edit',
+        manager,
+      );
+      await manager.query('SELECT id FROM classes WHERE id = $1 FOR UPDATE', [
+        classId,
+      ]);
+      const chapters = await manager.find(Chapter, {
+        where: { class_id: classId },
+      });
+      const byId = new Map(chapters.map((chapter) => [chapter.id, chapter]));
+      const complete =
+        dto.chapter_ids.length === byId.size &&
+        dto.chapter_ids.every((id) => byId.has(id));
+      if (!complete) {
+        throw new BadRequestException(
+          'chapter_ids must list every chapter of the class exactly once',
+        );
+      }
+
+      const ordered = dto.chapter_ids.map((id) => byId.get(id));
+      for (const [position, chapter] of ordered.entries()) {
+        chapter.order = position;
+        chapter.updated_by = userId;
+        await manager.update(
+          Chapter,
+          { id: chapter.id },
+          { order: position, updated_by: userId },
+        );
+      }
+      return {
+        data: await this.toChapterResponses(manager, ordered),
+        responseMessage: 'Reorder chapters success',
+      };
+    });
   }
 
   async reorderChapterItems(
@@ -536,10 +599,62 @@ function toVideoResponse(video: Video): VideoResponseDto {
     chapter_id: video.chapter_id,
     title: video.title,
     description: video.description,
+    source: video.source,
     youtubeUrl: video.youtubeUrl,
+    asset_id: video.asset_id,
     duration: video.duration,
     order: video.order,
     created_at: video.created_at,
     updated_at: video.updated_at,
   };
+}
+
+type VideoSourceInput = Pick<
+  CreateVideoDto,
+  'source' | 'youtubeUrl' | 'asset_id'
+>;
+
+/**
+ * The video's source fields after a create or update: a link video has
+ * youtubeUrl and no asset, a file video has an owned class_video upload
+ * (within the class merchant's per-file limit) and no URL. Fields not sent
+ * keep the current video's values for the same source.
+ */
+async function resolveVideoSource(
+  manager: EntityManager,
+  userId: string,
+  classId: string,
+  current: Video | null,
+  input: VideoSourceInput,
+): Promise<Pick<Video, 'source' | 'youtubeUrl' | 'asset_id'>> {
+  const source = input.source ?? current?.source ?? 'link';
+  if (source === 'link') {
+    if (input.asset_id !== undefined) {
+      throw new BadRequestException(
+        'A link video takes youtubeUrl, not asset_id',
+      );
+    }
+    const youtubeUrl =
+      input.youtubeUrl ??
+      (current?.source === 'link' ? current.youtubeUrl : undefined);
+    if (!youtubeUrl) {
+      throw new BadRequestException('A link video needs youtubeUrl');
+    }
+    return { source, youtubeUrl, asset_id: null };
+  }
+
+  if (input.youtubeUrl !== undefined) {
+    throw new BadRequestException(
+      'A file video takes asset_id, not youtubeUrl',
+    );
+  }
+  const assetId =
+    input.asset_id ?? (current?.source === 'file' ? current.asset_id : null);
+  if (!assetId) throw new BadRequestException('A file video needs asset_id');
+  if (input.asset_id !== undefined) {
+    await assertOwnedAsset(manager, userId, assetId, 'class_video', {
+      classId,
+    });
+  }
+  return { source, youtubeUrl: null, asset_id: assetId };
 }

@@ -53,6 +53,12 @@ export class LearningVideoDto {
     description: 'Set for YouTube links; null for other embeds',
   })
   youtube_id: string | null;
+  @ApiProperty({ enum: ['link', 'file'] }) source: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'File videos only: a signed link that expires',
+  })
+  video_url: string | null;
   @ApiProperty() order: number;
   @ApiProperty() is_completed: boolean;
   @ApiProperty() created_at: Date;
@@ -122,6 +128,11 @@ export class LearningClassResponseDto {
   @ApiProperty({ enum: ['video', 'live-bootcamp'] }) type: string;
   @ApiProperty() status: string;
   @ApiPropertyOptional({ nullable: true }) description: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Instruksi Email: what the learner does after buying',
+  })
+  post_purchase_instructions: string | null;
   @ApiPropertyOptional({ nullable: true }) cover_url: string | null;
   @ApiProperty({ type: LearningMerchantDto }) merchant: LearningMerchantDto;
   @ApiProperty() students_count: number;

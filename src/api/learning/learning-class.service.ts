@@ -68,6 +68,7 @@ export class LearningClassService {
     ] = await Promise.all([
       manager.query(
         `SELECT class.id, class.title, class.type, class.status, class.description,
+                  class.post_purchase_instructions,
                   cover.object_key AS cover_object_key,
                   merchant.id AS merchant_id, merchant.store_name AS merchant_name,
                   profile.slug AS merchant_slug,
@@ -101,12 +102,15 @@ export class LearningClassService {
       ),
       manager.query(
         `SELECT video.id, video.chapter_id, video.title, video.description, video.duration,
-                  video."youtubeUrl" AS youtube_url, video."order", video.created_at,
+                  video.source, video."youtubeUrl" AS youtube_url, video."order", video.created_at,
+                  video_file.object_key AS file_object_key, video_file.original_filename AS file_name,
                   EXISTS (SELECT 1 FROM video_completions completion
                           WHERE completion.video_id = video.id AND completion.user_id = $2
                             AND completion.deleted_at IS NULL) AS is_completed
            FROM videos video
            INNER JOIN chapters chapter ON chapter.id = video.chapter_id AND chapter.deleted_at IS NULL
+           LEFT JOIN file_assets video_file
+             ON video_file.id = video.asset_id AND video_file.deleted_at IS NULL
            WHERE chapter.class_id = $1 AND video.deleted_at IS NULL
            ORDER BY video."order", video.created_at, video.id`,
         [classId, userId],
@@ -142,12 +146,30 @@ export class LearningClassService {
     const files = await Promise.all(
       resources.map((resource) => this.toResource(resource)),
     );
+    // File videos play through a short-lived signed link, like resources.
+    const videoUrls = new Map<string, string>(
+      await Promise.all(
+        videos
+          .filter((video) => video.source === 'file' && video.file_object_key)
+          .map(
+            async (video): Promise<[string, string]> => [
+              video.id,
+              await signedDownloadUrl(
+                this.storage,
+                video.file_object_key,
+                video.file_name ?? video.title,
+              ),
+            ],
+          ),
+      ),
+    );
     const data: LearningClassResponseDto = {
       id: header.id,
       title: header.title,
       type: header.type,
       status: header.status,
       description: header.description,
+      post_purchase_instructions: header.post_purchase_instructions,
       cover_url: assetUrl(header.cover_object_key),
       merchant: {
         id: header.merchant_id,
@@ -172,8 +194,10 @@ export class LearningClassService {
             title: video.title,
             description: video.description,
             duration: video.duration,
+            source: video.source,
             youtube_url: video.youtube_url,
             youtube_id: youtubeVideoId(video.youtube_url),
+            video_url: videoUrls.get(video.id) ?? null,
             order: video.order,
             is_completed: video.is_completed,
             created_at: video.created_at,

@@ -220,8 +220,9 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `POST /api/v1/classes/:classId/chapters`
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId` — also removes its videos and resources
+- `PUT /api/v1/classes/:classId/chapters/order` — the complete `chapter_ids` list in the new bab order; new babs go last
 - `PUT /api/v1/classes/:classId/chapters/:chapterId/order` — complete `video_ids` and `resource_ids` lists
-- `POST /api/v1/classes/:classId/chapters/:chapterId/videos` — https YouTube or embed link
+- `POST /api/v1/classes/:classId/chapters/:chapterId/videos` — `source` `link` (default; https `youtubeUrl`) or `file` (`asset_id` of an uploaded MP4/MOV/WebM, within the store level's per-file limit)
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId/videos/:videoId`
 - `POST /api/v1/classes/:classId/chapters/:chapterId/resources` — `pdf`, `archive`, `image`, `file` (an uploaded `class_resource`) or `link` (https)
@@ -258,7 +259,7 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 
 Every route requires an active enrollment or product access and answers 404 otherwise.
 
-- `GET /api/v1/learning/classes/:id` — chapters, videos (with YouTube id and completion), files as signed links, meetings with live links, FAQ, progress, next video, certificate
+- `GET /api/v1/learning/classes/:id` — `post_purchase_instructions`, chapters, videos (`source`; YouTube id, or a signed `video_url` for file videos; completion), files as signed links, meetings with live links, FAQ, progress, next video, certificate
 - `POST /api/v1/learning/videos/:videoId/complete` — idempotent; returns progress and the next video
 - `GET /api/v1/learning/classes/:classId/assignments` — without answer keys; own latest submission
 - `GET /api/v1/learning/assignments/:assignmentId/quiz`
@@ -275,7 +276,7 @@ Every route requires an active enrollment or product access and answers 404 othe
 
 - `POST /api/v1/upload/initiate`
 - `POST /api/v1/upload/presigned-urls`
-- `POST /api/v1/upload/complete` — also registers the file and returns its `asset_id`; send it in the form field the file is for. The field checks the file when the form is saved: covers, logos, banners, landing backgrounds and the user photo take PNG/JPG/WebP images (2 MB for logo and photo, otherwise 4 MB) and make the file public; class materials, assignment attachments and digital-product files (up to the store level's per-file limit: 1, 5 or 10 GB), submissions (PDF/DWG/ZIP, 20 MB), certificate files (PDF/PNG/JPG, 10 MB) and CVs (PDF/DOC/DOCX, 10 MB) make it private. A file used in a public field cannot go into a private one, or the reverse. Private files are only served through signed links that expire after 10 minutes
+- `POST /api/v1/upload/complete` — also registers the file and returns its `asset_id`; send it in the form field the file is for. The field checks the file when the form is saved: covers, logos, banners, landing backgrounds and the user photo take PNG/JPG/WebP images (2 MB for logo and photo, otherwise 4 MB) and make the file public; class materials, assignment attachments, class videos (MP4/MOV/WebM) and digital-product files (up to the store level's per-file limit: 1, 5 or 10 GB), submissions (PDF/DWG/ZIP, 20 MB), certificate files (PDF/PNG/JPG, 10 MB) and CVs (PDF/DOC/DOCX, 10 MB) make it private. A file used in a public field cannot go into a private one, or the reverse. Private files are only served through signed links that expire after 10 minutes
 
 ### Mentor
 

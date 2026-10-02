@@ -159,6 +159,11 @@ export const ASSET_PURPOSE_RULES = {
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
+  class_video: {
+    kinds: ['video'],
+    maxBytes: 'merchant_level',
+    visibility: 'private',
+  },
   digital_file: {
     kinds: DIGITAL_FILE_KINDS,
     maxBytes: 'merchant_level',

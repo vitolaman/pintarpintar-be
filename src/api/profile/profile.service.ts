@@ -9,6 +9,7 @@ import { DataSource, Repository } from 'typeorm';
 import { CertificateStatus } from '../../class/entities/certificate.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { FileAsset } from './entities/file-asset.entity';
+import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
 import { Product } from './entities/product.entity';
 import { Profile } from './entities/profile.entity';
 import { StudentProgress } from './entities/student-progress.entity';
@@ -96,11 +97,17 @@ export class ProfileService {
             throw new BadRequestException('Avatar asset is not available');
           }
 
-          if (asset.uploadedByUserId && asset.uploadedByUserId !== userId) {
+          if (asset.uploadedByUserId !== userId) {
             throw new BadRequestException(
               'Avatar asset does not belong to user',
             );
           }
+          await assertOwnedAsset(
+            manager,
+            userId,
+            input.avatar_asset_id,
+            'user_avatar',
+          );
         }
 
         profile.avatarAssetId = input.avatar_asset_id;

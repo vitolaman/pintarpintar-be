@@ -130,7 +130,6 @@ Deployment needs the six `PAYMENT_*` variables in `.env.example`. `PAYMENT_GATEW
 - `PATCH /api/v1/merchant/profile` — includes logo (`avatar_asset_id`), banner (`cover_asset_id`), sanitized rich-text description, skills, and landing background and layout
 - `GET /api/v1/merchant/notification-preferences`
 - `PATCH /api/v1/merchant/notification-preferences`
-- `POST /api/v1/file-assets` — registers an uploaded S3 object for a purpose: public images (`merchant_logo`, `merchant_banner`, `merchant_landing_background`, `user_avatar`, `class_cover`, `product_cover`) or private files (`class_resource`, `assignment_resource` up to 100 MB; `digital_file` up to 200 MB; `submission_file` PDF/DWG/ZIP up to 20 MB; `certificate_file` PDF/PNG/JPG up to 10 MB). Private files are only served through signed links that expire after 10 minutes
 
 ### Merchant dashboard
 
@@ -261,7 +260,7 @@ Every route requires an active enrollment or product access and answers 404 othe
 
 - `POST /api/v1/upload/initiate`
 - `POST /api/v1/upload/presigned-urls`
-- `POST /api/v1/upload/complete`
+- `POST /api/v1/upload/complete` — also registers the file and returns its `asset_id`; send it in the form field the file is for. The field checks the file when the form is saved: covers, logos, banners, landing backgrounds and the user photo take PNG/JPG/WebP images (2 MB for logo and photo, otherwise 4 MB) and make the file public; class materials and assignment attachments (100 MB), digital-product files (200 MB), submissions (PDF/DWG/ZIP, 20 MB), certificate files (PDF/PNG/JPG, 10 MB) and CVs (PDF/DOC/DOCX, 10 MB) make it private. A file used in a public field cannot go into a private one, or the reverse. Private files are only served through signed links that expire after 10 minutes
 
 ### Mentor
 
@@ -288,7 +287,7 @@ Merchants publish teaching vacancies; any logged-in user applies once per vacanc
 - `GET /api/v1/merchant/job-postings/:id`
 - `PATCH /api/v1/merchant/job-postings/:id` — `class_id: null` unlinks the class; closed vacancies cannot be edited
 - `POST /api/v1/merchant/job-postings/:id/close` — permanent; applications are kept
-- `POST /api/v1/job-postings/:jobId/apply` — name, email, WhatsApp, LinkedIn, `cv_asset_id` (an `application_cv` upload, PDF/DOC/DOCX up to 10 MB, or the applicant's mentor CV), optional note; 409 on a second application
+- `POST /api/v1/job-postings/:jobId/apply` — name, email, WhatsApp, LinkedIn, `cv_asset_id` (an uploaded PDF/DOC/DOCX up to 10 MB, or the applicant's mentor CV), optional note; 409 on a second application
 - `GET /api/v1/job-applications` — Progress Lamaran; counts per status
 - `GET /api/v1/merchant/job-applications` — filter by `job_id`, `status`, `search`; counts per status
 - `GET /api/v1/merchant/job-applications/:id/cv` — signed CV link (10 minutes)

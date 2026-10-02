@@ -22,6 +22,7 @@ import {
 } from './dto/bundle-response.dto';
 import { BundleItem } from './entities/bundle-item.entity';
 import { Bundle, BundleStatus } from './entities/bundle.entity';
+import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
 
 // Current selling price: the discounted price when set, otherwise the list price.
 const CLASS_PRICE_SQL = `(CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric`;
@@ -101,7 +102,14 @@ export class BundleService {
       const merchant = await this.findMerchant(manager, userId, true);
       const status = input.status ?? 'published';
 
-      await this.assertCoverOwned(manager, userId, input.cover_asset_id);
+      if (input.cover_asset_id) {
+        await assertOwnedAsset(
+          manager,
+          userId,
+          input.cover_asset_id,
+          'product_cover',
+        );
+      }
       const items = await this.resolveItems(manager, merchant.id, input.items);
       this.assertSellable(items, status, input.bundle_price);
 
@@ -239,7 +247,14 @@ export class BundleService {
       const bundle = await this.findOwnedBundle(manager, merchant.id, id);
 
       if (input.cover_asset_id !== undefined) {
-        await this.assertCoverOwned(manager, userId, input.cover_asset_id);
+        if (input.cover_asset_id) {
+          await assertOwnedAsset(
+            manager,
+            userId,
+            input.cover_asset_id,
+            'product_cover',
+          );
+        }
         bundle.coverAssetId = input.cover_asset_id ?? null;
       }
       if (input.title !== undefined) bundle.title = input.title;
@@ -303,23 +318,6 @@ export class BundleService {
     const bundle = await manager.findOneBy(Bundle, { id, merchantId });
     if (!bundle) throw new NotFoundException('Bundle not found');
     return bundle;
-  }
-
-  private async assertCoverOwned(
-    manager: EntityManager,
-    userId: string,
-    coverAssetId: string | null | undefined,
-  ): Promise<void> {
-    if (!coverAssetId) return;
-
-    const rows = await manager.query(
-      `SELECT 1 FROM file_assets
-       WHERE id = $1 AND uploaded_by_user_id = $2 AND deleted_at IS NULL`,
-      [coverAssetId, userId],
-    );
-    if (rows.length === 0) {
-      throw new BadRequestException('Cover asset not found');
-    }
   }
 
   private async resolveItems(

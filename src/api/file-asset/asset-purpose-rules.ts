@@ -85,6 +85,10 @@ const FILE_FORMATS: Record<string, FileFormat> = {
 
 type AssetVisibility = 'public' | 'private';
 
+// A registered upload not attached to any field yet. Its first field decides
+// whether it becomes public or private.
+export const PENDING_VISIBILITY = 'pending';
+
 type AssetPurposeRule = {
   kinds: FileKind[];
   maxBytes: number;
@@ -242,10 +246,12 @@ export function purposeVisibility(purpose: AssetPurpose): AssetVisibility {
 }
 
 /**
- * Ensures a referenced asset belongs to the caller, is active, and satisfies
- * the purpose's visibility, type, and size rules before it is referenced.
- * `file_assets` records no purpose, so an asset registered for one purpose
- * can serve another only when it meets that purpose's rules as well.
+ * Ensures a referenced asset belongs to the caller, is active, and fits the
+ * field's purpose (type and size). A pending asset takes the purpose's
+ * visibility on its first attach; an asset already public or private can only
+ * go to fields of that same visibility, so a private file never reaches a
+ * public field. The claim is a conditional update, so concurrent attaches of
+ * one pending asset leave it with a single visibility.
  */
 export async function assertOwnedAsset(
   manager: EntityManager,
@@ -257,8 +263,7 @@ export async function assertOwnedAsset(
   if (
     !asset ||
     asset.uploadedByUserId !== userId ||
-    asset.status !== 'active' ||
-    asset.visibility !== purposeVisibility(purpose)
+    asset.status !== 'active'
   ) {
     throw new BadRequestException(`File asset for ${purpose} is not available`);
   }
@@ -267,5 +272,21 @@ export async function assertOwnedAsset(
     mimeType: asset.mimeType,
     sizeBytes: Number(asset.sizeBytes),
   });
+
+  const visibility = purposeVisibility(purpose);
+  if (asset.visibility === PENDING_VISIBILITY) {
+    await manager.update(
+      FileAsset,
+      { id: asset.id, visibility: PENDING_VISIBILITY },
+      { visibility },
+    );
+    const claimed = await manager.findOneBy(FileAsset, { id: asset.id });
+    asset.visibility = claimed?.visibility ?? asset.visibility;
+  }
+  if (asset.visibility !== visibility) {
+    throw new BadRequestException(
+      `This file is already used as a ${asset.visibility} file; upload it again for ${purpose}`,
+    );
+  }
   return asset;
 }

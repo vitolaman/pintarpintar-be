@@ -9,7 +9,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiExtraModels, ApiTags } from '@nestjs/swagger';
 import { Public } from '~/common/decorator/public.decorator';
 import {
   ArrayResponse,
@@ -21,6 +21,7 @@ import {
   CatalogCardDto,
   CatalogClassDetailDto,
   CatalogDigitalDetailDto,
+  CatalogItemCardDto,
   CatalogQueryDto,
   CategoryNodeDto,
 } from './dto/catalog.dto';
@@ -30,16 +31,18 @@ type OptionalAuthRequest = { user?: { id: string } };
 
 @Controller('api/v1/catalog')
 @ApiTags('Catalog')
+// Kept in the contract: generated clients may still name the base card type.
+@ApiExtraModels(CatalogCardDto)
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Get('items')
   @Public()
-  @PaginatedResponse(CatalogCardDto, 'Get catalog items success', [
+  @PaginatedResponse(CatalogItemCardDto, 'Get catalog items success', [
     BadRequestException,
   ])
-  findItems(@Query() query: CatalogQueryDto) {
-    return this.catalogService.findItems(query);
+  findItems(@Req() req: OptionalAuthRequest, @Query() query: CatalogQueryDto) {
+    return this.catalogService.findItems(query, req.user?.id);
   }
 
   @Get('categories')

@@ -65,6 +65,13 @@ describe('LearningClassService', () => {
           },
         ];
       }
+      if (sql.includes('FROM meetings meeting')) {
+        return [
+          { id: 'meeting-1', title: 'Sesi 1', my_attendance_status: 'hadir' },
+          { id: 'meeting-2', title: 'Sesi 2', my_attendance_status: 'izin' },
+          { id: 'meeting-3', title: 'Sesi 3', my_attendance_status: null },
+        ];
+      }
       return [];
     });
     learnerAccess = { requireEnrollment: jest.fn() };
@@ -119,5 +126,26 @@ describe('LearningClassService', () => {
       progress: 100,
       certificate: { status: 'ineligible' },
     });
+  });
+
+  it("gives each meeting the caller's attendance from the meeting query", async () => {
+    const { data } = await service.findClass(userId, classId);
+
+    expect(
+      data.meetings.map((meeting) => [
+        meeting.id,
+        meeting.my_attendance_status,
+      ]),
+    ).toEqual([
+      ['meeting-1', 'hadir'],
+      ['meeting-2', 'izin'],
+      ['meeting-3', null],
+    ]);
+    const meetingQueries = query.mock.calls.filter(([sql]) =>
+      (sql as string).includes('attendances attendance'),
+    );
+    expect(meetingQueries).toHaveLength(1);
+    expect(meetingQueries[0][0]).toContain('FROM meetings meeting');
+    expect(meetingQueries[0][1]).toEqual([classId, userId]);
   });
 });

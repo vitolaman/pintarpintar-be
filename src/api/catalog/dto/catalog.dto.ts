@@ -153,6 +153,13 @@ export class CatalogMerchantDto {
 
   @ApiProperty({ nullable: true })
   avatar_object_key: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Avatar URL; null without an avatar',
+  })
+  avatar_url: string | null;
 }
 
 export class CatalogCardMentorDto {
@@ -251,6 +258,14 @@ export class CatalogCardDto {
   file_size: number | null;
 }
 
+export class CatalogItemCardDto extends CatalogCardDto {
+  @ApiProperty({
+    description:
+      "True when the item is in the signed-in caller's wishlist; false without a token",
+  })
+  in_wishlist: boolean;
+}
+
 export class CatalogMentorDto {
   @ApiProperty({ description: 'Mentor id used by the profile page' })
   id: string;
@@ -263,6 +278,13 @@ export class CatalogMentorDto {
 
   @ApiProperty({ nullable: true })
   avatar_object_key: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Avatar URL; null without an avatar',
+  })
+  avatar_url: string | null;
 
   @ApiProperty({ example: 'Lead Mentor' })
   role: string;
@@ -352,7 +374,7 @@ export class CatalogMeetingDto {
   mentor: MeetingMentorDto | null;
 }
 
-export class CatalogClassDetailDto extends CatalogCardDto {
+export class CatalogClassDetailDto extends CatalogItemCardDto {
   @ApiProperty({
     type: [ItemCoverDto],
     description: 'Ordered covers; the first is the card image',
@@ -388,6 +410,18 @@ export class CatalogClassDetailDto extends CatalogCardDto {
   })
   is_owned: boolean;
 
+  @ApiProperty({
+    description:
+      "True when the item is in the signed-in caller's cart; false without a token",
+  })
+  in_cart: boolean;
+
+  @ApiProperty({
+    description:
+      'True when the signed-in caller has a live review of this item; false without a token',
+  })
+  has_reviewed: boolean;
+
   @ApiProperty({ type: [CatalogMeetingDto], description: 'Bootcamps only' })
   meetings: CatalogMeetingDto[];
 
@@ -412,7 +446,7 @@ export class CatalogDigitalFileDto {
   size: number;
 }
 
-export class CatalogDigitalDetailDto extends CatalogCardDto {
+export class CatalogDigitalDetailDto extends CatalogItemCardDto {
   @ApiProperty({
     type: [ItemCoverDto],
     description: 'Ordered covers; the first is the card image',
@@ -429,6 +463,18 @@ export class CatalogDigitalDetailDto extends CatalogCardDto {
     description: 'True when the signed-in visitor has access',
   })
   is_owned: boolean;
+
+  @ApiProperty({
+    description:
+      "True when the item is in the signed-in caller's cart; false without a token",
+  })
+  in_cart: boolean;
+
+  @ApiProperty({
+    description:
+      'True when the signed-in caller has a live review of this item; false without a token',
+  })
+  has_reviewed: boolean;
 }
 
 export class CategoryNodeDto {

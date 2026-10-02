@@ -6,6 +6,7 @@ import {
   MEETING_STATUS_DESCRIPTION,
   MeetingMentorDto,
 } from '../../../class/dto/class-response.dto';
+import { AttendanceStatus } from '../../../class/entities/attendance.entity';
 
 export class NextVideoDto {
   @ApiProperty() id: string;
@@ -120,6 +121,12 @@ export class LearningMeetingDto {
   duration_minutes: number | null;
   @ApiPropertyOptional({ type: MeetingMentorDto, nullable: true })
   mentor: MeetingMentorDto | null;
+  @ApiPropertyOptional({
+    enum: Object.values(AttendanceStatus),
+    nullable: true,
+    description: "The caller's attendance; null while none is recorded",
+  })
+  my_attendance_status: AttendanceStatus | null;
 }
 
 export class LearningClassResponseDto {

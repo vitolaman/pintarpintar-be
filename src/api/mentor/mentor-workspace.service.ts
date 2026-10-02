@@ -18,7 +18,7 @@ const TO_WIB = (column: string) =>
 // Classes the active mentor is currently assigned to.
 const ASSIGNED_CLASSES = `
   SELECT class.id, class.title, class.type, class.status, class.created_at,
-         class.merchant_id, link.role
+         class.merchant_id, class.cover_asset_id, link.role
   FROM mentors mentor
   INNER JOIN class_mentors link
     ON link.mentor_id = mentor.id AND link.deleted_at IS NULL
@@ -172,6 +172,7 @@ export class MentorWorkspaceService {
       `WITH mine AS (${ASSIGNED_CLASSES})
        SELECT mine.id, mine.title, mine.type, mine.status, mine.role,
               merchant.id AS merchant_id, merchant.store_name AS merchant_name,
+              cover.object_key AS cover_object_key,
               (SELECT count(*) FROM enrollments enrollment
                  WHERE enrollment.class_id = mine.id
                    AND enrollment.deleted_at IS NULL)::integer AS students_count,
@@ -180,6 +181,8 @@ export class MentorWorkspaceService {
                    AND thread.deleted_at IS NULL)::integer AS thread_count
        FROM mine
        INNER JOIN merchants merchant ON merchant.id = mine.merchant_id
+       LEFT JOIN file_assets cover
+         ON cover.id = mine.cover_asset_id AND cover.deleted_at IS NULL
        WHERE ($2::text IS NULL OR mine.type = $2)
          AND ($3::text IS NULL OR mine.title ILIKE '%' || $3 || '%' ESCAPE '\\'
               OR merchant.store_name ILIKE '%' || $3 || '%' ESCAPE '\\')
@@ -187,17 +190,21 @@ export class MentorWorkspaceService {
       [mentorId, classType, search],
     );
 
-    const data: MentorClassResponseDto[] = rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      type: toCatalogType(row.type),
-      status: row.status,
-      role: row.role,
-      image: null,
-      merchant: { id: row.merchant_id, name: row.merchant_name },
-      students_count: row.students_count,
-      thread_count: row.thread_count,
-    }));
+    const data: MentorClassResponseDto[] = rows.map((row) => {
+      const coverUrl = assetUrl(row.cover_object_key);
+      return {
+        id: row.id,
+        title: row.title,
+        type: toCatalogType(row.type),
+        status: row.status,
+        role: row.role,
+        image: coverUrl,
+        cover_url: coverUrl,
+        merchant: { id: row.merchant_id, name: row.merchant_name },
+        students_count: row.students_count,
+        thread_count: row.thread_count,
+      };
+    });
     return { data, responseMessage: 'Get mentor classes success' };
   }
 
@@ -210,9 +217,12 @@ export class MentorWorkspaceService {
               link.created_at AS started_at, link.deleted_at AS ended_at,
               merchant.id AS merchant_id, merchant.store_name AS merchant_name,
               merchant_profile.city AS merchant_city,
-              avatar.object_key AS merchant_avatar_object_key
+              avatar.object_key AS merchant_avatar_object_key,
+              cover.object_key AS cover_object_key
        FROM class_mentors link
        INNER JOIN classes class ON class.id = link.class_id
+       LEFT JOIN file_assets cover
+         ON cover.id = class.cover_asset_id AND cover.deleted_at IS NULL
        INNER JOIN merchants merchant ON merchant.id = class.merchant_id
        LEFT JOIN merchant_profiles merchant_profile
          ON merchant_profile.merchant_id = merchant.id
@@ -233,6 +243,7 @@ export class MentorWorkspaceService {
         return {
           id: row.id,
           title: row.title,
+          cover_url: assetUrl(row.cover_object_key),
           merchant: {
             id: row.merchant_id,
             name: row.merchant_name,

@@ -17,7 +17,10 @@ jest.mock('@nestjs/jwt', () => ({
 
 describe('AuthService', () => {
   let userService: jest.Mocked<
-    Pick<UserService, 'createWithManager' | 'findForAuthentication'>
+    Pick<
+      UserService,
+      'createWithManager' | 'findForAuthentication' | 'findCurrentUser'
+    >
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
   let dataSource: jest.Mocked<Pick<DataSource, 'transaction'>>;
@@ -36,10 +39,23 @@ describe('AuthService', () => {
     tokenVersion: 0,
   } as User;
 
+  const currentUser = {
+    id: user.id,
+    name: 'John Doe',
+    email: 'john@example.com',
+    is_mentor: false,
+    is_merchant: false,
+    mentor_id: null,
+    merchant_id: null,
+    created_at: new Date('2026-10-01T00:00:00.000Z'),
+    updated_at: new Date('2026-10-01T00:00:00.000Z'),
+  };
+
   beforeEach(() => {
     userService = {
       createWithManager: jest.fn(),
       findForAuthentication: jest.fn(),
+      findCurrentUser: jest.fn().mockResolvedValue(currentUser),
     };
     jwtService = {
       signAsync: jest.fn(),
@@ -63,7 +79,7 @@ describe('AuthService', () => {
     );
   });
 
-  it('registers and returns the approved token response envelope', async () => {
+  it('registers and returns the token with the current user', async () => {
     userService.createWithManager.mockResolvedValue(user);
     entityManager.create.mockReturnValue({ userId: user.id });
     jwtService.signAsync.mockResolvedValue('signed-token');
@@ -76,8 +92,9 @@ describe('AuthService', () => {
       }),
     ).resolves.toEqual({
       responseMessage: 'Account Created!',
-      data: { token: 'signed-token' },
+      data: { token: 'signed-token', user: currentUser },
     });
+    expect(userService.findCurrentUser).toHaveBeenCalledWith(user.id);
 
     expect(jwtService.signAsync).toHaveBeenCalledWith({ id: user.id, tv: 0 });
     expect(userService.createWithManager).toHaveBeenCalledWith(entityManager, {
@@ -93,7 +110,7 @@ describe('AuthService', () => {
     });
   });
 
-  it('signs in active users with matching credentials', async () => {
+  it('signs in active users and returns the token with the current user', async () => {
     user.passwordHash = await hash('password1', 10);
     userService.findForAuthentication.mockResolvedValue(user);
     jwtService.signAsync.mockResolvedValue('signed-token');
@@ -102,8 +119,9 @@ describe('AuthService', () => {
       service.signIn({ email: 'john@example.com', password: 'password1' }),
     ).resolves.toEqual({
       responseMessage: 'Login Success',
-      data: { token: 'signed-token' },
+      data: { token: 'signed-token', user: currentUser },
     });
+    expect(userService.findCurrentUser).toHaveBeenCalledWith(user.id);
   });
 
   it('returns a generic credential error for an unknown email', async () => {
@@ -116,6 +134,7 @@ describe('AuthService', () => {
     await expect(
       service.signIn({ email: 'john@example.com', password: 'password1' }),
     ).rejects.toThrow('invalid username or password');
+    expect(userService.findCurrentUser).not.toHaveBeenCalled();
   });
 
   it('returns the same generic credential error for an incorrect password', async () => {

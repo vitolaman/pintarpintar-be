@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Not } from 'typeorm';
 import { Merchant } from '../merchant/entities/merchant.entity';
@@ -38,6 +42,16 @@ export class PayoutAccountService {
       const existingCount = await manager.count(MerchantPayoutAccount, {
         where: { merchantId: merchant.id },
       });
+      if (existingCount === 0 && input.is_primary === false) {
+        throw new BadRequestException(
+          'The first payout account is always primary',
+        );
+      }
+
+      const isPrimary = existingCount === 0 || input.is_primary === true;
+      if (isPrimary && existingCount > 0) {
+        await this.clearOtherPrimaries(manager, merchant.id);
+      }
 
       return manager.save(
         MerchantPayoutAccount,
@@ -48,7 +62,7 @@ export class PayoutAccountService {
           encryptedAccountNumber: this.cipher.encrypt(input.account_number),
           maskedAccountNumber: maskAccountNumber(input.account_number),
           verificationStatus: UNVERIFIED,
-          isPrimary: existingCount === 0,
+          isPrimary,
         }),
       );
     });
@@ -63,6 +77,11 @@ export class PayoutAccountService {
     const account = await this.dataSource.transaction(async (manager) => {
       const merchant = await this.findMerchant(manager, userId, true);
       const account = await this.findOwnedAccount(manager, merchant.id, id);
+      if (input.is_primary === false && account.isPrimary) {
+        throw new BadRequestException(
+          'Make another payout account primary instead',
+        );
+      }
 
       if (input.bank_name !== undefined) account.bankName = input.bank_name;
       if (input.account_holder_name !== undefined) {
@@ -82,6 +101,10 @@ export class PayoutAccountService {
       ) {
         account.verificationStatus = UNVERIFIED;
       }
+      if (input.is_primary === true && !account.isPrimary) {
+        await this.clearOtherPrimaries(manager, merchant.id, account.id);
+        account.isPrimary = true;
+      }
 
       return manager.save(MerchantPayoutAccount, account);
     });
@@ -97,11 +120,7 @@ export class PayoutAccountService {
       const merchant = await this.findMerchant(manager, userId, true);
       const account = await this.findOwnedAccount(manager, merchant.id, id);
 
-      await manager.update(
-        MerchantPayoutAccount,
-        { merchantId: merchant.id, id: Not(account.id), isPrimary: true },
-        { isPrimary: false },
-      );
+      await this.clearOtherPrimaries(manager, merchant.id, account.id);
       account.isPrimary = true;
       return manager.save(MerchantPayoutAccount, account);
     });
@@ -148,6 +167,24 @@ export class PayoutAccountService {
     });
     if (!merchant) throw new NotFoundException('Merchant not found');
     return merchant;
+  }
+
+  // Runs before the new primary is saved: a partial unique index allows one
+  // primary per merchant. Callers hold the merchant row lock.
+  private async clearOtherPrimaries(
+    manager: EntityManager,
+    merchantId: string,
+    keptAccountId?: string,
+  ): Promise<void> {
+    await manager.update(
+      MerchantPayoutAccount,
+      {
+        merchantId,
+        isPrimary: true,
+        ...(keptAccountId ? { id: Not(keptAccountId) } : {}),
+      },
+      { isPrimary: false },
+    );
   }
 
   private async findOwnedAccount(

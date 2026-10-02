@@ -9,22 +9,39 @@ import {
 } from '~/common/catalog/catalog-item';
 import { CheckoutRequestDto } from '../dto/checkout.dto';
 import {
+  CodeRejectedException,
+  CodeRejectionReason,
   DiscountCodeRule,
   PricingItem,
   PricingResult,
   PromoCodeRule,
   VoucherRule,
+  assertCodeApplies,
   priceSelection,
 } from './checkout-pricing';
+
+export interface RejectedCode {
+  code: string;
+  reason: CodeRejectionReason;
+}
 
 export interface CheckoutQuote {
   pricing: PricingResult;
   references: CatalogItemColumns[];
   voucher: VoucherRule | null;
   discountCode: DiscountCodeRule | null;
+  // Always empty unless the quote is lenient.
+  rejectedCodes: RejectedCode[];
 }
 
-interface VoucherRow {
+// Whether a code can be used now, from its own and its merchant's state.
+interface CodeAvailability {
+  is_active: boolean;
+  not_started: boolean;
+  has_ended: boolean;
+}
+
+interface VoucherRow extends CodeAvailability {
   id: string;
   code: string;
   merchant_id: string;
@@ -35,10 +52,9 @@ interface VoucherRow {
   maximum_discount_amount: string | null;
   max_uses: number | null;
   used: number;
-  is_usable: boolean;
 }
 
-interface DiscountCodeRow {
+interface DiscountCodeRow extends CodeAvailability {
   id: string;
   code: string;
   usage_limit: number;
@@ -50,13 +66,17 @@ interface DiscountCodeRow {
   discount_type: 'percentage' | 'nominal';
   discount_value: string;
   minimum_purchase: string | null;
-  is_usable: boolean;
 }
 
 /**
  * Validates a checkout selection and its codes against live data and prices
  * it. Checkout calls it with `lockCodes` inside its transaction, so the
  * reserved codes cannot be taken by a concurrent checkout meanwhile.
+ *
+ * A `lenient` quote (preview) prices the selection without the codes that
+ * cannot be used and lists them in `rejectedCodes`. Errors of the request
+ * itself (a code entered twice, two codes of one kind, item errors) are
+ * still thrown.
  */
 @Injectable()
 export class CheckoutQuoteService {
@@ -64,16 +84,30 @@ export class CheckoutQuoteService {
     manager: EntityManager,
     userId: string,
     request: CheckoutRequestDto,
-    options: { lockCodes: boolean },
+    options: { lockCodes: boolean; lenient?: boolean },
   ): Promise<CheckoutQuote> {
     const references = await resolveItemReferences(manager, request.items);
     const items = await this.loadItems(manager, userId, request, references);
-    const rules = await this.loadCodes(
+    const rejectedCodes: RejectedCode[] = [];
+    const rejected = options.lenient ? rejectedCodes : null;
+    const loaded = await this.loadCodes(
       manager,
       userId,
       request.codes ?? [],
       options.lockCodes,
+      rejected,
     );
+    const rules = rejected
+      ? loaded.filter((rule) => {
+          try {
+            assertCodeApplies(items, rule);
+            return true;
+          } catch (error) {
+            if (recordRejection(error, rejected)) return false;
+            throw error;
+          }
+        })
+      : loaded;
 
     return {
       pricing: priceSelection(items, rules),
@@ -82,6 +116,7 @@ export class CheckoutQuoteService {
         null) as VoucherRule | null,
       discountCode: (rules.find((rule) => rule.kind === 'discount') ??
         null) as DiscountCodeRule | null,
+      rejectedCodes,
     };
   }
 
@@ -131,6 +166,7 @@ export class CheckoutQuoteService {
     userId: string,
     enteredCodes: string[],
     lockCodes: boolean,
+    rejected: RejectedCode[] | null,
   ): Promise<PromoCodeRule[]> {
     // Sorted, so concurrent checkouts lock the same code rows in one order.
     const codes = enteredCodes.map((code) => code.trim().toUpperCase()).sort();
@@ -140,11 +176,21 @@ export class CheckoutQuoteService {
 
     const rules: PromoCodeRule[] = [];
     for (const code of codes) {
-      const rule =
-        (await this.loadVoucher(manager, code, lockCodes)) ??
-        (await this.loadDiscountCode(manager, userId, code, lockCodes));
-      if (!rule) {
-        throw new BadRequestException(`Code ${code} is invalid or expired`);
+      let rule: PromoCodeRule;
+      try {
+        rule =
+          (await this.loadVoucher(manager, code, lockCodes)) ??
+          (await this.loadDiscountCode(manager, userId, code, lockCodes));
+        if (!rule) {
+          throw new CodeRejectedException(
+            code,
+            'not_found',
+            `Code ${code} is invalid or expired`,
+          );
+        }
+      } catch (error) {
+        if (recordRejection(error, rejected)) continue;
+        throw error;
       }
       if (rules.some((existing) => existing.kind === rule.kind)) {
         throw new BadRequestException(
@@ -179,21 +225,19 @@ export class CheckoutQuoteService {
               coupon.max_uses,
               (SELECT count(*)::integer FROM coupon_usages usage
                WHERE usage.coupon_id = coupon.id AND usage.deleted_at IS NULL) AS used,
-              coupon.is_active
-                AND (coupon.starts_at IS NULL OR coupon.starts_at <= now())
-                AND (coupon.expires_at IS NULL OR coupon.expires_at > now())
-                AND merchant.status = 'active' AND merchant.deleted_at IS NULL AS is_usable
+              coupon.is_active AND merchant.status = 'active'
+                AND merchant.deleted_at IS NULL AS is_active,
+              coupon.starts_at IS NOT NULL AND coupon.starts_at > now() AS not_started,
+              coupon.expires_at IS NOT NULL AND coupon.expires_at <= now() AS has_ended
        FROM coupons coupon
        INNER JOIN merchants merchant ON merchant.id = coupon.merchant_id
        WHERE upper(coupon.code) = $1 AND coupon.deleted_at IS NULL`,
       [code],
     );
     if (!row) return null;
-    if (!row.is_usable) {
-      throw new BadRequestException(`Code ${code} is invalid or expired`);
-    }
+    assertAvailable(code, row);
     if (row.max_uses !== null && row.used >= row.max_uses) {
-      throw new BadRequestException(`Code ${code} has reached its usage limit`);
+      throw usedUp(code);
     }
 
     return {
@@ -220,10 +264,10 @@ export class CheckoutQuoteService {
               code.usage_limit, code.used_count, code.code_type, discount.id AS discount_id,
               discount.merchant_id, merchant.store_name AS merchant_name,
               discount.discount_type, discount.discount_value, discount.minimum_purchase,
-              discount.is_active
-                AND (discount.starts_at IS NULL OR discount.starts_at <= now())
-                AND (discount.ends_at IS NULL OR discount.ends_at > now())
-                AND merchant.status = 'active' AND merchant.deleted_at IS NULL AS is_usable
+              discount.is_active AND merchant.status = 'active'
+                AND merchant.deleted_at IS NULL AS is_active,
+              discount.starts_at IS NOT NULL AND discount.starts_at > now() AS not_started,
+              discount.ends_at IS NOT NULL AND discount.ends_at <= now() AS has_ended
        FROM discount_codes code
        INNER JOIN discounts discount
          ON discount.id = code.discount_id AND discount.deleted_at IS NULL
@@ -233,11 +277,9 @@ export class CheckoutQuoteService {
       [code],
     );
     if (!row) return null;
-    if (!row.is_usable) {
-      throw new BadRequestException(`Code ${code} is invalid or expired`);
-    }
+    assertAvailable(code, row);
     if (row.used_count >= row.usage_limit) {
-      throw new BadRequestException(`Code ${code} has reached its usage limit`);
+      throw usedUp(code);
     }
     // A recurring code ("Kode Berulang") is shared by many users but usable
     // once per user. Released orders (expired, failed, cancelled) do not
@@ -252,7 +294,11 @@ export class CheckoutQuoteService {
         [row.id, userId],
       );
       if (used) {
-        throw new BadRequestException(`You have already used code ${code}`);
+        throw new CodeRejectedException(
+          code,
+          'already_used',
+          `You have already used code ${code}`,
+        );
       }
     }
     const targets: Array<{
@@ -286,6 +332,42 @@ export class CheckoutQuoteService {
             },
     };
   }
+}
+
+// A deactivated code, or one of an inactive merchant, reads as expired to
+// the buyer; the message stays the same for every unavailable code.
+function assertAvailable(code: string, row: CodeAvailability): void {
+  let reason: CodeRejectionReason | null = null;
+  if (!row.is_active || row.has_ended) {
+    reason = 'expired';
+  } else if (row.not_started) {
+    reason = 'not_started';
+  }
+  if (reason) {
+    throw new CodeRejectedException(
+      code,
+      reason,
+      `Code ${code} is invalid or expired`,
+    );
+  }
+}
+
+function usedUp(code: string): CodeRejectedException {
+  return new CodeRejectedException(
+    code,
+    'used_up',
+    `Code ${code} has reached its usage limit`,
+  );
+}
+
+// Records a code rejection when collecting them; false means rethrow.
+function recordRejection(
+  error: unknown,
+  rejected: RejectedCode[] | null,
+): boolean {
+  if (!rejected || !(error instanceof CodeRejectedException)) return false;
+  rejected.push({ code: error.promoCode, reason: error.reason });
+  return true;
 }
 
 function numberOrNull(value: string | null): number | null {

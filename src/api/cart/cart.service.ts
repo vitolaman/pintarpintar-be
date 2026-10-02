@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -23,15 +22,17 @@ export class CartService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   async findCart(userId: string) {
-    return {
-      data: await this.buildCart(userId),
-      responseMessage: 'Get cart success',
-    };
+    return this.cartResponse(userId, 'Get cart success');
   }
 
+  /**
+   * Adds an item and returns the cart. An item already in the cart leaves
+   * it unchanged; `created` tells the controller to answer 200 then.
+   */
   async add(userId: string, ref: CatalogItemRefDto) {
+    let created: boolean;
     try {
-      await this.dataSource.transaction(async (manager) => {
+      created = await this.dataSource.transaction(async (manager) => {
         const [columns] = await resolveItemReferences(manager, [ref]);
         const item = (await loadCatalogItems(manager, [columns])).get(ref.id);
         if (!item || !item.is_available) {
@@ -41,32 +42,36 @@ export class CartService {
           throw new BadRequestException('You already own this item');
         }
         if (await manager.findOneBy(CartItem, { userId, ...columns })) {
-          throw new ConflictException('Item is already in the cart');
+          return false;
         }
         await manager.save(
           CartItem,
           manager.create(CartItem, { userId, ...columns }),
         );
+        return true;
       });
     } catch (error) {
-      // A concurrent add of the same item loses on the unique index.
+      // A concurrent add of the same item loses on the unique index; the
+      // item is in the cart either way.
       if (
         error instanceof QueryFailedError &&
         (error as unknown as { code: string }).code === UNIQUE_VIOLATION
       ) {
-        throw new ConflictException('Item is already in the cart');
+        created = false;
+      } else {
+        throw error;
       }
-      throw error;
     }
 
-    return {
-      data: await this.buildCart(userId),
-      responseMessage: 'Add to cart success',
-    };
+    const cart = await this.cartResponse(
+      userId,
+      created ? 'Add to cart success' : 'Item already in cart',
+    );
+    return { created, ...cart };
   }
 
   // `id` is the cart entry id or the id of the item in the cart.
-  async remove(userId: string, id: string): Promise<void> {
+  async remove(userId: string, id: string) {
     const result = await this.dataSource.manager
       .createQueryBuilder()
       .delete()
@@ -78,10 +83,16 @@ export class CartService {
       )
       .execute();
     if (!result.affected) throw new NotFoundException('Cart item not found');
+    return this.cartResponse(userId, 'Remove cart item success');
   }
 
-  async clear(userId: string): Promise<void> {
+  async clear(userId: string) {
     await this.dataSource.manager.delete(CartItem, { userId });
+    return this.cartResponse(userId, 'Clear cart success');
+  }
+
+  private async cartResponse(userId: string, responseMessage: string) {
+    return { data: await this.buildCart(userId), responseMessage };
   }
 
   private async buildCart(userId: string): Promise<CartResponseDto> {

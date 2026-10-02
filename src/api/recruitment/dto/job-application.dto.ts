@@ -163,6 +163,13 @@ export class ApplicationCvDto {
 
 export class ApplicantResponseDto extends ApplicationProgressFields {
   @ApiProperty({ format: 'uuid' }) user_id: string;
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description:
+      'mentors.id while the user has an active mentor account, otherwise null',
+  })
+  mentor_id: string | null;
   @ApiProperty() name: string;
   @ApiProperty() email: string;
   @ApiProperty({ description: 'WhatsApp' }) phone: string;

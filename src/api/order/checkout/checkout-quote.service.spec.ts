@@ -29,7 +29,9 @@ describe('CheckoutQuoteService discount codes', () => {
             discount_type: 'percentage',
             discount_value: '10',
             minimum_purchase: null,
-            is_usable: true,
+            is_active: true,
+            not_started: false,
+            has_ended: false,
           },
         ];
       }
@@ -148,5 +150,219 @@ describe('CheckoutQuoteService items', () => {
     await expect(quote([{ type: 'bundle', id: productId }])).rejects.toThrow(
       `Item ${productId} is a digital product, not bundle`,
     );
+  });
+});
+
+describe('CheckoutQuoteService code rejections', () => {
+  const classId = '30000000-0000-4000-8000-000000000001';
+  const productId = '30000000-0000-4000-8000-000000000002';
+  let vouchers: Record<string, object>;
+  let discountCodes: Record<string, object>;
+  let targets: object[];
+  let usedByUser: boolean;
+
+  const catalogRow = (id: string, type: string, price: string) => ({
+    type,
+    id,
+    title: `Item ${id}`,
+    image: null,
+    price,
+    original_price: price,
+    merchant_id: 'merchant-id',
+    merchant_name: 'Toko',
+    merchant_slug: 'toko',
+    is_available: true,
+    merchant_active: true,
+  });
+  const voucherRow = (code: string, override: object = {}) => ({
+    id: `voucher-${code}`,
+    code,
+    merchant_id: 'merchant-id',
+    merchant_name: 'Toko',
+    discount_type: 'percentage',
+    discount_value: '10',
+    minimum_order_amount: null,
+    maximum_discount_amount: null,
+    max_uses: null,
+    used: 0,
+    is_active: true,
+    not_started: false,
+    has_ended: false,
+    ...override,
+  });
+  const discountRow = (code: string, override: object = {}) => ({
+    id: `code-${code}`,
+    code,
+    usage_limit: 10,
+    used_count: 0,
+    code_type: 'once',
+    discount_id: 'discount-id',
+    merchant_id: 'merchant-id',
+    merchant_name: 'Toko',
+    discount_type: 'nominal',
+    discount_value: '50000',
+    minimum_purchase: null,
+    is_active: true,
+    not_started: false,
+    has_ended: false,
+    ...override,
+  });
+
+  const query = jest.fn(async (sql: string, params: unknown[] = []) => {
+    if (sql.includes('AS family')) {
+      return [
+        { id: classId, family: 'class' },
+        { id: productId, family: 'product' },
+      ];
+    }
+    if (sql.includes('FROM enrollments enrollment')) return [];
+    if (sql.includes('FROM coupons coupon')) {
+      const row = vouchers[params[0] as string];
+      return row ? [row] : [];
+    }
+    if (sql.includes('FROM discount_codes code')) {
+      const row = discountCodes[params[0] as string];
+      return row ? [row] : [];
+    }
+    if (sql.includes('FROM orders')) return usedByUser ? [{ found: 1 }] : [];
+    if (sql.includes('FROM discount_products')) return targets;
+    if (sql.includes('FROM (')) {
+      return [
+        catalogRow(classId, 'kelas', '500000'),
+        catalogRow(productId, 'digital', '100000'),
+      ];
+    }
+    return [];
+  });
+  const manager = { query } as unknown as EntityManager;
+  const quote = (codes: string[], lenient = true) =>
+    new CheckoutQuoteService().quote(
+      manager,
+      userId,
+      { items: [{ id: classId }, { id: productId }], codes } as never,
+      { lockCodes: false, lenient },
+    );
+
+  beforeEach(() => {
+    vouchers = { HEMAT10: voucherRow('HEMAT10') };
+    discountCodes = { DSC50: discountRow('DSC50') };
+    targets = [];
+    usedByUser = false;
+  });
+
+  it('applies a valid voucher and rejects a mistyped discount code', async () => {
+    const result = await quote(['hemat10', ' typo ']);
+
+    expect(result.rejectedCodes).toEqual([
+      { code: 'TYPO', reason: 'not_found' },
+    ]);
+    expect(result.pricing.codes.map((code) => code.code)).toEqual(['HEMAT10']);
+    expect(result.pricing.total).toBe(540000);
+    expect(result.voucher?.code).toBe('HEMAT10');
+    expect(result.discountCode).toBeNull();
+  });
+
+  it.each([
+    ['an ended voucher', 'HEMAT10', { has_ended: true }, 'expired'],
+    ['a deactivated voucher', 'HEMAT10', { is_active: false }, 'expired'],
+    [
+      'a voucher that starts later',
+      'HEMAT10',
+      { not_started: true },
+      'not_started',
+    ],
+    ['a used-up voucher', 'HEMAT10', { max_uses: 5, used: 5 }, 'used_up'],
+    ['a used-up discount code', 'DSC50', { used_count: 10 }, 'used_up'],
+    ['an ended discount', 'DSC50', { has_ended: true }, 'expired'],
+    [
+      'a voucher below its minimum',
+      'HEMAT10',
+      { minimum_order_amount: '1000000' },
+      'minimum_not_met',
+    ],
+    [
+      "another merchant's voucher",
+      'HEMAT10',
+      { merchant_id: 'other-merchant' },
+      'not_applicable',
+    ],
+  ])('rejects %s as %s in preview', async (_case, code, override, reason) => {
+    if (code === 'HEMAT10') vouchers.HEMAT10 = voucherRow(code, override);
+    else discountCodes.DSC50 = discountRow(code, override);
+
+    const result = await quote([code]);
+
+    expect(result.rejectedCodes).toEqual([{ code, reason }]);
+    expect(result.pricing.codes).toEqual([]);
+    expect(result.pricing.total).toBe(600000);
+  });
+
+  it('rejects a recurring code the user already used as already_used', async () => {
+    discountCodes.DSC50 = discountRow('DSC50', { code_type: 'recurring' });
+    usedByUser = true;
+
+    const result = await quote(['DSC50', 'HEMAT10']);
+
+    expect(result.rejectedCodes).toEqual([
+      { code: 'DSC50', reason: 'already_used' },
+    ]);
+    expect(result.pricing.codes.map((code) => code.code)).toEqual(['HEMAT10']);
+  });
+
+  it('rejects a discount code that targets no selected item as not_applicable', async () => {
+    targets = [{ class_id: 'another-class', product_id: null }];
+
+    const result = await quote(['DSC50']);
+
+    expect(result.rejectedCodes).toEqual([
+      { code: 'DSC50', reason: 'not_applicable' },
+    ]);
+  });
+
+  it('keeps errors of the request itself in preview', async () => {
+    vouchers.HEMAT20 = voucherRow('HEMAT20');
+
+    await expect(quote(['HEMAT10', 'hemat10'])).rejects.toThrow(
+      'A code is entered more than once',
+    );
+    await expect(quote(['HEMAT10', 'HEMAT20'])).rejects.toThrow(
+      'Only one voucher and one discount code can be used',
+    );
+  });
+
+  it('prices the usable voucher when another voucher is rejected', async () => {
+    vouchers.LAMA = voucherRow('LAMA', { has_ended: true });
+
+    const result = await quote(['HEMAT10', 'LAMA']);
+
+    expect(result.rejectedCodes).toEqual([{ code: 'LAMA', reason: 'expired' }]);
+    expect(result.voucher?.code).toBe('HEMAT10');
+  });
+
+  it.each([
+    [['TYPO'], {}, 'Code TYPO is invalid or expired'],
+    [['HEMAT10'], { has_ended: true }, 'Code HEMAT10 is invalid or expired'],
+    [
+      ['HEMAT10'],
+      { max_uses: 1, used: 1 },
+      'Code HEMAT10 has reached its usage limit',
+    ],
+    [
+      ['HEMAT10'],
+      { minimum_order_amount: '1000000' },
+      'Code HEMAT10 requires a minimum purchase of Rp1000000 from Toko',
+    ],
+  ])('stays strict for checkout: %j', async (codes, override, message) => {
+    vouchers.HEMAT10 = voucherRow('HEMAT10', override);
+
+    const attempt = quote(codes, false);
+
+    await expect(attempt).rejects.toBeInstanceOf(BadRequestException);
+    await expect(attempt).rejects.toThrow(message);
+  });
+
+  it('returns no rejected codes when strict', async () => {
+    const result = await quote(['HEMAT10'], false);
+    expect(result.rejectedCodes).toEqual([]);
   });
 });

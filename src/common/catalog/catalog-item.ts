@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { IsUUID } from 'class-validator';
 import { EntityManager } from 'typeorm';
 import { EnumInput } from '../decorator/input.decorator';
+import { assetUrl } from '../storage/asset-url';
 
 /**
  * Purchasable catalog items across the separate catalogs: Vito's classes
@@ -126,6 +127,12 @@ export class CatalogItemDetailsDto {
   })
   image: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    description: 'Public cover URL (null without a cover)',
+  })
+  image_url: string | null;
+
   @ApiProperty({ example: 299000, description: 'Current selling price' })
   price: number;
 
@@ -216,6 +223,7 @@ export async function loadCatalogItems(
         id: row.id,
         title: row.title,
         image: row.image,
+        image_url: assetUrl(row.image),
         price: Number(row.price),
         original_price: Number(row.original_price),
         merchant_id: row.merchant_id,

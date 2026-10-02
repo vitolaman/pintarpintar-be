@@ -16,17 +16,19 @@ import {
   DiscountListQueryDto,
   DiscountTargetInputDto,
   DiscountTargetType,
+  RemoveDiscountCodesDto,
   UpdateDiscountDto,
 } from './dto/discount-request.dto';
 import {
+  DiscountEligibleItemResponseDto,
   DiscountResponseDto,
-  DiscountTargetResponseDto,
 } from './dto/discount-response.dto';
 import { DiscountCode } from './entities/discount-code.entity';
 import { DiscountProduct } from './entities/discount-product.entity';
 import { Discount } from './entities/discount.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 import { assertItemFamily } from '~/common/catalog/catalog-item';
+import { assetUrl } from '~/common/storage/asset-url';
 
 // Uppercase letters and digits without look-alikes (0/O, 1/I/L).
 // Bounds one request's work; a `once` entry generates one row per code.
@@ -47,10 +49,41 @@ const CATALOG_SQL = `
   WHERE product.merchant_id = $1 AND product.deleted_at IS NULL
 `;
 
+// Same price and availability rules as the bundle eligible items: the current
+// selling price is the discounted price when set, otherwise the list price.
+const CLASS_PRICE_SQL = `(CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric`;
+const PRODUCT_PRICE_SQL = `(CASE WHEN product.discount_price > 0 THEN product.discount_price ELSE COALESCE(product.original_price, 0) END)::numeric`;
+
+const ELIGIBLE_ITEMS_SQL = `
+  SELECT * FROM (
+    SELECT class.id, 'kelas' AS type, class.title,
+           ${CLASS_PRICE_SQL} AS price, class_cover.object_key AS image,
+           class.status IN ('published', 'archived') AS is_available
+    FROM classes class
+    LEFT JOIN file_assets class_cover
+      ON class_cover.id = class.cover_asset_id AND class_cover.deleted_at IS NULL
+    WHERE class.merchant_id = $1 AND class.deleted_at IS NULL
+    UNION ALL
+    SELECT product.id, 'digital', product.title,
+           ${PRODUCT_PRICE_SQL}, cover.object_key, product.is_published
+    FROM products product
+    LEFT JOIN file_assets cover
+      ON cover.id = product.cover_asset_id AND cover.deleted_at IS NULL
+    WHERE product.merchant_id = $1 AND product.deleted_at IS NULL
+  ) catalog
+  ORDER BY catalog.type, catalog.title, catalog.id
+`;
+
 interface CatalogRow {
   id: string;
   type: DiscountTargetType;
   title: string;
+}
+
+interface EligibleItemRow extends CatalogRow {
+  price: string;
+  image: string | null;
+  is_available: boolean;
 }
 
 @Injectable()
@@ -59,11 +92,19 @@ export class DiscountService {
 
   async findEligibleProducts(userId: string) {
     const merchant = await this.findMerchant(this.dataSource.manager, userId);
-    const rows: DiscountTargetResponseDto[] = await this.dataSource.query(
-      `SELECT * FROM (${CATALOG_SQL}) catalog ORDER BY catalog.type, catalog.title, catalog.id`,
+    const rows: EligibleItemRow[] = await this.dataSource.query(
+      ELIGIBLE_ITEMS_SQL,
       [merchant.id],
     );
-    return { data: rows, responseMessage: 'Get eligible products success' };
+    const data: DiscountEligibleItemResponseDto[] = rows.map((row) => ({
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      price: Number(row.price),
+      image_url: assetUrl(row.image),
+      is_available: row.is_available,
+    }));
+    return { data, responseMessage: 'Get eligible products success' };
   }
 
   async create(userId: string, input: CreateDiscountDto) {
@@ -203,6 +244,37 @@ export class DiscountService {
     return {
       data: await this.findResponse(id),
       responseMessage: 'Add discount codes success',
+    };
+  }
+
+  async removeCodes(userId: string, id: string, input: RemoveDiscountCodesDto) {
+    await this.dataSource.transaction(async (manager) => {
+      const merchant = await this.findMerchant(manager, userId, true);
+      const discount = await this.findOwnedDiscount(manager, merchant.id, id);
+      const codes = await manager.find(DiscountCode, {
+        where: { id: In(input.code_ids), discountId: discount.id },
+      });
+
+      const foundIds = new Set(codes.map((code) => code.id));
+      const unknownIds = input.code_ids.filter(
+        (codeId) => !foundIds.has(codeId),
+      );
+      if (unknownIds.length > 0) {
+        throw new BadRequestException(
+          `Codes ${unknownIds.join(', ')} are not codes of this discount`,
+        );
+      }
+
+      // Follows removeCode: a code is soft-deleted whether or not it was used.
+      await manager.softDelete(DiscountCode, {
+        id: In(input.code_ids),
+        discountId: discount.id,
+      });
+    });
+
+    return {
+      data: await this.findResponse(id),
+      responseMessage: 'Remove discount codes success',
     };
   }
 

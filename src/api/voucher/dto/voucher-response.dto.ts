@@ -98,6 +98,13 @@ export class PublicVoucherResponseDto {
   @ApiPropertyOptional({ format: 'uuid' })
   merchant_avatar_asset_id: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Merchant avatar URL; null without an avatar',
+  })
+  merchant_avatar_url: string | null;
+
   @ApiPropertyOptional()
   merchant_tagline: string | null;
 

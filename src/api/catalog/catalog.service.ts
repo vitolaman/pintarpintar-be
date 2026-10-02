@@ -15,6 +15,8 @@ import {
   CatalogCardType,
   CatalogClassDetailDto,
   CatalogDigitalDetailDto,
+  CatalogItemCardDto,
+  CatalogMentorDto,
   CatalogQueryDto,
   CatalogSort,
   CategoryNodeDto,
@@ -147,6 +149,20 @@ const PAGE_DETAILS_SQL = (page: string) => `
   ) card_files ON true
 `;
 
+// The signed-in caller's relation to one class or product; every check is
+// false when $2 (the viewer) is null.
+const VIEWER_ITEM_STATE_SQL = (itemColumn: 'class_id' | 'product_id') => `
+  EXISTS (
+    SELECT 1 FROM wishlist
+    WHERE ${itemColumn} = $1 AND user_id = $2 AND deleted_at IS NULL) AS in_wishlist,
+  EXISTS (
+    SELECT 1 FROM cart_items
+    WHERE ${itemColumn} = $1 AND user_id = $2 AND deleted_at IS NULL) AS in_cart,
+  EXISTS (
+    SELECT 1 FROM reviews
+    WHERE ${itemColumn} = $1 AND user_id = $2 AND deleted_at IS NULL) AS has_reviewed
+`;
+
 const SORT_SQL: Record<CatalogSort | 'random', string> = {
   terbaru: 'created_at DESC',
   terlama: 'created_at ASC',
@@ -197,11 +213,19 @@ interface CardRow {
   file_size: string | null;
 }
 
+interface MentorRow {
+  id: string;
+  name: string;
+  headline: string | null;
+  avatar_object_key: string | null;
+  role: string;
+}
+
 @Injectable()
 export class CatalogService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  async findItems(query: CatalogQueryDto) {
+  async findItems(query: CatalogQueryDto, viewerId?: string) {
     const { page, limit } = query;
     const filter: CardFilter = {
       types: query.type,
@@ -216,10 +240,11 @@ export class CatalogService {
       cardParams(filter),
     );
     const total: number = countRow.total;
-    const data =
+    const cards =
       total === 0
         ? []
         : await this.findCards(filter, query.sort, limit, (page - 1) * limit);
+    const data = await this.withViewerFlags(viewerId, cards);
 
     return {
       data,
@@ -255,7 +280,7 @@ export class CatalogService {
       videos,
       files,
       meetings,
-      [ownership],
+      [viewerState],
       [details],
       faqs,
     ] = await Promise.all([
@@ -307,7 +332,8 @@ export class CatalogService {
       this.dataSource.query(
         `SELECT EXISTS (
            SELECT 1 FROM enrollments
-           WHERE class_id = $1 AND user_id = $2 AND deleted_at IS NULL) AS owned`,
+           WHERE class_id = $1 AND user_id = $2 AND deleted_at IS NULL) AS owned,
+         ${VIEWER_ITEM_STATE_SQL('class_id')}`,
         [id, viewerId ?? null],
       ),
       this.dataSource.query(
@@ -330,7 +356,7 @@ export class CatalogService {
         .filter(Boolean),
       prerequisites: details.prerequisites,
       learning_outcomes: details.learning_outcomes ?? [],
-      mentors,
+      mentors: mentors.map(toMentor),
       chapters: chapters.map((chapter) => ({
         id: chapter.id,
         title: chapter.title,
@@ -357,7 +383,10 @@ export class CatalogService {
       })),
       meetings,
       faqs,
-      is_owned: ownership.owned,
+      is_owned: viewerState.owned,
+      in_wishlist: viewerState.in_wishlist,
+      in_cart: viewerState.in_cart,
+      has_reviewed: viewerState.has_reviewed,
     };
     return { data: detail, responseMessage: 'Get class success' };
   }
@@ -389,7 +418,7 @@ export class CatalogService {
 
   async findDigitalProduct(id: string, viewerId?: string) {
     const row = await this.findCardRow(id, ['digital']);
-    const [files, [ownership]] = await Promise.all([
+    const [files, [viewerState]] = await Promise.all([
       this.dataSource.query(
         `SELECT file.id, file.file_format AS format, file.file_size AS size,
                 COALESCE(asset.original_filename, regexp_replace(file.file_url, '^.*/', '')) AS name
@@ -403,7 +432,8 @@ export class CatalogService {
         `SELECT EXISTS (
            SELECT 1 FROM user_access
            WHERE product_id = $1 AND user_id = $2 AND deleted_at IS NULL
-             AND (expires_at IS NULL OR expires_at > now())) AS owned`,
+             AND (expires_at IS NULL OR expires_at > now())) AS owned,
+         ${VIEWER_ITEM_STATE_SQL('product_id')}`,
         [id, viewerId ?? null],
       ),
     ]);
@@ -414,9 +444,45 @@ export class CatalogService {
       covers: covers.get(row.id) ?? [],
       description: row.description,
       files: files.map((file) => ({ ...file, size: Number(file.size) })),
-      is_owned: ownership.owned,
+      is_owned: viewerState.owned,
+      in_wishlist: viewerState.in_wishlist,
+      in_cart: viewerState.in_cart,
+      has_reviewed: viewerState.has_reviewed,
     };
     return { data: detail, responseMessage: 'Get digital product success' };
+  }
+
+  /** Marks the viewer's wishlisted cards; visitors get false. */
+  async withViewerFlags(
+    viewerId: string | undefined,
+    cards: CatalogCardDto[],
+  ): Promise<CatalogItemCardDto[]> {
+    const wishlisted = await this.findWishlistedItemIds(viewerId, cards);
+    return cards.map((card) => ({
+      ...card,
+      in_wishlist: wishlisted.has(card.id),
+    }));
+  }
+
+  // One lookup for the whole page of cards.
+  private async findWishlistedItemIds(
+    viewerId: string | undefined,
+    cards: CatalogCardDto[],
+  ): Promise<Set<string>> {
+    if (!viewerId || cards.length === 0) return new Set();
+    const classIds = cards
+      .filter((card) => card.type !== 'digital')
+      .map((card) => card.id);
+    const productIds = cards
+      .filter((card) => card.type === 'digital')
+      .map((card) => card.id);
+    const rows: { item_id: string }[] = await this.dataSource.query(
+      `SELECT COALESCE(class_id, product_id) AS item_id FROM wishlist
+       WHERE user_id = $1 AND deleted_at IS NULL
+         AND (class_id = ANY($2::uuid[]) OR product_id = ANY($3::uuid[]))`,
+      [viewerId, classIds, productIds],
+    );
+    return new Set(rows.map((row) => row.item_id));
   }
 
   private async findCardRow(id: string, types: string[]): Promise<CardRow> {
@@ -468,6 +534,7 @@ function toCard(row: CardRow): CatalogCardDto {
       name: row.merchant_name,
       slug: row.merchant_slug,
       avatar_object_key: row.merchant_avatar_object_key,
+      avatar_url: assetUrl(row.merchant_avatar_object_key),
     },
     image_url: assetUrl(row.image),
     mentor: row.mentor_name
@@ -479,6 +546,17 @@ function toCard(row: CardRow): CatalogCardDto {
       : null,
     file_format: row.file_format,
     file_size: row.file_size === null ? null : Number(row.file_size),
+  };
+}
+
+function toMentor(row: MentorRow): CatalogMentorDto {
+  return {
+    id: row.id,
+    name: row.name,
+    headline: row.headline,
+    avatar_object_key: row.avatar_object_key,
+    avatar_url: assetUrl(row.avatar_object_key),
+    role: row.role,
   };
 }
 

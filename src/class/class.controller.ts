@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -51,6 +53,7 @@ import {
 import { CreateChapterDto } from './dto/create-chapter.dto';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { UpdateChapterDto } from './dto/update-chapter.dto';
@@ -515,6 +518,32 @@ export class ClassController {
       classId,
       query.page,
       query.limit,
+    );
+  }
+
+  @Patch(':classId/assignments/:assignmentId')
+  @DefaultResponse(
+    AssignmentResponseDto,
+    'Update assignment success',
+    HttpStatus.OK,
+    [
+      BadRequestException,
+      ForbiddenException,
+      NotFoundException,
+      ConflictException,
+    ],
+  )
+  updateAssignment(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+    @Body() dto: UpdateAssignmentDto,
+  ) {
+    return this.classAssignmentService.updateAssignment(
+      req.user.id,
+      classId,
+      assignmentId,
+      dto,
     );
   }
 

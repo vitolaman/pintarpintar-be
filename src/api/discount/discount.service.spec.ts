@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, FindOperator } from 'typeorm';
 import { isPromoCodeAvailable } from '~/common/promo-code/promo-code-namespace';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import {
@@ -12,6 +12,7 @@ import {
 import {
   AddDiscountCodesDto,
   CreateDiscountDto,
+  RemoveDiscountCodesDto,
   UpdateDiscountDto,
 } from './dto/discount-request.dto';
 import { DiscountCode } from './entities/discount-code.entity';
@@ -21,6 +22,9 @@ import { Discount } from './entities/discount.entity';
 const CLASS_ID = '10000000-0000-4000-8000-000000000001';
 const PRODUCT_ID = '10000000-0000-4000-8000-000000000002';
 const DISCOUNT_ID = '10000000-0000-4000-8000-000000000003';
+
+const codeId = (index: number) =>
+  `20000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
 
 describe('generateDiscountCode', () => {
   it('uses the DSC prefix and an unambiguous alphabet', () => {
@@ -133,6 +137,30 @@ describe('Discount DTOs', () => {
   });
 });
 
+describe('RemoveDiscountCodesDto', () => {
+  const errorsFor = (code_ids: unknown) =>
+    validate(plainToInstance(RemoveDiscountCodesDto, { code_ids }));
+
+  it('accepts 1 to 1,000 distinct code ids', async () => {
+    expect(await errorsFor([codeId(1)])).toEqual([]);
+    expect(
+      await errorsFor(
+        Array.from({ length: 1000 }, (_, index) => codeId(index)),
+      ),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ['no ids', []],
+    ['more than 1,000 ids', Array.from({ length: 1001 }, (_, i) => codeId(i))],
+    ['a repeated id', [codeId(1), codeId(1)]],
+    ['a non-uuid id', ['DSC-ABCDEFGH']],
+    ['a missing list', undefined],
+  ])('rejects %s', async (_case, codeIds) => {
+    expect(await errorsFor(codeIds)).not.toHaveLength(0);
+  });
+});
+
 describe('isPromoCodeAvailable', () => {
   it('locks the code and checks vouchers and discount codes', async () => {
     const query = jest
@@ -167,9 +195,11 @@ describe('isPromoCodeAvailable', () => {
 describe('DiscountService', () => {
   const merchant = { id: 'merchant-id', userId: 'user-id' } as Merchant;
   let manager: Record<string, jest.Mock>;
+  let dataSourceQuery: jest.Mock;
   let service: DiscountService;
 
   beforeEach(() => {
+    dataSourceQuery = jest.fn(async () => []);
     manager = {
       findOne: jest.fn(async (target) =>
         target === Merchant ? merchant : null,
@@ -210,7 +240,7 @@ describe('DiscountService', () => {
     };
     service = new DiscountService({
       manager,
-      query: jest.fn(async () => []),
+      query: dataSourceQuery,
       transaction: jest.fn((callback) => callback(manager)),
     } as unknown as DataSource);
   });
@@ -325,6 +355,157 @@ describe('DiscountService', () => {
     expect(manager.findOneBy).toHaveBeenCalledWith(Discount, {
       id: DISCOUNT_ID,
       merchantId: 'merchant-id',
+    });
+  });
+
+  describe('eligible items', () => {
+    afterEach(() => {
+      delete process.env.ASSET_PUBLIC_BASE_URL;
+    });
+
+    it('carries the price, image URL and availability from one query', async () => {
+      process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.test';
+      dataSourceQuery.mockResolvedValueOnce([
+        {
+          id: PRODUCT_ID,
+          type: 'digital',
+          title: 'Template RAB Excel',
+          price: '125000.00',
+          image: 'products/covers/rab.png',
+          is_available: true,
+        },
+        {
+          id: CLASS_ID,
+          type: 'kelas',
+          title: 'Belajar AutoCAD dari Nol',
+          price: '0',
+          image: null,
+          is_available: false,
+        },
+      ]);
+
+      const { data } = await service.findEligibleProducts('user-id');
+
+      expect(data).toEqual([
+        {
+          id: PRODUCT_ID,
+          type: 'digital',
+          title: 'Template RAB Excel',
+          price: 125000,
+          image_url: 'https://cdn.test/products/covers/rab.png',
+          is_available: true,
+        },
+        {
+          id: CLASS_ID,
+          type: 'kelas',
+          title: 'Belajar AutoCAD dari Nol',
+          price: 0,
+          image_url: null,
+          is_available: false,
+        },
+      ]);
+      expect(dataSourceQuery).toHaveBeenCalledTimes(1);
+      const [sql, params] = dataSourceQuery.mock.calls[0];
+      expect(sql).toContain('class."discountedPrice" > 0');
+      expect(sql).toContain('product.discount_price > 0');
+      expect(sql).toContain("class.status IN ('published', 'archived')");
+      expect(sql).toContain('product.is_published');
+      expect(params).toEqual(['merchant-id']);
+    });
+  });
+
+  describe('removeCodes', () => {
+    const storedCode = (index: number, usageLimit = 1) =>
+      ({
+        id: codeId(index),
+        discountId: DISCOUNT_ID,
+        code: `DSC-CODE${String(index).padStart(4, '0')}`,
+        codeType: usageLimit === 1 ? 'once' : 'recurring',
+        usageLimit,
+        usedCount: 0,
+      }) as DiscountCode;
+
+    const requestedIds = (where: { id?: FindOperator<string[]> }) =>
+      where.id?.value ?? [];
+
+    beforeEach(() => {
+      manager.findOneBy.mockResolvedValue({
+        id: DISCOUNT_ID,
+        merchantId: 'merchant-id',
+      });
+    });
+
+    it('removes 50 codes in one request and returns the remaining codes and quota', async () => {
+      const removed = Array.from({ length: 50 }, (_, index) =>
+        storedCode(index),
+      );
+      const remaining = [
+        ...Array.from({ length: 10 }, (_, index) => storedCode(50 + index)),
+        storedCode(60, 500),
+      ];
+      manager.find.mockImplementation(async (target, { where }) => {
+        if (target !== DiscountCode) return [];
+        // The transaction looks the requested codes up; the response
+        // afterwards reads the codes left on the discount.
+        return where.id
+          ? removed.filter((code) => requestedIds(where).includes(code.id))
+          : remaining;
+      });
+      const ids = removed.map((code) => code.id);
+
+      const { data } = await service.removeCodes('user-id', DISCOUNT_ID, {
+        code_ids: ids,
+      });
+
+      expect(manager.findOne).toHaveBeenCalledWith(Merchant, {
+        where: { userId: 'user-id' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(manager.findOneBy).toHaveBeenCalledWith(Discount, {
+        id: DISCOUNT_ID,
+        merchantId: 'merchant-id',
+      });
+      expect(manager.softDelete).toHaveBeenCalledTimes(1);
+      const [target, criteria] = manager.softDelete.mock.calls[0];
+      expect(target).toBe(DiscountCode);
+      expect(criteria.discountId).toBe(DISCOUNT_ID);
+      expect(requestedIds(criteria)).toEqual(ids);
+      expect(data.codes.map((code) => code.id)).toEqual(
+        remaining.map((code) => code.id),
+      );
+      expect(data.total_quota).toBe(510);
+    });
+
+    it('rejects codes of another discount or unknown ids, naming them, and changes nothing', async () => {
+      const foreignId = codeId(900);
+      const unknownId = codeId(901);
+      manager.find.mockImplementation(async (target, { where }) =>
+        target === DiscountCode
+          ? [storedCode(1)].filter((code) =>
+              requestedIds(where).includes(code.id),
+            )
+          : [],
+      );
+
+      const removal = service.removeCodes('user-id', DISCOUNT_ID, {
+        code_ids: [codeId(1), foreignId, unknownId],
+      });
+
+      await expect(removal).rejects.toBeInstanceOf(BadRequestException);
+      await expect(removal).rejects.toThrow(`${foreignId}, ${unknownId}`);
+      expect(manager.find).toHaveBeenCalledWith(DiscountCode, {
+        where: expect.objectContaining({ discountId: DISCOUNT_ID }),
+      });
+      expect(manager.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('hides other merchants discounts behind 404', async () => {
+      manager.findOneBy.mockResolvedValue(null);
+
+      await expect(
+        service.removeCodes('user-id', DISCOUNT_ID, { code_ids: [codeId(1)] }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(manager.softDelete).not.toHaveBeenCalled();
     });
   });
 });

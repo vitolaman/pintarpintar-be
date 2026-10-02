@@ -57,6 +57,9 @@ describe('HomeService', () => {
       findCards: jest.fn(({ types }: { types: string[] }) =>
         Promise.resolve([{ id: `${types[0]}-id`, type: types[0] }]),
       ),
+      withViewerFlags: jest.fn(async (_viewer, cards: object[]) =>
+        cards.map((card) => ({ ...card, in_wishlist: false })),
+      ),
     };
     const service = new HomeService(
       products as Repository<Product>,
@@ -74,15 +77,18 @@ describe('HomeService', () => {
     });
     await expect(service.getBootcamps(10)).resolves.toEqual({
       responseMessage: 'Get bootcamps success',
-      data: [{ id: 'bootcamp-id', type: 'bootcamp' }],
+      data: [{ id: 'bootcamp-id', type: 'bootcamp', in_wishlist: false }],
     });
+    expect(catalogService.withViewerFlags).toHaveBeenLastCalledWith(undefined, [
+      { id: 'bootcamp-id', type: 'bootcamp' },
+    ]);
     await expect(service.getVideoClasses(10)).resolves.toEqual({
       responseMessage: 'Get video classes success',
-      data: [{ id: 'kelas-id', type: 'kelas' }],
+      data: [{ id: 'kelas-id', type: 'kelas', in_wishlist: false }],
     });
     await expect(service.getDigitalProducts(10)).resolves.toEqual({
       responseMessage: 'Get digital products success',
-      data: [{ id: 'digital-id', type: 'digital' }],
+      data: [{ id: 'digital-id', type: 'digital', in_wishlist: false }],
     });
     await expect(service.getMerchants(10)).resolves.toEqual({
       responseMessage: 'Get merchants success',
@@ -124,5 +130,78 @@ describe('HomeService', () => {
       expect.stringContaining('ON class.id = review.class_id'),
       [10],
     );
+  });
+
+  it('adds image URLs next to the merchant and testimonial keys', async () => {
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
+    try {
+      const products = {
+        query: jest.fn((sql: string) =>
+          Promise.resolve(
+            sql.includes('FROM merchants merchant')
+              ? [
+                  {
+                    id: 'merchant-id',
+                    name: 'Pintar CAD',
+                    slug: null,
+                    avatar_asset_id: 'avatar-asset',
+                    avatar_object_key: 'merchants/logo.png',
+                    best_product_title: null,
+                    best_product_cover_asset_id: null,
+                    best_product_cover_object_key: null,
+                    best_product_rating: null,
+                  },
+                  {
+                    id: 'merchant-2',
+                    name: 'Sari Studio',
+                    slug: null,
+                    avatar_asset_id: null,
+                    avatar_object_key: null,
+                    best_product_title: 'Template RAB',
+                    best_product_cover_asset_id: 'cover-asset',
+                    best_product_cover_object_key: 'covers/rab.png',
+                    best_product_rating: '4.5',
+                  },
+                ]
+              : [
+                  {
+                    id: 'review-id',
+                    rating: '5',
+                    comment: 'Bagus',
+                    created_at: new Date('2026-09-01T00:00:00.000Z'),
+                    user_name: 'Alya',
+                    user_avatar_asset_id: 'user-avatar',
+                    user_avatar_object_key: 'avatars/alya.png',
+                    class_id: 'class-id',
+                    class_title: 'Revit',
+                  },
+                ],
+          ),
+        ),
+      };
+      const service = new HomeService(
+        products as unknown as Repository<Product>,
+        {} as CatalogService,
+      );
+
+      const merchants = await service.getMerchants(2);
+      const testimonials = await service.getTestimonials(1);
+
+      expect(
+        merchants.data.map((merchant) => [
+          merchant.avatar_url,
+          merchant.best_product_cover_url,
+        ]),
+      ).toEqual([
+        ['https://cdn.example.com/merchants/logo.png', null],
+        [null, 'https://cdn.example.com/covers/rab.png'],
+      ]);
+      expect(testimonials.data[0]).toMatchObject({
+        user_avatar_object_key: 'avatars/alya.png',
+        user_avatar_url: 'https://cdn.example.com/avatars/alya.png',
+      });
+    } finally {
+      delete process.env.ASSET_PUBLIC_BASE_URL;
+    }
   });
 });

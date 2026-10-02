@@ -9,11 +9,11 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsDateString,
   IsEmpty,
-  IsIn,
   IsNumber,
   IsOptional,
   IsUUID,
@@ -35,6 +35,9 @@ import {
   ContentItemType,
   contentItemTypes,
 } from '~/common/catalog/catalog-item';
+
+// Matches the most single-use codes one request can generate.
+const MAX_REMOVED_CODES_PER_REQUEST = 1000;
 
 export const discountTargetTypes = ['kelas', 'digital'] as const;
 
@@ -144,6 +147,23 @@ export class AddDiscountCodesDto {
   @ValidateNested({ each: true })
   @Type(() => DiscountCodeInputDto)
   codes: DiscountCodeInputDto[];
+}
+
+export class RemoveDiscountCodesDto {
+  @ApiProperty({
+    type: [String],
+    format: 'uuid',
+    minItems: 1,
+    maxItems: MAX_REMOVED_CODES_PER_REQUEST,
+    uniqueItems: true,
+    description: 'Ids of codes of this discount',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_REMOVED_CODES_PER_REQUEST)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  code_ids: string[];
 }
 
 export class DiscountListQueryDto {

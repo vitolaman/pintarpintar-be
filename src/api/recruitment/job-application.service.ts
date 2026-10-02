@@ -32,7 +32,7 @@ import { JobApplication } from './entities/job-application.entity';
 import { MerchantMentor } from './entities/merchant-mentor.entity';
 import { ApplicationStatus } from './recruitment.constants';
 import { findOwnMerchant } from './recruitment-merchant';
-import { PUBLIC_JOB_SQL } from './recruitment-sql';
+import { ACTIVE_MENTOR_ID_SQL, PUBLIC_JOB_SQL } from './recruitment-sql';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 const UNIQUE_VIOLATION = '23505';
@@ -55,8 +55,8 @@ const COUNTS_SQL = `count(*)::integer AS all,
 
 const APPLICANT_COLUMNS_SQL = `application.id, application.status, application.created_at,
   application.interview_at, application.interview_url, application.decided_at,
-  application.applicant_user_id AS user_id, application.name, application.email,
-  application.phone, application.linkedin_url, application.note,
+  application.applicant_user_id AS user_id, ${ACTIVE_MENTOR_ID_SQL} AS mentor_id,
+  application.name, application.email, application.phone, application.linkedin_url, application.note,
   avatar.object_key AS avatar_object_key, profile.headline, mentor_profile.experience_years,
   job.id AS job_id, job.title AS job_title,
   cv.original_filename AS cv_filename, cv.size_bytes AS cv_size`;
@@ -80,6 +80,7 @@ interface ApplicantRow {
   interview_url: string | null;
   decided_at: Date | null;
   user_id: string;
+  mentor_id: string | null;
   name: string;
   email: string;
   phone: string;
@@ -577,6 +578,7 @@ function toApplicant(row: ApplicantRow): ApplicantResponseDto {
     interview_url: row.interview_url,
     decided_at: row.decided_at,
     user_id: row.user_id,
+    mentor_id: row.mentor_id,
     name: row.name,
     email: row.email,
     phone: row.phone,

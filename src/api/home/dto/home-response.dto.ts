@@ -30,6 +30,13 @@ export class HomeMerchantCardResponseDto {
   @ApiPropertyOptional()
   avatar_object_key: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Avatar URL; null without one',
+  })
+  avatar_url: string | null;
+
   @ApiPropertyOptional()
   best_product_title: string | null;
 
@@ -38,6 +45,13 @@ export class HomeMerchantCardResponseDto {
 
   @ApiPropertyOptional()
   best_product_cover_object_key: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Best product cover URL; null without one',
+  })
+  best_product_cover_url: string | null;
 
   @ApiPropertyOptional()
   best_product_rating: number | null;
@@ -64,6 +78,13 @@ export class HomeTestimonialResponseDto {
 
   @ApiPropertyOptional()
   user_avatar_object_key: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Reviewer avatar URL; null without one',
+  })
+  user_avatar_url: string | null;
 
   @ApiProperty({ format: 'uuid' })
   class_id: string;

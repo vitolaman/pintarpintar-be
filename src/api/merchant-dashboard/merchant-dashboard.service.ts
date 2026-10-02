@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { MerchantLevelService } from '../merchant-level/merchant-level.service';
 import { DataSource } from 'typeorm';
+import { assetUrl } from '../../common/storage/asset-url';
 import {
   CustomersQueryDto,
   DashboardQueryDto,
@@ -183,7 +184,13 @@ export class MerchantDashboardService {
         rating_average: rating.average === null ? null : Number(rating.average),
         review_count: rating.total,
         latest_review: latestReview
-          ? { ...latestReview, rating: Number(latestReview.rating) }
+          ? {
+              ...latestReview,
+              reviewer_avatar_url: assetUrl(
+                latestReview.reviewer_avatar_object_key,
+              ),
+              rating: Number(latestReview.rating),
+            }
           : null,
         chart: chart.map((point) => ({
           date: point.date,

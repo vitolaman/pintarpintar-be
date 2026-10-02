@@ -15,6 +15,10 @@ import {
   catalogItemTypes,
 } from '~/common/catalog/catalog-item';
 import { OrderStatus } from '../entities/order.entity';
+import {
+  CodeRejectionReason,
+  codeRejectionReasons,
+} from '../checkout/checkout-pricing';
 
 export class CheckoutRequestDto {
   @ApiProperty({
@@ -56,6 +60,12 @@ export class CheckoutItemResponseDto {
   @ApiProperty({ nullable: true, description: 'Cover object key' })
   image: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    description: 'Public cover URL (null without a cover)',
+  })
+  image_url: string | null;
+
   @ApiProperty()
   merchant_id: string;
 
@@ -86,12 +96,34 @@ export class AppliedCodeResponseDto {
   discount_amount: number;
 }
 
+export class RejectedCodeResponseDto {
+  @ApiProperty({ example: 'HEMAT50K', description: 'The code, upper-cased' })
+  code: string;
+
+  @ApiProperty({
+    enum: codeRejectionReasons,
+    description:
+      'not_found: no such code; expired: ended or deactivated; not_started: starts later; used_up: usage limit reached; already_used: this user used the recurring code; minimum_not_met: the merchant items are below its minimum; not_applicable: no selected item is eligible',
+  })
+  reason: CodeRejectionReason;
+}
+
 export class CheckoutPreviewResponseDto {
   @ApiProperty({ type: [CheckoutItemResponseDto] })
   items: CheckoutItemResponseDto[];
 
-  @ApiProperty({ type: [AppliedCodeResponseDto] })
+  @ApiProperty({
+    type: [AppliedCodeResponseDto],
+    description: 'The codes applied to the price',
+  })
   codes: AppliedCodeResponseDto[];
+
+  @ApiProperty({
+    type: [RejectedCodeResponseDto],
+    description:
+      'Entered codes left out of the price; checkout rejects them with 400',
+  })
+  rejected_codes: RejectedCodeResponseDto[];
 
   @ApiProperty({ example: 598000 })
   subtotal: number;

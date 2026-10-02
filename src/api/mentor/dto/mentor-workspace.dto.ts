@@ -154,8 +154,17 @@ export class MentorClassResponseDto {
   @ApiProperty({ example: 'Lead Tutor / Instruktur Utama' })
   role: string;
 
-  @ApiPropertyOptional({ description: 'Null until classes have a cover image' })
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Same as cover_url; kept for existing clients',
+  })
   image: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Public URL of the class cover; null without a cover',
+  })
+  cover_url: string | null;
 
   @ApiProperty({ type: MentorClassMerchantDto })
   merchant: MentorClassMerchantDto;
@@ -187,6 +196,12 @@ export class TeachingClassResponseDto {
 
   @ApiProperty()
   title: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Public URL of the class cover; null without a cover',
+  })
+  cover_url: string | null;
 
   @ApiProperty({ type: TeachingClassMerchantDto })
   merchant: TeachingClassMerchantDto;

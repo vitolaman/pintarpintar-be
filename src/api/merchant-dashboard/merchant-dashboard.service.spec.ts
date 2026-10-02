@@ -200,6 +200,60 @@ describe('MerchantDashboardService', () => {
     });
   });
 
+  it('adds the latest reviewer avatar URL next to its object key', async () => {
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
+    try {
+      query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM merchants')) {
+          return [{ id: 'merchant-id', storage_level: 'basic' }];
+        }
+        if (sql.includes('reviewer_avatar_object_key')) {
+          return [
+            {
+              reviewer_name: 'Alya',
+              reviewer_avatar_object_key: 'avatars/alya.png',
+              rating: '5',
+              item_title: 'AutoCAD',
+            },
+          ];
+        }
+        return [{}];
+      });
+
+      const { data } = await service.findDashboard(
+        'user-id',
+        plainToInstance(DashboardQueryDto, {}),
+      );
+
+      expect(data.latest_review).toMatchObject({
+        reviewer_avatar_object_key: 'avatars/alya.png',
+        reviewer_avatar_url: 'https://cdn.example.com/avatars/alya.png',
+        rating: 5,
+      });
+    } finally {
+      delete process.env.ASSET_PUBLIC_BASE_URL;
+    }
+  });
+
+  it('returns a null reviewer avatar URL without an avatar', async () => {
+    query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM merchants')) {
+        return [{ id: 'merchant-id', storage_level: 'basic' }];
+      }
+      if (sql.includes('reviewer_avatar_object_key')) {
+        return [{ reviewer_avatar_object_key: null, rating: 4 }];
+      }
+      return [{}];
+    });
+
+    const { data } = await service.findDashboard(
+      'user-id',
+      plainToInstance(DashboardQueryDto, {}),
+    );
+
+    expect(data.latest_review.reviewer_avatar_url).toBeNull();
+  });
+
   it('rejects users without a merchant', async () => {
     query.mockResolvedValueOnce([]);
     await expect(

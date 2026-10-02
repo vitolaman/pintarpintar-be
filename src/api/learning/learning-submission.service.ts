@@ -38,6 +38,7 @@ export class LearningSubmissionService {
     input: SubmitAssignmentDto,
   ) {
     return this.dataSource.transaction(async (manager) => {
+      await lockAssignment(manager, assignmentId);
       const assignment = await this.learningAssignment.findLearnerAssignment(
         manager,
         userId,
@@ -77,6 +78,7 @@ export class LearningSubmissionService {
 
   async submitQuiz(userId: string, assignmentId: string, input: SubmitQuizDto) {
     return this.dataSource.transaction(async (manager) => {
+      await lockAssignment(manager, assignmentId);
       const assignment = await this.learningAssignment.findLearnerAssignment(
         manager,
         userId,
@@ -197,6 +199,19 @@ interface MatchedAnswer {
   value: string;
   isCorrect: boolean | null;
   score: number | null;
+}
+
+// Holds back a tutor's edit of the assignment (which locks it FOR UPDATE)
+// until this attempt is saved, so an attempt never pairs the old type or
+// questions with the edited ones.
+async function lockAssignment(
+  manager: EntityManager,
+  assignmentId: string,
+): Promise<void> {
+  await manager.query(
+    'SELECT id FROM assignments WHERE id = $1 FOR KEY SHARE',
+    [assignmentId],
+  );
 }
 
 // Every question needs exactly one answer; a multiple-choice answer must be

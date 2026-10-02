@@ -1,8 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  CodeRejectedException,
   DiscountCodeRule,
   PricingItem,
   VoucherRule,
+  assertCodeApplies,
   priceSelection,
   spread,
 } from './checkout-pricing';
@@ -181,6 +183,43 @@ describe('priceSelection', () => {
         ],
       ),
     ).toThrow('does not apply to any selected item');
+  });
+
+  it.each([
+    [
+      'another merchant',
+      [item('b1', 'B', 100000)],
+      voucher(),
+      'not_applicable',
+    ],
+    [
+      'a minimum above the eligible subtotal',
+      [item('a1', 'A', 100000), item('b1', 'B', 400000)],
+      voucher({ minimumPurchase: 150000 }),
+      'minimum_not_met',
+    ],
+  ])(
+    'reports a code rejected for %s with its reason',
+    (_case, items, rule, reason) => {
+      let rejection: unknown;
+      try {
+        assertCodeApplies(items, rule);
+      } catch (error) {
+        rejection = error;
+      }
+      expect(rejection).toBeInstanceOf(CodeRejectedException);
+      expect(rejection).toBeInstanceOf(BadRequestException);
+      expect(rejection).toMatchObject({ promoCode: 'HEMAT10', reason });
+    },
+  );
+
+  it('accepts a code with an eligible item and its minimum met', () => {
+    expect(() =>
+      assertCodeApplies(
+        [item('a1', 'A', 200000)],
+        voucher({ minimumPurchase: 150000 }),
+      ),
+    ).not.toThrow();
   });
 
   it('rejects a price that is not whole rupiah', () => {

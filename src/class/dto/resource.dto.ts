@@ -8,7 +8,6 @@ import {
   IsUrl,
   IsUUID,
   MaxLength,
-  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { ResourceType } from '../entities/file-resource.entity';

@@ -9,6 +9,7 @@ import {
 } from './dto/recent-transactions.dto';
 import { Order, OrderStatus } from './entities/order.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
+import { assetUrl } from '~/common/storage/asset-url';
 
 // An unpaid order past its expiry reads as expired even before the sweep
 // records it.
@@ -87,9 +88,9 @@ export class OrderService {
          LEFT JOIN classes class ON class.id = item.class_id
          LEFT JOIN products product ON product.id = item.product_id
          LEFT JOIN bundles bundle ON bundle.id = item.bundle_id
-         LEFT JOIN file_assets class_cover ON class_cover.id = class.cover_asset_id
-         LEFT JOIN file_assets product_cover ON product_cover.id = product.cover_asset_id
-         LEFT JOIN file_assets bundle_cover ON bundle_cover.id = bundle.cover_asset_id
+         LEFT JOIN file_assets class_cover ON class_cover.id = class.cover_asset_id AND class_cover.deleted_at IS NULL
+         LEFT JOIN file_assets product_cover ON product_cover.id = product.cover_asset_id AND product_cover.deleted_at IS NULL
+         LEFT JOIN file_assets bundle_cover ON bundle_cover.id = bundle.cover_asset_id AND bundle_cover.deleted_at IS NULL
          LEFT JOIN merchants merchant
            ON merchant.id = COALESCE(class.merchant_id, product.merchant_id, bundle.merchant_id)
          WHERE item.order_id = $1 AND item.deleted_at IS NULL
@@ -120,6 +121,7 @@ export class OrderService {
         item_id: item.item_id,
         title: item.title,
         image: item.image,
+        image_url: assetUrl(item.image),
         merchant_id: item.merchant_id,
         merchant_name: item.merchant_name,
         price: Number(item.price),
@@ -148,11 +150,14 @@ export class OrderService {
   ): Promise<TransactionResponseDto[]> {
     if (orders.length === 0) return [];
 
-    // Deleted catalog items keep their titles so history stays readable.
+    // One query for the whole page. Deleted catalog items keep their titles,
+    // covers and merchants so history stays readable, as in the detail.
     const items = await this.dataSource.query(
       `SELECT item.order_id, item.price_at_purchase AS price,
               COALESCE(class.id, product.id, bundle.id) AS item_id,
               COALESCE(class.title, product.title, bundle.title) AS title,
+              COALESCE(class_cover.object_key, product_cover.object_key, bundle_cover.object_key) AS image,
+              merchant.store_name AS merchant_name,
               CASE
                 WHEN item.class_id IS NOT NULL AND class.type = 'live-bootcamp' THEN 'bootcamp'
                 WHEN item.class_id IS NOT NULL THEN 'kelas'
@@ -163,6 +168,11 @@ export class OrderService {
        LEFT JOIN classes class ON class.id = item.class_id
        LEFT JOIN products product ON product.id = item.product_id
        LEFT JOIN bundles bundle ON bundle.id = item.bundle_id
+       LEFT JOIN file_assets class_cover ON class_cover.id = class.cover_asset_id AND class_cover.deleted_at IS NULL
+       LEFT JOIN file_assets product_cover ON product_cover.id = product.cover_asset_id AND product_cover.deleted_at IS NULL
+       LEFT JOIN file_assets bundle_cover ON bundle_cover.id = bundle.cover_asset_id AND bundle_cover.deleted_at IS NULL
+       LEFT JOIN merchants merchant
+         ON merchant.id = COALESCE(class.merchant_id, product.merchant_id, bundle.merchant_id)
        WHERE item.order_id = ANY($1::uuid[]) AND item.deleted_at IS NULL
        ORDER BY item.created_at, item.id`,
       [orders.map((order) => order.id)],
@@ -181,6 +191,8 @@ export class OrderService {
           type: item.type,
           item_id: item.item_id,
           title: item.title,
+          image_url: assetUrl(item.image),
+          merchant_name: item.merchant_name,
           price: Number(item.price),
         })),
     }));

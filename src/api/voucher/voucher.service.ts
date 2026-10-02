@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
+import { assetUrl } from '../../common/storage/asset-url';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import {
   merchantCategoryLabelForSlug,
@@ -376,6 +377,7 @@ export class VoucherService {
           merchant.id AS merchant_id, merchant.store_name AS merchant_name,
           profile.slug AS merchant_slug,
           profile.avatar_asset_id AS merchant_avatar_asset_id,
+          avatar.object_key AS merchant_avatar_object_key,
           profile.tagline AS merchant_tagline,
           profile.category_label AS merchant_category_label,
           (ARRAY[${VOUCHER_TAGS.map((tag) => `'${tag}'`).join(', ')}])[
@@ -386,6 +388,8 @@ export class VoucherService {
         INNER JOIN merchants merchant ON merchant.id = coupon.merchant_id
         LEFT JOIN merchant_profiles profile
           ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
+        LEFT JOIN file_assets avatar
+          ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
         WHERE ($3::varchar IS NULL OR profile.category_label = $3)
           AND ($4::varchar IS NULL OR profile.slug = $4)
           AND ($7::uuid IS NULL OR merchant.id = $7)
@@ -464,8 +468,10 @@ export class VoucherService {
   private toPublicVoucherResponse(
     row: PublicVoucherRow,
   ): PublicVoucherResponseDto {
+    const { merchant_avatar_object_key, ...fields } = row;
     return {
-      ...row,
+      ...fields,
+      merchant_avatar_url: assetUrl(merchant_avatar_object_key),
       discount_value: Number(row.discount_value),
       minimum_order_amount: this.numberOrNull(row.minimum_order_amount),
       maximum_discount_amount: this.numberOrNull(row.maximum_discount_amount),
@@ -548,6 +554,7 @@ interface PublicVoucherRow {
   merchant_name: string;
   merchant_slug: string | null;
   merchant_avatar_asset_id: string | null;
+  merchant_avatar_object_key: string | null;
   merchant_tagline: string | null;
   merchant_category_label: string | null;
 }

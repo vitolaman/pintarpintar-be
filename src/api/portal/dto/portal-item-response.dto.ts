@@ -42,10 +42,16 @@ export class PortalItemResponseDto {
 
   @ApiProperty({
     nullable: true,
-    description:
-      'Cover asset object key; always null for classes until the class model has a cover',
+    description: 'Cover asset object key; null without a cover',
   })
   image: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Cover URL; null without a cover',
+  })
+  image_url: string | null;
 
   @ApiProperty({ description: 'When the learner obtained the item' })
   acquired_at: Date;
@@ -61,6 +67,13 @@ export class PortalItemResponseDto {
 
   @ApiProperty({ nullable: true })
   merchant_avatar_object_key: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Merchant avatar URL; null without an avatar',
+  })
+  merchant_avatar_url: string | null;
 
   @ApiProperty({
     nullable: true,

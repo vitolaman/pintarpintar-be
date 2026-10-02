@@ -26,13 +26,13 @@ import { PayoutAccountService } from './payout-account.service';
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('merchants/v1')
+@Controller('api/v1/merchant/payout-accounts')
 @ApiBearerAuth()
 @ApiTags('Merchant Payout Accounts')
 export class PayoutAccountController {
   constructor(private readonly payoutAccountService: PayoutAccountService) {}
 
-  @Get('get-payout-accounts')
+  @Get()
   @ArrayResponse(PayoutAccountResponseDto, 'Get payout accounts success', [
     NotFoundException,
   ])
@@ -40,7 +40,7 @@ export class PayoutAccountController {
     return this.payoutAccountService.findAll(req.user.id);
   }
 
-  @Post('create-payout-account')
+  @Post()
   @DefaultResponse(
     PayoutAccountResponseDto,
     'Create payout account success',
@@ -54,7 +54,7 @@ export class PayoutAccountController {
     return this.payoutAccountService.create(req.user.id, input);
   }
 
-  @Patch('update-payout-account/:id')
+  @Patch(':id')
   @DefaultResponse(
     PayoutAccountResponseDto,
     'Update payout account success',
@@ -69,7 +69,8 @@ export class PayoutAccountController {
     return this.payoutAccountService.update(req.user.id, id, input);
   }
 
-  @Patch('set-primary-payout-account/:id')
+  @Post(':id/set-primary')
+  @HttpCode(HttpStatus.OK)
   @DefaultResponse(
     PayoutAccountResponseDto,
     'Set primary payout account success',
@@ -83,7 +84,7 @@ export class PayoutAccountController {
     return this.payoutAccountService.setPrimary(req.user.id, id);
   }
 
-  @Delete('delete-payout-account/:id')
+  @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @EmptyResponse([BadRequestException, NotFoundException])
   remove(

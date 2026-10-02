@@ -11,13 +11,13 @@ import { PortalItemQueryDto } from './dto/portal-item-query.dto';
 import { PortalItemResponseDto } from './dto/portal-item-response.dto';
 import { PortalService } from './portal.service';
 
-@Controller('portal/v1')
+@Controller('api/v1/profile')
 @ApiBearerAuth()
 @ApiTags('Portal')
 export class PortalController {
   constructor(private readonly portalService: PortalService) {}
 
-  @Get('get-items')
+  @Get('portal-items')
   @PaginatedResponse(PortalItemResponseDto, 'Get portal items success', [
     BadRequestException,
   ])

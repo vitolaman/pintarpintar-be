@@ -11,7 +11,7 @@ import { DefaultResponse } from '~/common/decorator/response.decorator';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UserService } from './user.service';
 
-@Controller('users/me')
+@Controller('api/v1/users/me')
 @ApiBearerAuth()
 @ApiTags('User')
 export class UserMeController {

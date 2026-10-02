@@ -195,6 +195,12 @@ export class MerchantService {
     };
   }
 
+  async findOwnMerchantId(userId: string): Promise<string> {
+    const merchant = await this.merchants.findOneBy({ userId });
+    if (!merchant) throw new NotFoundException('Merchant not found');
+    return merchant.id;
+  }
+
   async findWallet(userId: string) {
     const merchant = await this.merchants.findOneBy({ userId });
     if (!merchant) throw new NotFoundException('Merchant not found');

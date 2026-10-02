@@ -49,7 +49,7 @@ const mentorDocuments = FileFieldsInterceptor(
   { limits: { fileSize: 5 * 1024 * 1024 } },
 );
 
-@Controller('mentors/v1')
+@Controller('api/v1')
 @ApiTags('Mentors')
 export class MentorController {
   constructor(
@@ -57,7 +57,7 @@ export class MentorController {
     private readonly mentorWorkspaceService: MentorWorkspaceService,
   ) {}
 
-  @Post('sign-up')
+  @Post('mentors/sign-up')
   @Public()
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(mentorDocuments)
@@ -74,7 +74,7 @@ export class MentorController {
     return this.mentorService.signUp(input, files);
   }
 
-  @Post('register')
+  @Post('mentor/register')
   @ApiBearerAuth()
   @UseInterceptors(mentorDocuments)
   @ApiConsumes('multipart/form-data')
@@ -92,21 +92,21 @@ export class MentorController {
     return this.mentorService.register(req.user.id, input, files);
   }
 
-  @Get('get-mentor/:id')
+  @Get('mentors/:id')
   @Public()
   @DefaultResponse(PublicMentorResponseDto, 'Get mentor success')
   findPublicMentor(@Param('id', ParseUUIDPipe) id: string) {
     return this.mentorService.findPublicMentor(id);
   }
 
-  @Get('get-profile')
+  @Get('mentor/profile')
   @ApiBearerAuth()
   @DefaultResponse(MentorResponseDto, 'Get mentor profile success')
   findProfile(@Req() req: { user: { id: string } }) {
     return this.mentorService.findProfile(req.user.id);
   }
 
-  @Patch('update-profile')
+  @Patch('mentor/profile')
   @ApiBearerAuth()
   @DefaultResponse(MentorResponseDto, 'Update mentor profile success')
   updateProfile(
@@ -116,7 +116,7 @@ export class MentorController {
     return this.mentorService.updateMyMentor(req.user.id, input);
   }
 
-  @Get('get-assignments')
+  @Get('mentor/assignments')
   @ApiBearerAuth()
   @DefaultResponse(
     MentorAssignmentsResponseDto,
@@ -126,7 +126,7 @@ export class MentorController {
     return this.mentorService.findAssignments(req.user.id);
   }
 
-  @Patch('update-documents')
+  @Patch('mentor/documents')
   @ApiBearerAuth()
   @UseInterceptors(mentorDocuments)
   @ApiConsumes('multipart/form-data')
@@ -147,21 +147,21 @@ export class MentorController {
     return this.mentorService.updateDocuments(req.user.id, files ?? {});
   }
 
-  @Get('get-documents')
+  @Get('mentor/documents')
   @ApiBearerAuth()
   @ArrayResponse(MentorDocumentResponseDto, 'Get mentor documents success')
   findDocuments(@Req() req: { user: { id: string } }) {
     return this.mentorService.findDocuments(req.user.id);
   }
 
-  @Get('get-dashboard')
+  @Get('mentor/dashboard')
   @ApiBearerAuth()
   @DefaultResponse(MentorDashboardResponseDto, 'Get mentor dashboard success')
   findDashboard(@Req() req: { user: { id: string } }) {
     return this.mentorWorkspaceService.findDashboard(req.user.id);
   }
 
-  @Get('get-classes')
+  @Get('mentor/classes')
   @ApiBearerAuth()
   @ArrayResponse(MentorClassResponseDto, 'Get mentor classes success')
   findClasses(
@@ -171,7 +171,7 @@ export class MentorController {
     return this.mentorWorkspaceService.findClasses(req.user.id, query);
   }
 
-  @Get('get-teaching-classes')
+  @Get('mentor/teaching-history')
   @ApiBearerAuth()
   @ArrayResponse(TeachingClassResponseDto, 'Get teaching classes success')
   findTeachingClasses(@Req() req: { user: { id: string } }) {

@@ -29,7 +29,7 @@ const settings: Record<string, string> = {
     'https://sandbox.duitku.com/webapi/api/merchant/transactionStatus',
   PAYMENT_GATEWAY_MERCHANT_KEY: 'DMOCK1',
   PAYMENT_GATEWAY_API_KEY: 'secret-key',
-  PAYMENT_CALLBACK_URL: 'https://api.test/payments/v1/duitku-callback',
+  PAYMENT_CALLBACK_URL: 'https://api.test/api/v1/payments/duitku/callback',
   PAYMENT_RETURN_URL: 'https://fe.test/payment?from=checkout',
 };
 

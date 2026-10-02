@@ -155,6 +155,7 @@ describe('DiscussionService', () => {
       ]);
 
     const response = await service.findThreads(userId, classId, {
+      class_id: classId,
       page: 1,
       limit: 20,
     });

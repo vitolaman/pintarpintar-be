@@ -25,12 +25,12 @@ import {
 } from './dto/review.dto';
 import { ReviewService } from './review.service';
 
-@Controller('reviews/v1')
+@Controller('api/v1/reviews')
 @ApiTags('Reviews')
 export class ReviewController {
   constructor(private readonly reviewService: ReviewService) {}
 
-  @Post('create-review')
+  @Post()
   @ApiBearerAuth()
   @DefaultResponse(
     ReviewResponseDto,
@@ -47,7 +47,7 @@ export class ReviewController {
     return this.reviewService.create(req.user.id, input);
   }
 
-  @Get('get-class-reviews/:classId')
+  @Get('classes/:classId')
   @Public()
   @DefaultResponse(
     ClassReviewSummaryDto,
@@ -62,7 +62,7 @@ export class ReviewController {
     return this.reviewService.findClassReviews(classId, query);
   }
 
-  @Get('get-product-reviews/:productId')
+  @Get('digital-products/:productId')
   @Public()
   @DefaultResponse(
     ClassReviewSummaryDto,
@@ -77,7 +77,7 @@ export class ReviewController {
     return this.reviewService.findProductReviews(productId, query);
   }
 
-  @Get('get-merchant-reviews/:merchantId')
+  @Get('merchants/:merchantId')
   @Public()
   @DefaultResponse(
     MerchantReviewSummaryDto,

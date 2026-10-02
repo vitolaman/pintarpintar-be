@@ -54,7 +54,7 @@ export class RosterMentorDetailDto extends RosterMentorDto {
   @ApiProperty({
     type: [RosterClassDto],
     description:
-      'Reviews per class come from GET /reviews/v1/get-class-reviews/:classId',
+      'Reviews per class come from GET /api/v1/reviews/classes/:classId',
   })
   classes: RosterClassDto[];
 }

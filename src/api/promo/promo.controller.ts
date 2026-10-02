@@ -19,12 +19,12 @@ import {
 } from './dto/promo.dto';
 import { PromoService } from './promo.service';
 
-@Controller('promo/v1')
+@Controller('api/v1/promo')
 @ApiTags('Promo')
 export class PromoController {
   constructor(private readonly promoService: PromoService) {}
 
-  @Get('get-promo-items')
+  @Get('items')
   @Public()
   @ArrayResponse(CatalogCardDto, 'Get promo items success', [
     BadRequestException,
@@ -33,7 +33,7 @@ export class PromoController {
     return this.promoService.findItems(query);
   }
 
-  @Get('get-promo-vouchers')
+  @Get('vouchers')
   @Public()
   @DefaultResponse(
     PromoVouchersResponseDto,

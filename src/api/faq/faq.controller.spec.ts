@@ -73,7 +73,7 @@ describe('FaqController', () => {
 
   it('serves the public grouped FAQ contract without a bearer token', async () => {
     const response = await request(app.getHttpServer())
-      .get('/faqs/v1/get-public-faqs')
+      .get('/api/v1/faqs')
       .expect(200);
 
     expect(response.body).toEqual({

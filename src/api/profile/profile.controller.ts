@@ -8,6 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Put,
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -28,13 +29,13 @@ import {
   PublicProfileResponseDto,
 } from './dto/profile-response.dto';
 
-@Controller('profile/v1')
+@Controller('api/v1')
 @ApiBearerAuth()
 @ApiTags('Profile')
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
-  @Get('get-profile')
+  @Get('profile')
   @DefaultResponse(ProfileResponseDto, 'Get profile success', HttpStatus.OK, [
     NotFoundException,
   ])
@@ -42,7 +43,7 @@ export class ProfileController {
     return this.profileService.findCurrent(req.user.id);
   }
 
-  @Patch('update-profile')
+  @Patch('profile')
   @DefaultResponse(
     ProfileResponseDto,
     'Update profile success',
@@ -56,7 +57,7 @@ export class ProfileController {
     return this.profileService.updateCurrent(req.user.id, updateProfileDto);
   }
 
-  @Patch('update-onboarding')
+  @Put('profile/onboarding')
   @DefaultResponse(
     OnboardingResponseDto,
     'Update onboarding success',
@@ -72,7 +73,7 @@ export class ProfileController {
 
   // Public profile page (/profile/{id}); no email or phone.
   @Public()
-  @Get('get-public-profile/:userId')
+  @Get('users/:userId/profile')
   @DefaultResponse(
     PublicProfileResponseDto,
     'Get public profile success',
@@ -83,7 +84,7 @@ export class ProfileController {
     return this.profileService.findPublicProfile(userId);
   }
 
-  @Get('get-learning')
+  @Get('profile/learning')
   @ArrayResponse(LearningItemResponseDto, 'Get learning success', [
     NotFoundException,
   ])
@@ -91,7 +92,7 @@ export class ProfileController {
     return this.profileService.findLearning(req.user.id);
   }
 
-  @Get('get-certifications')
+  @Get('profile/certificates')
   @ArrayResponse(CertificationItemResponseDto, 'Get certifications success', [
     NotFoundException,
   ])
@@ -99,7 +100,7 @@ export class ProfileController {
     return this.profileService.findCertifications(req.user.id);
   }
 
-  @Get('get-statistics')
+  @Get('profile/statistics')
   @DefaultResponse(
     LearningStatisticsResponseDto,
     'Get learning statistics success',

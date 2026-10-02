@@ -14,12 +14,12 @@ import {
 } from './dto/home-response.dto';
 import { HomeService } from './home.service';
 
-@Controller('home/v1')
+@Controller('api/v1/home')
 @ApiTags('Home')
 export class HomeController {
   constructor(private readonly homeService: HomeService) {}
 
-  @Get('get-statistics')
+  @Get('statistics')
   @Public()
   @DefaultResponse(
     HomeStatisticsResponseDto,
@@ -30,35 +30,35 @@ export class HomeController {
     return this.homeService.getStatistics();
   }
 
-  @Get('get-bootcamps')
+  @Get('bootcamps')
   @Public()
   @ArrayResponse(CatalogCardDto, 'Get bootcamps success')
   getBootcamps(@Query() query: HomeCollectionQueryDto) {
     return this.homeService.getBootcamps(query.limit);
   }
 
-  @Get('get-video-classes')
+  @Get('video-classes')
   @Public()
   @ArrayResponse(CatalogCardDto, 'Get video classes success')
   getVideoClasses(@Query() query: HomeCollectionQueryDto) {
     return this.homeService.getVideoClasses(query.limit);
   }
 
-  @Get('get-digital-products')
+  @Get('digital-products')
   @Public()
   @ArrayResponse(CatalogCardDto, 'Get digital products success')
   getDigitalProducts(@Query() query: HomeCollectionQueryDto) {
     return this.homeService.getDigitalProducts(query.limit);
   }
 
-  @Get('get-merchants')
+  @Get('merchants')
   @Public()
   @ArrayResponse(HomeMerchantCardResponseDto, 'Get merchants success')
   getMerchants(@Query() query: HomeCollectionQueryDto) {
     return this.homeService.getMerchants(query.limit);
   }
 
-  @Get('get-testimonials')
+  @Get('testimonials')
   @Public()
   @ArrayResponse(HomeTestimonialResponseDto, 'Get testimonials success')
   getTestimonials(@Query() query: HomeCollectionQueryDto) {

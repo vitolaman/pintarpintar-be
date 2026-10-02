@@ -24,13 +24,13 @@ type AuthenticatedRequest = { user: { id: string } };
 const ERRORS = [BadRequestException, NotFoundException];
 
 // The merchant "Analitik" page.
-@Controller('merchants/v1')
+@Controller('api/v1/merchant/analytics')
 @ApiBearerAuth()
 @ApiTags('Merchant Analytics')
 export class MerchantAnalyticsController {
   constructor(private readonly analyticsService: MerchantAnalyticsService) {}
 
-  @Get('get-analytics-student-growth')
+  @Get('student-growth')
   @DefaultResponse(
     StudentGrowthResponseDto,
     'Get student growth success',
@@ -44,7 +44,7 @@ export class MerchantAnalyticsController {
     return this.analyticsService.findStudentGrowth(req.user.id, query);
   }
 
-  @Get('get-analytics-daily-sales')
+  @Get('daily-sales')
   @DefaultResponse(
     DailySalesResponseDto,
     'Get daily sales success',
@@ -58,7 +58,7 @@ export class MerchantAnalyticsController {
     return this.analyticsService.findDailySales(req.user.id, query.month);
   }
 
-  @Get('get-analytics-monthly-revenue')
+  @Get('monthly-revenue')
   @DefaultResponse(
     MonthlyRevenueResponseDto,
     'Get monthly revenue success',
@@ -72,7 +72,7 @@ export class MerchantAnalyticsController {
     return this.analyticsService.findMonthlyRevenue(req.user.id, query.year);
   }
 
-  @Get('get-analytics-summary')
+  @Get('summary')
   @DefaultResponse(
     AnalyticsSummaryResponseDto,
     'Get analytics summary success',

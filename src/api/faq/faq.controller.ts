@@ -5,12 +5,12 @@ import { Public } from '~/common/decorator/public.decorator';
 import { PublicFaqResponseDto } from './dto/public-faq-response.dto';
 import { FaqService } from './faq.service';
 
-@Controller('faqs/v1')
+@Controller('api/v1/faqs')
 @ApiTags('FAQs')
 export class FaqController {
   constructor(private readonly faqService: FaqService) {}
 
-  @Get('get-public-faqs')
+  @Get()
   @Public()
   @DefaultResponse(
     PublicFaqResponseDto,

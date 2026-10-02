@@ -28,7 +28,7 @@ import { MerchantDashboardService } from './merchant-dashboard.service';
 
 type AuthenticatedRequest = { user: { id: string } };
 
-@Controller('merchants/v1')
+@Controller('api/v1/merchant')
 @ApiBearerAuth()
 @ApiTags('Merchant Dashboard')
 export class MerchantDashboardController {
@@ -36,7 +36,7 @@ export class MerchantDashboardController {
     private readonly merchantDashboardService: MerchantDashboardService,
   ) {}
 
-  @Get('get-dashboard')
+  @Get('dashboard')
   @DefaultResponse(
     MerchantDashboardResponseDto,
     'Get merchant dashboard success',
@@ -50,7 +50,7 @@ export class MerchantDashboardController {
     return this.merchantDashboardService.findDashboard(req.user.id, query);
   }
 
-  @Get('get-sales')
+  @Get('sales')
   @PaginatedResponse(SaleResponseDto, 'Get sales success', [
     BadRequestException,
     NotFoundException,
@@ -59,7 +59,7 @@ export class MerchantDashboardController {
     return this.merchantDashboardService.findSales(req.user.id, query);
   }
 
-  @Get('export-sales')
+  @Get('sales/export')
   @DefaultResponse(
     SalesExportResponseDto,
     'Export sales success',
@@ -73,7 +73,7 @@ export class MerchantDashboardController {
     return this.merchantDashboardService.exportSales(req.user.id, query);
   }
 
-  @Get('get-customers')
+  @Get('customers')
   @PaginatedResponse(CustomerResponseDto, 'Get customers success', [
     BadRequestException,
     NotFoundException,

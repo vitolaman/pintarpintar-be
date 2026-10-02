@@ -13,7 +13,7 @@ import { UpdateCurrentUserBodyDto } from './dto/update-current-user.req.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UserService } from './user.service';
 
-@Controller('users')
+@Controller('api/v1/users')
 @ApiBearerAuth()
 @ApiTags('User')
 export class UserController {

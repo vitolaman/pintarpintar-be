@@ -15,13 +15,13 @@ import {
 } from './dto/register-upload.dto';
 import { FileAssetService } from './file-asset.service';
 
-@Controller('file-assets/v1')
+@Controller('api/v1/file-assets')
 @ApiBearerAuth()
 @ApiTags('File Assets')
 export class FileAssetController {
   constructor(private readonly fileAssetService: FileAssetService) {}
 
-  @Post('register-upload')
+  @Post()
   @DefaultResponse(
     FileAssetResponseDto,
     'Register upload success',

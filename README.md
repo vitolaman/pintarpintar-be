@@ -175,7 +175,7 @@ Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos,
 
 ### Merchant dashboard
 
-- `GET /api/v1/merchant/dashboard` — summary and `level` (see Merchant levels); rating, latest review, and activity cover class and digital-product reviews
+- `GET /api/v1/merchant/dashboard` — summary and `level` (see Merchant levels); rating, latest review, and activity cover class and digital-product reviews. Revenue, transactions, students and the chart follow the Analitik rules: `period_days` N covers today and the N − 1 days before it (Asia/Jakarta), compared with the N days before that
 - `GET /api/v1/merchant/sales` — price, net after code discounts, and payment method per item; revenue figures across the dashboard use the net
 - `GET /api/v1/merchant/sales/export` — the filtered sales as JSON `rows` (up to 5,000, `truncated` when there are more) for the page to save as a spreadsheet; same filters as the list
 - `GET /api/v1/merchant/customers`
@@ -186,6 +186,8 @@ Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos,
 ### Merchant analytics (Analitik)
 
 Asia/Jakarta days; paid orders only, dated at payment; revenue is the merchant's net, as on the dashboard; a transaction is a paid order with the merchant's items.
+
+Daily transactions and revenue are stored per merchant and day in `merchant_daily_stats`: every start rebuilds it, and a job refreshes the last 7 closed days every 10 minutes. Daily sales, monthly revenue, the dashboard totals and chart, and the level evaluation read the stored days before yesterday and compute yesterday and today from the orders, so they never wait for the job.
 
 - `GET /api/v1/merchant/analytics/student-growth` — `from`, `to` (YYYY-MM-DD), optional `granularity` (`day`/`month`/`year`; by default daily within a month, monthly within a year, otherwise yearly); running total of distinct class students (a person counts once; digital products excluded); at most 400 points
 - `GET /api/v1/merchant/analytics/daily-sales` — `month` (YYYY-MM, default the current Asia/Jakarta month); transactions and revenue for every day, plus totals

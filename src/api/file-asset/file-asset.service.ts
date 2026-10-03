@@ -14,7 +14,7 @@ import { createObjectStorage } from '../../common/storage/object-storage';
 import { PENDING_VISIBILITY } from './asset-purpose-rules';
 import { isOwnUploadKey } from '~/common/storage/upload-key';
 
-const STORAGE_PROVIDER = 's3';
+export const STORAGE_PROVIDER = 's3';
 
 @Injectable()
 export class FileAssetService {

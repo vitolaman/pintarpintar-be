@@ -74,9 +74,9 @@ describe('request validation helpers', () => {
   });
 
   it.each([
-    [1, 2, 5, { page: 1, limit: 2, total: 5, totalPage: 3 }],
-    [1, 10, 0, { page: 1, limit: 10, total: 0, totalPage: 0 }],
-    [4, 10, 30, { page: 4, limit: 10, total: 30, totalPage: 3 }],
+    [1, 2, 5, { page: 1, limit: 2, total: 5, total_page: 3 }],
+    [1, 10, 0, { page: 1, limit: 10, total: 0, total_page: 0 }],
+    [4, 10, 30, { page: 4, limit: 10, total: 30, total_page: 3 }],
   ])(
     'builds meta for page %d, limit %d, total %d',
     (page, limit, total, meta) => {

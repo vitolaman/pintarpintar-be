@@ -8,10 +8,12 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { assetUrl } from '../../common/storage/asset-url';
+import { classKindSql } from '../../common/catalog/item-kind';
 import {
   CreateReviewDto,
   MerchantReviewResponseDto,
   ReviewListQueryDto,
+  ReviewResponseDto,
 } from './dto/review.dto';
 import { Review } from './entities/review.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
@@ -253,8 +255,7 @@ export class ReviewService {
               avatar.object_key AS reviewer_avatar_object_key,
               COALESCE(class.id, product.id) AS item_id,
               CASE WHEN class.id IS NULL THEN 'digital'
-                   WHEN class.type = 'live-bootcamp' THEN 'bootcamp'
-                   ELSE 'kelas' END AS item_type,
+                   ELSE ${classKindSql('class.type')} END AS item_type,
               COALESCE(class.title, product.title) AS item_title
        ${MERCHANT_REVIEWS_SQL}
        ORDER BY review.created_at DESC, review.id DESC
@@ -278,14 +279,13 @@ export class ReviewService {
   }
 }
 
-function toReview(row) {
+function toReview(row): ReviewResponseDto {
   return {
     id: row.id,
     rating: Number(row.rating),
     comment: row.comment,
     created_at: row.created_at,
     reviewer_name: row.reviewer_name,
-    reviewer_avatar_object_key: row.reviewer_avatar_object_key,
     reviewer_avatar_url: assetUrl(row.reviewer_avatar_object_key),
   };
 }

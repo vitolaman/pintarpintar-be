@@ -20,7 +20,7 @@ describe('PromoService', () => {
   });
 
   it('picks random discounted classes and bootcamps by default', async () => {
-    await service.findItems({ type: 'kelas', limit: 6 } as never);
+    await service.findItems({ type: ['kelas', 'bootcamp'], limit: 6 } as never);
 
     expect(catalogService.findCards).toHaveBeenCalledWith(
       { types: ['kelas', 'bootcamp'], discountedOnly: true },
@@ -31,14 +31,14 @@ describe('PromoService', () => {
 
   it('honours an explicit sort for discounted digital products', async () => {
     await service.findItems({
-      type: 'digital',
-      sort: 'termurah',
+      type: ['digital'],
+      sort_by: 'price',
       limit: 4,
     } as never);
 
     expect(catalogService.findCards).toHaveBeenCalledWith(
       { types: ['digital'], discountedOnly: true },
-      'termurah',
+      { by: 'price', order: 'asc' },
       4,
     );
   });

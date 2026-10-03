@@ -50,12 +50,11 @@ export class ReviewResponseDto {
   @ApiProperty({ example: 'John Doe' })
   reviewer_name: string;
 
-  @ApiProperty({ nullable: true })
-  reviewer_avatar_object_key: string | null;
-
   @ApiProperty({
     nullable: true,
-    description: 'Null when ASSET_PUBLIC_BASE_URL is unset',
+    type: String,
+    description:
+      'Null without an avatar or when ASSET_PUBLIC_BASE_URL is unset',
   })
   reviewer_avatar_url: string | null;
 }

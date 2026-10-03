@@ -1,3 +1,4 @@
+import { classKindSql } from '~/common/catalog/item-kind';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -132,7 +133,7 @@ export class MentorRosterService {
     if (!row) throw new NotFoundException('Mentor not found');
 
     const classes: RosterClassDto[] = await this.dataSource.query(
-      `SELECT class.id, class.title, class.type,
+      `SELECT class.id, class.title, ${classKindSql('class.type')} AS type,
               (SELECT count(DISTINCT enrollment.user_id) FROM enrollments enrollment
                  WHERE enrollment.class_id = class.id AND enrollment.deleted_at IS NULL)::integer AS students_count,
               (SELECT round(avg(review.rating)::numeric, 1)::float FROM reviews review

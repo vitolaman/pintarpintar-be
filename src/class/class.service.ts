@@ -10,6 +10,7 @@ import { EntityManager, Repository } from 'typeorm';
 import { assertOwnedAsset } from '../api/file-asset/asset-purpose-rules';
 import { assetUrl } from '../common/storage/asset-url';
 import { assertDiscountWithinPrice } from '../common/pricing/discount-rule';
+import { classKindOf, classTypeOf } from '../common/catalog/item-kind';
 
 import { Class, ClassType } from './entities/class.entity';
 import { Meeting } from './entities/meeting.entity';
@@ -62,15 +63,15 @@ const CLASS_UPDATE_FIELDS = [
   ...LEAD_TUTOR_CLASS_FIELDS,
   'type',
   'status',
-  'originalPrice',
-  'discountedPrice',
+  'original_price',
+  'discount_price',
 ] as const;
 
 type ClassUpdateField = (typeof CLASS_UPDATE_FIELDS)[number];
 
 const CLASS_PRICE_FIELDS = {
-  list: 'originalPrice',
-  discount: 'discountedPrice',
+  list: 'original_price',
+  discount: 'discount_price',
 };
 
 const MEETING_UPDATE_FIELDS = [
@@ -78,7 +79,7 @@ const MEETING_UPDATE_FIELDS = [
   'content',
   'date',
   'time',
-  'liveUrl',
+  'live_url',
   'duration_minutes',
   'mentor_id',
 ] as const;
@@ -86,7 +87,7 @@ const MEETING_UPDATE_FIELDS = [
 const MEETING_RESPONSE_SQL = `
   SELECT meeting.id, meeting.class_id, meeting.title, meeting.content,
          meeting."date"::text AS date, to_char(meeting."time", 'HH24:MI') AS time,
-         meeting."liveUrl" AS "liveUrl", ${MEETING_STATUS_SQL} AS status,
+         meeting."liveUrl" AS live_url, ${MEETING_STATUS_SQL} AS status,
          meeting.duration_minutes, ${MEETING_MENTOR_SQL} AS mentor, meeting.created_at
   FROM meetings meeting
   ${BOOTCAMP_MEETING_SQL}
@@ -109,8 +110,8 @@ export class ClassService {
 
   async createClass(userId: string, merchantId: string, dto: CreateClassDto) {
     assertDiscountWithinPrice(
-      dto.originalPrice,
-      dto.discountedPrice,
+      dto.original_price,
+      dto.discount_price,
       CLASS_PRICE_FIELDS,
     );
     return this.classRepo.manager.transaction(async (manager) => {
@@ -122,9 +123,9 @@ export class ClassService {
           title: dto.title,
           description: dto.description,
           status: dto.status,
-          type: dto.type,
-          originalPrice: dto.originalPrice,
-          discountedPrice: dto.discountedPrice,
+          type: dto.type === undefined ? undefined : classTypeOf(dto.type),
+          originalPrice: dto.original_price,
+          discountedPrice: dto.discount_price,
           post_purchase_instructions: dto.post_purchase_instructions ?? null,
           category: dto.category ?? null,
           level: dto.level ?? null,
@@ -164,7 +165,9 @@ export class ClassService {
       builder.andWhere('class.status = :status', { status: query.status });
     }
     if (query.type) {
-      builder.andWhere('class.type = :type', { type: query.type });
+      builder.andWhere('class.type = :type', {
+        type: classTypeOf(query.type),
+      });
     }
     const [classes, total] = await builder
       .orderBy('class.created_at', 'DESC')
@@ -214,14 +217,22 @@ export class ClassService {
 
       // Checked only when a price changes, so older rows with inverted prices
       // can still be renamed or re-published.
-      if ('originalPrice' in changes || 'discountedPrice' in changes) {
+      if ('original_price' in changes || 'discount_price' in changes) {
         assertDiscountWithinPrice(
-          changes.originalPrice ?? cls.originalPrice,
-          changes.discountedPrice ?? cls.discountedPrice,
+          changes.original_price ?? cls.originalPrice,
+          changes.discount_price ?? cls.discountedPrice,
           CLASS_PRICE_FIELDS,
         );
       }
-      const { cover_asset_id, cover_asset_ids, ...classChanges } = changes;
+      const {
+        cover_asset_id,
+        cover_asset_ids,
+        type,
+        original_price,
+        discount_price,
+        ...classChanges
+      } = changes;
+      const nextType = type === undefined ? undefined : classTypeOf(type);
       const main = await applyCoverInput(
         manager,
         { classId },
@@ -231,7 +242,7 @@ export class ClassService {
       );
       // Meetings exist only for live bootcamps. Meeting writes lock this row
       // too, so none can be added while the type changes.
-      if (changes.type === ClassType.VIDEO && cls.type !== ClassType.VIDEO) {
+      if (nextType === ClassType.VIDEO && cls.type !== ClassType.VIDEO) {
         const meetings = await manager.count(Meeting, {
           where: { class_id: classId },
         });
@@ -243,6 +254,9 @@ export class ClassService {
       }
 
       Object.assign(cls, classChanges);
+      if (nextType !== undefined) cls.type = nextType;
+      if (original_price !== undefined) cls.originalPrice = original_price;
+      if (discount_price !== undefined) cls.discountedPrice = discount_price;
       if (main !== undefined) cls.cover_asset_id = main;
       const saved = await manager.save(cls);
       const [data] = await this.toClassResponses([saved], manager);
@@ -270,7 +284,7 @@ export class ClassService {
           content: dto.content,
           date: dto.date,
           time: dto.time,
-          liveUrl: dto.liveUrl,
+          liveUrl: dto.live_url,
           duration_minutes: dto.duration_minutes ?? null,
           mentor_id: dto.mentor_id ?? null,
           created_by: userId,
@@ -306,7 +320,12 @@ export class ClassService {
         await this.assertClassTutor(manager, classId, dto.mentor_id);
       }
 
-      Object.assign(meeting, pickDefined(dto, MEETING_UPDATE_FIELDS));
+      const { live_url, ...meetingChanges } = pickDefined(
+        dto,
+        MEETING_UPDATE_FIELDS,
+      );
+      Object.assign(meeting, meetingChanges);
+      if (live_url !== undefined) meeting.liveUrl = live_url;
       meeting.updated_by = userId;
       await manager.save(meeting);
       return {
@@ -522,7 +541,7 @@ export class ClassService {
         'enrollment.id AS id',
         'enrollment.user_id AS user_id',
         'enrollment.class_id AS class_id',
-        'enrollment."joinDate" AS "joinDate"',
+        'enrollment."joinDate" AS join_date',
         'enrollment.progress AS progress',
         'enrollment.created_at AS created_at',
         'student.id AS student_id',
@@ -539,7 +558,7 @@ export class ClassService {
       id: row.id,
       user_id: row.user_id,
       class_id: row.class_id,
-      joinDate: row.joinDate,
+      join_date: row.join_date,
       progress: row.progress,
       created_at: row.created_at,
       user: {
@@ -643,9 +662,9 @@ export class ClassService {
       title: cls.title,
       description: cls.description,
       status: cls.status,
-      type: cls.type,
-      originalPrice: cls.originalPrice,
-      discountedPrice: cls.discountedPrice,
+      type: classKindOf(cls.type),
+      original_price: cls.originalPrice,
+      discount_price: cls.discountedPrice,
       cover_asset_id: cls.cover_asset_id,
       cover_url: assetUrl(coverKeys.get(cls.cover_asset_id ?? '')),
       covers: coverLists.get(cls.id) ?? [],

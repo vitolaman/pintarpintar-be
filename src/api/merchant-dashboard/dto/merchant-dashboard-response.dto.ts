@@ -21,9 +21,6 @@ export class LatestReviewDto {
   @ApiProperty()
   reviewer_name: string;
 
-  @ApiProperty({ nullable: true })
-  reviewer_avatar_object_key: string | null;
-
   @ApiProperty({
     nullable: true,
     type: String,

@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TeachingClassResponseDto } from '../../mentor/dto/mentor-workspace.dto';
 import { ONBOARDING_ROLES, OnboardingRole } from '../onboarding.constants';
+import { classKinds } from '~/common/catalog/item-kind';
+
+export const learningItemTypes = [...classKinds, 'digital'] as const;
+export type LearningItemType = (typeof learningItemTypes)[number];
 
 export class OnboardingResponseDto {
   @ApiPropertyOptional({ enum: ONBOARDING_ROLES, nullable: true })
@@ -35,11 +39,12 @@ export class ProfileResponseDto {
   @ApiProperty()
   is_merchant: boolean;
 
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Avatar asset; send it back to keep it',
+  })
   avatar_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  avatar_object_key: string | null;
 
   @ApiPropertyOptional()
   phone: string | null;
@@ -60,7 +65,10 @@ export class ProfileResponseDto {
   member_since: Date;
 
   @ApiPropertyOptional({
-    description: 'Avatar URL built from ASSET_PUBLIC_BASE_URL; null when unset',
+    nullable: true,
+    type: String,
+    description:
+      'Avatar URL built from ASSET_PUBLIC_BASE_URL; null without an avatar or when unset',
   })
   avatar_url: string | null;
 
@@ -82,29 +90,28 @@ export class LearningItemResponseDto {
   @ApiProperty({ format: 'uuid' })
   access_id: string;
 
-  @ApiProperty({ format: 'uuid' })
-  product_id: string;
+  @ApiProperty({
+    format: 'uuid',
+    description:
+      'Class id for kelas and bootcamp; digital product id for digital',
+  })
+  item_id: string;
 
   @ApiProperty()
   title: string;
 
-  @ApiProperty({
-    example: 'kelas',
-    description:
-      "`kelas` (video class), `bootcamp` (live bootcamp), or the digital product's type",
-  })
-  product_type: string;
+  @ApiProperty({ enum: learningItemTypes, example: 'kelas' })
+  item_type: LearningItemType;
 
   @ApiPropertyOptional()
   level: string | null;
 
-  @ApiPropertyOptional({ format: 'uuid' })
-  cover_asset_id: string | null;
-
-  @ApiPropertyOptional()
-  cover_object_key: string | null;
-
-  @ApiPropertyOptional({ description: 'Public cover URL' })
+  @ApiPropertyOptional({
+    nullable: true,
+    type: String,
+    description:
+      'Public cover URL; null without a cover or ASSET_PUBLIC_BASE_URL',
+  })
   cover_url: string | null;
 
   @ApiProperty({ example: 70 })

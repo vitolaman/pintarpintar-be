@@ -2,12 +2,9 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { EnumInput, QueryFilter } from '~/common/decorator/input.decorator';
 import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
+import { classKinds } from '~/common/catalog/item-kind';
 
-export const portalItemTypes = [
-  'kelas-video',
-  'live-bootcamp',
-  'produk-digital',
-] as const;
+export const portalItemTypes = [...classKinds, 'digital'] as const;
 
 export type PortalItemType = (typeof portalItemTypes)[number];
 

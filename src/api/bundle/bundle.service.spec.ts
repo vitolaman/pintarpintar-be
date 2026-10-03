@@ -21,16 +21,22 @@ const catalog = {
   autocad: {
     id: CLASS_ID,
     type: 'kelas',
-    class_type: 'video',
     title: 'Belajar AutoCAD dari Nol',
     price: '299000',
+    image: null,
+    is_available: true,
+  },
+  bim: {
+    id: '10000000-0000-4000-8000-000000000004',
+    type: 'bootcamp',
+    title: 'Bootcamp BIM',
+    price: '450000',
     image: null,
     is_available: true,
   },
   template: {
     id: PRODUCT_ID,
     type: 'digital',
-    class_type: null,
     title: 'Template RAB Excel',
     price: '125000',
     image: 'products/covers/rab.png',
@@ -42,7 +48,7 @@ describe('CreateBundleDto', () => {
   const valid = {
     title: 'Paket AutoCAD & RAB',
     description: 'Kelas plus template.',
-    bundle_price: 349000,
+    price: 349000,
     items: [
       { type: 'kelas', id: CLASS_ID },
       { type: 'digital', id: PRODUCT_ID },
@@ -58,7 +64,7 @@ describe('CreateBundleDto', () => {
   it.each([
     [{ items: [{ type: 'kelas', id: CLASS_ID }] }],
     [{ items: [{ type: 'bundle', id: CLASS_ID }, valid.items[1]] }],
-    [{ bundle_price: 0 }],
+    [{ price: 0 }],
     [{ title: '' }],
     [{ status: 'active' }],
     [{ status: null }],
@@ -70,11 +76,52 @@ describe('CreateBundleDto', () => {
   it('accepts a numeric price string and a status in any case', async () => {
     const dto = plainToInstance(CreateBundleDto, {
       ...valid,
-      bundle_price: '349000',
+      price: '349000',
       status: ' Unlisted ',
     });
     expect(await validate(dto)).toEqual([]);
-    expect(dto).toMatchObject({ bundle_price: 349000, status: 'unlisted' });
+    expect(dto).toMatchObject({ price: 349000, status: 'unlisted' });
+  });
+
+  it.each([CreateBundleDto, UpdateBundleDto])(
+    '%p rejects the old bundle_price field',
+    async (target: new () => object) => {
+      // The create body is otherwise valid, so the old name is the only error.
+      const body =
+        target === CreateBundleDto
+          ? { ...valid, bundle_price: valid.price }
+          : { bundle_price: valid.price };
+      const errors = await validate(plainToInstance(target, body), {
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      });
+
+      expect(errors.map((error) => error.property)).toEqual(['bundle_price']);
+    },
+  );
+
+  it('accepts the price under strict validation', async () => {
+    const errors = await validate(plainToInstance(CreateBundleDto, valid), {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+
+    expect(errors).toEqual([]);
+  });
+
+  it('rejects an item class_type under strict validation', async () => {
+    const errors = await validate(
+      plainToInstance(CreateBundleDto, {
+        ...valid,
+        items: [
+          { type: 'kelas', class_type: 'video', id: CLASS_ID },
+          valid.items[1],
+        ],
+      }),
+      { whitelist: true, forbidNonWhitelisted: true },
+    );
+
+    expect(errors.map((error) => error.property)).toEqual(['items']);
   });
 
   it('clears the post-purchase instructions with "" or null', async () => {
@@ -131,7 +178,7 @@ describe('BundleService', () => {
     ({
       title: 'Paket AutoCAD & RAB',
       description: 'Kelas plus template.',
-      bundle_price: 349000,
+      price: 349000,
       items: [
         { type: 'kelas', id: CLASS_ID },
         { type: 'digital', id: PRODUCT_ID },
@@ -208,14 +255,90 @@ describe('BundleService', () => {
       }),
     ]);
     expect(data).toMatchObject({
-      original_total: 424000,
-      bundle_price: 349000,
-      saving_amount: 75000,
-      saving_percent: 18,
+      original_price: 424000,
+      price: 349000,
+      discount_amount: 75000,
+      discount_percent: 18,
       sales_count: 2,
       status: 'published',
     });
+    for (const oldName of [
+      'original_total',
+      'bundle_price',
+      'saving_amount',
+      'saving_percent',
+      'cover_object_key',
+    ]) {
+      expect(data).not.toHaveProperty(oldName);
+    }
     expect(data.items.map((item) => item.type)).toEqual(['kelas', 'digital']);
+    expect(data.items[0]).not.toHaveProperty('class_type');
+  });
+
+  it('reports eligible classes as kelas or bootcamp, after digital products', async () => {
+    dataSourceQuery.mockResolvedValueOnce([
+      catalog.template,
+      catalog.autocad,
+      catalog.bim,
+    ]);
+
+    const { data } = await service.findEligibleItems('user-id');
+
+    expect(data.map((item) => item.type)).toEqual([
+      'digital',
+      'kelas',
+      'bootcamp',
+    ]);
+    const [sql] = dataSourceQuery.mock.calls[0];
+    expect(sql).toContain(
+      "(CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END) AS type",
+    );
+    expect(sql).toContain("ORDER BY catalog.type <> 'digital', catalog.title");
+  });
+
+  it('stores a bootcamp item as a class and reports it as bootcamp', async () => {
+    manager.query.mockResolvedValue([catalog.bim, catalog.template]);
+    dataSourceQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM bundles bundle')) {
+        return [
+          {
+            id: BUNDLE_ID,
+            title: 'Paket BIM',
+            description: 'Bootcamp plus template.',
+            cover_asset_id: null,
+            cover_object_key: null,
+            bundle_price: '500000',
+            status: 'unpublished',
+            post_purchase_instructions: null,
+            created_at: new Date('2026-09-30T00:00:00Z'),
+          },
+        ];
+      }
+      if (sql.includes('FROM bundle_items item')) {
+        return [
+          { bundle_id: BUNDLE_ID, ...catalog.bim },
+          { bundle_id: BUNDLE_ID, ...catalog.template },
+        ];
+      }
+      return [];
+    });
+
+    const { data } = await service.create(
+      'user-id',
+      input({
+        price: 500000,
+        items: [{ type: 'bootcamp', id: catalog.bim.id }, { id: PRODUCT_ID }],
+      }),
+    );
+
+    expect(manager.save).toHaveBeenCalledWith(BundleItem, [
+      expect.objectContaining({ classId: catalog.bim.id, productId: null }),
+      expect.objectContaining({ classId: null, productId: PRODUCT_ID }),
+    ]);
+    expect(data.items.map((item) => item.type)).toEqual([
+      'bootcamp',
+      'digital',
+    ]);
   });
 
   it('rejects duplicate items', async () => {
@@ -294,10 +417,10 @@ describe('BundleService', () => {
 
   it.each([[424000], [500000]])(
     'rejects a bundle price of %i (not below the total)',
-    async (bundlePrice) => {
-      await expect(
-        service.create('user-id', input({ bundle_price: bundlePrice })),
-      ).rejects.toThrow(/lower than the items total \(424000\)/);
+    async (price) => {
+      await expect(service.create('user-id', input({ price }))).rejects.toThrow(
+        /^price must be .* lower than the items total \(424000\)/,
+      );
     },
   );
 
@@ -314,7 +437,7 @@ describe('BundleService', () => {
     ]);
 
     await expect(
-      service.update('user-id', BUNDLE_ID, { bundle_price: 430000 }),
+      service.update('user-id', BUNDLE_ID, { price: 430000 }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(manager.delete).not.toHaveBeenCalled();
   });
@@ -370,7 +493,7 @@ describe('BundleService', () => {
       const { data } = await service.findEligibleItems('user-id');
 
       expectItemUrls(data);
-      expect(data[1]).toMatchObject({ image: 'products/covers/rab.png' });
+      expect(data[1]).not.toHaveProperty('image');
     });
 
     it('adds cover_url and item image_url to the list and the detail', async () => {
@@ -381,9 +504,10 @@ describe('BundleService', () => {
 
       for (const bundle of [list.data[0], detail.data]) {
         expect(bundle).toMatchObject({
-          cover_object_key: coverKey,
+          cover_asset_id: 'cover-id',
           cover_url: `https://cdn.test/${coverKey}`,
         });
+        expect(bundle).not.toHaveProperty('cover_object_key');
         expectItemUrls(bundle.items);
       }
     });
@@ -392,6 +516,8 @@ describe('BundleService', () => {
       const { data } = await service.findPublic({ page: 1, limit: 12 });
 
       expect(data[0].cover_url).toBe(`https://cdn.test/${coverKey}`);
+      expect(data[0]).not.toHaveProperty('cover_asset_id');
+      expect(data[0]).not.toHaveProperty('cover_object_key');
       expectItemUrls(data[0].items);
     });
 

@@ -200,7 +200,7 @@ describe('MerchantDashboardService', () => {
     });
   });
 
-  it('adds the latest reviewer avatar URL next to its object key', async () => {
+  it('returns the latest reviewer avatar as a URL only', async () => {
     process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
     try {
       query.mockImplementation(async (sql: string) => {
@@ -213,7 +213,9 @@ describe('MerchantDashboardService', () => {
               reviewer_name: 'Alya',
               reviewer_avatar_object_key: 'avatars/alya.png',
               rating: '5',
+              comment: 'Bagus',
               item_title: 'AutoCAD',
+              created_at: new Date('2026-09-01T00:00:00.000Z'),
             },
           ];
         }
@@ -225,10 +227,13 @@ describe('MerchantDashboardService', () => {
         plainToInstance(DashboardQueryDto, {}),
       );
 
-      expect(data.latest_review).toMatchObject({
-        reviewer_avatar_object_key: 'avatars/alya.png',
+      expect(data.latest_review).toEqual({
+        reviewer_name: 'Alya',
         reviewer_avatar_url: 'https://cdn.example.com/avatars/alya.png',
         rating: 5,
+        comment: 'Bagus',
+        item_title: 'AutoCAD',
+        created_at: new Date('2026-09-01T00:00:00.000Z'),
       });
     } finally {
       delete process.env.ASSET_PUBLIC_BASE_URL;
@@ -312,7 +317,12 @@ describe('MerchantDashboardService', () => {
       platform_fee: null,
       transaction_fee: null,
     });
-    expect(result.meta).toEqual({ page: 1, limit: 10, total: 1, totalPage: 1 });
+    expect(result.meta).toEqual({
+      page: 1,
+      limit: 10,
+      total: 1,
+      total_page: 1,
+    });
   });
 
   it('reports export truncation beyond 5000 rows', async () => {

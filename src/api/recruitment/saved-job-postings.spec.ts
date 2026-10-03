@@ -130,7 +130,7 @@ describe('saved job postings', () => {
       page: 1,
       limit: 10,
       total: 2,
-      totalPage: 1,
+      total_page: 1,
     });
   });
 

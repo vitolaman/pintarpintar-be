@@ -19,15 +19,26 @@ async function errorFields(target: new () => object, input: object) {
   return errors.map((error) => error.property);
 }
 
+// The global ValidationPipe settings: an unknown field is an error.
+async function strictErrorFields(target: new () => object, input: object) {
+  const errors = await validate(plainToInstance(target, input), {
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  });
+  return errors.map((error) => error.property);
+}
+
 describe('class DTO validation', () => {
   it.each([
     [{ title: null }, ['title']],
     [{ status: null }, ['status']],
     [{ type: 'webinar' }, ['type']],
-    [{ originalPrice: -1 }, ['originalPrice']],
-    [{ discountedPrice: -5 }, ['discountedPrice']],
+    [{ type: 'video' }, ['type']],
+    [{ type: 'Bootcamp' }, []],
+    [{ original_price: -1 }, ['original_price']],
+    [{ discount_price: -5 }, ['discount_price']],
     [{ cover_asset_id: 'not-a-uuid' }, ['cover_asset_id']],
-    [{ description: null, cover_asset_id: null, discountedPrice: null }, []],
+    [{ description: null, cover_asset_id: null, discount_price: null }, []],
     [{ post_purchase_instructions: null, status: 'archived' }, []],
     [{ category: 'Hukum' }, ['category']],
     [{ level: 'Expert' }, ['level']],
@@ -58,10 +69,11 @@ describe('class DTO validation', () => {
   });
 
   it.each([
-    [{ title: 'Kelas', originalPrice: -1 }, ['originalPrice']],
+    [{ title: 'Kelas', original_price: -1 }, ['original_price']],
+    [{ title: 'Kelas', type: 'live-bootcamp' }, ['type']],
     [{ title: '' }, ['title']],
     [{ title: 'Kelas', cover_asset_id: 'x' }, ['cover_asset_id']],
-    [{ title: 'Kelas', originalPrice: 100000, discountedPrice: 90000 }, []],
+    [{ title: 'Kelas', original_price: 100000, discount_price: 90000 }, []],
     [
       {
         title: 'Kelas',
@@ -85,9 +97,11 @@ describe('class DTO validation', () => {
   it.each([
     [{ limit: '101' }, []],
     [{ type: 'kelas-video' }, ['type']],
+    [{ type: 'live-bootcamp' }, ['type']],
     [{ status: 'unlisted' }, ['status']],
     [{ page: '0' }, []],
-    [{ type: 'live-bootcamp', status: 'published', limit: '100' }, []],
+    [{ type: 'bootcamp', status: 'published', limit: '100' }, []],
+    [{ type: '' }, []],
   ])('list query %j fails on %j', async (input, fields) => {
     expect(await errorFields(ClassListQueryDto, input)).toEqual(fields);
   });
@@ -157,7 +171,7 @@ describe('class DTO validation', () => {
     it.each([
       [{ status: '' }, ['status']],
       [{ type: null }, ['type']],
-      [{ originalPrice: null }, ['originalPrice']],
+      [{ original_price: null }, ['original_price']],
     ])('rejects clearing NOT NULL class field %j', async (input, fields) => {
       expect(await errorFields(UpdateClassDto, input)).toEqual(fields);
     });
@@ -166,22 +180,22 @@ describe('class DTO validation', () => {
       const dto = plainToInstance(CreateClassDto, {
         title: '  Kelas  ',
         status: ' Published ',
-        type: 'LIVE-BOOTCAMP',
+        type: ' BOOTCAMP',
         category: 'sipil',
         level: ' mahir',
-        originalPrice: '150000',
-        discountedPrice: '',
+        original_price: '150000',
+        discount_price: '',
       });
 
       expect(dto).toMatchObject({
         title: 'Kelas',
         status: 'published',
-        type: 'live-bootcamp',
+        type: 'bootcamp',
         category: 'Sipil',
         level: 'Mahir',
-        originalPrice: 150000,
+        original_price: 150000,
       });
-      expect(dto.discountedPrice).toBeUndefined();
+      expect(dto.discount_price).toBeUndefined();
       expect(await validate(dto)).toEqual([]);
     });
 
@@ -202,12 +216,12 @@ describe('class DTO validation', () => {
 
       const update = plainToInstance(UpdateMeetingDto, {
         content: '  ',
-        liveUrl: '',
+        live_url: '',
         duration_minutes: '90',
       });
       expect(update).toMatchObject({
         content: null,
-        liveUrl: null,
+        live_url: null,
         duration_minutes: 90,
       });
       expect(await validate(update)).toEqual([]);
@@ -220,17 +234,17 @@ describe('class DTO validation', () => {
       [CreateMeetingDto, { ...meeting, title: '' }, ['title']],
       [
         CreateMeetingDto,
-        { ...meeting, liveUrl: 'http://zoom.us/j/1' },
-        ['liveUrl'],
+        { ...meeting, live_url: 'http://zoom.us/j/1' },
+        ['live_url'],
       ],
       [CreateChapterDto, { title: 'Bab', order: null }, ['order']],
     ])('rejects %p %j', async (target, input, fields) => {
       expect(await errorFields(target as never, input)).toEqual(fields);
     });
 
-    it('clears the check-in review and grading feedback', async () => {
-      const checkIn = plainToInstance(CheckInDto, { review: '  ' });
-      expect(checkIn.review).toBeNull();
+    it('clears the check-in and grading feedback', async () => {
+      const checkIn = plainToInstance(CheckInDto, { feedback: '  ' });
+      expect(checkIn.feedback).toBeNull();
       expect(await validate(checkIn)).toEqual([]);
 
       const grade = plainToInstance(GradeSubmissionDto, {
@@ -274,6 +288,51 @@ describe('class DTO validation', () => {
       [GradeSubmissionDto, { score: '101' }, ['score']],
     ])('rejects %p %j', async (target, input, fields) => {
       expect(await errorFields(target as never, input)).toEqual(fields);
+    });
+  });
+
+  describe('API field names', () => {
+    const meeting = { title: 'Sesi 1', date: '2026-10-12', time: '19:00' };
+
+    it.each([
+      [
+        CreateClassDto,
+        {
+          title: 'Kelas',
+          type: 'bootcamp',
+          original_price: 300000,
+          discount_price: 250000,
+        },
+      ],
+      [UpdateClassDto, { type: 'kelas', original_price: 1, discount_price: 0 }],
+      [ClassListQueryDto, { type: 'kelas' }],
+      [CreateMeetingDto, { ...meeting, live_url: 'https://zoom.us/j/1' }],
+      [UpdateMeetingDto, { live_url: 'https://zoom.us/j/1' }],
+      [CheckInDto, { feedback: 'Materi jelas' }],
+    ])('accepts %p %j', async (target, input) => {
+      expect(await strictErrorFields(target as never, input)).toEqual([]);
+    });
+
+    it.each([
+      [CreateClassDto, { title: 'Kelas', originalPrice: 1 }, ['originalPrice']],
+      [
+        CreateClassDto,
+        { title: 'Kelas', discountedPrice: 1 },
+        ['discountedPrice'],
+      ],
+      [UpdateClassDto, { originalPrice: 1 }, ['originalPrice']],
+      [UpdateClassDto, { discountedPrice: 1 }, ['discountedPrice']],
+      [UpdateClassDto, { type: 'video' }, ['type']],
+      [ClassListQueryDto, { type: 'live-bootcamp' }, ['type']],
+      [
+        CreateMeetingDto,
+        { ...meeting, liveUrl: 'https://zoom.us/j/1' },
+        ['liveUrl'],
+      ],
+      [UpdateMeetingDto, { liveUrl: 'https://zoom.us/j/1' }, ['liveUrl']],
+      [CheckInDto, { review: 'Materi jelas' }, ['review']],
+    ])('rejects %p %j naming the old field', async (target, input, fields) => {
+      expect(await strictErrorFields(target as never, input)).toEqual(fields);
     });
   });
 });

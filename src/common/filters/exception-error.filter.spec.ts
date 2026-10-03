@@ -28,22 +28,29 @@ describe('CustomHttpExceptionFilter', () => {
     return { status: status.mock.calls[0][0], body: json.mock.calls[0][0] };
   };
 
-  it('keeps the error body of a plain HttpException', () => {
+  it('gives a plain HttpException one message and no errors list', () => {
     expect(respond(new BadRequestException('Item is not available'))).toEqual({
       status: 400,
       body: {
-        responseMessage: ['Item is not available'],
+        responseMessage: 'Item is not available',
         error: 'BAD_REQUEST',
         statusCode: 400,
       },
     });
   });
 
-  it('keeps validation messages as a list', () => {
+  it('lists every validation reason and leads with the first', () => {
     const { body } = respond(
-      new BadRequestException(['limit must be an integer number']),
+      new BadRequestException([
+        'name should not be empty',
+        'email must be an email',
+      ]),
     );
-    expect(body.responseMessage).toEqual(['limit must be an integer number']);
+    expect(body.responseMessage).toBe('name should not be empty');
+    expect(body.errors).toEqual([
+      'name should not be empty',
+      'email must be an email',
+    ]);
     expect(body).not.toHaveProperty('details');
   });
 
@@ -56,7 +63,7 @@ describe('CustomHttpExceptionFilter', () => {
     );
     expect(code).toBe(409);
     expect(body).toEqual({
-      responseMessage: ['Item x is awaiting payment in order o1'],
+      responseMessage: 'Item x is awaiting payment in order o1',
       error: 'CONFLICT',
       statusCode: 409,
       details: { order_id: 'o1' },
@@ -78,7 +85,7 @@ describe('CustomHttpExceptionFilter', () => {
     expect(respond(new Error('connection refused'))).toEqual({
       status: 500,
       body: {
-        responseMessage: ['Internal server error'],
+        responseMessage: 'Internal server error',
         error: 'INTERNAL_SERVER_ERROR',
         statusCode: 500,
       },

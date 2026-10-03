@@ -73,6 +73,10 @@ describe('MerchantService', () => {
     );
   });
 
+  afterEach(() => {
+    delete process.env.ASSET_PUBLIC_BASE_URL;
+  });
+
   it('creates an active merchant, owner membership, profile, and capability', async () => {
     const user = { id: userId, name: 'Raka Wijaya', isMerchant: false } as User;
     manager.findOne.mockImplementation((target) =>
@@ -201,7 +205,7 @@ describe('MerchantService', () => {
           status: 'success',
         },
       ],
-      meta: { page: 2, limit: 2, total: 3, totalPage: 2 },
+      meta: { page: 2, limit: 2, total: 3, total_page: 2 },
       responseMessage: 'Get balance history success',
     });
   });
@@ -215,6 +219,7 @@ describe('MerchantService', () => {
   });
 
   it('includes the storage tier in the merchant profile response', async () => {
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
     const row = {
       id: merchantId,
       store_name: registrationInput.store_name,
@@ -223,6 +228,8 @@ describe('MerchantService', () => {
       storage_level: MerchantStorageLevel.SILVER,
       slug: 'akademi-teknik-raka',
       experience_years: null,
+      avatar_asset_id: 'avatar-asset-id',
+      cover_asset_id: null,
     };
     const queryBuilder = {
       innerJoin: jest.fn().mockReturnThis(),
@@ -230,7 +237,11 @@ describe('MerchantService', () => {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest.fn().mockResolvedValue(row),
+      getRawOne: jest.fn().mockResolvedValue({
+        ...row,
+        avatar_object_key: 'merchants/logo.png',
+        cover_object_key: null,
+      }),
     };
     (merchants as Record<string, jest.Mock>).createQueryBuilder = jest
       .fn()
@@ -249,13 +260,12 @@ describe('MerchantService', () => {
     ).resolves.toEqual({
       ...row,
       experience_years: null,
-      avatar_url: null,
+      avatar_url: 'https://cdn.example.com/merchants/logo.png',
       cover_url: null,
       skills: ['AutoCAD', 'SAP2000'],
       level: LEVEL,
       landing: {
         background_asset_id: undefined,
-        background_object_key: undefined,
         background_url: null,
         section_order: [
           'best_seller',
@@ -433,6 +443,7 @@ describe('MerchantService', () => {
   });
 
   it('returns a public storefront with stats and a derived category slug', async () => {
+    process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
     query.mockResolvedValueOnce([
       {
         id: merchantId,
@@ -449,14 +460,11 @@ describe('MerchantService', () => {
         youtube_url: null,
         linkedin_url: null,
         expertise: 'AutoCAD',
-        avatar_asset_id: null,
-        avatar_object_key: null,
-        cover_asset_id: null,
+        avatar_object_key: 'merchants/logo.png',
         cover_object_key: null,
         created_at: new Date('2026-01-05T00:00:00.000Z'),
         owner_user_id: userId,
-        landing_background_asset_id: null,
-        landing_background_object_key: null,
+        landing_background_object_key: 'merchants/background.png',
         landing_layout: null,
         skills: ['AutoCAD'],
         total_students: '10',
@@ -467,9 +475,12 @@ describe('MerchantService', () => {
       },
     ]);
 
-    await expect(
-      service.findPublicStorefront('akademi-teknik-raka'),
-    ).resolves.toEqual({
+    const storefront = await service.findPublicStorefront(
+      'akademi-teknik-raka',
+    );
+    // The editor's asset id stays out of the public landing.
+    expect(storefront.data.landing).not.toHaveProperty('background_asset_id');
+    await expect(Promise.resolve(storefront)).resolves.toEqual({
       data: {
         id: merchantId,
         store_name: 'Akademi Teknik Raka',
@@ -486,18 +497,12 @@ describe('MerchantService', () => {
         youtube_url: null,
         linkedin_url: null,
         expertise: 'AutoCAD',
-        avatar_asset_id: null,
-        avatar_object_key: null,
-        cover_asset_id: null,
-        cover_object_key: null,
         created_at: new Date('2026-01-05T00:00:00.000Z'),
-        avatar_url: null,
+        avatar_url: 'https://cdn.example.com/merchants/logo.png',
         cover_url: null,
         skills: ['AutoCAD'],
         landing: {
-          background_asset_id: null,
-          background_object_key: null,
-          background_url: null,
+          background_url: 'https://cdn.example.com/merchants/background.png',
           section_order: [
             'best_seller',
             'bootcamp',

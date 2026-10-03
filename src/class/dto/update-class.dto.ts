@@ -16,7 +16,8 @@ import {
   classCategories,
   learningLevels,
 } from '../../common/catalog/class-details';
-import { ClassStatus, ClassType } from '../entities/class.entity';
+import { ClassStatus } from '../entities/class.entity';
+import { ClassKind, classKinds } from '../../common/catalog/item-kind';
 import { CoverAssetIds } from '~/api/item-cover/cover-asset-ids.decorator';
 import { assetFieldDescription } from '../../api/file-asset/asset-purpose-rules';
 import {
@@ -36,8 +37,11 @@ export class UpdateClassDto {
   @ClearableText({ max: MAX_DESCRIPTION_LENGTH })
   description?: string | null;
 
-  @EnumInput(Object.values(ClassType), { presence: 'optional' })
-  type?: ClassType;
+  @EnumInput(classKinds, {
+    presence: 'optional',
+    description: '`kelas` is a video class, `bootcamp` a live bootcamp',
+  })
+  type?: ClassKind;
 
   @EnumInput(Object.values(ClassStatus), {
     presence: 'optional',
@@ -46,15 +50,15 @@ export class UpdateClassDto {
   status?: ClassStatus;
 
   @NumberInput({ presence: 'optional', min: 0 })
-  originalPrice?: number;
+  original_price?: number;
 
   @NumberInput({
     presence: 'nullable',
     min: 0,
     description:
-      'Selling price; when greater than 0, must not exceed originalPrice. Null removes the discount',
+      'Selling price; when greater than 0, must not exceed original_price. Null removes the discount',
   })
-  discountedPrice?: number | null;
+  discount_price?: number | null;
 
   @ApiPropertyOptional({
     format: 'uuid',

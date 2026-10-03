@@ -26,22 +26,22 @@ export class VoucherResponseDto {
   discount_value: number;
 
   @ApiPropertyOptional()
-  minimum_order_amount: number | null;
+  minimum_purchase: number | null;
 
   @ApiPropertyOptional()
   maximum_discount_amount: number | null;
 
-  @ApiPropertyOptional()
-  max_uses: number | null;
+  @ApiPropertyOptional({ description: 'Null when unlimited.' })
+  usage_limit: number | null;
 
   @ApiProperty()
-  usage_count: number;
+  used_count: number;
 
   @ApiPropertyOptional()
   starts_at: Date | null;
 
   @ApiPropertyOptional()
-  expires_at: Date | null;
+  ends_at: Date | null;
 
   @ApiProperty()
   is_active: boolean;
@@ -75,7 +75,7 @@ export class PublicVoucherResponseDto {
   discount_value: number;
 
   @ApiPropertyOptional()
-  minimum_order_amount: number | null;
+  minimum_purchase: number | null;
 
   @ApiPropertyOptional({
     description:
@@ -84,7 +84,7 @@ export class PublicVoucherResponseDto {
   maximum_discount_amount: number | null;
 
   @ApiPropertyOptional()
-  expires_at: Date | null;
+  ends_at: Date | null;
 
   @ApiProperty({ format: 'uuid' })
   merchant_id: string;
@@ -94,9 +94,6 @@ export class PublicVoucherResponseDto {
 
   @ApiPropertyOptional()
   merchant_slug: string | null;
-
-  @ApiPropertyOptional({ format: 'uuid' })
-  merchant_avatar_asset_id: string | null;
 
   @ApiProperty({
     nullable: true,

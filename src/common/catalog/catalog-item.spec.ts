@@ -35,7 +35,7 @@ describe('loadCatalogItems', () => {
     expect(item).toMatchObject({ price: 299000, is_available: true });
   });
 
-  it('builds the public cover URL next to the object key', async () => {
+  it('gives the public cover URL and no object key', async () => {
     const baseUrl = process.env.ASSET_PUBLIC_BASE_URL;
     process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com/';
     try {
@@ -49,15 +49,28 @@ describe('loadCatalogItems', () => {
         { classId: null, productId: PRODUCT_ID, bundleId: null },
       ]);
 
-      expect(items.get(CLASS_ID)).toMatchObject({
-        image: 'uploads/cover kelas.png',
-        image_url: 'https://cdn.example.com/uploads/cover%20kelas.png',
-      });
+      expect(items.get(CLASS_ID)).toEqual(
+        expect.objectContaining({
+          image_url: 'https://cdn.example.com/uploads/cover%20kelas.png',
+        }),
+      );
+      expect(items.get(CLASS_ID)).not.toHaveProperty('image');
       expect(items.get(PRODUCT_ID).image_url).toBeNull();
     } finally {
       process.env.ASSET_PUBLIC_BASE_URL = baseUrl;
       if (baseUrl === undefined) delete process.env.ASSET_PUBLIC_BASE_URL;
     }
+  });
+
+  it('maps the stored class type to the kelas or bootcamp kind in SQL', async () => {
+    query.mockResolvedValueOnce([catalogRow({ type: 'bootcamp' })]);
+
+    const item = (await loadCatalogItems(manager, [ref])).get(CLASS_ID);
+
+    expect(item.type).toBe('bootcamp');
+    expect(query.mock.calls[0][0]).toContain(
+      "(CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END) AS type",
+    );
   });
 
   it.each([

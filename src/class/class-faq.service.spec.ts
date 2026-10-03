@@ -11,6 +11,7 @@ import {
   ClassDuplicationService,
   copyTitle,
 } from './class-duplication.service';
+import { ClassFaqController } from './class-faq.controller';
 import { ClassFaqService } from './class-faq.service';
 import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
 import {
@@ -48,9 +49,10 @@ describe('class FAQ and duplication DTOs', () => {
     [UpdateClassFaqDto, { answer: null }, ['answer']],
     [UpdateClassFaqDto, { question: '' }, ['question']],
     [UpdateClassFaqDto, {}, []],
-    [DuplicateClassDto, { type: 'video' }, []],
-    [DuplicateClassDto, { type: ' Live-Bootcamp ' }, []],
-    [DuplicateClassDto, { type: 'LIVE' }, ['type']],
+    [DuplicateClassDto, { type: 'kelas' }, []],
+    [DuplicateClassDto, { type: ' Bootcamp ' }, []],
+    [DuplicateClassDto, { type: 'video' }, ['type']],
+    [DuplicateClassDto, { type: 'live-bootcamp' }, ['type']],
   ])('validates %p %j', async (target, value, fields) => {
     expect(await errorFields(target as never, value)).toEqual(fields);
   });
@@ -59,8 +61,29 @@ describe('class FAQ and duplication DTOs', () => {
     expect(
       plainToInstance(CreateClassFaqDto, { question: ' Q? ', answer: ' A. ' }),
     ).toMatchObject({ question: 'Q?', answer: 'A.' });
-    expect(plainToInstance(DuplicateClassDto, { type: 'VIDEO' }).type).toBe(
-      ClassType.VIDEO,
+    expect(plainToInstance(DuplicateClassDto, { type: 'KELAS' }).type).toBe(
+      'kelas',
+    );
+  });
+
+  it.each([
+    ['kelas', ClassType.VIDEO],
+    ['bootcamp', ClassType.LIVE_BOOTCAMP],
+  ] as const)('duplicates as kind %s', async (kind, stored) => {
+    const duplication = { duplicate: jest.fn() };
+    const controller = new ClassFaqController(
+      {} as never,
+      duplication as never,
+    );
+
+    await controller.duplicate({ user: { id: 'user-id' } }, 'class-id', {
+      type: kind,
+    });
+
+    expect(duplication.duplicate).toHaveBeenCalledWith(
+      'user-id',
+      'class-id',
+      stored,
     );
   });
 

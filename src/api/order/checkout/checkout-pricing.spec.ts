@@ -18,7 +18,7 @@ const item = (
   type,
   id,
   title: `Item ${id}`,
-  image: null,
+  imageUrl: null,
   merchantId,
   merchantName: `Merchant ${merchantId}`,
   price,

@@ -15,7 +15,7 @@ const quoteResult = (override: Partial<CheckoutQuote> = {}): CheckoutQuote => ({
         type: 'kelas',
         id: classId,
         title: 'AutoCAD',
-        image: 'uploads/cover.png',
+        imageUrl: 'https://cdn.example.com/uploads/cover.png',
         merchantId: 'merchant-id',
         merchantName: 'Toko',
         price: 500000,
@@ -76,9 +76,9 @@ describe('CheckoutService', () => {
         { code: 'TYPO', reason: 'not_found' },
       ]);
       expect(data.items[0]).toMatchObject({
-        image: 'uploads/cover.png',
         image_url: 'https://cdn.example.com/uploads/cover.png',
       });
+      expect(data.items[0]).not.toHaveProperty('image');
       expect(data.total_amount).toBe(500000);
     } finally {
       process.env.ASSET_PUBLIC_BASE_URL = baseUrl;

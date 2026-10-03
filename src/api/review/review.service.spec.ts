@@ -160,7 +160,7 @@ describe('ReviewService', () => {
       page: 2,
       limit: 5,
       total: 12,
-      totalPage: 3,
+      total_page: 3,
     });
     expect(dataSource.query.mock.calls[1][1]).toEqual([classId, 5, 5]);
   });
@@ -199,6 +199,12 @@ describe('ReviewService', () => {
     } as never);
 
     expect(response.data.average_rating).toBe(4.5);
+    expect(response.data.reviews[0]).not.toHaveProperty(
+      'reviewer_avatar_object_key',
+    );
+    expect(dataSource.query.mock.calls[1][0]).toContain(
+      "ELSE (CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END) END AS item_type",
+    );
     expect(response.data.reviews[0]).toMatchObject({
       reviewer_name: 'John Doe',
       reviewer_avatar_url: null,
@@ -212,7 +218,7 @@ describe('ReviewService', () => {
       page: 1,
       limit: 10,
       total: 2,
-      totalPage: 1,
+      total_page: 1,
     });
   });
 

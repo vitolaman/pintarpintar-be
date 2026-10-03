@@ -195,11 +195,11 @@ export class JobPostingService {
     const { page, limit } = query;
     const conditions = [PUBLIC_JOB_SQL];
     const params: unknown[] = [];
-    if (query.keyword) {
-      params.push(`%${escapeLike(query.keyword)}%`);
-      const keyword = `$${params.length}`;
-      conditions.push(`(job.title ILIKE ${keyword} OR merchant.store_name ILIKE ${keyword}
-        OR job.category ILIKE ${keyword} OR array_to_string(job.skills, ' ') ILIKE ${keyword})`);
+    if (query.search) {
+      params.push(`%${escapeLike(query.search)}%`);
+      const search = `$${params.length}`;
+      conditions.push(`(job.title ILIKE ${search} OR merchant.store_name ILIKE ${search}
+        OR job.category ILIKE ${search} OR array_to_string(job.skills, ' ') ILIKE ${search})`);
     }
     if (query.location) {
       params.push(`%${escapeLike(query.location)}%`);

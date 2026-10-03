@@ -9,6 +9,7 @@ import {
   MEETING_STATUS_DESCRIPTION,
   MeetingMentorDto,
 } from '../../../class/dto/class-response.dto';
+import { ClassKind, classKinds } from '../../../common/catalog/item-kind';
 
 export class CheckInByEmailDto {
   @RequiredText({ max: 120, example: 'Ahmad Rizki Pratama' })
@@ -69,8 +70,8 @@ export class AttendanceSessionDto {
   @ApiProperty()
   class_title: string;
 
-  @ApiProperty({ enum: ['video', 'live-bootcamp'] })
-  class_type: string;
+  @ApiProperty({ enum: classKinds })
+  type: ClassKind;
 
   @ApiProperty({ nullable: true })
   cover_url: string | null;

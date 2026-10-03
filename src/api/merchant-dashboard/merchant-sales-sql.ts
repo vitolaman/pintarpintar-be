@@ -5,7 +5,9 @@ const SALE_STATUS_SQL = `CASE WHEN purchase.status = 'pending' AND purchase.expi
 // Every order item that references one of the merchant's digital products,
 // classes, or bundles ($1 = merchant id). All figures derive from it; `amount`
 // is the merchant's net (price minus the item's code discount share).
-export const MERCHANT_SALES_SQL = `
+// `condition` is applied inside every branch, where the planner can use it.
+function merchantSalesSql(condition: string): string {
+  return `
   SELECT item.id, item.order_id, item.price_at_purchase - item.discount_amount AS amount,
          item.price_at_purchase AS gross_amount,
          ${SALE_STATUS_SQL} AS status, purchase.created_at, purchase.paid_at, purchase.user_id, purchase.coupon_id,
@@ -14,7 +16,7 @@ export const MERCHANT_SALES_SQL = `
   FROM order_items item
   INNER JOIN products product ON product.id = item.product_id
   INNER JOIN orders purchase ON purchase.id = item.order_id
-  WHERE product.merchant_id = $1 AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL
+  WHERE product.merchant_id = $1 AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL ${condition}
 
   UNION ALL
 
@@ -27,7 +29,7 @@ export const MERCHANT_SALES_SQL = `
   FROM order_items item
   INNER JOIN classes class ON class.id = item.class_id
   INNER JOIN orders purchase ON purchase.id = item.order_id
-  WHERE class.merchant_id = $1 AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL
+  WHERE class.merchant_id = $1 AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL ${condition}
 
   UNION ALL
 
@@ -39,13 +41,27 @@ export const MERCHANT_SALES_SQL = `
   FROM order_items item
   INNER JOIN bundles bundle ON bundle.id = item.bundle_id
   INNER JOIN orders purchase ON purchase.id = item.order_id
-  WHERE bundle.merchant_id = $1 AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL
+  WHERE bundle.merchant_id = $1 AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL ${condition}
 `;
+}
+
+export const MERCHANT_SALES_SQL = merchantSalesSql('');
+
+// Paid sales only. Filtering the computed status outside the union hides the
+// condition from the planner, which then misjudges the row count by orders of
+// magnitude on large stores; a paid order's computed status is always paid.
+export const MERCHANT_PAID_SALES_SQL = merchantSalesSql(
+  "AND purchase.status = 'paid'",
+);
+
+// Unpaid orders still within their payment window (computed status pending).
+export const MERCHANT_PENDING_SALES_SQL = merchantSalesSql(
+  "AND purchase.status = 'pending' AND (purchase.expires_at IS NULL OR purchase.expires_at > now())",
+);
 
 // The merchant's paid sales for analytics, dated at payment, or at order time
 // for older orders paid before the payment time was recorded.
 export const PAID_SALES_SQL = `
   SELECT sale.*, COALESCE(sale.paid_at, sale.created_at) AS sold_at
-  FROM (${MERCHANT_SALES_SQL}) sale
-  WHERE sale.status = 'paid'
+  FROM (${MERCHANT_PAID_SALES_SQL}) sale
 `;

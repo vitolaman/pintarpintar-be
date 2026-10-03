@@ -97,7 +97,13 @@ export class JobPostingController {
 
   @Delete('job-postings/:id/save')
   @ApiBearerAuth()
-  @DefaultResponse(SaveJobPostingResponseDto, 'Unsave job posting success')
+  // Unsaving is idempotent: an unsaved or unknown job also answers 200.
+  @DefaultResponse(
+    SaveJobPostingResponseDto,
+    'Unsave job posting success',
+    HttpStatus.OK,
+    [],
+  )
   unsave(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,

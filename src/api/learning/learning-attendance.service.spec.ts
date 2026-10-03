@@ -52,7 +52,7 @@ describe('LearningAttendanceService', () => {
     expect(data).toEqual({
       class_id: CLASS_ID,
       class_title: 'Bootcamp Revit',
-      class_type: 'live-bootcamp',
+      type: 'bootcamp',
       cover_url: null,
       merchant_name: 'Akademi Teknik',
       mentor_names: ['Budi'],

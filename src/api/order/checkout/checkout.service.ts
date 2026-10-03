@@ -18,7 +18,6 @@ import {
 import { User } from '~/api/user/entities/user.entity';
 import { CouponUsage } from '~/api/voucher/entities/coupon-usage.entity';
 import { CatalogItemColumns } from '~/common/catalog/catalog-item';
-import { assetUrl } from '~/common/storage/asset-url';
 import {
   CheckoutPreviewResponseDto,
   CheckoutRequestDto,
@@ -280,8 +279,7 @@ function toPreview(
       type: item.type,
       item_id: item.id,
       title: item.title,
-      image: item.image,
-      image_url: assetUrl(item.image),
+      image_url: item.imageUrl,
       merchant_id: item.merchantId,
       merchant_name: item.merchantName,
       price: item.price,

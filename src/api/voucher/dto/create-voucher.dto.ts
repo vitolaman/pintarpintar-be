@@ -39,7 +39,7 @@ export class CreateVoucherDto {
   terms?: string | null;
 
   @NumberInput({ presence: 'nullable', min: 0, example: 50000 })
-  minimum_order_amount?: number | null;
+  minimum_purchase?: number | null;
 
   @NumberInput({ presence: 'nullable', min: 0, example: 30000 })
   maximum_discount_amount?: number | null;
@@ -52,7 +52,7 @@ export class CreateVoucherDto {
     example: 200,
     description: 'Use 0 for unlimited.',
   })
-  max_uses?: number | null;
+  usage_limit?: number | null;
 
   @ApiPropertyOptional({ example: '2026-10-01T00:00:00.000Z' })
   @IsOptional()
@@ -62,7 +62,7 @@ export class CreateVoucherDto {
   @ApiPropertyOptional({ example: '2026-12-31T23:59:59.000Z' })
   @IsOptional()
   @IsDateString()
-  expires_at?: string | null;
+  ends_at?: string | null;
 
   @ApiPropertyOptional({ default: true })
   @OptionalNotNull()

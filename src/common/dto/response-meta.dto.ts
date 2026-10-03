@@ -11,7 +11,7 @@ export class ResponseMetaDto {
   total: number;
 
   @ApiProperty({ example: 5, description: 'Number of pages; 0 when empty' })
-  totalPage: number;
+  total_page: number;
 }
 
 export function paginationMeta(
@@ -19,5 +19,5 @@ export function paginationMeta(
   limit: number,
   total: number,
 ): ResponseMetaDto {
-  return { page, limit, total, totalPage: Math.ceil(total / limit) };
+  return { page, limit, total, total_page: Math.ceil(total / limit) };
 }

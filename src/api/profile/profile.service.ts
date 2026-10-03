@@ -20,12 +20,14 @@ import {
 import { signedDownloadUrl } from '../../common/storage/signed-download-url';
 import { assetUrl } from '../../common/storage/asset-url';
 import { progressSql } from '../../class/learning-progress.service';
+import { classKindSql } from '../../common/catalog/item-kind';
 import { MentorWorkspaceService } from '../mentor/mentor-workspace.service';
 import { splitSkills } from '../../common/util/skill-list';
 import { UpdateOnboardingDto } from './dto/update-onboarding.dto';
 import { OnboardingRole } from './onboarding.constants';
 import {
   LearningItemResponseDto,
+  LearningItemType,
   LearningStatisticsResponseDto,
   PublicProfileResponseDto,
   ProfileResponseDto,
@@ -147,8 +149,8 @@ export class ProfileService {
     const rows: LearningRow[] = await this.dataSource.query(
       `SELECT * FROM (
          SELECT access.id AS access_id, access.expires_at, access.granted_at AS acquired_at,
-                product.id AS product_id, product.title, product.product_type, product.level,
-                product.cover_asset_id, cover.object_key AS cover_object_key,
+                product.id AS item_id, product.title, 'digital' AS item_type, product.level,
+                cover.object_key AS cover_object_key,
                 COALESCE(progress.completion_percentage, 0) AS completion_percentage,
                 COALESCE(progress.total_time_spent, 0) AS total_time_spent,
                 progress.last_accessed_at
@@ -163,9 +165,8 @@ export class ProfileService {
          UNION ALL
 
          SELECT enrollment.id, NULL::timestamp, enrollment.created_at,
-                class.id, class.title,
-                CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END,
-                class.level, class.cover_asset_id, cover.object_key,
+                class.id, class.title, ${classKindSql('class.type')},
+                class.level, cover.object_key,
                 ${progressSql('$1::uuid', 'class.id')},
                 0,
                 (SELECT max(completion.completed_at) FROM video_completions completion
@@ -176,7 +177,7 @@ export class ProfileService {
          LEFT JOIN file_assets cover ON cover.id = class.cover_asset_id AND cover.deleted_at IS NULL
          WHERE enrollment.user_id = $1 AND enrollment.deleted_at IS NULL
        ) learning
-       ORDER BY last_accessed_at DESC NULLS LAST, acquired_at DESC, product_id`,
+       ORDER BY last_accessed_at DESC NULLS LAST, acquired_at DESC, item_id`,
       [userId],
     );
 
@@ -397,7 +398,6 @@ export class ProfileService {
       is_mentor: row.is_mentor,
       is_merchant: row.is_merchant,
       avatar_asset_id: row.avatar_asset_id,
-      avatar_object_key: row.avatar_object_key,
       avatar_url: assetUrl(row.avatar_object_key),
       phone: row.phone,
       headline: row.headline,
@@ -420,12 +420,10 @@ export class ProfileService {
 
     return {
       access_id: row.access_id,
-      product_id: row.product_id,
+      item_id: row.item_id,
       title: row.title,
-      product_type: row.product_type,
+      item_type: row.item_type,
       level: row.level,
-      cover_asset_id: row.cover_asset_id,
-      cover_object_key: row.cover_object_key,
       cover_url: assetUrl(row.cover_object_key),
       completion_percentage: completionPercentage,
       progress_status:
@@ -495,11 +493,10 @@ interface ProfileRow {
 
 interface LearningRow {
   access_id: string;
-  product_id: string;
+  item_id: string;
   title: string;
-  product_type: string;
+  item_type: LearningItemType;
   level: string | null;
-  cover_asset_id: string | null;
   cover_object_key: string | null;
   completion_percentage: string;
   total_time_spent: string;

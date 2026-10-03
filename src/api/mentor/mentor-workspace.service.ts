@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { BOOTCAMP_MEETING_SQL } from '../../class/meeting-sql';
+import { classKindOf, classTypeOf } from '../../common/catalog/item-kind';
 import { assetUrl } from '../../common/storage/asset-url';
 import {
   MentorClassesQueryDto,
@@ -131,7 +132,7 @@ export class MentorWorkspaceService {
         time: session.time,
         class_id: session.class_id,
         class_title: session.class_title,
-        class_type: toCatalogType(session.class_type),
+        type: classKindOf(session.class_type),
         student_count: session.student_count,
       })),
       recent_messages: messages.map((message) => ({
@@ -148,7 +149,7 @@ export class MentorWorkspaceService {
       class_progress: progress.map((row) => ({
         class_id: row.class_id,
         title: row.title,
-        type: toCatalogType(row.type),
+        type: classKindOf(row.type),
         enrolled_count: row.enrolled_count,
         average_progress: Number(row.average_progress),
       })),
@@ -158,12 +159,7 @@ export class MentorWorkspaceService {
 
   async findClasses(userId: string, query: MentorClassesQueryDto) {
     const mentorId = await this.findActiveMentorId(userId);
-    const classType =
-      query.type === 'bootcamp'
-        ? 'live-bootcamp'
-        : query.type === 'kelas'
-          ? 'video'
-          : null;
+    const classType = query.type ? classTypeOf(query.type) : null;
     const search = query.search?.trim()
       ? query.search.trim().replace(/[\\%_]/g, (c) => `\\${c}`)
       : null;
@@ -195,7 +191,7 @@ export class MentorWorkspaceService {
       return {
         id: row.id,
         title: row.title,
-        type: toCatalogType(row.type),
+        type: classKindOf(row.type),
         status: row.status,
         role: row.role,
         image: coverUrl,
@@ -274,8 +270,4 @@ export class MentorWorkspaceService {
     if (!mentor) throw new NotFoundException('Mentor not found');
     return mentor.id;
   }
-}
-
-function toCatalogType(classType: string): 'bootcamp' | 'kelas' {
-  return classType === 'live-bootcamp' ? 'bootcamp' : 'kelas';
 }

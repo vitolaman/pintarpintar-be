@@ -39,7 +39,7 @@ export class UpdateMeetingDto {
 
   @ClearableText({ max: 2048 })
   @IsUrl(HTTPS_URL)
-  liveUrl?: string | null;
+  live_url?: string | null;
 
   @NumberInput({
     presence: 'nullable',

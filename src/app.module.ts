@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { UndeclaredQueryGuard } from './common/guard/undeclared-query.guard';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -104,6 +105,10 @@ import { MerchantLevelModule } from './api/merchant-level/merchant-level.module'
     {
       provide: APP_GUARD,
       useClass: JwtGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: UndeclaredQueryGuard,
     },
     // RedisHealthIndicator,
     AppService,

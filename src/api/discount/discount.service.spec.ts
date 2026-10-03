@@ -50,7 +50,36 @@ describe('deriveStatus', () => {
     ],
     ['active', { isActive: true, startsAt: null, endsAt: null }],
   ])('reports %s', (status, discount) => {
-    expect(deriveStatus(discount, now)).toBe(status);
+    expect(deriveStatus(discount, [], now)).toBe(status);
+  });
+
+  const live = { isActive: true, startsAt: null, endsAt: null };
+
+  it('reports limit_reached when every code is used up', () => {
+    const codes = [
+      { usageLimit: 1, usedCount: 1 },
+      { usageLimit: 5, usedCount: 5 },
+    ];
+    expect(deriveStatus(live, codes, now)).toBe('limit_reached');
+  });
+
+  it('stays active while one code still has uses or without codes', () => {
+    const codes = [
+      { usageLimit: 1, usedCount: 1 },
+      { usageLimit: 5, usedCount: 4 },
+    ];
+    expect(deriveStatus(live, codes, now)).toBe('active');
+    expect(deriveStatus(live, [], now)).toBe('active');
+  });
+
+  it('reports an ended or inactive discount before its used-up codes', () => {
+    const codes = [{ usageLimit: 1, usedCount: 1 }];
+    expect(
+      deriveStatus({ ...live, endsAt: new Date('2026-09-29') }, codes, now),
+    ).toBe('expired');
+    expect(deriveStatus({ ...live, isActive: false }, codes, now)).toBe(
+      'inactive',
+    );
   });
 });
 
@@ -347,6 +376,49 @@ describe('DiscountService', () => {
     ).rejects.toThrow(`Item ${CLASS_ID} is a class, not digital`);
   });
 
+  it('targets a bootcamp class and reports the target and status', async () => {
+    manager.query.mockImplementation(async (sql: string) =>
+      sql.includes('catalog.id = ANY')
+        ? [{ id: CLASS_ID, type: 'bootcamp', title: 'Bootcamp BIM' }]
+        : [],
+    );
+    dataSourceQuery.mockResolvedValueOnce([
+      {
+        discount_id: DISCOUNT_ID,
+        id: CLASS_ID,
+        type: 'bootcamp',
+        title: 'Bootcamp BIM',
+      },
+    ]);
+    manager.find.mockResolvedValueOnce([
+      {
+        id: codeId(1),
+        discountId: DISCOUNT_ID,
+        code: 'DSC-AAAAAAAA',
+        codeType: 'once',
+        usageLimit: 1,
+        usedCount: 1,
+      },
+    ]);
+
+    const { data } = await service.create(
+      'user-id',
+      input({ targets: [{ type: 'bootcamp', id: CLASS_ID }] }),
+    );
+
+    expect(manager.save).toHaveBeenCalledWith(DiscountProduct, [
+      expect.objectContaining({ classId: CLASS_ID, productId: null }),
+    ]);
+    expect(data.targets).toEqual([
+      { id: CLASS_ID, type: 'bootcamp', title: 'Bootcamp BIM' },
+    ]);
+    expect(data.status).toBe('limit_reached');
+    const [targetSql] = dataSourceQuery.mock.calls[0];
+    expect(targetSql).toContain(
+      "THEN (CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END) ELSE 'digital' END AS type",
+    );
+  });
+
   it('hides other merchants discounts behind 404', async () => {
     manager.findOneBy.mockResolvedValue(null);
     await expect(service.remove('user-id', DISCOUNT_ID)).rejects.toBeInstanceOf(
@@ -410,7 +482,28 @@ describe('DiscountService', () => {
       expect(sql).toContain('product.discount_price > 0');
       expect(sql).toContain("class.status IN ('published', 'archived')");
       expect(sql).toContain('product.is_published');
+      expect(sql).toContain(
+        "(CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END) AS type",
+      );
+      expect(sql).toContain("ORDER BY catalog.type <> 'digital'");
       expect(params).toEqual(['merchant-id']);
+    });
+
+    it('reports a bootcamp class as bootcamp', async () => {
+      dataSourceQuery.mockResolvedValueOnce([
+        {
+          id: CLASS_ID,
+          type: 'bootcamp',
+          title: 'Bootcamp BIM',
+          price: '450000',
+          image: null,
+          is_available: true,
+        },
+      ]);
+
+      const { data } = await service.findEligibleProducts('user-id');
+
+      expect(data[0].type).toBe('bootcamp');
     });
   });
 

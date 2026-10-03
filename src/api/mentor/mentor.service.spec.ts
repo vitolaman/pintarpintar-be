@@ -1,50 +1,41 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { DataSource, Repository } from 'typeorm';
 
-jest.mock('@nestjs/jwt', () => ({
-  JwtService: jest.fn(),
+jest.mock('../file-asset/asset-purpose-rules', () => ({
+  ...jest.requireActual('../file-asset/asset-purpose-rules'),
+  assertOwnedAsset: jest.fn(),
+}));
+jest.mock('../../common/storage/signed-download-url', () => ({
+  signedDownloadUrl: jest.fn().mockResolvedValue('https://signed.example/cv'),
 }));
 
-import { AuthService } from '../auth/auth.service';
-import { FileAsset } from '../profile/entities/file-asset.entity';
+import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
+import { signedDownloadUrl } from '../../common/storage/signed-download-url';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
-import { UserService } from '../user/user.service';
+import {
+  MentorRegisterDto,
+  UpdateMentorDocumentsDto,
+} from './dto/mentor-documents.dto';
 import { MentorRegistrationDto } from './dto/mentor-registration.dto';
-import { MentorSignUpDto } from './dto/mentor-sign-up.dto';
 import { UpdateMentorDto } from './dto/update-mentor.dto';
 import { Mentor } from './entities/mentor.entity';
 import { MentorProfile } from './entities/mentor-profile.entity';
-import { MentorDocumentStorageService } from './mentor-document-storage.service';
 import { MentorService } from './mentor.service';
 
 describe('MentorService', () => {
   const userId = '10000000-0000-4000-8000-000000000001';
   const mentorId = '20000000-0000-4000-8000-000000000001';
-  const documents = {
-    cv: {
-      assetId: '30000000-0000-4000-8000-000000000001',
-      objectKey: 'mentor-documents/cv.pdf',
-      originalFilename: 'cv.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 100,
-      checksumSha256: 'cv-checksum',
-    },
-    certificate: {
-      assetId: '30000000-0000-4000-8000-000000000002',
-      objectKey: 'mentor-documents/certificate.pdf',
-      originalFilename: 'certificate.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 100,
-      checksumSha256: 'certificate-checksum',
-    },
-  };
+  const cvAssetId = '30000000-0000-4000-8000-000000000001';
+  const certificateAssetId = '30000000-0000-4000-8000-000000000002';
   const input = {
-    name: 'Raka Wijaya',
-    email: 'raka@example.com',
-    password: 'password1',
     phone: '+62 812-3456-7890',
     headline: 'Praktisi teknik',
     bio: 'Berpengalaman mengajar.',
@@ -53,17 +44,19 @@ describe('MentorService', () => {
     education: 'S1 Teknik Mesin',
     portfolio_url: 'https://portfolio.example',
     linkedin_url: 'https://linkedin.com/in/raka',
-  };
+    cv_asset_id: cvAssetId,
+    skill_certificate_asset_id: certificateAssetId,
+  } as MentorRegisterDto;
 
   let manager: Record<string, jest.Mock>;
   let dataSource: Pick<DataSource, 'transaction' | 'query'>;
   let mentorRepository: { findOneBy: jest.Mock; createQueryBuilder: jest.Mock };
-  let users: { createWithManager: jest.Mock };
-  let auth: { createTokenResponse: jest.Mock };
-  let storage: Record<string, jest.Mock>;
   let service: MentorService;
+  const claimed = assertOwnedAsset as jest.Mock;
 
   beforeEach(() => {
+    claimed.mockReset().mockResolvedValue({});
+    (signedDownloadUrl as jest.Mock).mockClear();
     manager = {
       create: jest.fn((target, value) => ({
         ...value,
@@ -81,92 +74,87 @@ describe('MentorService', () => {
       findOneBy: jest.fn(),
       createQueryBuilder: jest.fn(),
     };
-    users = { createWithManager: jest.fn() };
-    auth = { createTokenResponse: jest.fn() };
-    storage = {
-      storeRequiredDocuments: jest.fn().mockResolvedValue(documents),
-      storeReplacementDocuments: jest.fn(),
-      remove: jest.fn().mockResolvedValue(undefined),
-      signedDownloadUrl: jest
-        .fn()
-        .mockResolvedValue('https://signed.example/cv'),
-    };
     service = new MentorService(
       dataSource as DataSource,
       mentorRepository as unknown as Repository<Mentor>,
-      users as unknown as UserService,
-      auth as unknown as AuthService,
-      storage as unknown as MentorDocumentStorageService,
+      new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
     );
   });
 
-  it('creates user, mentor, private assets, and profile atomically on direct sign-up', async () => {
-    const user = { id: userId, isMentor: true } as User;
-    users.createWithManager.mockResolvedValue(user);
-    manager.findOne.mockResolvedValue(null);
+  it('registers a new mentor with two uploaded documents', async () => {
+    const user = { id: userId, isMentor: false } as User;
+    manager.findOne
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
     manager.findOneBy.mockResolvedValue(null);
-    auth.createTokenResponse.mockResolvedValue({
-      responseMessage: 'Account Created!',
-      data: { token: 'token' },
+    jest.spyOn(service, 'findProfile').mockResolvedValue({
+      data: { id: mentorId } as never,
+      responseMessage: 'Get mentor profile success',
     });
 
-    await expect(service.signUp(input, {})).resolves.toEqual({
-      responseMessage: 'Account Created!',
-      data: { token: 'token' },
+    await expect(service.register(userId, input)).resolves.toMatchObject({
+      responseMessage: 'Register mentor success',
     });
-
-    expect(users.createWithManager).toHaveBeenCalledWith(manager, input, {
-      isMentor: true,
-    });
-    expect(manager.save).toHaveBeenCalledWith(
-      FileAsset,
-      expect.arrayContaining([
-        expect.objectContaining({
-          uploadedByUserId: userId,
-          visibility: 'private',
-          storageProvider: 's3',
-        }),
-      ]),
+    expect(claimed).toHaveBeenCalledWith(
+      manager,
+      userId,
+      cvAssetId,
+      'application_cv',
+    );
+    expect(claimed).toHaveBeenCalledWith(
+      manager,
+      userId,
+      certificateAssetId,
+      'certificate_file',
     );
     expect(manager.save).toHaveBeenCalledWith(
       MentorProfile,
       expect.objectContaining({
         mentorId,
-        cvAssetId: documents.cv.assetId,
-        skillCertificateAssetId: documents.certificate.assetId,
+        cvAssetId,
+        skillCertificateAssetId: certificateAssetId,
       }),
     );
-    expect(auth.createTokenResponse).toHaveBeenCalledWith(
-      'Account Created!',
-      userId,
+    expect(manager.save).toHaveBeenCalledWith(
+      User,
+      expect.objectContaining({ isMentor: true }),
     );
   });
 
-  it('removes stored documents when direct sign-up cannot create a user', async () => {
-    users.createWithManager.mockRejectedValue(new ConflictException());
-
-    await expect(service.signUp(input, {})).rejects.toBeInstanceOf(
-      ConflictException,
+  it('rejects a foreign or wrong-type document and creates nothing', async () => {
+    manager.findOne.mockResolvedValueOnce({ id: userId } as User);
+    claimed.mockRejectedValueOnce(
+      new BadRequestException('Allowed file types: PDF, DOC or DOCX'),
     );
-    expect(storage.remove).toHaveBeenCalledWith([
-      documents.cv,
-      documents.certificate,
-    ]);
+
+    await expect(service.register(userId, input)).rejects.toThrow(
+      'Allowed file types: PDF, DOC or DOCX',
+    );
+    expect(manager.save).not.toHaveBeenCalled();
   });
 
-  it('rejects an existing mentor before saving documents to the database', async () => {
+  it('rejects the same file as CV and certificate', async () => {
+    manager.findOne.mockResolvedValueOnce({ id: userId } as User);
+
+    await expect(
+      service.register(userId, {
+        ...input,
+        skill_certificate_asset_id: cvAssetId,
+      } as MentorRegisterDto),
+    ).rejects.toThrow('must be different files');
+    expect(claimed).not.toHaveBeenCalled();
+  });
+
+  it('rejects an existing mentor', async () => {
     const user = { id: userId, isMentor: false } as User;
     manager.findOne
       .mockResolvedValueOnce(user)
       .mockResolvedValueOnce({ id: mentorId });
 
-    await expect(service.register(userId, input, {})).rejects.toBeInstanceOf(
+    await expect(service.register(userId, input)).rejects.toBeInstanceOf(
       ConflictException,
     );
-    expect(storage.remove).toHaveBeenCalledWith([
-      documents.cv,
-      documents.certificate,
-    ]);
     expect(manager.save).not.toHaveBeenCalled();
   });
 
@@ -177,7 +165,7 @@ describe('MentorService', () => {
       .mockResolvedValueOnce({ id: mentorId, status: 'active' })
       .mockResolvedValueOnce({ id: 'profile-id', mentorId });
 
-    await expect(service.register(userId, input, {})).rejects.toBeInstanceOf(
+    await expect(service.register(userId, input)).rejects.toBeInstanceOf(
       ConflictException,
     );
     expect(manager.save).not.toHaveBeenCalled();
@@ -195,18 +183,14 @@ describe('MentorService', () => {
       responseMessage: 'Get mentor profile success',
     });
 
-    await expect(service.register(userId, input, {})).resolves.toMatchObject({
+    await expect(service.register(userId, input)).resolves.toMatchObject({
       data: { id: mentorId },
       responseMessage: 'Register mentor success',
     });
     expect(manager.save).not.toHaveBeenCalledWith(Mentor, expect.anything());
     expect(manager.save).toHaveBeenCalledWith(
       MentorProfile,
-      expect.objectContaining({
-        mentorId,
-        cvAssetId: documents.cv.assetId,
-        skillCertificateAssetId: documents.certificate.assetId,
-      }),
+      expect.objectContaining({ mentorId, cvAssetId }),
     );
   });
 
@@ -216,72 +200,73 @@ describe('MentorService', () => {
       .mockResolvedValueOnce(user)
       .mockResolvedValueOnce({ id: mentorId, status: 'suspended' });
 
-    await expect(service.register(userId, input, {})).rejects.toBeInstanceOf(
+    await expect(service.register(userId, input)).rejects.toBeInstanceOf(
       ConflictException,
     );
     expect(manager.save).not.toHaveBeenCalled();
   });
 
-  it('replaces the CV, soft-deletes the old asset, and removes it from storage after commit', async () => {
-    storage.storeReplacementDocuments.mockResolvedValue({ cv: documents.cv });
-    manager.findOne.mockResolvedValue({ id: mentorId, userId });
-    const mentorProfile = {
-      mentorId,
-      cvAssetId: 'old-cv-id',
-      skillCertificateAssetId: 'old-cert-id',
-    };
-    manager.findOneBy.mockResolvedValue(mentorProfile);
-    manager.findByIds = jest.fn().mockResolvedValue([
-      {
-        id: 'old-cv-id',
-        storageProvider: 's3',
-        objectKey: 'mentor-documents/old.pdf',
-      },
-    ]);
-    manager.update = jest.fn().mockResolvedValue(undefined);
-    manager.softDelete = jest.fn().mockResolvedValue(undefined);
-    (dataSource.query as jest.Mock).mockResolvedValue([
-      {
-        kind: 'cv',
-        asset_id: documents.cv.assetId,
-        filename: 'cv.pdf',
-        mime_type: 'application/pdf',
-        size_bytes: '100',
-        uploaded_at: new Date('2026-09-30T00:00:00.000Z'),
-        storage_provider: 's3',
-        object_key: documents.cv.objectKey,
-      },
-    ]);
+  describe('document replacement', () => {
+    let mentorProfile: Record<string, string>;
 
-    const response = await service.updateDocuments(userId, {
-      cv: [{} as Express.Multer.File],
+    beforeEach(() => {
+      manager.findOne.mockResolvedValue({ id: mentorId, userId });
+      mentorProfile = {
+        mentorId,
+        cvAssetId: 'old-cv-id',
+        skillCertificateAssetId: 'old-cert-id',
+      };
+      manager.findOneBy.mockResolvedValue(mentorProfile);
+      (dataSource.query as jest.Mock).mockResolvedValue([
+        {
+          kind: 'cv',
+          asset_id: cvAssetId,
+          filename: 'cv.pdf',
+          mime_type: 'application/pdf',
+          size_bytes: '100',
+          uploaded_at: new Date('2026-09-30T00:00:00.000Z'),
+          storage_provider: 's3',
+          object_key: 'uploads/cv.pdf',
+        },
+      ]);
     });
 
-    expect(mentorProfile.cvAssetId).toBe(documents.cv.assetId);
-    expect(mentorProfile.skillCertificateAssetId).toBe('old-cert-id');
-    expect(manager.softDelete).toHaveBeenCalledWith(expect.anything(), [
-      'old-cv-id',
-    ]);
-    expect(storage.remove).toHaveBeenCalledWith([
-      expect.objectContaining({ objectKey: 'mentor-documents/old.pdf' }),
-    ]);
-    expect(response.data).toEqual([
-      expect.objectContaining({
-        kind: 'cv',
-        size_bytes: 100,
-        download_url: 'https://signed.example/cv',
-      }),
-    ]);
-  });
+    it('replaces only the CV and checks only the new file', async () => {
+      const response = await service.updateDocuments(userId, {
+        cv_asset_id: cvAssetId,
+      });
 
-  it('removes the new upload when the replacement transaction fails', async () => {
-    storage.storeReplacementDocuments.mockResolvedValue({ cv: documents.cv });
-    manager.findOne.mockResolvedValue(null);
+      expect(mentorProfile.cvAssetId).toBe(cvAssetId);
+      expect(mentorProfile.skillCertificateAssetId).toBe('old-cert-id');
+      expect(claimed).toHaveBeenCalledTimes(1);
+      expect(claimed).toHaveBeenCalledWith(
+        manager,
+        userId,
+        cvAssetId,
+        'application_cv',
+      );
+      expect(response.data).toEqual([
+        expect.objectContaining({
+          kind: 'cv',
+          size_bytes: 100,
+          download_url: 'https://signed.example/cv',
+        }),
+      ]);
+    });
 
-    await expect(
-      service.updateDocuments(userId, { cv: [{} as Express.Multer.File] }),
-    ).rejects.toBeInstanceOf(NotFoundException);
-    expect(storage.remove).toHaveBeenCalledWith([documents.cv]);
+    it('needs at least one document', async () => {
+      await expect(service.updateDocuments(userId, {})).rejects.toThrow(
+        'Send cv_asset_id, skill_certificate_asset_id, or both',
+      );
+    });
+
+    it('is 404 without a mentor', async () => {
+      manager.findOne.mockResolvedValue(null);
+      await expect(
+        service.updateDocuments(userId, { cv_asset_id: cvAssetId }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(mentorProfile.cvAssetId).toBe('old-cv-id');
+    });
   });
 
   it('gives no download URL for documents stored before S3 storage', async () => {
@@ -301,7 +286,35 @@ describe('MentorService', () => {
     const response = await service.findDocuments(userId);
 
     expect(response.data[0].download_url).toBeNull();
-    expect(storage.signedDownloadUrl).not.toHaveBeenCalled();
+    expect(signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it('rejects multipart file fields and accepts asset ids (strict bodies)', async () => {
+    const strict = { whitelist: true, forbidNonWhitelisted: true };
+    const errors = await validate(
+      plainToInstance(MentorRegisterDto, { ...input, cv: 'file' }),
+      strict,
+    );
+    expect(errors.map((error) => error.property)).toEqual(['cv']);
+    expect(
+      await validate(plainToInstance(MentorRegisterDto, input), strict),
+    ).toEqual([]);
+    const missing = await validate(
+      plainToInstance(MentorRegisterDto, {
+        ...input,
+        cv_asset_id: undefined,
+      }),
+      strict,
+    );
+    expect(missing.map((error) => error.property)).toEqual(['cv_asset_id']);
+    expect(
+      (
+        await validate(
+          plainToInstance(UpdateMentorDocumentsDto, { cv_asset_id: null }),
+          strict,
+        )
+      ).map((error) => error.property),
+    ).toEqual(['cv_asset_id']);
   });
 
   it('stores an expertise list as comma-separated text', async () => {
@@ -412,17 +425,6 @@ describe('mentor request DTOs', () => {
         [field]: value,
       }),
     ).toEqual([field]);
-  });
-
-  it('requires the account fields on direct sign-up', async () => {
-    expect(
-      await errorFields(MentorSignUpDto, {
-        ...registration,
-        name: '  ',
-        email: 'raka@example.com',
-        password: 'password1',
-      }),
-    ).toEqual(['name']);
   });
 
   it('lets the profile update omit any field', async () => {

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CatalogService } from '../catalog/catalog.service';
+import { catalogSort } from '../catalog/dto/catalog.dto';
 import {
   FEATURED_VOUCHER_COUNT,
   VoucherService,
@@ -15,11 +16,9 @@ export class PromoService {
 
   // Promo items have both a list price and a lower discounted price.
   async findItems(query: PromoItemsQueryDto, viewerId?: string) {
-    const types =
-      query.type === 'digital' ? ['digital'] : ['kelas', 'bootcamp'];
     const cards = await this.catalogService.findCards(
-      { types, discountedOnly: true },
-      query.sort ?? 'random',
+      { types: query.type, discountedOnly: true },
+      query.sort_by ? catalogSort(query.sort_by, query.sort_order) : 'random',
       query.limit,
     );
     return {

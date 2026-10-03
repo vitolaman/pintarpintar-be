@@ -42,12 +42,6 @@ export class PortalItemResponseDto {
 
   @ApiProperty({
     nullable: true,
-    description: 'Cover asset object key; null without a cover',
-  })
-  image: string | null;
-
-  @ApiProperty({
-    nullable: true,
     type: String,
     description: 'Cover URL; null without a cover',
   })
@@ -64,9 +58,6 @@ export class PortalItemResponseDto {
 
   @ApiProperty({ nullable: true, example: 'akademi-teknik-nusantara' })
   merchant_slug: string | null;
-
-  @ApiProperty({ nullable: true })
-  merchant_avatar_object_key: string | null;
 
   @ApiProperty({
     nullable: true,

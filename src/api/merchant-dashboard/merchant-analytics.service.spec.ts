@@ -114,6 +114,33 @@ describe('analytics DTOs', () => {
   });
 });
 
+describe('TrackVisitDto target_type', () => {
+  const targetId = '30000000-0000-4000-8000-000000000001';
+  const errorsFor = async (target_type: string) =>
+    validate(
+      plainToInstance(TrackVisitDto, { target_type, target_id: targetId }),
+      {
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      },
+    );
+
+  it.each(['storefront', 'kelas', 'bootcamp', 'digital', 'bundle'])(
+    'accepts %s',
+    async (targetType) => {
+      expect(await errorsFor(targetType)).toEqual([]);
+    },
+  );
+
+  it.each(['class', 'digital_product', 'video', 'live-bootcamp'])(
+    'rejects the old value %s',
+    async (targetType) => {
+      const errors = await errorsFor(targetType);
+      expect(errors.map((error) => error.property)).toEqual(['target_type']);
+    },
+  );
+});
+
 describe('MerchantAnalyticsService', () => {
   let query: jest.Mock;
   let service: MerchantAnalyticsService;
@@ -286,11 +313,49 @@ describe('VisitTrackingService', () => {
     );
     await expect(
       service.track(
-        { ...input, target_type: 'class', target_id: 'abc' },
+        { ...input, target_type: 'kelas', target_id: 'abc' },
         null,
         'x',
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['kelas', 'FROM classes class'],
+    ['bootcamp', 'FROM classes class'],
+    ['digital', 'FROM products product'],
+    ['bundle', 'FROM bundles bundle'],
+  ] as const)('resolves a %s page to its merchant', async (kind, table) => {
+    const targetId = '30000000-0000-4000-8000-000000000001';
+
+    await service.track(
+      { ...input, target_type: kind, target_id: targetId },
+      null,
+      'Mozilla/5.0',
+    );
+
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain(table);
+    expect(params).toEqual([targetId]);
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId: 'merchant-id' }),
+    );
+  });
+
+  it('counts only published or unlisted bundles', async () => {
+    await service.track(
+      {
+        ...input,
+        target_type: 'bundle',
+        target_id: '30000000-0000-4000-8000-000000000001',
+      },
+      null,
+      'Mozilla/5.0',
+    );
+
+    expect(query.mock.calls[0][0]).toContain(
+      "bundle.status IN ('published', 'unlisted')",
+    );
   });
 });

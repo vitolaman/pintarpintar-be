@@ -1,3 +1,4 @@
+import { ClassKind, classKinds } from '~/common/catalog/item-kind';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RosterMentorDto {
@@ -51,7 +52,7 @@ export class MentorRosterResponseDto {
 export class RosterClassDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty() title: string;
-  @ApiProperty({ enum: ['video', 'live-bootcamp'] }) type: string;
+  @ApiProperty({ enum: classKinds }) type: ClassKind;
   @ApiProperty() students_count: number;
   @ApiPropertyOptional({ nullable: true }) rating: number | null;
   @ApiProperty() review_count: number;

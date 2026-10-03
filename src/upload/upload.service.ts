@@ -21,11 +21,14 @@ export class UploadService {
   private bucketName: string;
 
   constructor(private configService: ConfigService) {
-    this.bucketName = this.configService.get<string>('AWS_S3_BUCKET_NAME') || 'default-bucket';
-    
+    this.bucketName =
+      this.configService.get<string>('AWS_S3_BUCKET_NAME') || 'default-bucket';
+
     const region = this.configService.get<string>('AWS_REGION') || 'auto';
     const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
-    const secretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
+    const secretAccessKey = this.configService.get<string>(
+      'AWS_SECRET_ACCESS_KEY',
+    );
     const endpoint = this.configService.get<string>('AWS_S3_ENDPOINT');
 
     this.s3Client = new S3Client({
@@ -44,7 +47,7 @@ export class UploadService {
     contentType: string,
   ) {
     const key = buildUploadKey(userId, fileName);
-    
+
     try {
       const command = new CreateMultipartUploadCommand({
         Bucket: this.bucketName,
@@ -53,7 +56,7 @@ export class UploadService {
       });
 
       const response = await this.s3Client.send(command);
-      
+
       return {
         uploadId: response.UploadId,
         key: response.Key,
@@ -82,7 +85,9 @@ export class UploadService {
         });
 
         // URL expires in 1 hour
-        const signedUrl = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+        const signedUrl = await getSignedUrl(this.s3Client, command, {
+          expiresIn: 3600,
+        });
         urls.push({
           partNumber: i,
           url: signedUrl,
@@ -101,7 +106,11 @@ export class UploadService {
     }
   }
 
-  async completeMultipartUpload(key: string, uploadId: string, parts: CompletedPart[]) {
+  async completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: CompletedPart[],
+  ) {
     try {
       // Sort parts by PartNumber to ensure correct assembly
       const sortedParts = parts.sort((a, b) => a.PartNumber - b.PartNumber);

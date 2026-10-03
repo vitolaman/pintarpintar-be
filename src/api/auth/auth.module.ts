@@ -8,7 +8,6 @@ import { AuthSessionController } from './auth-session.controller';
 import { AuthService } from './auth.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
-
 @Module({
   controllers: [AuthController, AuthSessionController],
   providers: [AuthService],

@@ -14,13 +14,21 @@ import {
   SaleResponseDto,
 } from './dto/merchant-dashboard-response.dto';
 import {
+  jakartaDayStartUtc,
   MERCHANT_PAID_SALES_SQL,
   MERCHANT_PENDING_SALES_SQL,
   MERCHANT_SALES_SQL,
+  paidSalesBetweenSql,
 } from './merchant-sales-sql';
+import {
+  IncomePeriod,
+  MerchantIncomeService,
+} from '../merchant-income/merchant-income.service';
+import * as moment from 'moment-timezone';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 
 const EXPORT_LIMIT = 5000;
+const JAKARTA = 'Asia/Jakarta';
 
 // Every review ($1 = merchant id) of the merchant's classes and digital
 // products, whatever their current status, with the reviewed item's title.
@@ -34,10 +42,8 @@ const MERCHANT_REVIEWS_SQL = `
     AND (class.merchant_id = $1 OR product.merchant_id = $1)
 `;
 
-// Stored timestamps are UTC wall time; periods end now.
+// Stored timestamps are UTC wall time; new catalog items count back from now.
 const NOW_UTC = `(now() AT TIME ZONE 'UTC')`;
-const WIB_DATE = (column: string) =>
-  `((${column} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Jakarta')::date`;
 
 // Enrollment progress is free text; use its leading number, clamped to 0-100.
 const PROGRESS_SQL = `LEAST(100, COALESCE(substring(enrollment.progress from '^\\s*([0-9]+)')::numeric, 0))`;
@@ -60,56 +66,47 @@ export class MerchantDashboardService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly merchantLevels: MerchantLevelService,
+    private readonly merchantIncome: MerchantIncomeService,
   ) {}
 
   async findDashboard(userId: string, query: DashboardQueryDto) {
     const merchant = await this.findMerchant(userId);
     const days = query.period_days;
     const params = [merchant.id, days];
+    const today = moment().tz(JAKARTA);
+    const todayDate = today.format('YYYY-MM-DD');
+    const periodStart = today
+      .clone()
+      .subtract(days - 1, 'day')
+      .format('YYYY-MM-DD');
+    const previousStart = today
+      .clone()
+      .subtract(days * 2 - 1, 'day')
+      .format('YYYY-MM-DD');
 
     const [
-      [kpi],
-      chart,
+      [buyers],
+      income,
       [catalog],
       [rating],
       [latestReview],
       activities,
       unpaid,
     ] = await Promise.all([
+      // Distinct buyers cannot be summed from daily income, so they are
+      // counted from the period's paid orders.
       this.dataSource.query(
         `SELECT
-             COALESCE(sum(amount) FILTER (WHERE created_at >= ${NOW_UTC} - make_interval(days => $2)), 0) AS revenue,
-             COALESCE(sum(amount) FILTER (WHERE created_at < ${NOW_UTC} - make_interval(days => $2)), 0) AS previous_revenue,
-             count(*) FILTER (WHERE created_at >= ${NOW_UTC} - make_interval(days => $2))::integer AS transactions,
-             count(*) FILTER (WHERE created_at < ${NOW_UTC} - make_interval(days => $2))::integer AS previous_transactions,
-             count(DISTINCT user_id) FILTER (WHERE created_at >= ${NOW_UTC} - make_interval(days => $2))::integer AS students,
-             count(DISTINCT user_id) FILTER (WHERE created_at < ${NOW_UTC} - make_interval(days => $2))::integer AS previous_students
-           FROM (${MERCHANT_PAID_SALES_SQL}) sale
-           WHERE sale.status = 'paid'
-             AND sale.created_at >= ${NOW_UTC} - make_interval(days => $2 * 2)`,
-        params,
+             count(DISTINCT sale.user_id) FILTER (WHERE sale.sold_at >= ${jakartaDayStartUtc('$3::date')})::integer AS students,
+             count(DISTINCT sale.user_id) FILTER (WHERE sale.sold_at < ${jakartaDayStartUtc('$3::date')})::integer AS previous_students
+           FROM (${paidSalesBetweenSql('merchant', jakartaDayStartUtc('$2::date'), jakartaDayStartUtc('$4::date + 1'))}) sale`,
+        [merchant.id, previousStart, periodStart, todayDate],
       ),
-      this.dataSource.query(
-        `WITH days AS (
-             SELECT generate_series(
-               (now() AT TIME ZONE 'Asia/Jakarta')::date - ($2 - 1),
-               (now() AT TIME ZONE 'Asia/Jakarta')::date,
-               interval '1 day'
-             )::date AS day
-           ), daily AS (
-             SELECT ${WIB_DATE('sale.created_at')} AS day,
-                    count(*)::integer AS transactions, sum(sale.amount) AS revenue
-             FROM (${MERCHANT_PAID_SALES_SQL}) sale
-             WHERE sale.status = 'paid'
-               AND sale.created_at >= ${NOW_UTC} - make_interval(days => $2 + 1)
-             GROUP BY 1
-           )
-           SELECT days.day::text AS date,
-                  COALESCE(daily.transactions, 0) AS transactions,
-                  COALESCE(daily.revenue, 0) AS revenue
-           FROM days LEFT JOIN daily ON daily.day = days.day
-           ORDER BY days.day`,
-        params,
+      this.merchantIncome.findIncome(
+        merchant.id,
+        previousStart,
+        todayDate,
+        'day',
       ),
       this.dataSource.query(
         `SELECT count(*)::integer AS total,
@@ -181,6 +178,14 @@ export class MerchantDashboardService {
       ),
     ]);
 
+    const incomeByDate = new Map(income.map((day) => [day.period, day]));
+    const current = sumIncome(
+      income.filter((day) => day.period >= periodStart),
+    );
+    const previous = sumIncome(
+      income.filter((day) => day.period < periodStart),
+    );
+
     return {
       data: {
         period_days: days,
@@ -188,9 +193,9 @@ export class MerchantDashboardService {
         storage_level: merchant.storage_level,
         level: await this.merchantLevels.findSummary(merchant.id),
         lifetime_earnings: Number(merchant.lifetime_earnings ?? 0),
-        revenue: periodMetric(kpi.revenue, kpi.previous_revenue),
-        transactions: periodMetric(kpi.transactions, kpi.previous_transactions),
-        students: periodMetric(kpi.students, kpi.previous_students),
+        revenue: periodMetric(current.revenue, previous.revenue),
+        transactions: periodMetric(current.transactions, previous.transactions),
+        students: periodMetric(buyers.students, buyers.previous_students),
         catalog_total: catalog.total,
         catalog_new_in_period: catalog.new_in_period,
         rating_average: rating.average === null ? null : Number(rating.average),
@@ -207,11 +212,18 @@ export class MerchantDashboardService {
               created_at: latestReview.created_at,
             }
           : null,
-        chart: chart.map((point) => ({
-          date: point.date,
-          transactions: Number(point.transactions),
-          revenue: Number(point.revenue),
-        })),
+        chart: Array.from({ length: days }, (_, index) => {
+          const date = moment
+            .tz(periodStart, JAKARTA)
+            .add(index, 'day')
+            .format('YYYY-MM-DD');
+          const day = incomeByDate.get(date);
+          return {
+            date,
+            transactions: day?.transactions ?? 0,
+            revenue: Number(day?.revenue ?? 0),
+          };
+        }),
         activities: activities.map((activity) => ({
           ...activity,
           rating: activity.rating === null ? null : Number(activity.rating),
@@ -425,6 +437,16 @@ function salesFilter(merchantId: string, query: SalesFilterQueryDto) {
       query.item_ids?.length ? query.item_ids : null,
     ],
   };
+}
+
+function sumIncome(days: IncomePeriod[]) {
+  return days.reduce(
+    (sum, day) => ({
+      transactions: sum.transactions + day.transactions,
+      revenue: sum.revenue + Number(day.revenue),
+    }),
+    { transactions: 0, revenue: 0 },
+  );
 }
 
 export function periodMetric(

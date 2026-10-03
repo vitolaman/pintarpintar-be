@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { DataSource } from 'typeorm';
+import { MerchantIncomeService } from '../merchant-income/merchant-income.service';
 import {
   AnalyticsSummaryQueryDto,
   DailySalesQueryDto,
@@ -143,11 +144,16 @@ describe('TrackVisitDto target_type', () => {
 
 describe('MerchantAnalyticsService', () => {
   let query: jest.Mock;
+  let findIncome: jest.Mock;
   let service: MerchantAnalyticsService;
 
   beforeEach(() => {
     query = jest.fn().mockResolvedValue([{ id: 'merchant-id' }]);
-    service = new MerchantAnalyticsService({ query } as unknown as DataSource);
+    findIncome = jest.fn().mockResolvedValue([]);
+    service = new MerchantAnalyticsService(
+      { query } as unknown as DataSource,
+      { findIncome } as unknown as MerchantIncomeService,
+    );
   });
 
   it('needs a merchant', async () => {
@@ -174,46 +180,91 @@ describe('MerchantAnalyticsService', () => {
     expect(query).toHaveBeenCalledTimes(2);
   });
 
-  it('totals the daily series', async () => {
-    query.mockResolvedValueOnce([{ id: 'merchant-id' }]).mockResolvedValueOnce([
-      { date: '2026-10-01', transactions: 2, revenue: '280000' },
-      { date: '2026-10-02', transactions: 0, revenue: '0' },
+  it('fills every day of the month and totals the daily series', async () => {
+    findIncome.mockResolvedValueOnce([
+      { period: '2026-10-01', transactions: 2, revenue: '280000' },
+      { period: '2026-10-31', transactions: 1, revenue: '20000.5' },
     ]);
     const { data } = await service.findDailySales('user-id', '2026-10');
+    expect(findIncome).toHaveBeenCalledWith(
+      'merchant-id',
+      '2026-10-01',
+      '2026-10-31',
+      'day',
+    );
+    expect(data.days).toHaveLength(31);
     expect(data).toMatchObject({
-      total_transactions: 2,
-      total_revenue: 280000,
-      days: [{ revenue: 280000 }, { revenue: 0 }],
+      total_transactions: 3,
+      total_revenue: 300000.5,
     });
+    expect(data.days[0]).toEqual({
+      date: '2026-10-01',
+      transactions: 2,
+      revenue: 280000,
+    });
+    expect(data.days[1]).toEqual({
+      date: '2026-10-02',
+      transactions: 0,
+      revenue: 0,
+    });
+  });
+
+  it('places monthly income in its month and fills the others with 0', async () => {
+    findIncome.mockResolvedValueOnce([
+      { period: '2026-02-01', transactions: 4, revenue: '400000' },
+      { period: '2026-12-01', transactions: 1, revenue: '50000' },
+    ]);
+    const { data } = await service.findMonthlyRevenue('user-id', 2026);
+    expect(findIncome).toHaveBeenCalledWith(
+      'merchant-id',
+      '2026-01-01',
+      '2026-12-31',
+      'month',
+    );
+    expect(data.months).toHaveLength(12);
+    expect(data.months[0]).toEqual({ month: 1, total: 0 });
+    expect(data.months[1]).toEqual({ month: 2, total: 400000 });
+    expect(data.months[11]).toEqual({ month: 12, total: 50000 });
+    expect(data.total_revenue).toBe(450000);
   });
 });
 
 describe('analytics defaults', () => {
   let query: jest.Mock;
+  let findIncome: jest.Mock;
   let service: MerchantAnalyticsService;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2026-10-31T18:30:00Z'));
     query = jest.fn().mockResolvedValue([{ id: 'merchant-id' }]);
-    service = new MerchantAnalyticsService({ query } as unknown as DataSource);
+    findIncome = jest.fn().mockResolvedValue([]);
+    service = new MerchantAnalyticsService(
+      { query } as unknown as DataSource,
+      { findIncome } as unknown as MerchantIncomeService,
+    );
   });
 
   afterEach(() => jest.useRealTimers());
 
   it('uses the current Asia/Jakarta month and year', async () => {
     // 18:30 UTC on 31 October is already 1 November in Jakarta.
-    query
-      .mockResolvedValueOnce([{ id: 'merchant-id' }])
-      .mockResolvedValueOnce([]);
     const daily = await service.findDailySales('user-id');
-    expect(query.mock.calls[1][1]).toEqual(['merchant-id', '2026-11-01']);
+    expect(findIncome).toHaveBeenLastCalledWith(
+      'merchant-id',
+      '2026-11-01',
+      '2026-11-30',
+      'day',
+    );
     expect(daily.data.month).toBe('2026-11');
+    expect(daily.data.days).toHaveLength(30);
 
-    query
-      .mockResolvedValueOnce([{ id: 'merchant-id' }])
-      .mockResolvedValueOnce([]);
     const monthly = await service.findMonthlyRevenue('user-id');
-    expect(query.mock.calls[3][1]).toEqual(['merchant-id', 2026]);
+    expect(findIncome).toHaveBeenLastCalledWith(
+      'merchant-id',
+      '2026-01-01',
+      '2026-12-31',
+      'month',
+    );
     expect(monthly.data.year).toBe(2026);
   });
 

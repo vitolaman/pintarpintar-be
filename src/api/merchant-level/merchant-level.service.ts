@@ -1,9 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import * as moment from 'moment-timezone';
 import { DataSource, EntityManager, In, IsNull } from 'typeorm';
 import { Bundle } from '../bundle/entities/bundle.entity';
 import { Discount } from '../discount/entities/discount.entity';
-import { PAID_SALES_SQL } from '../merchant-dashboard/merchant-sales-sql';
+import { MerchantIncomeService } from '../merchant-income/merchant-income.service';
 import {
   Merchant,
   MerchantStorageLevel,
@@ -31,11 +32,7 @@ import {
 } from './dto/merchant-level.dto';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 
-// Paid sales of merchant $1 with their sale time in Asia/Jakarta.
-const LOCAL_SALES_SQL = `
-  SELECT sale.amount, (sale.sold_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Jakarta' AS sold_local
-  FROM (${PAID_SALES_SQL}) sale
-`;
+const JAKARTA = 'Asia/Jakarta';
 
 const MONTH_NAMES = [
   'Januari',
@@ -54,9 +51,9 @@ const MONTH_NAMES = [
 
 type MonthFacts = {
   revenue: string;
-  sales: number;
+  transactions: number;
   previous_revenue: string;
-  previous_sales: number;
+  previous_transactions: number;
   first_counted_month: string;
   has_items: boolean;
 };
@@ -71,7 +68,10 @@ type MonthFacts = {
 export class MerchantLevelService {
   private readonly logger = new Logger(MerchantLevelService.name);
 
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly merchantIncome: MerchantIncomeService,
+  ) {}
 
   /** Evaluates the month that just ended for every merchant not yet evaluated. */
   async evaluateEndedMonth(): Promise<number> {
@@ -146,8 +146,8 @@ export class MerchantLevelService {
       );
       const action = inactivityAction({
         hasItems: facts.has_items,
-        monthHasSale: facts.sales > 0,
-        previousMonthHasSale: facts.previous_sales > 0,
+        monthHasSale: facts.transactions > 0,
+        previousMonthHasSale: facts.previous_transactions > 0,
         monthCounted: period >= countedFrom,
         previousMonthCounted: previousPeriod >= countedFrom,
         previousAction: previous?.inactivityAction ?? null,
@@ -197,8 +197,6 @@ export class MerchantLevelService {
   async findSummary(merchantId: string): Promise<MerchantLevelSummaryDto> {
     const [row] = await this.dataSource.query(
       `SELECT merchant.storage_level,
-              (SELECT COALESCE(sum(sale.amount), 0) FROM (${LOCAL_SALES_SQL}) sale
-               WHERE sale.sold_local >= date_trunc('month', now() AT TIME ZONE 'Asia/Jakarta')) AS current_month_revenue,
               latest.period_month::text AS last_period,
               latest.inactivity_action,
               to_char(date_trunc('month', now() AT TIME ZONE 'Asia/Jakarta') + interval '1 month 30 minutes',
@@ -213,12 +211,19 @@ export class MerchantLevelService {
       [merchantId],
     );
     if (!row) throw new NotFoundException('Merchant not found');
+    const month = moment().tz(JAKARTA).startOf('month');
+    const [currentMonth] = await this.merchantIncome.findIncome(
+      merchantId,
+      month.format('YYYY-MM-DD'),
+      month.clone().endOf('month').format('YYYY-MM-DD'),
+      'month',
+    );
     const { usedBytes } = await merchantStorageUse(this.dataSource, merchantId);
     const level = row.storage_level as MerchantStorageLevel;
     const rule = MERCHANT_LEVEL_RULES[level];
     return {
       current: level,
-      current_month_revenue: Number(row.current_month_revenue),
+      current_month_revenue: Number(currentMonth?.revenue ?? 0),
       silver_threshold: SILVER_MONTHLY_REVENUE,
       gold_threshold: GOLD_MONTHLY_REVENUE,
       max_upload_bytes: rule.maxUploadBytes,
@@ -269,21 +274,33 @@ export class MerchantLevelService {
     merchantId: string,
     period: string,
   ): Promise<MonthFacts> {
+    const previousPeriod = addMonths(period, -1);
+    const months = await this.merchantIncome.findIncome(
+      merchantId,
+      previousPeriod,
+      moment.utc(addMonths(period, 1)).subtract(1, 'day').format('YYYY-MM-DD'),
+      'month',
+      manager,
+    );
+    const income = months.find((month) => month.period === period);
+    const previous = months.find((month) => month.period === previousPeriod);
     const [row] = await manager.query(
       `SELECT
-         COALESCE(sum(sale.amount) FILTER (WHERE sale.sold_local >= $2::date AND sale.sold_local < $2::date + interval '1 month'), 0) AS revenue,
-         count(sale.amount) FILTER (WHERE sale.sold_local >= $2::date AND sale.sold_local < $2::date + interval '1 month')::integer AS sales,
-         COALESCE(sum(sale.amount) FILTER (WHERE sale.sold_local >= $2::date - interval '1 month' AND sale.sold_local < $2::date), 0) AS previous_revenue,
-         count(sale.amount) FILTER (WHERE sale.sold_local >= $2::date - interval '1 month' AND sale.sold_local < $2::date)::integer AS previous_sales,
          (SELECT (date_trunc('month', (level_tracked_from AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Jakarta') + interval '1 month')::date::text
           FROM merchants WHERE id = $1) AS first_counted_month,
          (EXISTS (SELECT 1 FROM products WHERE merchant_id = $1 AND deleted_at IS NULL)
           OR EXISTS (SELECT 1 FROM classes WHERE merchant_id = $1 AND deleted_at IS NULL)
-          OR EXISTS (SELECT 1 FROM bundles WHERE merchant_id = $1 AND deleted_at IS NULL)) AS has_items
-       FROM (${LOCAL_SALES_SQL}) sale`,
-      [merchantId, period],
+          OR EXISTS (SELECT 1 FROM bundles WHERE merchant_id = $1 AND deleted_at IS NULL)) AS has_items`,
+      [merchantId],
     );
-    return row;
+    return {
+      revenue: income?.revenue ?? '0',
+      transactions: income?.transactions ?? 0,
+      previous_revenue: previous?.revenue ?? '0',
+      previous_transactions: previous?.transactions ?? 0,
+      first_counted_month: row.first_counted_month,
+      has_items: row.has_items,
+    };
   }
 
   /**

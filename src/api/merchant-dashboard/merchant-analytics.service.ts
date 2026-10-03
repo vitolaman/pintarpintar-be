@@ -17,6 +17,7 @@ import {
   SummaryWindowDto,
 } from './dto/merchant-analytics.dto';
 import * as moment from 'moment-timezone';
+import { MerchantIncomeService } from '../merchant-income/merchant-income.service';
 import { PAID_SALES_SQL } from './merchant-sales-sql';
 
 // Stored timestamps are UTC wall time; analytics days are Asia/Jakarta.
@@ -47,7 +48,10 @@ interface WindowRow {
 
 @Injectable()
 export class MerchantAnalyticsService {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly merchantIncome: MerchantIncomeService,
+  ) {}
 
   async findStudentGrowth(userId: string, query: StudentGrowthQueryDto) {
     const merchantId = await this.findMerchantId(userId);
@@ -100,29 +104,23 @@ export class MerchantAnalyticsService {
   async findDailySales(userId: string, requestedMonth?: string) {
     const month = requestedMonth ?? moment().tz(JAKARTA).format('YYYY-MM');
     const merchantId = await this.findMerchantId(userId);
-    const days = await this.dataSource.query(
-      `WITH days AS (
-         SELECT generate_series($2::date, ($2::date + interval '1 month' - interval '1 day'), interval '1 day')::date AS day
-       ), daily AS (
-         SELECT ${WIB('sale.sold_at')}::date AS day,
-                count(DISTINCT sale.order_id)::integer AS transactions,
-                sum(sale.amount) AS revenue
-         FROM (${PAID_SALES_SQL}) sale
-         WHERE ${WIB('sale.sold_at')} >= $2::date
-           AND ${WIB('sale.sold_at')} < $2::date + interval '1 month'
-         GROUP BY 1
-       )
-       SELECT days.day::text AS date, COALESCE(daily.transactions, 0) AS transactions,
-              COALESCE(daily.revenue, 0) AS revenue
-       FROM days LEFT JOIN daily ON daily.day = days.day
-       ORDER BY days.day`,
-      [merchantId, `${month}-01`],
+    const first = moment.tz(`${month}-01`, JAKARTA);
+    const income = await this.merchantIncome.findIncome(
+      merchantId,
+      first.format('YYYY-MM-DD'),
+      first.clone().endOf('month').format('YYYY-MM-DD'),
+      'day',
     );
-    const points = days.map((day) => ({
-      date: day.date,
-      transactions: day.transactions,
-      revenue: Number(day.revenue),
-    }));
+    const byDate = new Map(income.map((day) => [day.period, day]));
+    const points = Array.from({ length: first.daysInMonth() }, (_, index) => {
+      const date = first.clone().add(index, 'day').format('YYYY-MM-DD');
+      const day = byDate.get(date);
+      return {
+        date,
+        transactions: day?.transactions ?? 0,
+        revenue: Number(day?.revenue ?? 0),
+      };
+    });
     const data: DailySalesResponseDto = {
       month,
       total_transactions: points.reduce(
@@ -138,25 +136,18 @@ export class MerchantAnalyticsService {
   async findMonthlyRevenue(userId: string, requestedYear?: number) {
     const year = requestedYear ?? moment().tz(JAKARTA).year();
     const merchantId = await this.findMerchantId(userId);
-    const rows = await this.dataSource.query(
-      `WITH months AS (
-         SELECT generate_series(1, 12) AS month
-       ), monthly AS (
-         SELECT extract(month FROM ${WIB('sale.sold_at')})::integer AS month,
-                sum(sale.amount) AS total
-         FROM (${PAID_SALES_SQL}) sale
-         WHERE ${WIB('sale.sold_at')} >= make_date($2, 1, 1)
-           AND ${WIB('sale.sold_at')} < make_date($2 + 1, 1, 1)
-         GROUP BY 1
-       )
-       SELECT months.month, COALESCE(monthly.total, 0) AS total
-       FROM months LEFT JOIN monthly ON monthly.month = months.month
-       ORDER BY months.month`,
-      [merchantId, year],
+    const income = await this.merchantIncome.findIncome(
+      merchantId,
+      `${year}-01-01`,
+      `${year}-12-31`,
+      'month',
     );
-    const months = rows.map((row) => ({
-      month: row.month,
-      total: Number(row.total),
+    const totals = new Map(
+      income.map((month) => [Number(month.period.slice(5, 7)), month.revenue]),
+    );
+    const months = Array.from({ length: 12 }, (_, index) => ({
+      month: index + 1,
+      total: Number(totals.get(index + 1) ?? 0),
     }));
     const data: MonthlyRevenueResponseDto = {
       year,

@@ -1,3 +1,4 @@
+import { MerchantIncomeService } from '../merchant-income/merchant-income.service';
 import { MerchantLevelService } from '../merchant-level/merchant-level.service';
 import { NotFoundException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
@@ -147,16 +148,95 @@ describe('Dashboard query DTOs', () => {
 
 describe('MerchantDashboardService', () => {
   let query: jest.Mock;
+  let findIncome: jest.Mock;
   let service: MerchantDashboardService;
 
   beforeEach(() => {
     query = jest.fn();
+    findIncome = jest.fn().mockResolvedValue([]);
     service = new MerchantDashboardService(
       { query } as unknown as DataSource,
       {
         findSummary: jest.fn().mockResolvedValue({ current: 'basic' }),
       } as unknown as MerchantLevelService,
+      { findIncome } as unknown as MerchantIncomeService,
     );
+  });
+
+  describe('income periods', () => {
+    // 18:30 UTC on 31 October is already 1 November in Jakarta.
+    beforeEach(() =>
+      jest.useFakeTimers().setSystemTime(new Date('2026-10-31T18:30:00Z')),
+    );
+    afterEach(() => jest.useRealTimers());
+
+    it('covers today and the N - 1 days before it, then the N days before that', async () => {
+      query.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM merchants')) {
+          return [{ id: 'merchant-id', storage_level: 'basic' }];
+        }
+        if (sql.includes('previous_students')) {
+          return [{ students: 3, previous_students: 4 }];
+        }
+        return [{}];
+      });
+      findIncome.mockResolvedValue([
+        { period: '2026-10-25', transactions: 2, revenue: '50000' },
+        { period: '2026-10-26', transactions: 1, revenue: '100000' },
+        { period: '2026-11-01', transactions: 3, revenue: '25000' },
+      ]);
+
+      const { data } = await service.findDashboard(
+        'user-id',
+        plainToInstance(DashboardQueryDto, { period_days: 7 }),
+      );
+
+      expect(findIncome).toHaveBeenCalledWith(
+        'merchant-id',
+        '2026-10-19',
+        '2026-11-01',
+        'day',
+      );
+      const buyersCall = query.mock.calls.find(([sql]) =>
+        String(sql).includes('previous_students'),
+      );
+      expect(buyersCall[1]).toEqual([
+        'merchant-id',
+        '2026-10-19',
+        '2026-10-26',
+        '2026-11-01',
+      ]);
+      expect(data.revenue).toEqual({
+        current: 125000,
+        previous: 50000,
+        change_percent: 150,
+      });
+      expect(data.transactions).toEqual({
+        current: 4,
+        previous: 2,
+        change_percent: 100,
+      });
+      expect(data.students).toMatchObject({ current: 3, previous: 4 });
+      expect(data.chart.map((point) => point.date)).toEqual([
+        '2026-10-26',
+        '2026-10-27',
+        '2026-10-28',
+        '2026-10-29',
+        '2026-10-30',
+        '2026-10-31',
+        '2026-11-01',
+      ]);
+      expect(data.chart[0]).toEqual({
+        date: '2026-10-26',
+        transactions: 1,
+        revenue: 100000,
+      });
+      expect(data.chart[1]).toEqual({
+        date: '2026-10-27',
+        transactions: 0,
+        revenue: 0,
+      });
+    });
   });
 
   it('rates and lists reviews of both classes and digital products', async () => {

@@ -462,3 +462,20 @@ describe('mentor request DTOs', () => {
     expect(await validate(dto)).toEqual([]);
   });
 });
+
+describe('UpdateMentorDto expertise_list', () => {
+  const errorsFor = async (body: object) =>
+    (await validate(plainToInstance(UpdateMentorDto, body))).map(
+      (error) => error.property,
+    );
+
+  it('may be omitted', async () => {
+    expect(await errorsFor({})).toEqual([]);
+  });
+
+  it('rejects null instead of failing later', async () => {
+    expect(await errorsFor({ expertise_list: null })).toEqual([
+      'expertise_list',
+    ]);
+  });
+});

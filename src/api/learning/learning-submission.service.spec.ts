@@ -149,9 +149,14 @@ describe('LearningSubmissionService timing', () => {
   let assignment: Record<string, unknown>;
   let existing: Record<string, unknown> | null;
   let service: LearningSubmissionService;
+  let issueEligible: jest.Mock;
 
   beforeEach(() => {
-    assignment = { type: 'file_upload', due: new Date(Date.now() + 3600_000) };
+    assignment = {
+      type: 'file_upload',
+      class_id: 'class-id',
+      due: new Date(Date.now() + 3600_000),
+    };
     existing = null;
     manager = {
       query: jest.fn(async () => []),
@@ -177,9 +182,11 @@ describe('LearningSubmissionService timing', () => {
       findLearnerAssignment: jest.fn(async () => assignment),
       toAssignment: jest.fn(async () => ({})),
     };
+    issueEligible = jest.fn();
     service = new LearningSubmissionService(
       { transaction: jest.fn((callback) => callback(manager)) } as never,
       learningAssignment as never,
+      { issueEligible } as never,
     );
   });
 
@@ -301,5 +308,45 @@ describe('LearningSubmissionService timing', () => {
     });
     expect(savedSubmission()).toMatchObject({ total_score: 50 });
     expect(manager.insert.mock.calls[0][1]).toHaveLength(2);
+  });
+
+  it('checks certificates when a multiple-choice quiz is graded on submission', async () => {
+    assignment.type = 'quiz';
+    manager.query.mockImplementation(async (sql: string) =>
+      sql.includes('FROM assignment_questions') ? [mc('q1', 'LINE', 100)] : [],
+    );
+
+    await service.submitQuiz(userId, assignmentId, answers([['q1', 'LINE']]));
+
+    expect(issueEligible).toHaveBeenCalledWith(manager, 'class-id', [userId]);
+  });
+
+  it('leaves certificates alone while essay answers wait for a tutor', async () => {
+    assignment.type = 'quiz';
+    manager.query.mockImplementation(async (sql: string) =>
+      sql.includes('FROM assignment_questions')
+        ? [mc('q1', 'LINE', 50), essay('q2', 50)]
+        : [],
+    );
+
+    await service.submitQuiz(
+      userId,
+      assignmentId,
+      answers([
+        ['q1', 'LINE'],
+        ['q2', 'Jawaban'],
+      ]),
+    );
+
+    expect(savedSubmission()).toMatchObject({ total_score: null });
+    expect(issueEligible).not.toHaveBeenCalled();
+  });
+
+  it('leaves certificates alone for a file submission, which needs grading', async () => {
+    await service.submitFile(userId, assignmentId, {
+      file_asset_id: 'asset-id',
+    });
+
+    expect(issueEligible).not.toHaveBeenCalled();
   });
 });

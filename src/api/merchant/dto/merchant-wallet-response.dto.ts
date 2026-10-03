@@ -26,7 +26,10 @@ export class MerchantWalletResponseDto {
   })
   clearing_balance: number;
 
-  @ApiProperty({ example: 58700000, description: 'Cumulative income' })
+  @ApiProperty({
+    example: 58700000,
+    description: 'Cumulative net income from paid orders',
+  })
   lifetime_earnings: number;
 
   @ApiProperty({

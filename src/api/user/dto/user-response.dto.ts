@@ -16,10 +16,10 @@ export class UserResponseDto {
   @ApiProperty()
   is_merchant: boolean;
 
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
   mentor_id: string | null;
 
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
   merchant_id: string | null;
 
   @ApiProperty()

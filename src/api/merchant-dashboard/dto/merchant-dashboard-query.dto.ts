@@ -36,7 +36,12 @@ const toPeriodDays = ({ value }: { value: unknown }) =>
     : Number(value);
 
 export class DashboardQueryDto {
-  @ApiPropertyOptional({ enum: dashboardPeriods, default: DEFAULT_PERIOD_DAYS })
+  @ApiPropertyOptional({
+    enum: dashboardPeriods,
+    default: DEFAULT_PERIOD_DAYS,
+    description:
+      'N Asia/Jakarta days: today and the N − 1 days before it; the previous period is the N days before that. A blank value means 30.',
+  })
   @IsOptional()
   @Transform(toPeriodDays)
   @IsIn(dashboardPeriods)

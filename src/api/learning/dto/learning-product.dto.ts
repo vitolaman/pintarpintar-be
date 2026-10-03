@@ -22,7 +22,8 @@ export class OwnedProductFileDto {
   @ApiProperty({ description: 'Bytes' }) size: number;
   @ApiPropertyOptional({
     nullable: true,
-    description: 'Signed link valid 10 minutes (older rows: stored URL)',
+    description:
+      'Signed link valid 10 minutes; older rows give their stored http(s) URL, else null',
   })
   download_url: string | null;
 }

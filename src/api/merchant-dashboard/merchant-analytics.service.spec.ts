@@ -180,6 +180,22 @@ describe('MerchantAnalyticsService', () => {
     expect(query).toHaveBeenCalledTimes(2);
   });
 
+  it('rejects a range longer than 10 years', async () => {
+    await expect(
+      service.findStudentGrowth('user-id', {
+        from: '2016-01-01',
+        to: '2026-01-02',
+        granularity: 'year',
+      }),
+    ).rejects.toThrow('from and to must be at most 10 years apart');
+    const { data } = await service.findStudentGrowth('user-id', {
+      from: '2016-01-01',
+      to: '2026-01-01',
+      granularity: 'year',
+    });
+    expect(data.granularity).toBe('year');
+  });
+
   it('fills every day of the month and totals the daily series', async () => {
     findIncome.mockResolvedValueOnce([
       { period: '2026-10-01', transactions: 2, revenue: '280000' },

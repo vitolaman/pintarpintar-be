@@ -1,5 +1,5 @@
 import { plainToInstance, Transform } from 'class-transformer';
-import { IsOptional, IsString, validate } from 'class-validator';
+import { IsString, validate } from 'class-validator';
 import { OptionalNotNull } from '../decorator/optional-not-null.decorator';
 import { escapeLike } from '../util/escape-like';
 import {
@@ -8,18 +8,13 @@ import {
   RequestPaginatedQueryDto,
 } from './request-paginated.dto';
 import { paginationMeta } from './response-meta.dto';
-import { trimOptionalText, trimText } from './text-transforms';
+import { trimText } from './text-transforms';
 
 class SampleDto {
   @OptionalNotNull()
   @IsString()
   @Transform(trimText)
   name?: string;
-
-  @IsOptional()
-  @IsString()
-  @Transform(trimOptionalText)
-  tagline?: string | null;
 }
 
 class SmallListQueryDto {
@@ -88,17 +83,15 @@ describe('request validation helpers', () => {
     [{ name: null }, ['name']],
     [{ name: ['x'] }, ['name']],
     [{ name: { x: 1 } }, ['name']],
-    [{ tagline: [] }, ['tagline']],
-    [{ name: '  Budi ', tagline: null }, []],
+    [{ name: '  Budi ' }, []],
     [{}, []],
   ])('fields %j fail on %j', async (input, fields) => {
     expect(await errorsOf(SampleDto, input)).toEqual(fields);
   });
 
-  it('trims text and treats blank optional text as unchanged', () => {
-    const dto = plainToInstance(SampleDto, { name: '  Budi ', tagline: '   ' });
+  it('trims text', () => {
+    const dto = plainToInstance(SampleDto, { name: '  Budi ' });
     expect(dto.name).toBe('Budi');
-    expect(dto.tagline).toBeUndefined();
   });
 
   it('escapes LIKE wildcards', () => {

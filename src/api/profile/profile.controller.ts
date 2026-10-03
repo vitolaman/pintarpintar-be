@@ -29,6 +29,8 @@ import {
   PublicProfileResponseDto,
 } from './dto/profile-response.dto';
 
+const USER_NOT_FOUND = new NotFoundException('User not found');
+
 @Controller('api/v1')
 @ApiBearerAuth()
 @ApiTags('Profile')
@@ -37,7 +39,7 @@ export class ProfileController {
 
   @Get('profile')
   @DefaultResponse(ProfileResponseDto, 'Get profile success', HttpStatus.OK, [
-    NotFoundException,
+    USER_NOT_FOUND,
   ])
   findCurrent(@Req() req: { user: { id: string } }) {
     return this.profileService.findCurrent(req.user.id);
@@ -48,7 +50,7 @@ export class ProfileController {
     ProfileResponseDto,
     'Update profile success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, USER_NOT_FOUND],
   )
   updateCurrent(
     @Req() req: { user: { id: string } },
@@ -62,7 +64,7 @@ export class ProfileController {
     OnboardingResponseDto,
     'Update onboarding success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, USER_NOT_FOUND],
   )
   updateOnboarding(
     @Req() req: { user: { id: string } },
@@ -78,24 +80,20 @@ export class ProfileController {
     PublicProfileResponseDto,
     'Get public profile success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, USER_NOT_FOUND],
   )
   findPublicProfile(@Param('userId', ParseUUIDPipe) userId: string) {
     return this.profileService.findPublicProfile(userId);
   }
 
   @Get('profile/learning')
-  @ArrayResponse(LearningItemResponseDto, 'Get learning success', [
-    NotFoundException,
-  ])
+  @ArrayResponse(LearningItemResponseDto, 'Get learning success')
   findLearning(@Req() req: { user: { id: string } }) {
     return this.profileService.findLearning(req.user.id);
   }
 
   @Get('profile/certificates')
-  @ArrayResponse(CertificationItemResponseDto, 'Get certifications success', [
-    NotFoundException,
-  ])
+  @ArrayResponse(CertificationItemResponseDto, 'Get certifications success')
   findCertifications(@Req() req: { user: { id: string } }) {
     return this.profileService.findCertifications(req.user.id);
   }
@@ -104,6 +102,8 @@ export class ProfileController {
   @DefaultResponse(
     LearningStatisticsResponseDto,
     'Get learning statistics success',
+    HttpStatus.OK,
+    [],
   )
   findStatistics(@Req() req: { user: { id: string } }) {
     return this.profileService.findStatistics(req.user.id);

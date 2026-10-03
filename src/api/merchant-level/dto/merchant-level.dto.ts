@@ -12,16 +12,22 @@ export class MerchantLevelSummaryDto {
   })
   current_month_revenue: number;
 
-  @ApiProperty({ example: 2500000, description: 'Monthly revenue for Silver' })
+  @ApiProperty({
+    example: 2500000,
+    description: 'Monthly net revenue that reaches Silver',
+  })
   silver_threshold: number;
 
-  @ApiProperty({ example: 5000000, description: 'Monthly revenue for Gold' })
+  @ApiProperty({
+    example: 5000000,
+    description: 'Monthly net revenue that reaches Gold',
+  })
   gold_threshold: number;
 
   @ApiProperty({
     example: 1073741824,
     description:
-      'Per-file limit for class materials, assignment files and digital-product files',
+      'Per-file limit for class materials, class videos, assignment files and digital-product files, checked when the file is attached',
   })
   max_upload_bytes: number;
 
@@ -39,10 +45,18 @@ export class MerchantLevelSummaryDto {
   })
   storage_used_bytes: number;
 
-  @ApiProperty({ example: '2026-09', nullable: true, type: String })
+  @ApiProperty({
+    example: '2026-09',
+    nullable: true,
+    type: String,
+    description: 'Null before the first evaluation',
+  })
   last_evaluated_month: string | null;
 
-  @ApiProperty({ example: '2026-11-01T00:30:00+07:00' })
+  @ApiProperty({
+    example: '2026-11-01T00:30:00+07:00',
+    description: 'The 1st of next month, 00:30 Asia/Jakarta',
+  })
   next_evaluation_at: string;
 
   @ApiProperty({
@@ -67,10 +81,16 @@ export class LevelEvaluationResponseDto {
   @ApiProperty({ example: '2026-09', description: 'Evaluated month' })
   month: string;
 
-  @ApiProperty({ example: 3000000 })
+  @ApiProperty({
+    example: 3000000,
+    description: "The month's net revenue from paid sales",
+  })
   revenue: number;
 
-  @ApiProperty({ example: 1200000 })
+  @ApiProperty({
+    example: 1200000,
+    description: "The previous month's net revenue",
+  })
   previous_month_revenue: number;
 
   @ApiProperty({ enum: MerchantStorageLevel })
@@ -82,7 +102,10 @@ export class LevelEvaluationResponseDto {
   @ApiProperty({ enum: ['none', 'warning', 'removed'] })
   inactivity_action: string;
 
-  @ApiProperty({ example: 0 })
+  @ApiProperty({
+    example: 0,
+    description: 'Digital products, classes and bundles removed',
+  })
   removed_items: number;
 
   @ApiProperty()

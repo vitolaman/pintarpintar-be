@@ -13,7 +13,7 @@ export class InviteMentorDto {
 
   @ApiPropertyOptional({
     description:
-      'Areas materi, meeting, tugas, nilai, sertifikat × actions lihat, tambah, edit, delete (booleans). Defaults to the role preset.',
+      'Areas materi, meeting, tugas, nilai, sertifikat × actions lihat, tambah, edit, delete (booleans); missing entries are false. Omit it or send null for the role preset.',
     example: {
       meeting: { lihat: true, tambah: true, edit: true, delete: false },
     },

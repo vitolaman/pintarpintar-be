@@ -4,9 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
+import { DataSource, QueryFailedError } from 'typeorm';
 import {
-  CatalogItemColumns,
+  findOwnedItemIds,
   CatalogItemRefDto,
   loadCatalogItems,
   referenceId,
@@ -38,7 +38,8 @@ export class CartService {
         if (!item || !item.is_available) {
           throw new BadRequestException('Item is not available');
         }
-        if (await this.isOwned(manager, userId, columns)) {
+        const owned = await findOwnedItemIds(manager, userId, [columns]);
+        if (owned.has(ref.id)) {
           throw new BadRequestException('You already own this item');
         }
         if (await manager.findOneBy(CartItem, { userId, ...columns })) {
@@ -114,32 +115,5 @@ export class CartService {
         .reduce((total, line) => total + line.item.price, 0),
       item_count: lines.length,
     };
-  }
-
-  // Owned: active class enrollment, unexpired product access, or a paid bundle.
-  private async isOwned(
-    manager: EntityManager,
-    userId: string,
-    columns: CatalogItemColumns,
-  ): Promise<boolean> {
-    const [row] = await manager.query(
-      `SELECT CASE
-         WHEN $2::uuid IS NOT NULL THEN EXISTS (
-           SELECT 1 FROM enrollments
-           WHERE user_id = $1 AND class_id = $2 AND deleted_at IS NULL)
-         WHEN $3::uuid IS NOT NULL THEN EXISTS (
-           SELECT 1 FROM user_access
-           WHERE user_id = $1 AND product_id = $3 AND deleted_at IS NULL
-             AND (expires_at IS NULL OR expires_at > now()))
-         ELSE EXISTS (
-           SELECT 1 FROM order_items item
-           INNER JOIN orders purchase ON purchase.id = item.order_id
-           WHERE purchase.user_id = $1 AND item.bundle_id = $4
-             AND purchase.status = 'paid'
-             AND item.deleted_at IS NULL AND purchase.deleted_at IS NULL)
-       END AS owned`,
-      [userId, columns.classId, columns.productId, columns.bundleId],
-    );
-    return row.owned;
   }
 }

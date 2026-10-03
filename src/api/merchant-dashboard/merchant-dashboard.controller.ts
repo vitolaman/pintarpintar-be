@@ -27,6 +27,10 @@ import {
 import { MerchantDashboardService } from './merchant-dashboard.service';
 
 type AuthenticatedRequest = { user: { id: string } };
+const ERRORS = [
+  BadRequestException,
+  new NotFoundException('Merchant not found'),
+];
 
 @Controller('api/v1/merchant')
 @ApiBearerAuth()
@@ -41,7 +45,7 @@ export class MerchantDashboardController {
     MerchantDashboardResponseDto,
     'Get merchant dashboard success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    ERRORS,
   )
   findDashboard(
     @Req() req: AuthenticatedRequest,
@@ -51,10 +55,7 @@ export class MerchantDashboardController {
   }
 
   @Get('sales')
-  @PaginatedResponse(SaleResponseDto, 'Get sales success', [
-    BadRequestException,
-    NotFoundException,
-  ])
+  @PaginatedResponse(SaleResponseDto, 'Get sales success', ERRORS)
   findSales(@Req() req: AuthenticatedRequest, @Query() query: SalesQueryDto) {
     return this.merchantDashboardService.findSales(req.user.id, query);
   }
@@ -64,7 +65,7 @@ export class MerchantDashboardController {
     SalesExportResponseDto,
     'Export sales success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    ERRORS,
   )
   exportSales(
     @Req() req: AuthenticatedRequest,
@@ -74,10 +75,7 @@ export class MerchantDashboardController {
   }
 
   @Get('customers')
-  @PaginatedResponse(CustomerResponseDto, 'Get customers success', [
-    BadRequestException,
-    NotFoundException,
-  ])
+  @PaginatedResponse(CustomerResponseDto, 'Get customers success', ERRORS)
   findCustomers(
     @Req() req: AuthenticatedRequest,
     @Query() query: CustomersQueryDto,

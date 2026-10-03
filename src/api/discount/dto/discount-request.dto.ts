@@ -55,7 +55,7 @@ export class DiscountTargetInputDto {
 export class DiscountCodeInputDto {
   @EnumInput(discountCodeTypes, {
     description:
-      'once = single-use codes ("Kode Sekali Pakai"); recurring = one shared code ("Kode Berulang")',
+      'once = single-use codes ("Kode Sekali Pakai"); recurring = one shared code ("Kode Berulang"), usable once per user',
   })
   code_type: DiscountCodeType;
 
@@ -85,7 +85,7 @@ export class CreateDiscountDto {
   @NumberInput({
     min: 0.01,
     example: 20,
-    description: 'Percent (1-100) or rupiah amount',
+    description: 'Percent (at most 100) or rupiah amount',
   })
   @IsNumber({ maxDecimalPlaces: 2 })
   discount_value: number;
@@ -111,7 +111,8 @@ export class CreateDiscountDto {
 
   @ApiPropertyOptional({
     type: [DiscountTargetInputDto],
-    description: 'Empty or omitted = all of the merchant products',
+    description:
+      'Empty or omitted = every item of the merchant, bundles included',
   })
   @OptionalNotNull()
   @IsArray()

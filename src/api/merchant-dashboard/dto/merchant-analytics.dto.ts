@@ -106,11 +106,16 @@ export class TrackVisitDto {
 }
 
 export class StudentGrowthPointDto {
-  @ApiProperty({ example: '2026-03-01', description: 'Checkpoint start' })
+  @ApiProperty({
+    example: '2026-03-01',
+    description:
+      'Checkpoint start: the day, or the first day of its month or year; the first checkpoint contains from',
+  })
   date: string;
 
   @ApiProperty({
-    description: 'Distinct students enrolled up to the checkpoint end',
+    description:
+      "Distinct students (users enrolled in the merchant's non-deleted classes, counted from their first enrollment) up to the checkpoint end",
   })
   students: number;
 }
@@ -122,22 +127,38 @@ export class StudentGrowthResponseDto {
 }
 
 export class DailySalesPointDto {
-  @ApiProperty({ example: '2026-10-03' }) date: string;
-  @ApiProperty({ description: 'Paid orders with the merchant items' })
+  @ApiProperty({ example: '2026-10-03', description: 'Asia/Jakarta date' })
+  date: string;
+  @ApiProperty({
+    description:
+      "Orders paid that day that contain the merchant's items (dated at payment)",
+  })
   transactions: number;
-  @ApiProperty({ description: 'Merchant net revenue' }) revenue: number;
+  @ApiProperty({
+    description:
+      'Net revenue of those sales (price minus code-discount shares); 0 without sales',
+  })
+  revenue: number;
 }
 
 export class DailySalesResponseDto {
   @ApiProperty({ example: '2026-10' }) month: string;
   @ApiProperty() total_transactions: number;
   @ApiProperty() total_revenue: number;
-  @ApiProperty({ type: [DailySalesPointDto] }) days: DailySalesPointDto[];
+  @ApiProperty({
+    type: [DailySalesPointDto],
+    description: 'One entry per day of the month',
+  })
+  days: DailySalesPointDto[];
 }
 
 export class MonthlyRevenuePointDto {
   @ApiProperty({ example: 1, description: '1–12' }) month: number;
-  @ApiProperty({ description: 'Merchant net revenue' }) total: number;
+  @ApiProperty({
+    description:
+      'Net revenue of the sales paid in the month (Asia/Jakarta); 0 without sales',
+  })
+  total: number;
 }
 
 export class MonthlyRevenueResponseDto {
@@ -164,11 +185,21 @@ export class SummaryMetricDto {
 export class SummaryWindowDto {
   @ApiProperty({ description: 'Asia/Jakarta start' }) from: string;
   @ApiProperty({ description: 'Asia/Jakarta end (exclusive)' }) to: string;
-  @ApiProperty() transactions: number;
-  @ApiProperty() revenue: number;
-  @ApiProperty() buyers: number;
-  @ApiProperty() returning_buyers: number;
-  @ApiProperty() visitors: number;
+  @ApiProperty({ description: "Paid orders with the merchant's items" })
+  transactions: number;
+  @ApiProperty({ description: 'Net revenue' }) revenue: number;
+  @ApiProperty({ description: 'Distinct users with a transaction' })
+  buyers: number;
+  @ApiProperty({
+    description:
+      'Buyers with another transaction with the merchant in the 90 days before one of theirs in the window',
+  })
+  returning_buyers: number;
+  @ApiProperty({
+    description:
+      "Distinct visitors recorded on the window's days (a partial day counts whole)",
+  })
+  visitors: number;
 }
 
 export class AnalyticsSummaryResponseDto {
@@ -181,13 +212,13 @@ export class AnalyticsSummaryResponseDto {
   conversion_rate: SummaryMetricDto;
   @ApiProperty({
     type: SummaryMetricDto,
-    description:
-      'Buyers with another purchase from the merchant in the previous 90 days, percent',
+    description: 'Returning buyers per buyer, percent; null without buyers',
   })
   retention_rate: SummaryMetricDto;
   @ApiProperty({
     type: SummaryMetricDto,
-    description: 'Net revenue per paid order, rupiah',
+    description:
+      'Net revenue per transaction, whole rupiah; null without transactions',
   })
   average_order_value: SummaryMetricDto;
   @ApiProperty({ type: SummaryWindowDto }) current: SummaryWindowDto;

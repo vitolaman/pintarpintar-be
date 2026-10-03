@@ -31,7 +31,11 @@ export class BalanceHistoryItemResponseDto {
   @ApiProperty({ enum: balanceHistoryTypes })
   type: BalanceHistoryType;
 
-  @ApiProperty({ example: 299000 })
+  @ApiProperty({
+    example: 299000,
+    description:
+      "Income: the item's net (price minus its code-discount share); withdraw: the requested amount",
+  })
   amount: number;
 
   @ApiProperty({
@@ -40,13 +44,15 @@ export class BalanceHistoryItemResponseDto {
   })
   description: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Order time for income, request time for withdraw',
+  })
   occurred_at: Date;
 
   @ApiProperty({
     example: 'success',
     description:
-      'Income is always success; withdraw uses the payout status (pending, processing, success, failed)',
+      'Income is always success; withdraw uses the payout status (pending, success, failed)',
   })
   status: string;
 }

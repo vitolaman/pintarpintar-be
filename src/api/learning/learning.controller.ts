@@ -16,7 +16,10 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerException } from '@nestjs/throttler';
 import { Public } from '~/common/decorator/public.decorator';
-import { ClientAddressThrottlerGuard } from '~/common/guard/client-address-throttler.guard';
+import {
+  ClientAddressThrottlerGuard,
+  TOO_MANY_REQUESTS_MESSAGE,
+} from '~/common/guard/client-address-throttler.guard';
 import {
   ArrayResponse,
   DefaultResponse,
@@ -49,8 +52,24 @@ import { OwnedProductDto } from './dto/learning-product.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
 
-// Routes for learners using what they bought. Every route requires an active
-// enrollment (or product access) and answers 404 otherwise.
+// A learner who is not enrolled is told the class does not exist, so routes
+// reached through an assignment, meeting or video answer either 404 message.
+const CLASS_NOT_FOUND = new NotFoundException('Class not found');
+const ASSIGNMENT_NOT_FOUND = [
+  new NotFoundException('Assignment not found'),
+  CLASS_NOT_FOUND,
+];
+const MEETING_NOT_FOUND = [
+  new NotFoundException('Meeting not found'),
+  CLASS_NOT_FOUND,
+];
+const PAST_DUE_RESUBMISSION = new ConflictException(
+  'The due time has passed; the submission can no longer be changed',
+);
+
+// Routes for learners using what they bought. Apart from the public
+// attendance page, every route requires an active enrollment (or product
+// access) and answers 404 otherwise.
 @Controller('api/v1')
 @ApiBearerAuth()
 @ApiTags('Learning')
@@ -68,7 +87,12 @@ export class LearningController {
   // Public attendance page (/absensi/{classId}); never exposes meeting links.
   @Public()
   @Get('attendance/classes/:classId')
-  @DefaultResponse(AttendanceSessionDto, 'Get attendance session success')
+  @DefaultResponse(
+    AttendanceSessionDto,
+    'Get attendance session success',
+    HttpStatus.OK,
+    [CLASS_NOT_FOUND],
+  )
   findAttendanceSession(@Param('classId', ParseUUIDPipe) classId: string) {
     return this.learningAttendance.findSession(classId);
   }
@@ -83,7 +107,12 @@ export class LearningController {
     CheckInByEmailResponseDto,
     'Check in success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException, ThrottlerException],
+    [
+      BadRequestException,
+      CLASS_NOT_FOUND,
+      new NotFoundException('This email is not enrolled in this class'),
+      new ThrottlerException(TOO_MANY_REQUESTS_MESSAGE),
+    ],
   )
   checkInByEmail(
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -98,7 +127,7 @@ export class LearningController {
     LearnerAssignmentDto,
     'Submit assignment success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException, ConflictException],
+    [BadRequestException, ...ASSIGNMENT_NOT_FOUND, PAST_DUE_RESUBMISSION],
   )
   submitAssignment(
     @Req() req: AuthenticatedRequest,
@@ -112,8 +141,8 @@ export class LearningController {
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(LearnerAssignmentDto, 'Submit quiz success', HttpStatus.OK, [
     BadRequestException,
-    NotFoundException,
-    ConflictException,
+    ...ASSIGNMENT_NOT_FOUND,
+    PAST_DUE_RESUBMISSION,
   ])
   submitQuiz(
     @Req() req: AuthenticatedRequest,
@@ -125,7 +154,7 @@ export class LearningController {
 
   @Get('learning/classes/:classId/assignments')
   @ArrayResponse(LearnerAssignmentDto, 'Get learning assignments success', [
-    NotFoundException,
+    CLASS_NOT_FOUND,
   ])
   findAssignments(
     @Req() req: AuthenticatedRequest,
@@ -139,7 +168,7 @@ export class LearningController {
     OwnedProductDto,
     'Get owned digital product success',
     HttpStatus.OK,
-    [NotFoundException],
+    [new NotFoundException('Digital product not found')],
   )
   findProduct(
     @Req() req: AuthenticatedRequest,
@@ -150,7 +179,7 @@ export class LearningController {
 
   @Get('learning/meetings/:meetingId')
   @DefaultResponse(LearnerMeetingDto, 'Get meeting success', HttpStatus.OK, [
-    NotFoundException,
+    ...MEETING_NOT_FOUND,
   ])
   findMeeting(
     @Req() req: AuthenticatedRequest,
@@ -163,7 +192,7 @@ export class LearningController {
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(LearnerMeetingDto, 'Check in success', HttpStatus.OK, [
     BadRequestException,
-    NotFoundException,
+    ...MEETING_NOT_FOUND,
   ])
   checkIn(
     @Req() req: AuthenticatedRequest,
@@ -178,7 +207,7 @@ export class LearningController {
     LearnerGradesDto,
     'Get learning grades success',
     HttpStatus.OK,
-    [NotFoundException],
+    [CLASS_NOT_FOUND],
   )
   findGrades(
     @Req() req: AuthenticatedRequest,
@@ -189,7 +218,8 @@ export class LearningController {
 
   @Get('learning/assignments/:assignmentId/quiz')
   @DefaultResponse(LearnerQuizDto, 'Get quiz success', HttpStatus.OK, [
-    NotFoundException,
+    ...ASSIGNMENT_NOT_FOUND,
+    new NotFoundException('Quiz not found'),
   ])
   findQuiz(
     @Req() req: AuthenticatedRequest,
@@ -203,7 +233,7 @@ export class LearningController {
     LearningClassResponseDto,
     'Get learning class success',
     HttpStatus.OK,
-    [NotFoundException],
+    [CLASS_NOT_FOUND],
   )
   findClass(
     @Req() req: AuthenticatedRequest,
@@ -218,7 +248,7 @@ export class LearningController {
     LearnerProgressResponseDto,
     'Complete video success',
     HttpStatus.OK,
-    [NotFoundException],
+    [new NotFoundException('Video not found'), CLASS_NOT_FOUND],
   )
   completeVideo(
     @Req() req: AuthenticatedRequest,

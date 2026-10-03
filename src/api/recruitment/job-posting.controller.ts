@@ -36,6 +36,11 @@ import {
 import { JobPostingService } from './job-posting.service';
 
 type AuthenticatedRequest = { user: { id: string } };
+
+const MERCHANT_NOT_FOUND = new NotFoundException('Merchant not found');
+const MERCHANT_NOT_ACTIVE = new ForbiddenException('Merchant is not active');
+const JOB_NOT_FOUND = new NotFoundException('Job posting not found');
+
 // Public routes: a valid token identifies the caller, and no token is fine.
 type OptionalAuthRequest = { user?: { id: string } };
 
@@ -72,7 +77,9 @@ export class JobPostingController {
 
   @Get('job-postings/:id')
   @Public()
-  @DefaultResponse(JobPostingResponseDto, 'Get job success')
+  @DefaultResponse(JobPostingResponseDto, 'Get job success', HttpStatus.OK, [
+    JOB_NOT_FOUND,
+  ])
   findPublicOne(
     @Req() req: OptionalAuthRequest,
     @Param('id', ParseUUIDPipe) id: string,
@@ -86,7 +93,7 @@ export class JobPostingController {
     SaveJobPostingResponseDto,
     'Save job posting success',
     HttpStatus.OK,
-    [NotFoundException],
+    [JOB_NOT_FOUND],
   )
   save(
     @Req() req: AuthenticatedRequest,
@@ -117,7 +124,7 @@ export class JobPostingController {
     JobPostingResponseDto,
     'Create job posting success',
     HttpStatus.CREATED,
-    [BadRequestException, ForbiddenException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_ACTIVE, MERCHANT_NOT_FOUND],
   )
   create(@Req() req: AuthenticatedRequest, @Body() input: CreateJobPostingDto) {
     return this.jobPostingService.create(req.user.id, input);
@@ -127,7 +134,7 @@ export class JobPostingController {
   @ApiBearerAuth()
   @PaginatedResponse(JobPostingResponseDto, 'Get job postings success', [
     BadRequestException,
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
   ])
   findMine(
     @Req() req: AuthenticatedRequest,
@@ -138,7 +145,12 @@ export class JobPostingController {
 
   @Get('merchant/job-postings/:id')
   @ApiBearerAuth()
-  @DefaultResponse(JobPostingResponseDto, 'Get job posting success')
+  @DefaultResponse(
+    JobPostingResponseDto,
+    'Get job posting success',
+    HttpStatus.OK,
+    [MERCHANT_NOT_FOUND, JOB_NOT_FOUND],
+  )
   findMineOne(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
@@ -152,7 +164,12 @@ export class JobPostingController {
     JobPostingResponseDto,
     'Update job posting success',
     HttpStatus.OK,
-    [BadRequestException, ForbiddenException, NotFoundException],
+    [
+      BadRequestException,
+      MERCHANT_NOT_ACTIVE,
+      MERCHANT_NOT_FOUND,
+      JOB_NOT_FOUND,
+    ],
   )
   update(
     @Req() req: AuthenticatedRequest,
@@ -165,7 +182,12 @@ export class JobPostingController {
   @Post('merchant/job-postings/:id/close')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
-  @DefaultResponse(JobPostingResponseDto, 'Close job posting success')
+  @DefaultResponse(
+    JobPostingResponseDto,
+    'Close job posting success',
+    HttpStatus.OK,
+    [MERCHANT_NOT_FOUND, JOB_NOT_FOUND],
+  )
   close(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,

@@ -5,8 +5,6 @@ import {
   RequiredText,
 } from '~/common/decorator/input.decorator';
 
-// Registration arrives as multipart form data, so every value is a string:
-// `experience_years` accepts a numeric string, and "" means it was not sent.
 export class MentorRegistrationDto {
   @RequiredText({ max: 32, example: '+62 812-3456-7890' })
   phone: string;

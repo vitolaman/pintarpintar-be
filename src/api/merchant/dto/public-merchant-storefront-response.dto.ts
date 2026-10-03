@@ -50,10 +50,13 @@ export class PublicMerchantStorefrontResponseDto {
   @ApiPropertyOptional()
   expertise: string | null;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Join date' })
   created_at: Date;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'Distinct users enrolled in its published classes or with unexpired access to its published digital products',
+  })
   total_students: number;
 
   @ApiProperty()
@@ -62,10 +65,16 @@ export class PublicMerchantStorefrontResponseDto {
   @ApiProperty()
   published_digital_product_count: number;
 
-  @ApiPropertyOptional()
+  @ApiProperty({
+    example: 4.8,
+    description:
+      'Average over reviews of its published classes and digital products, one decimal; 0 without reviews',
+  })
   average_rating: number;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Reviews of its published classes and digital products',
+  })
   review_count: number;
 
   @ApiPropertyOptional({

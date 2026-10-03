@@ -26,8 +26,8 @@ import {
 interface MeetingRow {
   id: string;
   title: string;
-  date: string | null;
-  time: string | null;
+  date: string;
+  time: string;
   is_open: boolean;
   status: string;
   duration_minutes: number | null;

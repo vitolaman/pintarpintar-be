@@ -19,7 +19,9 @@ export class UserMeController {
 
   @Get()
   @ApiOperation({ summary: 'Get current user profile' })
-  @DefaultResponse(UserResponseDto, 'Get current user success')
+  @DefaultResponse(UserResponseDto, 'Get current user success', HttpStatus.OK, [
+    new NotFoundException('User not found'),
+  ])
   async findOne(@Req() req: { user: { id: string } }) {
     return {
       data: await this.userService.findCurrentUser(req.user.id),
@@ -37,7 +39,7 @@ export class UserMeController {
     UserResponseDto,
     'Delete current user success',
     HttpStatus.OK,
-    [NotFoundException],
+    [new NotFoundException('User not found')],
   )
   async delete(@Req() req: { user: { id: string } }) {
     return {

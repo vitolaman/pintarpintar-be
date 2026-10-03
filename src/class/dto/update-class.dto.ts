@@ -39,7 +39,8 @@ export class UpdateClassDto {
 
   @EnumInput(classKinds, {
     presence: 'optional',
-    description: '`kelas` is a video class, `bootcamp` a live bootcamp',
+    description:
+      '`kelas` is a video class, `bootcamp` a live bootcamp; a bootcamp with meetings cannot become `kelas`',
   })
   type?: ClassKind;
 

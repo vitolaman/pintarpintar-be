@@ -80,7 +80,8 @@ const routedQuery =
     if (sql.includes('AS family'))
       return [{ id: ID, family: rows.family ?? 'class' }];
     if (sql.includes('advisory')) return undefined;
-    if (sql.includes('AS owned')) return [{ owned: rows.owned ?? false }];
+    if (sql.includes('FROM enrollments enrollment'))
+      return rows.owned ? [{ id: ID }] : [];
     return rows.catalog ?? [catalogRow()];
   };
 

@@ -28,7 +28,7 @@ const stripHandlePrefix = ({ value }: { value: unknown }) => {
 };
 
 export class UpdateMerchantProfileDto {
-  @RequiredText({ max: 120, optional: true, example: 'Akademi Teknik' })
+  @RequiredText({ max: 160, optional: true, example: 'Akademi Teknik' })
   store_name?: string;
 
   @ClearableText({

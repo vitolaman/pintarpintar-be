@@ -25,7 +25,7 @@ export class UserController {
     UserResponseDto,
     'Update current user success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, new NotFoundException('User not found')],
   )
   async updateCurrentUser(
     @Req() req: { user: { id: string } },

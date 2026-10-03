@@ -636,12 +636,6 @@ type VideoSourceInput = Pick<
   'source' | 'youtube_url' | 'asset_id'
 >;
 
-/**
- * The video's source fields after a create or update: a link video has
- * a link and no asset, a file video has an owned class_video upload
- * (within the class merchant's per-file limit) and no URL. Fields not sent
- * keep the current video's values for the same source.
- */
 // A material's type follows its file, whatever type the client sent.
 function materialTypeOf(asset: FileAsset): ResourceType {
   const kind = fileKindOf({
@@ -672,6 +666,12 @@ function inferredVideoSource(
   return current?.source ?? 'link';
 }
 
+/**
+ * The video's source fields after a create or update: a link video has
+ * a link and no asset, a file video has an owned class_video upload
+ * (within the class merchant's per-file limit) and no URL. Fields not sent
+ * keep the current video's values for the same source.
+ */
 async function resolveVideoSource(
   manager: EntityManager,
   userId: string,

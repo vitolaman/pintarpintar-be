@@ -19,7 +19,12 @@ export class CreateVoucherDto {
   @RequiredText({ max: 160, example: 'Voucher Pengguna Baru' })
   name: string;
 
-  @RequiredText({ max: 64, example: 'NEWSTUDENT15' })
+  @RequiredText({
+    max: 64,
+    example: 'NEWSTUDENT15',
+    description:
+      'Letters, digits, _ and -; stored in uppercase. Must not match another voucher or discount code, ignoring case',
+  })
   @Matches(/^[A-Za-z0-9_-]+$/)
   code: string;
 
@@ -35,13 +40,21 @@ export class CreateVoucherDto {
   })
   description?: string | null;
 
-  @ClearableText({ max: 2_000, example: 'Berlaku untuk produk yang dipilih.' })
+  @ClearableText({
+    max: 2_000,
+    example: 'Berlaku untuk semua produk toko.',
+  })
   terms?: string | null;
 
   @NumberInput({ presence: 'nullable', min: 0, example: 50000 })
   minimum_purchase?: number | null;
 
-  @NumberInput({ presence: 'nullable', min: 0, example: 30000 })
+  @NumberInput({
+    presence: 'nullable',
+    min: 0,
+    example: 30000,
+    description: 'Caps the discount amount; null means no cap',
+  })
   maximum_discount_amount?: number | null;
 
   @Transform(zeroMeansUnlimited)
@@ -50,7 +63,7 @@ export class CreateVoucherDto {
     integer: true,
     min: 0,
     example: 200,
-    description: 'Use 0 for unlimited.',
+    description: 'Total uses; 0 or null means unlimited.',
   })
   usage_limit?: number | null;
 

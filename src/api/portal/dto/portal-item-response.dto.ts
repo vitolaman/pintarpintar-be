@@ -89,7 +89,8 @@ export class PortalItemResponseDto {
   @ApiProperty({
     type: PortalNextMeetingResponseDto,
     nullable: true,
-    description: 'Live bootcamps only',
+    description:
+      'Bootcamps only: the earliest dated meeting that has not ended; null without one',
   })
   next_meeting: PortalNextMeetingResponseDto | null;
 }

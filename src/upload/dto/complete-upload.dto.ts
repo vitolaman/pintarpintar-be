@@ -2,9 +2,11 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsInt,
   IsNotEmpty,
-  IsNumber,
   IsString,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -14,9 +16,11 @@ export class UploadPartDto {
   @IsNotEmpty()
   ETag: string;
 
-  @ApiProperty()
-  @IsNumber()
-  @IsNotEmpty()
+  // S3 numbers multipart parts 1 to 10,000.
+  @ApiProperty({ minimum: 1, maximum: 10000 })
+  @IsInt()
+  @Min(1)
+  @Max(10000)
   PartNumber: number;
 }
 

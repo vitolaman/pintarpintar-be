@@ -1,6 +1,6 @@
 // Upload object keys carry the uploader's id: `uploads/<userId>/<time>-<name>`.
-// Every later step checks the prefix, so one user cannot presign, complete,
-// or register another user's upload.
+// Every later step checks the prefix, so one user cannot presign or complete
+// (and so register) another user's upload.
 
 export function uploadKeyPrefix(userId: string): string {
   return `uploads/${userId}/`;

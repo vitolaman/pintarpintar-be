@@ -36,6 +36,8 @@ import {
 } from './dto/bundle-response.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
+const MERCHANT_NOT_FOUND = new NotFoundException('Merchant not found');
+const BUNDLE_NOT_FOUND = new NotFoundException('Bundle not found');
 
 @Controller('api/v1')
 @ApiBearerAuth()
@@ -54,7 +56,7 @@ export class BundleController {
 
   @Get('merchant/bundles/eligible-items')
   @ArrayResponse(BundleItemResponseDto, 'Get eligible bundle items success', [
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
   ])
   findEligibleItems(@Req() req: AuthenticatedRequest) {
     return this.bundleService.findEligibleItems(req.user.id);
@@ -65,7 +67,7 @@ export class BundleController {
     BundleResponseDto,
     'Create bundle success',
     HttpStatus.CREATED,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_FOUND],
   )
   create(@Req() req: AuthenticatedRequest, @Body() input: CreateBundleDto) {
     return this.bundleService.create(req.user.id, input);
@@ -74,7 +76,7 @@ export class BundleController {
   @Get('merchant/bundles')
   @PaginatedResponse(BundleResponseDto, 'Get bundles success', [
     BadRequestException,
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
   ])
   findAll(
     @Req() req: AuthenticatedRequest,
@@ -86,7 +88,8 @@ export class BundleController {
   @Get('merchant/bundles/:id')
   @DefaultResponse(BundleResponseDto, 'Get bundle success', HttpStatus.OK, [
     BadRequestException,
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
+    BUNDLE_NOT_FOUND,
   ])
   findOne(
     @Req() req: AuthenticatedRequest,
@@ -98,7 +101,8 @@ export class BundleController {
   @Patch('merchant/bundles/:id')
   @DefaultResponse(BundleResponseDto, 'Update bundle success', HttpStatus.OK, [
     BadRequestException,
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
+    BUNDLE_NOT_FOUND,
   ])
   update(
     @Req() req: AuthenticatedRequest,
@@ -110,7 +114,7 @@ export class BundleController {
 
   @Delete('merchant/bundles/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse([BadRequestException, NotFoundException])
+  @EmptyResponse([BadRequestException, MERCHANT_NOT_FOUND, BUNDLE_NOT_FOUND])
   remove(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,

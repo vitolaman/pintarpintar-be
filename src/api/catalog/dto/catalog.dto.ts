@@ -99,7 +99,7 @@ function parseTypeFilters(value: unknown): unknown {
 
 export class CatalogQueryDto {
   @ApiPropertyOptional({
-    description: `Comma-separated, ignoring case: ${catalogTypeFilters.join(', ')}. A blank value means every type.`,
+    description: `Comma-separated, ignoring case: ${catalogTypeFilters.join(', ')} (kelas-live matches no items yet). A blank value means every type.`,
     type: String,
   })
   @IsOptional()
@@ -110,7 +110,8 @@ export class CatalogQueryDto {
 
   @ApiPropertyOptional({
     maxLength: 100,
-    description: 'A blank value means no search',
+    description:
+      'Matches, ignoring case, part of the title, merchant store name, class Bidang or digital category name, or a whole file format. A blank value means no search.',
   })
   @QueryFilter()
   @IsOptional()
@@ -124,7 +125,7 @@ export class CatalogQueryDto {
   @ApiPropertyOptional({
     example: 'template-canva',
     description:
-      'Digital category slug or name, or class Bidang (ignoring case), e.g. Template Canva or Sipil. A blank value means every category.',
+      'Digital category slug, or a digital category name or class Bidang ignoring case, e.g. template-canva, Template Canva or Sipil. A blank value means every category.',
   })
   @QueryFilter()
   @IsOptional()
@@ -143,7 +144,7 @@ export class CatalogQueryDto {
   merchant_id?: string;
 
   @ApiPropertyOptional({
-    description: `Comma-separated digital file types: ${Object.keys(FILE_FORMAT_ALIASES).join(', ')}`,
+    description: `Comma-separated, ignoring case: ${Object.keys(FILE_FORMAT_ALIASES).join(', ')}; excel, powerpoint and word include their file extensions, and other values match the stored format. Classes have no files, so they never match.`,
     type: String,
     example: 'pdf,dwg',
   })
@@ -195,6 +196,7 @@ export class CatalogMerchantDto {
 export class CatalogCardMentorDto {
   @ApiPropertyOptional({
     format: 'uuid',
+    nullable: true,
     description:
       'Mentor id; null for a product mentor without a mentor account',
   })
@@ -203,7 +205,7 @@ export class CatalogCardMentorDto {
   @ApiProperty()
   name: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   avatar_url: string | null;
 }
 
@@ -219,14 +221,15 @@ export class CatalogCardDto {
 
   @ApiProperty({
     nullable: true,
-    description: 'Category name; null for classes',
+    description:
+      'Classes: their Bidang; digital products: their first category name in alphabetical order. Null when unset.',
   })
   category: string | null;
 
   @ApiProperty({
     nullable: true,
     enum: catalogLevels,
-    description: 'Null for classes',
+    description: 'Null when unset',
   })
   level: string | null;
 
@@ -262,22 +265,31 @@ export class CatalogCardDto {
   merchant: CatalogMerchantDto;
 
   @ApiPropertyOptional({
+    nullable: true,
     description: 'Image URL; null without ASSET_PUBLIC_BASE_URL or a cover',
   })
   image_url: string | null;
 
   @ApiPropertyOptional({
     type: () => CatalogCardMentorDto,
+    nullable: true,
     description: 'First assigned mentor, or null',
   })
   mentor: CatalogCardMentorDto | null;
 
-  @ApiPropertyOptional({ example: 'PDF', description: 'Digital products only' })
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'DWG, PDF',
+    description:
+      "The product's distinct file formats in upper case; null for classes and products without files",
+  })
   file_format: string | null;
 
   @ApiPropertyOptional({
+    nullable: true,
     example: 15728640,
-    description: 'Bytes; digital products only',
+    description:
+      "Total bytes of the product's files; null for classes and products without files",
   })
   file_size: number | null;
 }
@@ -486,7 +498,7 @@ export class CatalogDigitalDetailDto extends CatalogItemCardDto {
   files: CatalogDigitalFileDto[];
 
   @ApiProperty({
-    description: 'True when the signed-in visitor has access',
+    description: 'True when the signed-in visitor has unexpired access',
   })
   is_owned: boolean;
 

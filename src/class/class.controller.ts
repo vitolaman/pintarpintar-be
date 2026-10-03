@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -8,7 +7,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -73,6 +71,19 @@ import {
   FileResourceResponseDto,
   VideoResponseDto,
 } from './dto/class-response.dto';
+import {
+  CLASS_NOT_FOUND,
+  OWNER_ONLY,
+  notFound,
+  tutorLacks,
+} from './class-route-errors';
+
+const CHAPTER_NOT_FOUND = notFound('Chapter not found');
+const MEETING_NOT_FOUND = notFound('Meeting not found');
+const LEARNER_NOT_FOUND = notFound('Learner not found');
+const CERTIFICATE_NOT_FOUND = notFound('Certificate not found');
+const ASSIGNMENT_NOT_FOUND = notFound('Assignment not found');
+const CLASS_MENTOR_NOT_FOUND = notFound('Class mentor not found');
 
 type AuthenticatedRequest = { user: { id: string } };
 
@@ -90,7 +101,12 @@ export class ClassController {
   ) {}
 
   @Get(':classId')
-  @DefaultResponse(ClassResponseDto, 'Get class detail success')
+  @DefaultResponse(
+    ClassResponseDto,
+    'Get class detail success',
+    HttpStatus.OK,
+    [CLASS_NOT_FOUND],
+  )
   getClassDetail(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -99,7 +115,13 @@ export class ClassController {
   }
 
   @Patch(':classId')
-  @DefaultResponse(ClassResponseDto, 'Update class success')
+  @DefaultResponse(ClassResponseDto, 'Update class success', HttpStatus.OK, [
+    new ForbiddenException('Only the class owner can change: type, status'),
+    new ForbiddenException(
+      'Only the class owner or a lead tutor can edit the class',
+    ),
+    CLASS_NOT_FOUND,
+  ])
   updateClass(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -113,6 +135,7 @@ export class ClassController {
     ChapterResponseDto,
     'Create chapter success',
     HttpStatus.CREATED,
+    [tutorLacks('materi', 'tambah'), CLASS_NOT_FOUND],
   )
   createChapter(
     @Req() req: AuthenticatedRequest,
@@ -123,7 +146,10 @@ export class ClassController {
   }
 
   @Get(':classId/chapters')
-  @PaginatedResponse(ChapterResponseDto, 'Get class chapters success')
+  @PaginatedResponse(ChapterResponseDto, 'Get class chapters success', [
+    tutorLacks('materi', 'lihat'),
+    CLASS_NOT_FOUND,
+  ])
   getClassChapters(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -138,7 +164,12 @@ export class ClassController {
   }
 
   @Patch(':classId/chapters/:chapterId')
-  @DefaultResponse(ChapterResponseDto, 'Update chapter success')
+  @DefaultResponse(
+    ChapterResponseDto,
+    'Update chapter success',
+    HttpStatus.OK,
+    [tutorLacks('materi', 'edit'), CLASS_NOT_FOUND, CHAPTER_NOT_FOUND],
+  )
   updateChapter(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -155,7 +186,11 @@ export class ClassController {
 
   @Delete(':classId/chapters/:chapterId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse()
+  @EmptyResponse([
+    tutorLacks('materi', 'delete'),
+    CLASS_NOT_FOUND,
+    CHAPTER_NOT_FOUND,
+  ])
   deleteChapter(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -169,7 +204,10 @@ export class ClassController {
   }
 
   @Put(':classId/chapters/order')
-  @ArrayResponse(ChapterResponseDto, 'Reorder chapters success')
+  @ArrayResponse(ChapterResponseDto, 'Reorder chapters success', [
+    tutorLacks('materi', 'edit'),
+    CLASS_NOT_FOUND,
+  ])
   reorderChapters(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -179,7 +217,12 @@ export class ClassController {
   }
 
   @Put(':classId/chapters/:chapterId/order')
-  @DefaultResponse(ChapterResponseDto, 'Reorder chapter success')
+  @DefaultResponse(
+    ChapterResponseDto,
+    'Reorder chapter success',
+    HttpStatus.OK,
+    [tutorLacks('materi', 'edit'), CLASS_NOT_FOUND, CHAPTER_NOT_FOUND],
+  )
   reorderChapterItems(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -195,7 +238,12 @@ export class ClassController {
   }
 
   @Post(':classId/chapters/:chapterId/videos')
-  @DefaultResponse(VideoResponseDto, 'Create video success', HttpStatus.CREATED)
+  @DefaultResponse(
+    VideoResponseDto,
+    'Create video success',
+    HttpStatus.CREATED,
+    [tutorLacks('materi', 'tambah'), CLASS_NOT_FOUND, CHAPTER_NOT_FOUND],
+  )
   createVideo(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -211,7 +259,12 @@ export class ClassController {
   }
 
   @Patch(':classId/chapters/:chapterId/videos/:videoId')
-  @DefaultResponse(VideoResponseDto, 'Update video success')
+  @DefaultResponse(VideoResponseDto, 'Update video success', HttpStatus.OK, [
+    tutorLacks('materi', 'edit'),
+    CLASS_NOT_FOUND,
+    CHAPTER_NOT_FOUND,
+    notFound('Video not found'),
+  ])
   updateVideo(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -230,7 +283,12 @@ export class ClassController {
 
   @Delete(':classId/chapters/:chapterId/videos/:videoId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse()
+  @EmptyResponse([
+    tutorLacks('materi', 'delete'),
+    CLASS_NOT_FOUND,
+    CHAPTER_NOT_FOUND,
+    notFound('Video not found'),
+  ])
   deleteVideo(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -249,7 +307,7 @@ export class ClassController {
   @ArrayResponse(
     FileResourceResponseDto,
     'Add resources success',
-    [BadRequestException, NotFoundException],
+    [tutorLacks('materi', 'tambah'), CLASS_NOT_FOUND, CHAPTER_NOT_FOUND],
     HttpStatus.CREATED,
   )
   uploadResources(
@@ -267,7 +325,17 @@ export class ClassController {
   }
 
   @Patch(':classId/chapters/:chapterId/resources/:resourceId')
-  @DefaultResponse(FileResourceResponseDto, 'Update resource success')
+  @DefaultResponse(
+    FileResourceResponseDto,
+    'Update resource success',
+    HttpStatus.OK,
+    [
+      tutorLacks('materi', 'edit'),
+      CLASS_NOT_FOUND,
+      CHAPTER_NOT_FOUND,
+      notFound('Resource not found'),
+    ],
+  )
   updateResource(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -286,7 +354,12 @@ export class ClassController {
 
   @Delete(':classId/chapters/:chapterId/resources/:resourceId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse()
+  @EmptyResponse([
+    tutorLacks('materi', 'delete'),
+    CLASS_NOT_FOUND,
+    CHAPTER_NOT_FOUND,
+    notFound('Resource not found'),
+  ])
   deleteResource(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -306,6 +379,7 @@ export class ClassController {
     MeetingResponseDto,
     'Create meeting success',
     HttpStatus.CREATED,
+    [tutorLacks('meeting', 'tambah'), CLASS_NOT_FOUND],
   )
   createMeeting(
     @Req() req: AuthenticatedRequest,
@@ -316,7 +390,12 @@ export class ClassController {
   }
 
   @Patch(':classId/meetings/:meetingId')
-  @DefaultResponse(MeetingResponseDto, 'Update meeting success')
+  @DefaultResponse(
+    MeetingResponseDto,
+    'Update meeting success',
+    HttpStatus.OK,
+    [tutorLacks('meeting', 'edit'), CLASS_NOT_FOUND, MEETING_NOT_FOUND],
+  )
   updateMeeting(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -333,7 +412,11 @@ export class ClassController {
 
   @Delete(':classId/meetings/:meetingId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse()
+  @EmptyResponse([
+    tutorLacks('meeting', 'delete'),
+    CLASS_NOT_FOUND,
+    MEETING_NOT_FOUND,
+  ])
   deleteMeeting(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -343,7 +426,12 @@ export class ClassController {
   }
 
   @Get(':classId/certificate-settings')
-  @DefaultResponse(CertificateSettingsDto, 'Get certificate settings success')
+  @DefaultResponse(
+    CertificateSettingsDto,
+    'Get certificate settings success',
+    HttpStatus.OK,
+    [tutorLacks('sertifikat', 'lihat'), CLASS_NOT_FOUND],
+  )
   findCertificateSettings(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -355,6 +443,8 @@ export class ClassController {
   @DefaultResponse(
     CertificateSettingsDto,
     'Update certificate settings success',
+    HttpStatus.OK,
+    [tutorLacks('sertifikat', 'edit'), CLASS_NOT_FOUND],
   )
   updateCertificateSettings(
     @Req() req: AuthenticatedRequest,
@@ -372,6 +462,7 @@ export class ClassController {
   @PaginatedResponse(
     ClassCertificateLearnerDto,
     'Get class certificates success',
+    [tutorLacks('sertifikat', 'lihat'), CLASS_NOT_FOUND],
   )
   findCertificates(
     @Req() req: AuthenticatedRequest,
@@ -388,7 +479,17 @@ export class ClassController {
 
   @Post(':classId/certificates/:userId/issue')
   @HttpCode(HttpStatus.OK)
-  @DefaultResponse(CertificateViewDto, 'Issue certificate success')
+  @DefaultResponse(
+    CertificateViewDto,
+    'Issue certificate success',
+    HttpStatus.OK,
+    [
+      tutorLacks('sertifikat', 'tambah'),
+      CLASS_NOT_FOUND,
+      LEARNER_NOT_FOUND,
+      new ConflictException('The certificate is already issued'),
+    ],
+  )
   issueCertificate(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -402,7 +503,17 @@ export class ClassController {
   }
 
   @Put(':classId/certificates/:userId/file')
-  @DefaultResponse(CertificateViewDto, 'Attach certificate file success')
+  @DefaultResponse(
+    CertificateViewDto,
+    'Attach certificate file success',
+    HttpStatus.OK,
+    [
+      tutorLacks('sertifikat', 'edit'),
+      CLASS_NOT_FOUND,
+      LEARNER_NOT_FOUND,
+      CERTIFICATE_NOT_FOUND,
+    ],
+  )
   attachCertificateFile(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -419,7 +530,12 @@ export class ClassController {
 
   @Delete(':classId/certificates/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse()
+  @EmptyResponse([
+    tutorLacks('sertifikat', 'delete'),
+    CLASS_NOT_FOUND,
+    LEARNER_NOT_FOUND,
+    CERTIFICATE_NOT_FOUND,
+  ])
   withdrawCertificate(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -433,7 +549,12 @@ export class ClassController {
   }
 
   @Get(':classId/attendance-summary')
-  @DefaultResponse(AttendanceSummaryDto, 'Get attendance summary success')
+  @DefaultResponse(
+    AttendanceSummaryDto,
+    'Get attendance summary success',
+    HttpStatus.OK,
+    [tutorLacks('meeting', 'lihat'), CLASS_NOT_FOUND],
+  )
   findAttendanceSummary(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -442,7 +563,12 @@ export class ClassController {
   }
 
   @Get(':classId/meetings/:meetingId/attendances')
-  @DefaultResponse(AttendanceRecapDto, 'Get attendance success')
+  @DefaultResponse(
+    AttendanceRecapDto,
+    'Get attendance success',
+    HttpStatus.OK,
+    [tutorLacks('meeting', 'lihat'), CLASS_NOT_FOUND, MEETING_NOT_FOUND],
+  )
   findAttendance(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -456,7 +582,17 @@ export class ClassController {
   }
 
   @Patch(':classId/meetings/:meetingId/attendances/:userId')
-  @DefaultResponse(AttendanceRecapDto, 'Get attendance success')
+  @DefaultResponse(
+    AttendanceRecapDto,
+    'Get attendance success',
+    HttpStatus.OK,
+    [
+      tutorLacks('meeting', 'edit'),
+      CLASS_NOT_FOUND,
+      MEETING_NOT_FOUND,
+      LEARNER_NOT_FOUND,
+    ],
+  )
   setAttendanceStatus(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -474,7 +610,10 @@ export class ClassController {
   }
 
   @Get(':classId/meetings')
-  @PaginatedResponse(MeetingResponseDto, 'Get class meetings success')
+  @PaginatedResponse(MeetingResponseDto, 'Get class meetings success', [
+    tutorLacks('meeting', 'lihat'),
+    CLASS_NOT_FOUND,
+  ])
   getClassMeetings(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -493,6 +632,7 @@ export class ClassController {
     AssignmentResponseDto,
     'Create assignment success',
     HttpStatus.CREATED,
+    [tutorLacks('tugas', 'tambah'), CLASS_NOT_FOUND],
   )
   createAssignment(
     @Req() req: AuthenticatedRequest,
@@ -507,7 +647,9 @@ export class ClassController {
   }
 
   @Get(':classId/assignments')
-  @PaginatedResponse(AssignmentResponseDto, 'Get class assignments success')
+  @PaginatedResponse(AssignmentResponseDto, 'Get class assignments success', [
+    CLASS_NOT_FOUND,
+  ])
   getClassAssignments(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -527,10 +669,15 @@ export class ClassController {
     'Update assignment success',
     HttpStatus.OK,
     [
-      BadRequestException,
-      ForbiddenException,
-      NotFoundException,
-      ConflictException,
+      tutorLacks('tugas', 'edit'),
+      CLASS_NOT_FOUND,
+      ASSIGNMENT_NOT_FOUND,
+      new ConflictException(
+        'The assignment type cannot change once learners have submitted',
+      ),
+      new ConflictException(
+        'Quiz questions cannot change once learners have submitted',
+      ),
     ],
   )
   updateAssignment(
@@ -549,7 +696,11 @@ export class ClassController {
 
   @Delete(':classId/assignments/:assignmentId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse()
+  @EmptyResponse([
+    tutorLacks('tugas', 'delete'),
+    CLASS_NOT_FOUND,
+    ASSIGNMENT_NOT_FOUND,
+  ])
   deleteAssignment(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -563,7 +714,11 @@ export class ClassController {
   }
 
   @Get(':classId/assignments/:assignmentId/submissions')
-  @PaginatedResponse(SubmissionViewDto, 'Get submissions success')
+  @PaginatedResponse(SubmissionViewDto, 'Get submissions success', [
+    tutorLacks('nilai', 'lihat'),
+    CLASS_NOT_FOUND,
+    ASSIGNMENT_NOT_FOUND,
+  ])
   findSubmissions(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -580,7 +735,16 @@ export class ClassController {
   }
 
   @Patch(':classId/submissions/:submissionId/grade')
-  @DefaultResponse(SubmissionViewDto, 'Grade submission success')
+  @DefaultResponse(
+    SubmissionViewDto,
+    'Grade submission success',
+    HttpStatus.OK,
+    [
+      tutorLacks('nilai', 'edit'),
+      CLASS_NOT_FOUND,
+      notFound('Submission not found'),
+    ],
+  )
   gradeSubmission(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -596,7 +760,10 @@ export class ClassController {
   }
 
   @Get(':classId/grades')
-  @PaginatedObjectResponse(GradeTableDto, 'Get class grades success')
+  @PaginatedObjectResponse(GradeTableDto, 'Get class grades success', [
+    tutorLacks('nilai', 'lihat'),
+    CLASS_NOT_FOUND,
+  ])
   findGrades(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -615,6 +782,11 @@ export class ClassController {
     ClassTutorResponseDto,
     'Invite mentor success',
     HttpStatus.CREATED,
+    [
+      CLASS_NOT_FOUND,
+      notFound('No active mentor account uses this email'),
+      new ConflictException('Mentor is already assigned to this class'),
+    ],
   )
   inviteMentor(
     @Req() req: AuthenticatedRequest,
@@ -625,7 +797,12 @@ export class ClassController {
   }
 
   @Patch(':classId/mentors/:classMentorId')
-  @DefaultResponse(ClassTutorResponseDto, 'Update class mentor success')
+  @DefaultResponse(
+    ClassTutorResponseDto,
+    'Update class mentor success',
+    HttpStatus.OK,
+    [OWNER_ONLY, CLASS_NOT_FOUND, CLASS_MENTOR_NOT_FOUND],
+  )
   updateClassMentor(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -642,7 +819,7 @@ export class ClassController {
 
   @Delete(':classId/mentors/:classMentorId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse()
+  @EmptyResponse([OWNER_ONLY, CLASS_NOT_FOUND, CLASS_MENTOR_NOT_FOUND])
   revokeClassMentor(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -656,7 +833,9 @@ export class ClassController {
   }
 
   @Get(':classId/mentors')
-  @PaginatedResponse(ClassTutorResponseDto, 'Get class mentors success')
+  @PaginatedResponse(ClassTutorResponseDto, 'Get class mentors success', [
+    CLASS_NOT_FOUND,
+  ])
   getClassMentors(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -671,7 +850,9 @@ export class ClassController {
   }
 
   @Get(':classId/students')
-  @PaginatedResponse(StudentResponseDto, 'Get class students success')
+  @PaginatedResponse(StudentResponseDto, 'Get class students success', [
+    CLASS_NOT_FOUND,
+  ])
   getClassStudents(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,

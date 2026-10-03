@@ -5,6 +5,7 @@ import { LimitQuery, PageQuery } from '~/common/dto/request-paginated.dto';
 
 export class CreateReviewDto {
   @ApiPropertyOptional({
+    format: 'uuid',
     description: 'Class the caller is enrolled in; send this or product_id',
   })
   @ValidateIf((review) => review.product_id === undefined)
@@ -12,8 +13,9 @@ export class CreateReviewDto {
   class_id?: string;
 
   @ApiPropertyOptional({
+    format: 'uuid',
     description:
-      'Digital product the caller has access to; send this or class_id',
+      'Digital product the caller has unexpired access to; send this or class_id',
   })
   @ValidateIf((review) => review.product_id !== undefined)
   @IsUUID()

@@ -72,8 +72,9 @@ export class ClassAttendanceService {
     };
   }
 
-  // The account is the identity; any name or email a client sends is ignored.
-  // A repeat check-in keeps the first time and replaces the feedback.
+  // The learner is the signed-in account, or the enrolled email of the public
+  // check-in. A repeat check-in keeps the first time and replaces the
+  // feedback when one is sent.
   async checkIn(userId: string, meetingId: string, feedback?: string | null) {
     return this.dataSource.transaction(async (manager) => {
       const meeting = await this.findLearnerMeeting(manager, userId, meetingId);
@@ -283,7 +284,7 @@ export class ClassAttendanceService {
       manager.query(
         `SELECT tutor.name FROM class_mentors link
          INNER JOIN mentors mentor ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
-         INNER JOIN users tutor ON tutor.id = mentor.user_id
+         INNER JOIN users tutor ON tutor.id = mentor.user_id AND tutor.deleted_at IS NULL
          WHERE link.class_id = $1 AND link.deleted_at IS NULL
          ORDER BY link.created_at, link.id`,
         [meeting.class_id],

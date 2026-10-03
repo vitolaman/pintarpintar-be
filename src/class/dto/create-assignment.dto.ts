@@ -95,7 +95,7 @@ export class CreateAssignmentDto {
   @ApiProperty({
     type: [CreateQuestionDto],
     required: false,
-    description: 'At least one for a quiz; not used by file_upload',
+    description: 'At least one for a quiz; a file_upload takes none',
   })
   @ValidateIf(
     (assignment) =>

@@ -25,6 +25,9 @@ import { CreateHelpTicketDto } from './dto/create-help-ticket.dto';
 import { HelpTicketResponseDto } from './dto/help-ticket-response.dto';
 import { HelpTicketService } from './help-ticket.service';
 
+// Only an account deleted while its request is in flight answers this.
+const USER_NOT_FOUND = new NotFoundException('User not found');
+
 @Controller('api/v1/help-tickets')
 @ApiBearerAuth()
 @ApiTags('Help Tickets')
@@ -41,6 +44,7 @@ export class HelpTicketController {
     HelpTicketResponseDto,
     'Create help ticket success',
     HttpStatus.CREATED,
+    [USER_NOT_FOUND],
   )
   create(
     @Req() req: { user?: { id: string } },
@@ -51,7 +55,7 @@ export class HelpTicketController {
 
   @Get()
   @PaginatedResponse(HelpTicketResponseDto, 'Get help tickets success', [
-    NotFoundException,
+    USER_NOT_FOUND,
   ])
   findAll(
     @Req() req: { user: { id: string } },
@@ -65,7 +69,11 @@ export class HelpTicketController {
     HelpTicketResponseDto,
     'Get help ticket success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [
+      BadRequestException,
+      USER_NOT_FOUND,
+      new NotFoundException('Help ticket not found'),
+    ],
   )
   findOne(
     @Req() req: { user: { id: string } },

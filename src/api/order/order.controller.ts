@@ -23,7 +23,10 @@ import {
   DefaultResponse,
   PaginatedResponse,
 } from '~/common/decorator/response.decorator';
-import { ClientAddressThrottlerGuard } from '~/common/guard/client-address-throttler.guard';
+import {
+  ClientAddressThrottlerGuard,
+  TOO_MANY_REQUESTS_MESSAGE,
+} from '~/common/guard/client-address-throttler.guard';
 import { CheckoutService } from './checkout/checkout.service';
 import {
   CheckoutPreviewResponseDto,
@@ -36,6 +39,14 @@ import {
   TransactionsQueryDto,
 } from './dto/recent-transactions.dto';
 import { OrderService } from './order.service';
+
+const ORDER_NOT_FOUND = new NotFoundException('Order not found');
+const GATEWAY_UNAVAILABLE = new BadGatewayException(
+  'Payment gateway is unavailable',
+);
+const GATEWAY_NOT_CONFIGURED = new ServiceUnavailableException(
+  'Payment gateway is not configured',
+);
 
 @Controller('api/v1/orders')
 @ApiBearerAuth()
@@ -85,9 +96,9 @@ export class OrderController {
     return this.checkoutService.preview(req.user.id, body);
   }
 
-  // Creates the pending order and its Duitku invoice; open
-  // `payment_reference` with Duitku's `checkout.process` or redirect to
-  // `payment_url`.
+  // Creates the pending order and its Duitku invoice (a Rp0 order is paid at
+  // once, without an invoice); open `payment_reference` with Duitku's
+  // `checkout.process` or redirect to `payment_url`.
   @Post()
   @DefaultResponse(
     OrderDetailResponseDto,
@@ -95,9 +106,11 @@ export class OrderController {
     HttpStatus.CREATED,
     [
       BadRequestException,
-      ConflictException,
-      BadGatewayException,
-      ServiceUnavailableException,
+      new ConflictException(
+        'Item <item id> is awaiting payment in order <order id>',
+      ),
+      GATEWAY_UNAVAILABLE,
+      GATEWAY_NOT_CONFIGURED,
     ],
   )
   checkout(
@@ -108,7 +121,9 @@ export class OrderController {
   }
 
   @Get(':id')
-  @DefaultResponse(OrderDetailResponseDto, 'Get order success')
+  @DefaultResponse(OrderDetailResponseDto, 'Get order success', HttpStatus.OK, [
+    ORDER_NOT_FOUND,
+  ])
   async findOne(
     @Req() req: { user: { id: string } },
     @Param('id', ParseUUIDPipe) id: string,
@@ -125,7 +140,7 @@ export class OrderController {
     OrderDetailResponseDto,
     'Cancel order success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, ORDER_NOT_FOUND],
   )
   async cancel(
     @Req() req: { user: { id: string } },
@@ -149,10 +164,10 @@ export class OrderController {
     'Check payment success',
     HttpStatus.OK,
     [
-      NotFoundException,
-      ThrottlerException,
-      BadGatewayException,
-      ServiceUnavailableException,
+      ORDER_NOT_FOUND,
+      new ThrottlerException(TOO_MANY_REQUESTS_MESSAGE),
+      GATEWAY_UNAVAILABLE,
+      GATEWAY_NOT_CONFIGURED,
     ],
   )
   checkPayment(

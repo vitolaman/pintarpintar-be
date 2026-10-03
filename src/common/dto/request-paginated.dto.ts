@@ -37,7 +37,8 @@ export const PageQuery = () =>
       type: Number,
       default: 1,
       minimum: 1,
-      description: 'Page number. A blank or invalid value means 1.',
+      description:
+        'Page number. A blank or non-numeric value means 1, and a value below 1 is clamped to 1.',
     }),
     Transform(({ value }) => clampInteger(value, 1, 1, MAX_PAGE)),
     IsOptional(),
@@ -56,7 +57,11 @@ export const LimitQuery = (options: LimitQueryOptions = {}) => {
   const defaultLimit =
     'defaultLimit' in options ? options.defaultLimit : DEFAULT_PAGE_LIMIT;
   const maxLimit = options.maxLimit ?? MAX_PAGE_LIMIT;
-  const clamping = `Values outside 1–${maxLimit} are clamped.`;
+  const blankValue =
+    defaultLimit === undefined
+      ? ''
+      : ` A blank or non-numeric value means ${defaultLimit}.`;
+  const limitRules = `Values outside 1–${maxLimit} are clamped.${blankValue}`;
   return applyDecorators(
     ApiPropertyOptional({
       type: Number,
@@ -64,8 +69,8 @@ export const LimitQuery = (options: LimitQueryOptions = {}) => {
       minimum: 1,
       maximum: maxLimit,
       description: options.description
-        ? `${options.description} ${clamping}`
-        : `Items per page. ${clamping}`,
+        ? `${options.description} ${limitRules}`
+        : `Items per page. ${limitRules}`,
     }),
     Transform(({ value }) => clampInteger(value, defaultLimit, 1, maxLimit)),
     IsOptional(),

@@ -124,7 +124,8 @@ export class PublicJobQueryDto extends RequestPaginatedQueryDto {
 
   @ApiPropertyOptional({
     example: 'Jakarta',
-    description: 'A blank value means no filter',
+    description:
+      'Matches part of the location (literal). A blank value means no filter.',
   })
   @QueryFilter()
   @IsOptional()
@@ -168,7 +169,9 @@ export class JobPostingResponseDto {
   @ApiProperty({ type: JobMerchantDto }) merchant: JobMerchantDto;
   @ApiPropertyOptional({ type: JobClassDto, nullable: true })
   class: JobClassDto | null;
-  @ApiProperty({ description: 'Non-deleted applications' })
+  @ApiProperty({
+    description: 'Non-deleted applications of accounts that still exist',
+  })
   applicants_count: number;
   @ApiProperty({ description: 'Posted within the last 7 days' })
   is_new: boolean;
@@ -187,7 +190,7 @@ export class SavedJobPostingResponseDto extends JobPostingResponseDto {
 
   @ApiProperty({
     description:
-      'False once the job is closed or removed; it stays in the list until unsaved',
+      'False once the job is closed or removed, or its merchant is inactive; it stays in the list until unsaved',
   })
   is_open: boolean;
 }

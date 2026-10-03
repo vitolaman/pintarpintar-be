@@ -46,19 +46,27 @@ export class ProfileResponseDto {
   })
   avatar_asset_id: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   phone: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   headline: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   bio: string | null;
 
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Null unless the user is a mentor',
+  })
   mentor_id: string | null;
 
-  @ApiPropertyOptional({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Null unless the user is a merchant',
+  })
   merchant_id: string | null;
 
   @ApiProperty({ description: 'Account creation time' })
@@ -87,7 +95,10 @@ export class ProfileResponseDto {
 }
 
 export class LearningItemResponseDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Enrollment id for kelas and bootcamp; access id for digital',
+  })
   access_id: string;
 
   @ApiProperty({
@@ -103,7 +114,7 @@ export class LearningItemResponseDto {
   @ApiProperty({ enum: learningItemTypes, example: 'kelas' })
   item_type: LearningItemType;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   level: string | null;
 
   @ApiPropertyOptional({
@@ -114,19 +125,32 @@ export class LearningItemResponseDto {
   })
   cover_url: string | null;
 
-  @ApiProperty({ example: 70 })
+  @ApiProperty({
+    example: 70,
+    description:
+      'Classes: completed videos over all videos, whole percent (100 without videos); digital: the stored progress, 0 without one',
+  })
   completion_percentage: number;
 
   @ApiProperty({ enum: ['not_started', 'in_progress', 'completed'] })
   progress_status: 'not_started' | 'in_progress' | 'completed';
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Digital: the stored time spent, 0 without one; classes: 0',
+  })
   total_time_spent: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Classes: the latest video completion; digital: the stored last access',
+  })
   last_accessed_at: Date | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Null for classes and for access without an end',
+  })
   expires_at: Date | null;
 }
 
@@ -134,10 +158,10 @@ export class CertificationItemResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
-  @ApiPropertyOptional({ example: 'PP-CERT-2026-0001' })
+  @ApiPropertyOptional({ nullable: true, example: 'PP-CERT-2026-0001' })
   certificate_number: string | null;
 
-  @ApiPropertyOptional({ example: '2026-09-25' })
+  @ApiPropertyOptional({ nullable: true, example: '2026-09-25' })
   issued_on: string | null;
 
   @ApiProperty({ format: 'uuid' })
@@ -147,21 +171,30 @@ export class CertificationItemResponseDto {
   class_title: string;
 
   @ApiPropertyOptional({
+    nullable: true,
     example: 'Sari Digital Studio',
     description: 'Class merchant',
   })
   issuer_name: string | null;
 
   @ApiPropertyOptional({
+    nullable: true,
     description:
-      'Certificate file for the owner; uploaded files are signed links valid 10 minutes',
+      'Certificate file for the owner; uploaded files are signed links valid 10 minutes, older rows keep their stored URL',
   })
   file_url: string | null;
 
-  @ApiPropertyOptional({ description: "The class's first assigned mentor" })
+  @ApiPropertyOptional({
+    nullable: true,
+    description: "The class's first assigned mentor",
+  })
   mentor_name: string | null;
 
-  @ApiProperty({ type: [String], example: [] })
+  @ApiProperty({
+    type: [String],
+    example: ['Sipil'],
+    description: 'The class Bidang; empty when unset',
+  })
   skills: string[];
 
   @ApiPropertyOptional({
@@ -180,16 +213,19 @@ export class CertificationItemResponseDto {
 }
 
 export class LearningStatisticsResponseDto {
-  @ApiProperty({ description: 'Kelas Bootcamp Diikuti' })
+  @ApiProperty({ description: 'Kelas Bootcamp Diikuti: active enrollments' })
   bootcamp_count: number;
 
-  @ApiProperty({ description: 'Kelas Video Diikuti' })
+  @ApiProperty({ description: 'Kelas Video Diikuti: active enrollments' })
   video_class_count: number;
 
-  @ApiProperty({ description: 'Produk Digital Dibeli' })
+  @ApiProperty({
+    description:
+      'Produk Digital Dibeli: products with unexpired access, including ones their merchant deleted',
+  })
   digital_product_count: number;
 
-  @ApiProperty({ description: 'Sertifikat Diperoleh' })
+  @ApiProperty({ description: 'Sertifikat Diperoleh: issued certificates' })
   certificate_count: number;
 }
 
@@ -233,16 +269,19 @@ export class PublicCertificateDto {
   @ApiProperty()
   class_title: string;
 
-  @ApiPropertyOptional({ example: 'PP-CERT-2026-0001' })
+  @ApiPropertyOptional({ nullable: true, example: 'PP-CERT-2026-0001' })
   certificate_number: string | null;
 
-  @ApiPropertyOptional({ example: '2026-09-25' })
+  @ApiPropertyOptional({ nullable: true, example: '2026-09-25' })
   issued_on: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true, description: 'Class merchant' })
   issuer_name: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    nullable: true,
+    description: "The class's first assigned mentor",
+  })
   mentor_name: string | null;
 }
 

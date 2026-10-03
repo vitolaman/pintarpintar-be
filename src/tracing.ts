@@ -23,7 +23,9 @@ function parseHeaders(rawHeaders?: string): Record<string, string> | undefined {
     .map((pair) => pair.split('=').map((item) => item.trim()))
     .filter(([key, value]) => key && value);
 
-  return entries.length ? Object.fromEntries(entries as [string, string][]) : undefined;
+  return entries.length
+    ? Object.fromEntries(entries as [string, string][])
+    : undefined;
 }
 
 function resolveDiagLogLevel(logLevel?: string): DiagLogLevel {

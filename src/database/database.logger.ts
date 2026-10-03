@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { QueryRunner, Logger as TypeORMLogger } from 'typeorm';
+import { Logger as TypeORMLogger } from 'typeorm';
 import { LoggerOptions as TypeORMLoggerOptions } from 'typeorm/logger/LoggerOptions';
 
 export class DatabaseLogger implements TypeORMLogger {
@@ -11,7 +11,7 @@ export class DatabaseLogger implements TypeORMLogger {
   /**
    * Logs query and parameters used in it.
    */
-  logQuery(query: string, parameters?: any[], queryRunner?: QueryRunner) {
+  logQuery(query: string, parameters?: any[]) {
     if (
       this._options === 'all' ||
       this._options === true ||
@@ -29,12 +29,7 @@ export class DatabaseLogger implements TypeORMLogger {
   /**
    * Logs query that is failed.
    */
-  logQueryError(
-    error: string,
-    query: string,
-    parameters?: any[],
-    queryRunner?: QueryRunner,
-  ) {
+  logQueryError(error: string, query: string, parameters?: any[]) {
     if (
       this._options === 'all' ||
       this._options === true ||
@@ -53,12 +48,7 @@ export class DatabaseLogger implements TypeORMLogger {
   /**
    * Logs query that is slow.
    */
-  logQuerySlow(
-    time: number,
-    query: string,
-    parameters?: any[],
-    queryRunner?: QueryRunner,
-  ) {
+  logQuerySlow(time: number, query: string, parameters?: any[]) {
     const sql =
       query +
       (parameters && parameters.length
@@ -71,7 +61,7 @@ export class DatabaseLogger implements TypeORMLogger {
   /**
    * Logs events from the schema build process.
    */
-  logSchemaBuild(message: string, queryRunner?: QueryRunner) {
+  logSchemaBuild(message: string) {
     if (
       this._options === 'all' ||
       (this._options instanceof Array && this._options.indexOf('schema') !== -1)
@@ -83,7 +73,7 @@ export class DatabaseLogger implements TypeORMLogger {
   /**
    * Logs events from the migrations run process.
    */
-  logMigration(message: string, queryRunner?: QueryRunner) {
+  logMigration(message: string) {
     this._logger.log(message);
   }
 
@@ -91,7 +81,7 @@ export class DatabaseLogger implements TypeORMLogger {
    * Perform logging using given logger, or by default to the this._logger.
    * Log has its own level and message.
    */
-  log(level: 'log' | 'info' | 'warn', message: any, queryRunner?: QueryRunner) {
+  log(level: 'log' | 'info' | 'warn', message: any) {
     switch (level) {
       case 'log':
         if (

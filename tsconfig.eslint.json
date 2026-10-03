@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src", "test"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/api/admin/**",
+    "src/api/cron-job/**",
+    "src/api/leaderboard/**",
+    "src/api/master-country/**",
+    "src/api/master-pfp/**",
+    "src/api/prediction/**",
+    "src/api/task/**"
+  ]
+}

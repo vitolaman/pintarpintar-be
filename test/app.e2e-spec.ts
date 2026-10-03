@@ -20,8 +20,6 @@ describe('AppController (e2e)', () => {
   });
 
   it('/ (GET) requires authentication', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(401);
+    return request(app.getHttpServer()).get('/').expect(401);
   });
 });

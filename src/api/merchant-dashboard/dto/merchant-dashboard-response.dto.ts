@@ -12,7 +12,7 @@ export class PeriodMetricDto {
   @ApiProperty({
     example: 25,
     nullable: true,
-    description: 'Percent change; null when previous is 0',
+    description: 'Percent change, one decimal; null when previous is 0',
   })
   change_percent: number | null;
 }
@@ -45,15 +45,25 @@ export class ChartPointDto {
   @ApiProperty({ example: '2026-09-01', description: 'Asia/Jakarta date' })
   date: string;
 
-  @ApiProperty({ example: 3 })
+  @ApiProperty({
+    example: 3,
+    description: "Paid orders with the merchant's items, dated at payment",
+  })
   transactions: number;
 
-  @ApiProperty({ example: 897000 })
+  @ApiProperty({
+    example: 897000,
+    description: "Net revenue of the day's paid sales",
+  })
   revenue: number;
 }
 
 export class ActivityDto {
-  @ApiProperty({ enum: ['enrollment', 'review', 'purchase'] })
+  @ApiProperty({
+    enum: ['enrollment', 'review', 'purchase'],
+    description:
+      'enrollment in a class, review of a class or digital product, or a paid digital product or bundle item',
+  })
   type: string;
 
   @ApiProperty({ example: 'John Doe' })
@@ -62,10 +72,16 @@ export class ActivityDto {
   @ApiProperty({ example: 'Belajar AutoCAD dari Nol' })
   item_title: string;
 
-  @ApiProperty({ nullable: true, example: 5 })
+  @ApiProperty({
+    nullable: true,
+    example: 5,
+    description: 'Reviews only; null otherwise',
+  })
   rating: number | null;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Enrollment time, review time, or order time of the purchase',
+  })
   occurred_at: Date;
 }
 
@@ -76,10 +92,13 @@ export class UnpaidTransactionDto {
   @ApiProperty()
   item_title: string;
 
-  @ApiProperty({ example: 299000 })
+  @ApiProperty({
+    example: 299000,
+    description: "The item's net price (price minus its code-discount share)",
+  })
   price: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Order time' })
   checkout_at: Date;
 
   @ApiProperty()
@@ -99,7 +118,11 @@ export class UnpaidTransactionDto {
 }
 
 export class MerchantDashboardResponseDto {
-  @ApiProperty({ enum: [7, 30, 90, 365] })
+  @ApiProperty({
+    enum: [7, 30, 90, 365],
+    description:
+      'Today and the period_days − 1 days before it, in Asia/Jakarta days',
+  })
   period_days: number;
 
   @ApiProperty({
@@ -116,26 +139,50 @@ export class MerchantDashboardResponseDto {
 
   @ApiProperty({
     example: 5268000,
-    description: 'Level card transaction total',
+    description:
+      'Cumulative net income from paid orders (wallet lifetime earnings), shown as the level card transaction total',
   })
   lifetime_earnings: number;
 
-  @ApiProperty({ type: PeriodMetricDto })
+  @ApiProperty({
+    type: PeriodMetricDto,
+    description:
+      "Net revenue (price minus code-discount shares) of the merchant's items in orders paid in the period",
+  })
   revenue: PeriodMetricDto;
 
-  @ApiProperty({ type: PeriodMetricDto })
+  @ApiProperty({
+    type: PeriodMetricDto,
+    description:
+      "Orders paid in the period that contain at least one of the merchant's items",
+  })
   transactions: PeriodMetricDto;
 
-  @ApiProperty({ type: PeriodMetricDto })
+  @ApiProperty({
+    type: PeriodMetricDto,
+    description: 'Distinct buyers of those orders',
+  })
   students: PeriodMetricDto;
 
-  @ApiProperty({ example: 8 })
+  @ApiProperty({
+    example: 8,
+    description: 'Non-deleted classes and digital products',
+  })
   catalog_total: number;
 
-  @ApiProperty({ example: 2 })
+  @ApiProperty({
+    example: 2,
+    description:
+      'Of catalog_total, those created in the last period_days × 24 hours',
+  })
   catalog_new_in_period: number;
 
-  @ApiProperty({ example: 4.8, nullable: true })
+  @ApiProperty({
+    example: 4.8,
+    nullable: true,
+    description:
+      'All-time average over reviews of its classes and digital products, one decimal; null without reviews',
+  })
   rating_average: number | null;
 
   @ApiProperty({ example: 145 })
@@ -144,13 +191,20 @@ export class MerchantDashboardResponseDto {
   @ApiProperty({ type: LatestReviewDto, nullable: true })
   latest_review: LatestReviewDto | null;
 
-  @ApiProperty({ type: [ChartPointDto] })
+  @ApiProperty({
+    type: [ChartPointDto],
+    description: 'One zero-filled point per day of the period, ending today',
+  })
   chart: ChartPointDto[];
 
-  @ApiProperty({ type: [ActivityDto] })
+  @ApiProperty({ type: [ActivityDto], description: 'Latest 10, newest first' })
   activities: ActivityDto[];
 
-  @ApiProperty({ type: [UnpaidTransactionDto] })
+  @ApiProperty({
+    type: [UnpaidTransactionDto],
+    description:
+      'Latest 20 items of pending orders whose payment window has not expired',
+  })
   unpaid_transactions: UnpaidTransactionDto[];
 }
 
@@ -161,7 +215,7 @@ export class SaleResponseDto {
   @ApiProperty()
   order_id: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Order time' })
   ordered_at: Date;
 
   @ApiProperty()
@@ -204,7 +258,11 @@ export class SaleResponseDto {
   })
   net_amount: number;
 
-  @ApiProperty({ enum: saleStatuses })
+  @ApiProperty({
+    enum: saleStatuses,
+    description:
+      'Order status; an unpaid order past its payment expiry reads expired',
+  })
   status: string;
 }
 
@@ -229,15 +287,30 @@ export class CustomerResponseDto {
   @ApiProperty({ nullable: true })
   phone: string | null;
 
-  @ApiProperty({ description: 'First paid purchase from this merchant' })
+  @ApiProperty({
+    description: 'Order time of the first paid purchase from this merchant',
+  })
   joined_at: Date;
 
-  @ApiProperty({ example: 524000 })
+  @ApiProperty({
+    example: 524000,
+    description:
+      'Net amount of their paid items (price minus code-discount shares)',
+  })
   total_spent: number;
 
-  @ApiProperty({ example: 1 })
+  @ApiProperty({
+    example: 1,
+    description: 'Distinct classes of the merchant they are enrolled in',
+  })
   classes_enrolled: number;
 
-  @ApiProperty({ example: 70, minimum: 0, maximum: 100 })
+  @ApiProperty({
+    example: 70,
+    minimum: 0,
+    maximum: 100,
+    description:
+      "Average progress of their enrollments in the merchant's classes; 0 without enrollments",
+  })
   completion_rate: number;
 }

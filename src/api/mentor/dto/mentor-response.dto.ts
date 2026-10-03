@@ -21,10 +21,10 @@ export class MentorResponseDto {
   @ApiProperty()
   phone: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   headline: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   bio: string | null;
 
   @ApiProperty()
@@ -39,7 +39,7 @@ export class MentorResponseDto {
   @ApiProperty()
   education: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   portfolio_url: string | null;
 
   @ApiProperty()
@@ -115,10 +115,10 @@ export class PublicMentorResponseDto {
   @ApiProperty()
   status: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   headline: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   bio: string | null;
 
   @ApiProperty()
@@ -133,7 +133,7 @@ export class PublicMentorResponseDto {
   @ApiProperty()
   education: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   portfolio_url: string | null;
 
   @ApiProperty()
@@ -160,6 +160,7 @@ export class MentorDocumentResponseDto {
   uploaded_at: Date;
 
   @ApiPropertyOptional({
+    nullable: true,
     description:
       'Signed download URL valid for 10 minutes; null for documents stored before S3 storage.',
   })

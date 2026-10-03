@@ -12,7 +12,7 @@ type LevelRule = {
   // Per-file limit for merchant content uploads while no Pro subscription
   // exists; Pro (not built yet) is meant to lift it.
   maxUploadBytes: number;
-  // Shown only: storage enforcement awaits the PM's decision.
+  // Enforced when content files are attached (merchant-storage.ts).
   storageQuotaBytes: number;
 };
 

@@ -142,9 +142,10 @@ export class ProfileService {
     };
   }
 
-  // Everything the user owns: digital products with unexpired access, and
-  // classes and bootcamps with an active enrollment. The frontend uses this
-  // list for ownership checks and Portal Saya.
+  // Everything the user owns: digital products with unexpired access (a
+  // product its merchant deleted stays, as in Portal Saya), and classes and
+  // bootcamps with an active enrollment. The frontend uses this list for
+  // ownership checks and Portal Saya.
   async findLearning(userId: string) {
     const rows: LearningRow[] = await this.dataSource.query(
       `SELECT * FROM (
@@ -155,7 +156,7 @@ export class ProfileService {
                 COALESCE(progress.total_time_spent, 0) AS total_time_spent,
                 progress.last_accessed_at
          FROM user_access access
-         INNER JOIN products product ON product.id = access.product_id AND product.deleted_at IS NULL
+         INNER JOIN products product ON product.id = access.product_id
          LEFT JOIN student_progress progress
            ON progress.access_id = access.id AND progress.deleted_at IS NULL
          LEFT JOIN file_assets cover ON cover.id = product.cover_asset_id AND cover.deleted_at IS NULL

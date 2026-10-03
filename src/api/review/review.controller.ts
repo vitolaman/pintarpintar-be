@@ -28,6 +28,9 @@ import {
 } from './dto/review.dto';
 import { ReviewService } from './review.service';
 
+const CLASS_NOT_FOUND = new NotFoundException('Class not found');
+const PRODUCT_NOT_FOUND = new NotFoundException('Digital product not found');
+
 @Controller('api/v1/reviews')
 @ApiTags('Reviews')
 export class ReviewController {
@@ -41,9 +44,12 @@ export class ReviewController {
     HttpStatus.CREATED,
     [
       BadRequestException,
-      ForbiddenException,
-      NotFoundException,
-      ConflictException,
+      new ForbiddenException('Only enrolled learners can review'),
+      new ForbiddenException('Only buyers can review this product'),
+      CLASS_NOT_FOUND,
+      PRODUCT_NOT_FOUND,
+      new ConflictException('You have already reviewed this class'),
+      new ConflictException('You have already reviewed this product'),
     ],
   )
   create(@Req() req: { user: { id: string } }, @Body() input: CreateReviewDto) {
@@ -54,7 +60,7 @@ export class ReviewController {
   @Public()
   @PaginatedObjectResponse(ClassReviewSummaryDto, 'Get class reviews success', [
     BadRequestException,
-    NotFoundException,
+    CLASS_NOT_FOUND,
   ])
   findClassReviews(
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -68,7 +74,7 @@ export class ReviewController {
   @PaginatedObjectResponse(
     ClassReviewSummaryDto,
     'Get product reviews success',
-    [BadRequestException, NotFoundException],
+    [BadRequestException, PRODUCT_NOT_FOUND],
   )
   findProductReviews(
     @Param('productId', ParseUUIDPipe) productId: string,
@@ -82,7 +88,7 @@ export class ReviewController {
   @PaginatedObjectResponse(
     MerchantReviewSummaryDto,
     'Get merchant reviews success',
-    [BadRequestException, NotFoundException],
+    [BadRequestException, new NotFoundException('Merchant not found')],
   )
   findMerchantReviews(
     @Param('merchantId', ParseUUIDPipe) merchantId: string,

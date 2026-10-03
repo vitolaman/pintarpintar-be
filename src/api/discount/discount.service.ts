@@ -34,9 +34,9 @@ import {
 import { classKindSql } from '~/common/catalog/item-kind';
 import { assetUrl } from '~/common/storage/asset-url';
 
-// Uppercase letters and digits without look-alikes (0/O, 1/I/L).
 // Bounds one request's work; a `once` entry generates one row per code.
 const MAX_SINGLE_USE_CODES_PER_REQUEST = 1000;
+// Uppercase letters and digits without look-alikes (0/O, 1/I/L).
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_PREFIX = 'DSC-';
 const CODE_LENGTH = 8;

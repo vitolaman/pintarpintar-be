@@ -33,6 +33,9 @@ import { JobApplicationService } from './job-application.service';
 
 type AuthenticatedRequest = { user: { id: string } };
 
+const MERCHANT_NOT_FOUND = new NotFoundException('Merchant not found');
+const APPLICATION_NOT_FOUND = new NotFoundException('Application not found');
+
 @Controller('api/v1')
 @ApiBearerAuth()
 @ApiTags('Karir Job Applications')
@@ -44,7 +47,11 @@ export class JobApplicationController {
     MyApplicationResponseDto,
     'Apply job success',
     HttpStatus.CREATED,
-    [BadRequestException, NotFoundException, ConflictException],
+    [
+      BadRequestException,
+      new NotFoundException('Job posting not found'),
+      new ConflictException('You have already applied to this job'),
+    ],
   )
   apply(
     @Req() req: AuthenticatedRequest,
@@ -70,7 +77,7 @@ export class JobApplicationController {
   @Get('merchant/job-applications')
   @PaginatedObjectResponse(ApplicantListResponseDto, 'Get applicants success', [
     BadRequestException,
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
   ])
   findApplicants(
     @Req() req: AuthenticatedRequest,
@@ -80,7 +87,12 @@ export class JobApplicationController {
   }
 
   @Get('merchant/job-applications/:id/cv')
-  @DefaultResponse(ApplicantCvLinkDto, 'Get applicant CV success')
+  @DefaultResponse(
+    ApplicantCvLinkDto,
+    'Get applicant CV success',
+    HttpStatus.OK,
+    [MERCHANT_NOT_FOUND, APPLICATION_NOT_FOUND],
+  )
   findApplicantCv(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
@@ -94,7 +106,7 @@ export class JobApplicationController {
     ApplicantResponseDto,
     'Schedule interview success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_FOUND, APPLICATION_NOT_FOUND],
   )
   scheduleInterview(
     @Req() req: AuthenticatedRequest,
@@ -110,7 +122,13 @@ export class JobApplicationController {
     ApplicantResponseDto,
     'Accept applicant success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException, ConflictException],
+    [
+      BadRequestException,
+      MERCHANT_NOT_FOUND,
+      APPLICATION_NOT_FOUND,
+      new ConflictException('The applicant account no longer exists'),
+      new ConflictException('The applicant mentor account is not active'),
+    ],
   )
   accept(
     @Req() req: AuthenticatedRequest,
@@ -125,7 +143,7 @@ export class JobApplicationController {
     ApplicantResponseDto,
     'Reject applicant success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_FOUND, APPLICATION_NOT_FOUND],
   )
   reject(
     @Req() req: AuthenticatedRequest,

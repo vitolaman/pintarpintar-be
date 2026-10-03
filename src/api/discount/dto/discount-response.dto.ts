@@ -97,7 +97,8 @@ export class DiscountResponseDto {
   status: DiscountStatus;
 
   @ApiProperty({
-    description: 'True when the discount has no explicit targets',
+    description:
+      'True when the discount has no explicit targets, so it applies to every item of the merchant, bundles included',
   })
   applies_to_all: boolean;
 

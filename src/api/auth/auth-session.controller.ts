@@ -39,7 +39,7 @@ export class AuthSessionController {
   @ApiOperation({
     summary: 'Change the password; other devices are signed out',
     description:
-      'data.token replaces the token of this device. 400 for a wrong current password or a weak new password',
+      'data.token replaces the token of this device. 400 for a wrong current password, a weak new password, or a new password equal to the current one',
   })
   @DefaultResponse(AuthTokenDto, 'Password changed', HttpStatus.OK, [
     BadRequestException,

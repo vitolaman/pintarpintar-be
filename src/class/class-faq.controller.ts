@@ -27,6 +27,14 @@ import {
 } from './dto/class-faq.dto';
 import { ClassResponseDto } from './dto/class-response.dto';
 import { classTypeOf } from '../common/catalog/item-kind';
+import {
+  CLASS_NOT_FOUND,
+  OWNER_ONLY,
+  notFound,
+  tutorLacks,
+} from './class-route-errors';
+
+const FAQ_NOT_FOUND = notFound('FAQ entry not found');
 
 type AuthenticatedRequest = { user: { id: string } };
 
@@ -41,7 +49,10 @@ export class ClassFaqController {
   ) {}
 
   @Get(':classId/faqs')
-  @ArrayResponse(ClassFaqResponseDto, 'Get class FAQ success')
+  @ArrayResponse(ClassFaqResponseDto, 'Get class FAQ success', [
+    tutorLacks('materi', 'lihat'),
+    CLASS_NOT_FOUND,
+  ])
   findFaqs(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -54,6 +65,7 @@ export class ClassFaqController {
     ClassFaqResponseDto,
     'Create class FAQ success',
     HttpStatus.CREATED,
+    [tutorLacks('materi', 'tambah'), CLASS_NOT_FOUND],
   )
   createFaq(
     @Req() req: AuthenticatedRequest,
@@ -64,7 +76,12 @@ export class ClassFaqController {
   }
 
   @Patch(':classId/faqs/:faqId')
-  @DefaultResponse(ClassFaqResponseDto, 'Update class FAQ success')
+  @DefaultResponse(
+    ClassFaqResponseDto,
+    'Update class FAQ success',
+    HttpStatus.OK,
+    [tutorLacks('materi', 'edit'), CLASS_NOT_FOUND, FAQ_NOT_FOUND],
+  )
   updateFaq(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -76,7 +93,11 @@ export class ClassFaqController {
 
   @Delete(':classId/faqs/:faqId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse()
+  @EmptyResponse([
+    tutorLacks('materi', 'delete'),
+    CLASS_NOT_FOUND,
+    FAQ_NOT_FOUND,
+  ])
   deleteFaq(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -90,6 +111,7 @@ export class ClassFaqController {
     ClassResponseDto,
     'Duplicate class success',
     HttpStatus.CREATED,
+    [OWNER_ONLY, CLASS_NOT_FOUND],
   )
   duplicate(
     @Req() req: AuthenticatedRequest,

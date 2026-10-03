@@ -28,13 +28,14 @@ export class GradeSubmissionDto {
     integer: true,
     min: 0,
     max: 100,
-    description: 'File assignments only',
+    description: 'Required for a file assignment; rejected for a quiz',
   })
   score?: number;
 
   @ApiPropertyOptional({
     type: [EssayScoreDto],
-    description: 'Quizzes only: scores of essay answers',
+    description:
+      'Quizzes only: scores of essay answers; the quiz score follows once every essay is scored',
   })
   @IsOptional()
   @IsArray()

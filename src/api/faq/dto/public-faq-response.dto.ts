@@ -29,10 +29,12 @@ export class PublicFaqCategoryResponseDto {
 }
 
 export class PublicFaqMetaResponseDto {
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Active categories with at least one active question',
+  })
   category_count: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Active questions in those categories' })
   question_count: number;
 }
 

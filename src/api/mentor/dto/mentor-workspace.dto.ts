@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { EnumInput, QueryFilter } from '~/common/decorator/input.decorator';
 import { ClassKind, classKinds } from '~/common/catalog/item-kind';
+import { TUTOR_ROLES } from '~/class/class-permissions';
 
 export class MentorClassesQueryDto {
   @EnumInput(classKinds, { presence: 'filter' })
@@ -35,10 +36,14 @@ export class MentorDashboardStatsDto {
   })
   upcoming_sessions: number;
 
-  @ApiProperty({ example: 4.7 })
+  @ApiProperty({
+    example: 4.7,
+    description:
+      'Average review rating of the assigned classes, one decimal; 0 without reviews',
+  })
   rating: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Reviews of the assigned classes' })
   review_count: number;
 }
 
@@ -52,7 +57,7 @@ export class MentorUpcomingSessionDto {
   @ApiProperty({ example: '2026-10-02' })
   date: string;
 
-  @ApiPropertyOptional({ example: '19:00' })
+  @ApiPropertyOptional({ example: '19:00', nullable: true })
   time: string | null;
 
   @ApiProperty({ format: 'uuid' })
@@ -84,7 +89,7 @@ export class MentorRecentMessageDto {
   @ApiProperty()
   user_name: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   avatar_url: string | null;
 
   @ApiProperty({ format: 'uuid' })
@@ -149,7 +154,7 @@ export class MentorClassResponseDto {
   @ApiProperty({ example: 'published' })
   status: string;
 
-  @ApiProperty({ example: 'Lead Tutor / Instruktur Utama' })
+  @ApiProperty({ enum: TUTOR_ROLES, example: 'lead' })
   role: string;
 
   @ApiPropertyOptional({
@@ -181,10 +186,10 @@ export class TeachingClassMerchantDto {
   @ApiProperty()
   name: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   avatar_url: string | null;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ nullable: true })
   city: string | null;
 }
 
@@ -208,6 +213,7 @@ export class TeachingClassResponseDto {
   start_year: number;
 
   @ApiPropertyOptional({
+    nullable: true,
     description: 'Null while the assignment is ongoing',
     example: null,
   })

@@ -29,7 +29,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(AuthTokenWithUserDto, 'Account Created!', HttpStatus.OK, [
     BadRequestException,
-    ConflictException,
+    new ConflictException('Email already registered'),
   ])
   signUp(@Body() body: SignUpBodyDto) {
     return this.authService.signUp(body);
@@ -42,7 +42,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(AuthTokenWithUserDto, 'Login Success', HttpStatus.OK, [
     BadRequestException,
-    ForbiddenException,
+    new ForbiddenException('invalid username or password'),
   ])
   signIn(@Body() body: SignInBodyDto) {
     return this.authService.signIn(body);

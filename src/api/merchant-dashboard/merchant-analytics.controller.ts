@@ -21,7 +21,10 @@ import {
 import { MerchantAnalyticsService } from './merchant-analytics.service';
 
 type AuthenticatedRequest = { user: { id: string } };
-const ERRORS = [BadRequestException, NotFoundException];
+const ERRORS = [
+  BadRequestException,
+  new NotFoundException('Merchant not found'),
+];
 
 // The merchant "Analitik" page.
 @Controller('api/v1/merchant/analytics')

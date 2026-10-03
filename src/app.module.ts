@@ -11,6 +11,7 @@ import { UserModule } from './api/user/user.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtGuard } from './common/guard/jwt.guard';
+import { TOO_MANY_REQUESTS_MESSAGE } from './common/guard/client-address-throttler.guard';
 // import { RedisModule } from './common/redis/src';
 // import { RedisHealthIndicator } from './common/redis/src/redis-health-indicator';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -67,7 +68,10 @@ import { MerchantLevelModule } from './api/merchant-level/merchant-level.module'
     TypeOrmModule.forRoot(dataSourceOptions),
     TypeOrmModule.forFeature([User]),
     // Limits are set per route with @Throttle; no guard applies globally.
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60_000, limit: 10 }],
+      errorMessage: TOO_MANY_REQUESTS_MESSAGE,
+    }),
     ScheduleModule.forRoot(),
     // RedisModule,
     AuthModule,

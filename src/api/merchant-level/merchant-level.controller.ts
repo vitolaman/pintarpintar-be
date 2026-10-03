@@ -17,7 +17,7 @@ export class MerchantLevelController {
   @PaginatedResponse(
     LevelEvaluationResponseDto,
     'Get level evaluations success',
-    [NotFoundException],
+    [new NotFoundException('Merchant not found')],
   )
   findEvaluations(
     @Req() req: { user: { id: string } },

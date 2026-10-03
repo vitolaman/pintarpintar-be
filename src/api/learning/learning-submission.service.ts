@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
+import { ClassCertificateService } from '../../class/class-certificate.service';
 import { Submission } from '../../class/entities/submission.entity';
 import { SubmissionAnswer } from '../../class/entities/submission-answer.entity';
 import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
@@ -30,6 +31,7 @@ export class LearningSubmissionService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly learningAssignment: LearningAssignmentService,
+    private readonly certificates: ClassCertificateService,
   ) {}
 
   async submitFile(
@@ -120,6 +122,13 @@ export class LearningSubmissionService {
           created_by: userId,
         })),
       );
+      // A quiz of multiple-choice questions only is graded on submission,
+      // which can complete the learner's last certificate requirement.
+      if (saved.total_score !== null) {
+        await this.certificates.issueEligible(manager, assignment.class_id, [
+          userId,
+        ]);
+      }
       return this.response(
         manager,
         userId,

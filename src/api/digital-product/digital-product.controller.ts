@@ -30,6 +30,12 @@ import {
 import { DigitalProductResponseDto } from './dto/digital-product-response.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
+const MERCHANT_NOT_FOUND = new NotFoundException('Merchant not found');
+const PRODUCT_ERRORS = [
+  BadRequestException,
+  MERCHANT_NOT_FOUND,
+  new NotFoundException('Digital product not found'),
+];
 
 @Controller('api/v1/merchant/digital-products')
 @ApiBearerAuth()
@@ -41,7 +47,7 @@ export class DigitalProductController {
   @PaginatedResponse(
     DigitalProductResponseDto,
     'Get digital products success',
-    [BadRequestException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_FOUND],
   )
   findAll(
     @Req() req: AuthenticatedRequest,
@@ -55,7 +61,7 @@ export class DigitalProductController {
     DigitalProductResponseDto,
     'Get digital product success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    PRODUCT_ERRORS,
   )
   findOne(
     @Req() req: AuthenticatedRequest,
@@ -69,7 +75,7 @@ export class DigitalProductController {
     DigitalProductResponseDto,
     'Create digital product success',
     HttpStatus.CREATED,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_FOUND],
   )
   create(
     @Req() req: AuthenticatedRequest,
@@ -83,7 +89,7 @@ export class DigitalProductController {
     DigitalProductResponseDto,
     'Update digital product success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    PRODUCT_ERRORS,
   )
   update(
     @Req() req: AuthenticatedRequest,
@@ -95,7 +101,12 @@ export class DigitalProductController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse([BadRequestException, NotFoundException, ConflictException])
+  @EmptyResponse([
+    ...PRODUCT_ERRORS,
+    new ConflictException(
+      'Remove this product from its active bundles before deleting it',
+    ),
+  ])
   remove(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,

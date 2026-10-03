@@ -24,10 +24,10 @@ import { isPromoCodeAvailable } from '~/common/promo-code/promo-code-namespace';
 import { escapeLike } from '~/common/util/escape-like';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 
-// Presentation labels from the voucher pages, assigned per voucher so a
-// voucher keeps the same tag across requests.
 export const FEATURED_VOUCHER_COUNT = 3;
 
+// Presentation labels from the voucher pages, assigned per voucher so a
+// voucher keeps the same tag across requests.
 export const VOUCHER_TAGS = [
   'PROMO SUPER',
   'DISKON TINGGI',

@@ -33,6 +33,10 @@ import {
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { VoucherService } from './voucher.service';
 
+const MERCHANT_NOT_FOUND = new NotFoundException('Merchant not found');
+const VOUCHER_NOT_FOUND = new NotFoundException('Voucher not found');
+const CODE_CONFLICT = new ConflictException('Voucher code already exists');
+
 @Controller('api/v1')
 @ApiTags('Vouchers')
 export class VoucherController {
@@ -44,7 +48,7 @@ export class VoucherController {
     VoucherResponseDto,
     'Create voucher success',
     HttpStatus.CREATED,
-    [BadRequestException, ConflictException, NotFoundException],
+    [BadRequestException, CODE_CONFLICT, MERCHANT_NOT_FOUND],
   )
   create(
     @Req() req: { user: { id: string } },
@@ -56,7 +60,7 @@ export class VoucherController {
   @Get('merchant/vouchers')
   @ApiBearerAuth()
   @PaginatedResponse(VoucherResponseDto, 'Get vouchers success', [
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
   ])
   findAll(
     @Req() req: { user: { id: string } },
@@ -68,7 +72,8 @@ export class VoucherController {
   @Get('merchant/vouchers/:id')
   @ApiBearerAuth()
   @DefaultResponse(VoucherResponseDto, 'Get voucher success', HttpStatus.OK, [
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
+    VOUCHER_NOT_FOUND,
   ])
   findOne(
     @Req() req: { user: { id: string } },
@@ -83,7 +88,7 @@ export class VoucherController {
     VoucherResponseDto,
     'Update voucher success',
     HttpStatus.OK,
-    [BadRequestException, ConflictException, NotFoundException],
+    [BadRequestException, CODE_CONFLICT, MERCHANT_NOT_FOUND, VOUCHER_NOT_FOUND],
   )
   update(
     @Req() req: { user: { id: string } },
@@ -96,7 +101,7 @@ export class VoucherController {
   @Delete('merchant/vouchers/:id')
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse([NotFoundException])
+  @EmptyResponse([MERCHANT_NOT_FOUND, VOUCHER_NOT_FOUND])
   remove(
     @Req() req: { user: { id: string } },
     @Param('id', ParseUUIDPipe) id: string,

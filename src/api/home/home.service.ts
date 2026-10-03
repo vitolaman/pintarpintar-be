@@ -173,7 +173,8 @@ export class HomeService {
     }));
   }
 
-  // Testimonials are well-rated class reviews with a written comment.
+  // Testimonials are well-rated class reviews with a written comment. Like
+  // every review list, they keep reviews of deleted accounts.
   private async getTestimonialCards(
     limit: number,
   ): Promise<HomeTestimonialResponseDto[]> {
@@ -189,8 +190,7 @@ export class HomeService {
           class.id AS class_id,
           class.title AS class_title
         FROM reviews review
-        INNER JOIN users reviewer
-          ON reviewer.id = review.user_id AND reviewer.deleted_at IS NULL
+        INNER JOIN users reviewer ON reviewer.id = review.user_id
         INNER JOIN classes class
           ON class.id = review.class_id AND class.deleted_at IS NULL
         LEFT JOIN user_profiles reviewer_profile

@@ -26,6 +26,9 @@ import {
 
 type AuthenticatedRequest = { user: { id: string } };
 
+// Classes the caller has no part in answer this too.
+const CLASS_NOT_FOUND = new NotFoundException('Class not found');
+
 @Controller('api/v1/discussions')
 @ApiBearerAuth()
 @ApiTags('Class Discussions')
@@ -35,7 +38,7 @@ export class DiscussionController {
   @Get('threads')
   @PaginatedResponse(DiscussionThreadDto, 'Get class threads success', [
     BadRequestException,
-    NotFoundException,
+    CLASS_NOT_FOUND,
   ])
   findThreads(
     @Req() req: AuthenticatedRequest,
@@ -53,7 +56,13 @@ export class DiscussionController {
     DiscussionThreadDto,
     'Create thread success',
     HttpStatus.CREATED,
-    [BadRequestException, ForbiddenException, NotFoundException],
+    [
+      BadRequestException,
+      new ForbiddenException(
+        'Only the merchant or class mentors can start a thread',
+      ),
+      CLASS_NOT_FOUND,
+    ],
   )
   createThread(
     @Req() req: AuthenticatedRequest,
@@ -67,7 +76,11 @@ export class DiscussionController {
     DiscussionCommentDto,
     'Create comment success',
     HttpStatus.CREATED,
-    [BadRequestException, NotFoundException],
+    [
+      BadRequestException,
+      new NotFoundException('Thread not found'),
+      CLASS_NOT_FOUND,
+    ],
   )
   createComment(
     @Req() req: AuthenticatedRequest,

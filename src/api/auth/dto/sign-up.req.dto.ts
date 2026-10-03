@@ -16,7 +16,10 @@ export class SignUpBodyDto {
   email: string;
 
   // Passwords are never trimmed: spaces are part of the secret.
-  @ApiProperty({ example: '********' })
+  @ApiProperty({
+    example: '********',
+    description: 'At least 8 characters with at least one digit',
+  })
   @IsString()
   @IsNotEmpty()
   @IsStrongPassword({

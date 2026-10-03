@@ -29,6 +29,10 @@ import {
 // Public routes still read a valid token when one is sent.
 type OptionalAuthRequest = { user?: { id: string } };
 
+// Drafts, unpublished products and items of an inactive or deleted merchant
+// answer this too; an archived class stays readable by id.
+const ITEM_NOT_FOUND = new NotFoundException('Catalog item not found');
+
 @Controller('api/v1/catalog')
 @ApiTags('Catalog')
 // Kept in the contract: generated clients may still name the base card type.
@@ -56,7 +60,7 @@ export class CatalogController {
   @Public()
   @DefaultResponse(CatalogClassDetailDto, 'Get class success', HttpStatus.OK, [
     BadRequestException,
-    NotFoundException,
+    ITEM_NOT_FOUND,
   ])
   findClass(
     @Req() req: OptionalAuthRequest,
@@ -71,7 +75,7 @@ export class CatalogController {
     CatalogDigitalDetailDto,
     'Get digital product success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, ITEM_NOT_FOUND],
   )
   findDigitalProduct(
     @Req() req: OptionalAuthRequest,

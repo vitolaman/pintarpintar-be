@@ -58,7 +58,10 @@ export class WishlistController {
     description:
       'The wishlist entry id, or the id of the class, digital product or bundle in it',
   })
-  @EmptyResponse([BadRequestException, NotFoundException])
+  @EmptyResponse([
+    BadRequestException,
+    new NotFoundException('Wishlist item not found'),
+  ])
   remove(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,

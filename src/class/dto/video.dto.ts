@@ -59,7 +59,7 @@ export class UpdateVideoDto {
   @EnumInput(videoSources, {
     presence: 'optional',
     description:
-      "Optional: sending youtube_url or asset_id switches the source. An explicit source needs that source's field too.",
+      "Optional: sending youtube_url or asset_id switches the source. An explicit source must match the field sent; switching needs that source's field.",
   })
   source?: VideoSource;
 

@@ -25,6 +25,7 @@ export class HomeController {
     HomeStatisticsResponseDto,
     'Get home statistics success',
     HttpStatus.OK,
+    [],
   )
   getStatistics() {
     return this.homeService.getStatistics();

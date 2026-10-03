@@ -33,15 +33,11 @@ export class PublicAttendanceMeetingDto {
   @ApiProperty()
   title: string;
 
-  @ApiProperty({ nullable: true, example: '2026-10-01' })
-  date: string | null;
+  @ApiProperty({ example: '2026-10-01' })
+  date: string;
 
-  @ApiProperty({
-    nullable: true,
-    example: '19:00',
-    description: 'Asia/Jakarta',
-  })
-  time: string | null;
+  @ApiProperty({ example: '19:00', description: 'Asia/Jakarta' })
+  time: string;
 
   @ApiProperty({ description: 'The meeting has started, so check-in is open' })
   is_open: boolean;
@@ -86,7 +82,7 @@ export class AttendanceSessionDto {
     type: PublicAttendanceMeetingDto,
     nullable: true,
     description:
-      'The latest started meeting, else the next upcoming one; null without meetings',
+      'The latest started meeting, else the next upcoming one; null when no meeting has a date and time (always for video classes)',
   })
   meeting: PublicAttendanceMeetingDto | null;
 }

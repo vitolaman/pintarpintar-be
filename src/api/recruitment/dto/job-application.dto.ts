@@ -178,7 +178,7 @@ export class ApplicantResponseDto extends ApplicationProgressFields {
   @ApiPropertyOptional({ nullable: true }) avatar_url: string | null;
   @ApiPropertyOptional({
     nullable: true,
-    description: 'From the mentor profile, when there is one',
+    description: "From the applicant's user profile, when set",
   })
   headline: string | null;
   @ApiPropertyOptional({

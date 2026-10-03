@@ -27,6 +27,7 @@ const WIB_NOW = `(now() AT TIME ZONE 'Asia/Jakarta')`;
 const JAKARTA = 'Asia/Jakarta';
 
 const MAX_CHECKPOINTS = 400;
+const MAX_RANGE_YEARS = 10;
 const RETENTION_WINDOW_DAYS = 90;
 
 const PERIOD_UNITS: Record<SummaryPeriod, 'day' | 'month' | 'year'> = {
@@ -57,6 +58,13 @@ export class MerchantAnalyticsService {
     const merchantId = await this.findMerchantId(userId);
     if (query.from > query.to) {
       throw new BadRequestException('from must not be after to');
+    }
+    if (
+      moment(query.to).diff(moment(query.from), 'years', true) > MAX_RANGE_YEARS
+    ) {
+      throw new BadRequestException(
+        `from and to must be at most ${MAX_RANGE_YEARS} years apart`,
+      );
     }
     const granularity = query.granularity ?? defaultGranularity(query);
     if (checkpointCount(query.from, query.to, granularity) > MAX_CHECKPOINTS) {

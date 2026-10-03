@@ -18,7 +18,7 @@ export class CartResponseDto {
 
   @ApiProperty({
     example: 424000,
-    description: 'Sum of available items live prices',
+    description: 'Sum of the current prices of available items',
   })
   subtotal: number;
 

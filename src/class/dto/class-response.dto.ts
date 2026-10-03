@@ -25,7 +25,8 @@ export class ClassResponseDto {
   @ApiPropertyOptional({ nullable: true }) cover_asset_id: string | null;
   @ApiPropertyOptional({
     nullable: true,
-    description: 'Null when no public asset base URL is configured',
+    description:
+      'Null without a cover or when no public asset base URL is configured',
   })
   cover_url: string | null;
   @ApiProperty({
@@ -121,9 +122,14 @@ export class MeetingResponseDto {
   @ApiProperty() class_id: string;
   @ApiProperty() title: string;
   @ApiPropertyOptional({ nullable: true }) content: string | null;
-  @ApiProperty({ example: '2026-10-15' }) date: string;
-  @ApiProperty({ example: '19:30', description: 'HH:mm, Asia/Jakarta' })
-  time: string;
+  @ApiPropertyOptional({ nullable: true, example: '2026-10-15' })
+  date: string | null;
+  @ApiPropertyOptional({
+    nullable: true,
+    example: '19:30',
+    description: 'HH:mm, Asia/Jakarta',
+  })
+  time: string | null;
   @ApiPropertyOptional({ nullable: true }) live_url: string | null;
   @ApiProperty({
     enum: ['upcoming', 'completed'],

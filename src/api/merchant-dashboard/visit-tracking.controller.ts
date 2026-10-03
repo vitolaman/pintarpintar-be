@@ -37,7 +37,7 @@ export class VisitTrackingController {
     TrackVisitResponseDto,
     'Track visit success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, new NotFoundException('Page not found')],
   )
   track(
     @Req() req: { user?: { id: string } },

@@ -40,6 +40,9 @@ import { CreateClassDto } from '../../class/dto/create-class.dto';
 import { ClassResponseDto } from '../../class/dto/class-response.dto';
 import { PaginatedResponse } from '~/common/decorator/response.decorator';
 
+const MERCHANT_NOT_FOUND = new NotFoundException('Merchant not found');
+const WALLET_NOT_FOUND = new NotFoundException('Merchant wallet not found');
+
 @Controller('api/v1')
 @ApiBearerAuth()
 @ApiTags('Merchants')
@@ -55,7 +58,11 @@ export class MerchantController {
     MerchantResponseDto,
     'Register merchant success',
     HttpStatus.CREATED,
-    [BadRequestException, ConflictException, NotFoundException],
+    [
+      BadRequestException,
+      new ConflictException('User already owns a merchant'),
+      new NotFoundException('User not found'),
+    ],
   )
   register(
     @Req() req: { user: { id: string } },
@@ -74,7 +81,7 @@ export class MerchantController {
     PublicMerchantStorefrontResponseDto,
     'Get public merchant success',
     HttpStatus.OK,
-    [NotFoundException],
+    [MERCHANT_NOT_FOUND],
   )
   findPublicStorefront(
     @Req() req: { user?: { id: string } },
@@ -88,7 +95,7 @@ export class MerchantController {
     MerchantResponseDto,
     'Get merchant profile success',
     HttpStatus.OK,
-    [NotFoundException],
+    [MERCHANT_NOT_FOUND],
   )
   findProfile(@Req() req: { user: { id: string } }) {
     return this.merchantService.findMerchantProfile(req.user.id);
@@ -99,7 +106,7 @@ export class MerchantController {
     MerchantWalletResponseDto,
     'Get merchant wallet success',
     HttpStatus.OK,
-    [NotFoundException],
+    [MERCHANT_NOT_FOUND, WALLET_NOT_FOUND],
   )
   findWallet(@Req() req: { user: { id: string } }) {
     return this.merchantService.findWallet(req.user.id);
@@ -111,7 +118,12 @@ export class MerchantController {
     WithdrawalResponseDto,
     'Request withdrawal success',
     HttpStatus.CREATED,
-    [BadRequestException, NotFoundException],
+    [
+      BadRequestException,
+      MERCHANT_NOT_FOUND,
+      WALLET_NOT_FOUND,
+      new NotFoundException('Payout account not found'),
+    ],
   )
   requestWithdrawal(
     @Req() req: { user: { id: string } },
@@ -124,7 +136,7 @@ export class MerchantController {
   @PaginatedResponse(
     BalanceHistoryItemResponseDto,
     'Get balance history success',
-    [BadRequestException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_FOUND],
   )
   findBalanceHistory(
     @Req() req: { user: { id: string } },
@@ -138,7 +150,7 @@ export class MerchantController {
     MerchantResponseDto,
     'Update merchant profile success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_FOUND],
   )
   updateProfile(
     @Req() req: { user: { id: string } },
@@ -152,7 +164,7 @@ export class MerchantController {
     NotificationPreferencesResponseDto,
     'Get notification preferences success',
     HttpStatus.OK,
-    [NotFoundException],
+    [MERCHANT_NOT_FOUND],
   )
   findNotificationPreferences(@Req() req: { user: { id: string } }) {
     return this.merchantService.findNotificationPreferences(req.user.id);
@@ -163,7 +175,7 @@ export class MerchantController {
     NotificationPreferencesResponseDto,
     'Update notification preferences success',
     HttpStatus.OK,
-    [NotFoundException],
+    [MERCHANT_NOT_FOUND],
   )
   updateNotificationPreferences(
     @Req() req: { user: { id: string } },
@@ -176,7 +188,12 @@ export class MerchantController {
   }
 
   @Post('merchant/classes')
-  @DefaultResponse(ClassResponseDto, 'Create class success', HttpStatus.CREATED)
+  @DefaultResponse(
+    ClassResponseDto,
+    'Create class success',
+    HttpStatus.CREATED,
+    [MERCHANT_NOT_FOUND],
+  )
   async createClass(
     @Req() req: { user: { id: string } },
     @Body() dto: CreateClassDto,
@@ -188,7 +205,9 @@ export class MerchantController {
   }
 
   @Get('merchant/classes')
-  @PaginatedResponse(ClassResponseDto, 'Get classes success')
+  @PaginatedResponse(ClassResponseDto, 'Get classes success', [
+    MERCHANT_NOT_FOUND,
+  ])
   async getClasses(
     @Req() req: { user: { id: string } },
     @Query() query: ClassListQueryDto,

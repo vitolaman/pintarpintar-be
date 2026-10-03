@@ -1,6 +1,5 @@
 import {
   BadGatewayException,
-  BadRequestException,
   ConflictException,
   Body,
   Controller,
@@ -25,12 +24,9 @@ import {
 
 type AuthenticatedRequest = { user: { id: string } };
 
-const uploadErrors = () =>
-  ApiException(() => [
-    BadRequestException,
-    ForbiddenException,
-    InternalServerErrorException,
-  ]);
+const ANOTHER_USERS_UPLOAD = new ForbiddenException(
+  'This upload belongs to another user',
+);
 
 // S3 multipart upload: initiate, PUT each part to a presigned URL, complete.
 // Keys belong to the user who initiated them. Completing also registers the
@@ -46,7 +42,9 @@ export class UploadController {
 
   @Post('initiate')
   @ApiCreatedResponse({ type: InitiateUploadResponseDto })
-  @uploadErrors()
+  @ApiException(() => [
+    new InternalServerErrorException('Failed to initiate multipart upload'),
+  ])
   async initiateUpload(
     @Req() req: AuthenticatedRequest,
     @Body() dto: InitiateUploadDto,
@@ -60,7 +58,10 @@ export class UploadController {
 
   @Post('presigned-urls')
   @ApiCreatedResponse({ type: [PresignedPartUrlDto] })
-  @uploadErrors()
+  @ApiException(() => [
+    ANOTHER_USERS_UPLOAD,
+    new InternalServerErrorException('Failed to generate presigned URLs'),
+  ])
   async getPresignedUrls(
     @Req() req: AuthenticatedRequest,
     @Body() dto: PresignedUrlDto,
@@ -76,11 +77,10 @@ export class UploadController {
   @Post('complete')
   @ApiCreatedResponse({ type: CompleteUploadResponseDto })
   @ApiException(() => [
-    BadRequestException,
-    ForbiddenException,
-    ConflictException,
-    InternalServerErrorException,
-    BadGatewayException,
+    ANOTHER_USERS_UPLOAD,
+    new ConflictException('This upload is already registered'),
+    new InternalServerErrorException('Failed to complete multipart upload'),
+    new BadGatewayException('File storage is unavailable'),
   ])
   async completeUpload(
     @Req() req: AuthenticatedRequest,

@@ -132,7 +132,8 @@ export class CatalogItemDetailsDto {
 
   @ApiProperty({
     example: 350000,
-    description: 'List price, or the item total for bundles',
+    description:
+      "List price; for a bundle, the sum of its items' current selling prices",
   })
   original_price: number;
 
@@ -145,7 +146,10 @@ export class CatalogItemDetailsDto {
   @ApiProperty({ nullable: true })
   merchant_slug: string | null;
 
-  @ApiProperty({ description: 'Publicly available for purchase' })
+  @ApiProperty({
+    description:
+      'Can be bought now: published (an unlisted class or bundle also counts), not deleted, and its merchant is active',
+  })
   is_available: boolean;
 }
 
@@ -181,7 +185,7 @@ const CATALOG_DETAILS_SQL = `
            FROM bundle_items item
            LEFT JOIN classes class ON class.id = item.class_id
            LEFT JOIN products product ON product.id = item.product_id
-           WHERE item.bundle_id = bundle.id
+           WHERE item.bundle_id = bundle.id AND item.deleted_at IS NULL
          ), 0),
          bundle.merchant_id,
          bundle.status IN ('published', 'unlisted') AND bundle.deleted_at IS NULL

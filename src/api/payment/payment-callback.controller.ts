@@ -32,9 +32,9 @@ export class PaymentCallbackController {
   ) {}
 
   /**
-   * Duitku's payment notification: the only source that marks an order paid.
-   * Duitku retries until it receives 200, so a repeat is acknowledged
-   * without applying anything twice.
+   * Duitku's payment notification. An order is also marked paid by
+   * check-payment, or at checkout when it totals Rp0. Duitku retries until it
+   * receives 200, so a repeat is acknowledged without applying anything twice.
    */
   @Public()
   @Post('duitku/callback')
@@ -51,7 +51,8 @@ export class PaymentCallbackController {
     },
   })
   @ApiBadRequestResponse({
-    description: 'Invalid signature, unknown order, or amount mismatch',
+    description:
+      'Missing or invalid fields, invalid signature or merchant code, unknown order, or amount mismatch',
   })
   @ApiServiceUnavailableResponse({
     description: 'Payment gateway is not configured',

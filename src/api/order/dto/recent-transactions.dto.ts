@@ -20,7 +20,11 @@ export class TransactionsQueryDto {
   @LimitQuery()
   limit = 10;
 
-  @EnumInput(Object.values(OrderStatus), { presence: 'filter' })
+  @EnumInput(Object.values(OrderStatus), {
+    presence: 'filter',
+    description:
+      'Filters by the status as returned: an unpaid order past its expiry counts as `expired`',
+  })
   status?: OrderStatus;
 }
 
@@ -43,7 +47,7 @@ export class TransactionItemResponseDto {
   @ApiProperty({ nullable: true, example: 'Akademi Teknik Budi' })
   merchant_name: string | null;
 
-  @ApiProperty({ example: 299000 })
+  @ApiProperty({ example: 299000, description: 'Selling price before codes' })
   price: number;
 }
 

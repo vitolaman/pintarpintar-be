@@ -155,7 +155,8 @@ export class JobApplicationService {
         return application.id;
       });
     } catch (error) {
-      // A concurrent second application loses on the unique index.
+      // A second application to the same job, concurrent or not, fails on
+      // the unique index.
       if (
         error instanceof QueryFailedError &&
         (error as unknown as { code: string }).code === UNIQUE_VIOLATION

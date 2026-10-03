@@ -35,6 +35,12 @@ import {
 } from './dto/discount-response.dto';
 
 type AuthenticatedRequest = { user: { id: string } };
+const MERCHANT_NOT_FOUND = new NotFoundException('Merchant not found');
+const DISCOUNT_ERRORS = [
+  BadRequestException,
+  MERCHANT_NOT_FOUND,
+  new NotFoundException('Discount not found'),
+];
 
 @Controller('api/v1/merchant')
 @ApiBearerAuth()
@@ -46,7 +52,7 @@ export class DiscountController {
   @ArrayResponse(
     DiscountEligibleItemResponseDto,
     'Get eligible products success',
-    [NotFoundException],
+    [MERCHANT_NOT_FOUND],
   )
   findEligibleProducts(@Req() req: AuthenticatedRequest) {
     return this.discountService.findEligibleProducts(req.user.id);
@@ -57,7 +63,7 @@ export class DiscountController {
     DiscountResponseDto,
     'Create discount success',
     HttpStatus.CREATED,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_FOUND],
   )
   create(@Req() req: AuthenticatedRequest, @Body() input: CreateDiscountDto) {
     return this.discountService.create(req.user.id, input);
@@ -66,7 +72,7 @@ export class DiscountController {
   @Get('discounts')
   @PaginatedResponse(DiscountResponseDto, 'Get discounts success', [
     BadRequestException,
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
   ])
   findAll(
     @Req() req: AuthenticatedRequest,
@@ -76,10 +82,12 @@ export class DiscountController {
   }
 
   @Get('discounts/:id')
-  @DefaultResponse(DiscountResponseDto, 'Get discount success', HttpStatus.OK, [
-    BadRequestException,
-    NotFoundException,
-  ])
+  @DefaultResponse(
+    DiscountResponseDto,
+    'Get discount success',
+    HttpStatus.OK,
+    DISCOUNT_ERRORS,
+  )
   findOne(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
@@ -92,7 +100,7 @@ export class DiscountController {
     DiscountResponseDto,
     'Update discount success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    DISCOUNT_ERRORS,
   )
   update(
     @Req() req: AuthenticatedRequest,
@@ -104,7 +112,7 @@ export class DiscountController {
 
   @Delete('discounts/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse([BadRequestException, NotFoundException])
+  @EmptyResponse(DISCOUNT_ERRORS)
   remove(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
@@ -117,7 +125,7 @@ export class DiscountController {
     DiscountResponseDto,
     'Add discount codes success',
     HttpStatus.CREATED,
-    [BadRequestException, NotFoundException],
+    DISCOUNT_ERRORS,
   )
   addCodes(
     @Req() req: AuthenticatedRequest,
@@ -133,7 +141,7 @@ export class DiscountController {
     DiscountResponseDto,
     'Remove discount codes success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    DISCOUNT_ERRORS,
   )
   removeCodes(
     @Req() req: AuthenticatedRequest,
@@ -145,7 +153,11 @@ export class DiscountController {
 
   @Delete('discount-codes/:codeId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse([BadRequestException, NotFoundException])
+  @EmptyResponse([
+    BadRequestException,
+    MERCHANT_NOT_FOUND,
+    new NotFoundException('Discount code not found'),
+  ])
   removeCode(
     @Req() req: AuthenticatedRequest,
     @Param('codeId', ParseUUIDPipe) codeId: string,

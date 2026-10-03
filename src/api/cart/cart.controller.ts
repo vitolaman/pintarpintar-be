@@ -82,7 +82,7 @@ export class CartController {
   })
   @DefaultResponse(CartResponseDto, 'Remove cart item success', HttpStatus.OK, [
     BadRequestException,
-    NotFoundException,
+    new NotFoundException('Cart item not found'),
   ])
   remove(
     @Req() req: AuthenticatedRequest,

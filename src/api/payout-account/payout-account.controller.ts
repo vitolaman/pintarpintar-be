@@ -25,6 +25,12 @@ import { UpdatePayoutAccountDto } from './dto/update-payout-account.dto';
 import { PayoutAccountService } from './payout-account.service';
 
 type AuthenticatedRequest = { user: { id: string } };
+const MERCHANT_NOT_FOUND = new NotFoundException('Merchant not found');
+const ACCOUNT_ERRORS = [
+  BadRequestException,
+  MERCHANT_NOT_FOUND,
+  new NotFoundException('Payout account not found'),
+];
 
 @Controller('api/v1/merchant/payout-accounts')
 @ApiBearerAuth()
@@ -34,7 +40,7 @@ export class PayoutAccountController {
 
   @Get()
   @ArrayResponse(PayoutAccountResponseDto, 'Get payout accounts success', [
-    NotFoundException,
+    MERCHANT_NOT_FOUND,
   ])
   findAll(@Req() req: AuthenticatedRequest) {
     return this.payoutAccountService.findAll(req.user.id);
@@ -45,7 +51,7 @@ export class PayoutAccountController {
     PayoutAccountResponseDto,
     'Create payout account success',
     HttpStatus.CREATED,
-    [BadRequestException, NotFoundException],
+    [BadRequestException, MERCHANT_NOT_FOUND],
   )
   create(
     @Req() req: AuthenticatedRequest,
@@ -59,7 +65,7 @@ export class PayoutAccountController {
     PayoutAccountResponseDto,
     'Update payout account success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    ACCOUNT_ERRORS,
   )
   update(
     @Req() req: AuthenticatedRequest,
@@ -75,7 +81,7 @@ export class PayoutAccountController {
     PayoutAccountResponseDto,
     'Set primary payout account success',
     HttpStatus.OK,
-    [BadRequestException, NotFoundException],
+    ACCOUNT_ERRORS,
   )
   setPrimary(
     @Req() req: AuthenticatedRequest,
@@ -86,7 +92,7 @@ export class PayoutAccountController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @EmptyResponse([BadRequestException, NotFoundException])
+  @EmptyResponse(ACCOUNT_ERRORS)
   remove(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,

@@ -358,8 +358,9 @@ export class ClassCertificateService {
   }
 
   // Called in the same transaction as any change that can make learners
-  // eligible (completion, grading, attendance, settings). Issues nothing in
-  // manual mode.
+  // eligible (video completion or video changes, grading, an auto-scored
+  // quiz, attendance, a deleted meeting or assignment, settings). Issues
+  // nothing in manual mode.
   async issueEligible(
     manager: EntityManager,
     classId: string,

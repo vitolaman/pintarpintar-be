@@ -12,7 +12,7 @@ export class CheckInDto {
   @ClearableText({
     max: 2000,
     description:
-      'Optional feedback on the session (Ulasan & Masukan). Name and email come from the account; any sent are ignored.',
+      'Optional feedback on the session (Ulasan & Masukan). Name and email come from the account; sending them is rejected with 400.',
   })
   feedback?: string | null;
 }

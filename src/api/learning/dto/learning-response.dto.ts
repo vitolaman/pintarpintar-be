@@ -19,7 +19,8 @@ export class LearnerProgressResponseDto {
   @ApiProperty() class_id: string;
 
   @ApiProperty({
-    description: 'Completed videos over all videos, whole percent',
+    description:
+      'Completed videos over all videos, whole percent; 100 without videos',
   })
   progress: number;
 

@@ -26,6 +26,24 @@ import {
 import { findCovers } from '../item-cover/item-covers';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 
+// A digital product linked to the category named by `param` (slug, or name
+// ignoring case) or to any active category below it. Deleted categories cut
+// their subtree off.
+const inCategoryTree = (param: string) => `EXISTS (
+        SELECT 1 FROM product_categories link
+        WHERE link.product_id = items.id AND link.deleted_at IS NULL
+          AND link.category_id IN (
+            WITH RECURSIVE tree AS (
+              SELECT category.id FROM categories category
+              WHERE category.deleted_at IS NULL
+                AND (category.slug = ${param} OR lower(category.name) = lower(${param}))
+              UNION
+              SELECT child.id FROM categories child
+              INNER JOIN tree ON child.parent_id = tree.id
+              WHERE child.deleted_at IS NULL
+            )
+            SELECT id FROM tree))`;
+
 // Current selling price follows the PM rule: the discounted price when set,
 // otherwise the list price.
 const CARD_SQL = `
@@ -102,11 +120,8 @@ const CARD_SQL = `
     AND ($3::text IS NULL OR items.level = $3)
     AND ($4::text IS NULL
       OR (items.type IN ('kelas', 'bootcamp') AND lower(items.category) = lower($4))
-      OR EXISTS (
-        SELECT 1 FROM product_categories link
-        INNER JOIN categories category ON category.id = link.category_id AND category.deleted_at IS NULL
-        WHERE link.product_id = items.id AND link.deleted_at IS NULL
-          AND (category.slug = $4 OR lower(category.name) = lower($4))))
+      OR ${inCategoryTree('$4')})
+    AND ($10::text IS NULL OR ${inCategoryTree('$10')})
     AND (NOT $5::boolean OR (items.list_price > 0 AND items.price < items.list_price))
     AND ($6::uuid IS NULL OR items.id = $6)
     AND ($7::uuid IS NULL OR items.merchant_id = $7)
@@ -191,6 +206,7 @@ export interface CardFilter {
   search?: string;
   level?: string;
   category?: string;
+  subcategory?: string;
   discountedOnly?: boolean;
   id?: string;
   merchantId?: string;
@@ -243,6 +259,7 @@ export class CatalogService {
       search: query.search,
       level: query.level,
       category: query.category,
+      subcategory: query.sub,
       merchantId: query.merchant_id,
       fileFormats: query.file_format,
     };
@@ -280,7 +297,7 @@ export class CatalogService {
         `SELECT cards.*, row_number() OVER (ORDER BY ${sortSql(sort)}, cards.id) AS position
          FROM (${CARD_SQL}) cards
          ORDER BY position
-         LIMIT $10 OFFSET $11`,
+         LIMIT $11 OFFSET $12`,
       )}
        ORDER BY page.position`,
       [...cardParams(filter), limit, offset],
@@ -522,6 +539,7 @@ function cardParams(filter: CardFilter): unknown[] {
     filter.merchantId ?? null,
     filter.fileFormats?.length ? filter.fileFormats : null,
     filter.includeUnlisted ?? false,
+    filter.subcategory ?? null,
   ];
 }
 

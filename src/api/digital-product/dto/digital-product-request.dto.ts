@@ -28,6 +28,8 @@ export const productStatuses = [
 export type ProductStatus = (typeof productStatuses)[number];
 
 const CATEGORY_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const CATEGORY_SLUG_DESCRIPTION =
+  'Slug of any category in GET /api/v1/catalog/categories, a sub-category included: pdf, template, e-book, project-files, template-canva, excel, desain-grafis (sub-categories photoshop, illustrator, figma), videografi (sub-categories video-effect, sound-effect, video-animasi), lainnya';
 
 export class CreateDigitalProductDto {
   @RequiredText({ max: 255, example: 'Template RAB Excel Proyek Rumah' })
@@ -36,11 +38,7 @@ export class CreateDigitalProductDto {
   @ClearableText({ max: 10000 })
   description?: string | null;
 
-  @ApiProperty({
-    example: 'excel',
-    description:
-      'Category slug: pdf, template, e-book, project-files, template-canva, excel, desain-grafis, videografi, lainnya',
-  })
+  @ApiProperty({ example: 'excel', description: CATEGORY_SLUG_DESCRIPTION })
   @Matches(CATEGORY_SLUG, { message: 'category_slug must be a category slug' })
   category_slug: string;
 
@@ -100,7 +98,10 @@ export class UpdateDigitalProductDto {
   @ClearableText({ max: 10000 })
   description?: string | null;
 
-  @ApiPropertyOptional({ example: 'excel' })
+  @ApiPropertyOptional({
+    example: 'excel',
+    description: CATEGORY_SLUG_DESCRIPTION,
+  })
   @ValidateIf((_, value) => value !== undefined)
   @Matches(CATEGORY_SLUG, { message: 'category_slug must be a category slug' })
   category_slug?: string;

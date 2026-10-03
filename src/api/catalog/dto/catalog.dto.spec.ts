@@ -40,6 +40,7 @@ describe('CatalogQueryDto filters', () => {
       search: '  ',
       level: '',
       category: ' ',
+      sub: '',
       merchant_id: '',
       file_format: '',
       sort_by: '',
@@ -52,6 +53,7 @@ describe('CatalogQueryDto filters', () => {
       search: undefined,
       level: undefined,
       category: undefined,
+      sub: undefined,
       merchant_id: undefined,
       file_format: undefined,
       sort_by: 'created_at',
@@ -60,8 +62,11 @@ describe('CatalogQueryDto filters', () => {
   });
 
   it('trims text filters', () => {
-    expect(parse({ category: ' Sipil ', search: ' rab ' })).toMatchObject({
+    expect(
+      parse({ category: ' Sipil ', sub: ' Video Effect ', search: ' rab ' }),
+    ).toMatchObject({
       category: 'Sipil',
+      sub: 'Video Effect',
       search: 'rab',
     });
   });

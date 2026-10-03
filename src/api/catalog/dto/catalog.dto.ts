@@ -125,13 +125,24 @@ export class CatalogQueryDto {
   @ApiPropertyOptional({
     example: 'template-canva',
     description:
-      'Digital category slug, or a digital category name or class Bidang ignoring case, e.g. template-canva, Template Canva or Sipil. A blank value means every category.',
+      'Digital category slug, or a digital category name or class Bidang ignoring case, e.g. template-canva, Template Canva or Sipil. A digital category includes its sub-categories, so desain-grafis also returns Photoshop products. A blank value means every category.',
   })
   @QueryFilter()
   @IsOptional()
   @IsString()
   @MaxLength(100)
   category?: string;
+
+  @ApiPropertyOptional({
+    example: 'photoshop',
+    description:
+      'Digital sub-category slug, or its name ignoring case, e.g. photoshop or Video Effect; returns only digital products in it or below it. With category, both must match, so category=desain-grafis&sub=video-effect returns nothing. Classes never match. A blank value means no sub-category filter.',
+  })
+  @QueryFilter()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  sub?: string;
 
   @ApiPropertyOptional({
     format: 'uuid',

@@ -75,6 +75,7 @@ describe('CatalogService', () => {
       null,
       null,
       false,
+      null,
       6,
       0,
     ]);
@@ -118,7 +119,7 @@ describe('CatalogService', () => {
     const [sql, params] = dataSource.query.mock.calls[1];
     expect(sql).toContain('ORDER BY price ASC, cards.id');
     expect(params.slice(0, 2)).toEqual([['kelas', 'bootcamp'], '50\\%\\_off']);
-    expect(params.slice(8)).toEqual([false, 10, 10]);
+    expect(params.slice(8)).toEqual([false, null, 10, 10]);
   });
 
   it('filters by merchant and file type and maps mentor and file fields', async () => {
@@ -155,6 +156,7 @@ describe('CatalogService', () => {
       merchantId,
       ['pdf', 'dwg'],
       false,
+      null,
     ]);
   });
 
@@ -331,6 +333,7 @@ describe('CatalogService', () => {
       null,
       null,
       true,
+      null,
     ]);
     const [sql] = dataSource.query.mock.calls[0];
     expect(sql).toContain(
@@ -562,7 +565,28 @@ describe('CatalogService', () => {
     expect(sql).toContain(
       'category.slug = $4 OR lower(category.name) = lower($4)',
     );
+    expect(sql).toContain('INNER JOIN tree ON child.parent_id = tree.id');
     expect(params[3]).toBe('Template Canva');
+    expect(params[9]).toBeNull();
+  });
+
+  it('filters by sub-category slug or name', async () => {
+    dataSource.query.mockResolvedValueOnce([{ total: 0 }]);
+
+    await service.findItems({
+      category: 'desain-grafis',
+      sub: 'Photoshop',
+      page: 1,
+      limit: 12,
+    } as never);
+
+    const [sql, params] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('$10::text IS NULL OR EXISTS');
+    expect(sql).toContain(
+      'category.slug = $10 OR lower(category.name) = lower($10)',
+    );
+    expect(params[3]).toBe('desain-grafis');
+    expect(params[9]).toBe('Photoshop');
   });
 
   it('nests categories under their parent', async () => {

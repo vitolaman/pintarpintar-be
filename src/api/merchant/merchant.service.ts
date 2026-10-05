@@ -158,6 +158,12 @@ export class MerchantService {
             input.need_change_password === undefined
               ? false
               : input.need_change_password,
+          termsAcceptedAt: new Date(),
+          businessType: input.business_type,
+          categoryLabel: input.category_label ?? null,
+          city: input.city,
+          publicPhone: input.public_phone,
+          productTypes: input.product_types,
         }),
       );
       await manager.save(
@@ -325,6 +331,10 @@ export class MerchantService {
       if (input.category_label !== undefined)
         profile.categoryLabel = input.category_label;
       if (input.city !== undefined) profile.city = input.city;
+      if (input.business_type !== undefined)
+        profile.businessType = input.business_type;
+      if (input.product_types !== undefined)
+        profile.productTypes = input.product_types;
       if (input.public_email !== undefined)
         profile.publicEmail = input.public_email;
       if (input.public_phone !== undefined)
@@ -600,6 +610,8 @@ export class MerchantService {
         'profile.digital_license AS digital_license',
         'profile.need_change_password AS need_change_password',
         'profile.terms_accepted_at AS terms_accepted_at',
+        'profile.business_type AS business_type',
+        'profile.product_types AS product_types',
         'profile.avatar_asset_id AS avatar_asset_id',
         'avatar_asset.object_key AS avatar_object_key',
         'profile.cover_asset_id AS cover_asset_id',

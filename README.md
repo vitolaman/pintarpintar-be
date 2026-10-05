@@ -158,10 +158,10 @@ Deployment needs the six `PAYMENT_*` variables in `.env.example`. `PAYMENT_GATEW
 
 ### Merchant profile and settings
 
-- `POST /api/v1/merchant/register` — `store_name`, `store_description`; 409 when the user already has a store
+- `POST /api/v1/merchant/register` — the registration form, all required: `store_name`, `store_description`, `terms_accepted` (must be `true`; stored as `terms_accepted_at`), `business_type` (Jenis Merchant: `individual`, `institution`, `company`), `category_label` (Bidang Utama as a merchant category: Teknik & Engineering → `Teknik & Arsitektur`, Teknologi & Pemrograman → `Pemrograman & IT`, `Desain & Kreatif`, `Bisnis & Manajemen`; `null` or omitted for Lainnya), `city` (Kota Operasional), `public_phone` (Nomor WhatsApp Bisnis, shown on the storefront) and `product_types` (one to three of `kelas`, `bootcamp`, `digital`; repeats collapse, returned in that order); the store starts at Basic; 409 when the user already has a store
 - `GET /api/v1/merchants/:merchant` — **public** storefront by id or slug; stats, skills (Bidang), landing settings, and `is_owner` for the signed-in owner
-- `GET /api/v1/merchant/profile` — includes `level` (see Merchant levels)
-- `PATCH /api/v1/merchant/profile` — includes logo (`avatar_asset_id`), banner (`cover_asset_id`), sanitized rich-text description, skills (up to 20; replaces the list), and landing background (`landing_background_asset_id`) and layout (`landing_layout`; `null` resets it)
+- `GET /api/v1/merchant/profile` — includes `level` (see Merchant levels) and the registration answers `business_type` and `product_types` (`null` for stores registered before the form asked for them)
+- `PATCH /api/v1/merchant/profile` — includes logo (`avatar_asset_id`), banner (`cover_asset_id`), sanitized rich-text description, skills (up to 20; replaces the list), and landing background (`landing_background_asset_id`) and layout (`landing_layout`; `null` resets it); `business_type` and `product_types` can be changed (not cleared); `terms_accepted_at` is read-only
 - `GET /api/v1/merchant/notification-preferences`
 - `PATCH /api/v1/merchant/notification-preferences`
 

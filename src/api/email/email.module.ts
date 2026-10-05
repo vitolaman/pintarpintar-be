@@ -1,7 +1,7 @@
 import { MailerModule } from '@nestjs-modules/mailer';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EmailReminderJobs } from './email-reminder-jobs.service';
+import { EmailScheduleJobs } from './email-schedule-jobs.service';
 import { EmailSenderService } from './email-sender.service';
 import { MailSettings } from './mail-settings';
 
@@ -18,7 +18,7 @@ import { MailSettings } from './mail-settings';
       }),
     }),
   ],
-  providers: [MailSettings, EmailSenderService, EmailReminderJobs],
+  providers: [MailSettings, EmailSenderService, EmailScheduleJobs],
   exports: [EmailSenderService],
 })
 export class EmailModule {}

@@ -1,8 +1,5 @@
 import { ItemCoverDto } from '../../item-cover/dto/item-cover.dto';
-import {
-  classSkillCategories,
-  learningLevels,
-} from '~/common/catalog/class-details';
+import { learningLevels } from '~/common/catalog/class-details';
 import {
   MEETING_DURATION_DESCRIPTION,
   MEETING_STATUS_DESCRIPTION,
@@ -242,7 +239,7 @@ export class CatalogCardDto {
 
   @ApiProperty({
     nullable: true,
-    enum: classSkillCategories,
+    example: 'Teknik Sipil',
     description:
       'Classes: their Kategori Skill (null for classes created before the field); digital products: null',
   })

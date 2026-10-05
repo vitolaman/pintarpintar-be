@@ -10,11 +10,9 @@ import {
 } from 'class-validator';
 import {
   ClassCategory,
-  ClassSkillCategory,
   LearningLevel,
   MAX_LEARNING_OUTCOMES,
   classCategories,
-  classSkillCategories,
   learningLevels,
 } from '../../common/catalog/class-details';
 import { ClassStatus } from '../entities/class.entity';
@@ -79,11 +77,12 @@ export class CreateClassDto {
   @EnumInput(classCategories, { presence: 'nullable', description: 'Bidang' })
   category?: ClassCategory | null;
 
-  @EnumInput(classSkillCategories, {
-    presence: 'required',
-    description: 'Kategori Skill',
+  @RequiredText({
+    max: 64,
+    example: 'Teknik Sipil',
+    description: "Kategori Skill: the label of the form's selector",
   })
-  skill_category: ClassSkillCategory;
+  skill_category: string;
 
   @EnumInput(learningLevels, { presence: 'nullable' })
   level?: LearningLevel | null;

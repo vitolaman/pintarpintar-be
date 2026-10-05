@@ -193,7 +193,7 @@ describe('class DTO validation', () => {
         status: ' Published ',
         type: ' BOOTCAMP',
         category: 'sipil',
-        skill_category: ' teknik sipil ',
+        skill_category: '  Teknik Sipil ',
         level: ' mahir',
         original_price: '150000',
         discount_price: '',
@@ -215,10 +215,11 @@ describe('class DTO validation', () => {
     it.each([
       ['missing', {}],
       ['empty', { skill_category: '' }],
+      ['blank', { skill_category: '   ' }],
       ['null', { skill_category: null }],
-      ['unlisted', { skill_category: 'Sipil' }],
+      ['65 characters', { skill_category: 'x'.repeat(65) }],
     ])(
-      'requires a listed Kategori Skill on create (%s)',
+      'requires a Kategori Skill label on create (%s)',
       async (_label, input) => {
         expect(
           await errorFields(CreateClassDto, { title: 'Kelas', ...input }),
@@ -226,19 +227,27 @@ describe('class DTO validation', () => {
       },
     );
 
-    it('keeps the Kategori Skill on update unless a listed one is sent', async () => {
+    it('stores any selector label as sent, trimmed', async () => {
+      const dto = plainToInstance(CreateClassDto, {
+        title: 'Kelas',
+        skill_category: ' Data & AI ',
+      });
+      expect(dto.skill_category).toBe('Data & AI');
+      expect(await validate(dto)).toEqual([]);
+    });
+
+    it('keeps the Kategori Skill on update unless a label is sent', async () => {
       expect(await errorFields(UpdateClassDto, { title: 'Kelas' })).toEqual([]);
       const dto = plainToInstance(UpdateClassDto, {
-        skill_category: 'desain & KREATIF',
+        skill_category: ' Desain & Kreatif',
       });
       expect(dto.skill_category).toBe('Desain & Kreatif');
       expect(await validate(dto)).toEqual([]);
-      expect(
-        await errorFields(UpdateClassDto, { skill_category: null }),
-      ).toEqual(['skill_category']);
-      expect(
-        await errorFields(UpdateClassDto, { skill_category: 'Coding' }),
-      ).toEqual(['skill_category']);
+      for (const skill_category of [null, '', '  ', 'x'.repeat(65)]) {
+        expect(await errorFields(UpdateClassDto, { skill_category })).toEqual([
+          'skill_category',
+        ]);
+      }
     });
 
     it('leaves the status of a new class unset so it defaults to draft', () => {

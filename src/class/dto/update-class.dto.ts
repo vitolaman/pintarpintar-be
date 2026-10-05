@@ -11,11 +11,9 @@ import {
 } from 'class-validator';
 import {
   ClassCategory,
-  ClassSkillCategory,
   LearningLevel,
   MAX_LEARNING_OUTCOMES,
   classCategories,
-  classSkillCategories,
   learningLevels,
 } from '../../common/catalog/class-details';
 import { ClassStatus } from '../entities/class.entity';
@@ -85,11 +83,14 @@ export class UpdateClassDto {
   @EnumInput(classCategories, { presence: 'nullable', description: 'Bidang' })
   category?: ClassCategory | null;
 
-  @EnumInput(classSkillCategories, {
-    presence: 'optional',
-    description: 'Kategori Skill; omit to keep it. Cannot be cleared.',
+  @RequiredText({
+    max: 64,
+    optional: true,
+    example: 'Teknik Sipil',
+    description:
+      "Kategori Skill: the selector's label; omit to keep it. Cannot be cleared.",
   })
-  skill_category?: ClassSkillCategory;
+  skill_category?: string;
 
   @EnumInput(learningLevels, { presence: 'nullable' })
   level?: LearningLevel | null;

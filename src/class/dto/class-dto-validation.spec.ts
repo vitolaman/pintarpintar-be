@@ -91,7 +91,13 @@ describe('class DTO validation', () => {
       ['learning_outcomes'],
     ],
   ])('create %j fails on %j', async (input, fields) => {
-    expect(await errorFields(CreateClassDto, input)).toEqual(fields);
+    // Every case carries the required Kategori Skill, so only its own field fails.
+    expect(
+      await errorFields(CreateClassDto, {
+        skill_category: 'Teknik Sipil',
+        ...input,
+      }),
+    ).toEqual(fields);
   });
 
   it.each([
@@ -164,7 +170,12 @@ describe('class DTO validation', () => {
       'rejects the required class title %j',
       async (title) => {
         expect(await errorFields(UpdateClassDto, { title })).toEqual(['title']);
-        expect(await errorFields(CreateClassDto, { title })).toEqual(['title']);
+        expect(
+          await errorFields(CreateClassDto, {
+            title,
+            skill_category: 'Teknik Sipil',
+          }),
+        ).toEqual(['title']);
       },
     );
 
@@ -182,6 +193,7 @@ describe('class DTO validation', () => {
         status: ' Published ',
         type: ' BOOTCAMP',
         category: 'sipil',
+        skill_category: ' teknik sipil ',
         level: ' mahir',
         original_price: '150000',
         discount_price: '',
@@ -192,11 +204,41 @@ describe('class DTO validation', () => {
         status: 'published',
         type: 'bootcamp',
         category: 'Sipil',
+        skill_category: 'Teknik Sipil',
         level: 'Mahir',
         original_price: 150000,
       });
       expect(dto.discount_price).toBeUndefined();
       expect(await validate(dto)).toEqual([]);
+    });
+
+    it.each([
+      ['missing', {}],
+      ['empty', { skill_category: '' }],
+      ['null', { skill_category: null }],
+      ['unlisted', { skill_category: 'Sipil' }],
+    ])(
+      'requires a listed Kategori Skill on create (%s)',
+      async (_label, input) => {
+        expect(
+          await errorFields(CreateClassDto, { title: 'Kelas', ...input }),
+        ).toEqual(['skill_category']);
+      },
+    );
+
+    it('keeps the Kategori Skill on update unless a listed one is sent', async () => {
+      expect(await errorFields(UpdateClassDto, { title: 'Kelas' })).toEqual([]);
+      const dto = plainToInstance(UpdateClassDto, {
+        skill_category: 'desain & KREATIF',
+      });
+      expect(dto.skill_category).toBe('Desain & Kreatif');
+      expect(await validate(dto)).toEqual([]);
+      expect(
+        await errorFields(UpdateClassDto, { skill_category: null }),
+      ).toEqual(['skill_category']);
+      expect(
+        await errorFields(UpdateClassDto, { skill_category: 'Coding' }),
+      ).toEqual(['skill_category']);
     });
 
     it('leaves the status of a new class unset so it defaults to draft', () => {
@@ -300,6 +342,7 @@ describe('class DTO validation', () => {
         {
           title: 'Kelas',
           type: 'bootcamp',
+          skill_category: 'Teknik Sipil',
           original_price: 300000,
           discount_price: 250000,
         },
@@ -314,10 +357,14 @@ describe('class DTO validation', () => {
     });
 
     it.each([
-      [CreateClassDto, { title: 'Kelas', originalPrice: 1 }, ['originalPrice']],
       [
         CreateClassDto,
-        { title: 'Kelas', discountedPrice: 1 },
+        { title: 'Kelas', skill_category: 'Teknik Sipil', originalPrice: 1 },
+        ['originalPrice'],
+      ],
+      [
+        CreateClassDto,
+        { title: 'Kelas', skill_category: 'Teknik Sipil', discountedPrice: 1 },
         ['discountedPrice'],
       ],
       [UpdateClassDto, { originalPrice: 1 }, ['originalPrice']],

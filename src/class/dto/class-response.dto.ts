@@ -3,6 +3,7 @@ import { ItemCoverDto } from '../../api/item-cover/dto/item-cover.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   classCategories,
+  classSkillCategories,
   learningLevels,
 } from '../../common/catalog/class-details';
 import { ClassStatus } from '../entities/class.entity';
@@ -38,6 +39,12 @@ export class ClassResponseDto {
   post_purchase_instructions: string | null;
   @ApiPropertyOptional({ nullable: true, enum: classCategories })
   category: string | null;
+  @ApiProperty({
+    nullable: true,
+    enum: classSkillCategories,
+    description: 'Kategori Skill; null for classes created before the field',
+  })
+  skill_category: string | null;
   @ApiPropertyOptional({ nullable: true, enum: learningLevels })
   level: string | null;
   @ApiPropertyOptional({ nullable: true }) duration: string | null;

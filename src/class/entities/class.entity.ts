@@ -10,6 +10,7 @@ import { DiscussionThread } from './discussion-thread.entity';
 import { Certificate } from './certificate.entity';
 import {
   ClassCategory,
+  ClassSkillCategory,
   LearningLevel,
 } from '../../common/catalog/class-details';
 
@@ -60,6 +61,16 @@ export class Class extends AuditedBaseEntity {
   // Bidang; constrained by `chk_classes_category` to `classCategories`.
   @Column({ type: 'varchar', length: 20, nullable: true })
   category: ClassCategory | null;
+
+  // Kategori Skill; constrained by `chk_classes_skill_category` to
+  // `classSkillCategories`. Null only for classes created before the field.
+  @Column({
+    name: 'skill_category',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  skill_category: ClassSkillCategory | null;
 
   // Constrained by `chk_classes_level` to `learningLevels`.
   @Column({ type: 'varchar', length: 20, nullable: true })

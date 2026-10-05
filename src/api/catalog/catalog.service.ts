@@ -62,7 +62,8 @@ const CARD_SQL = `
   ), items AS (
     SELECT class.id,
            CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END AS type,
-           class.title, class_cover.object_key AS image, class.category, class.level,
+           class.title, class_cover.object_key AS image, class.category,
+           class.skill_category, class.level,
            (CASE WHEN class."discountedPrice" > 0 THEN class."discountedPrice" ELSE COALESCE(class."originalPrice", 0) END)::numeric AS price,
            COALESCE(class."originalPrice", 0)::numeric AS list_price,
            class.created_at, class.merchant_id, class.description,
@@ -77,7 +78,8 @@ const CARD_SQL = `
     WHERE class.deleted_at IS NULL
       AND (class.status = 'published' OR ($9::boolean AND class.status = 'archived'))
     UNION ALL
-    SELECT product.id, 'digital', product.title, cover.object_key, category.name, product.level,
+    SELECT product.id, 'digital', product.title, cover.object_key, category.name,
+           NULL, product.level,
            (CASE WHEN product.discount_price > 0 THEN product.discount_price ELSE COALESCE(product.original_price, 0) END)::numeric,
            COALESCE(product.original_price, 0)::numeric,
            product.created_at, product.merchant_id, product.description,
@@ -221,6 +223,7 @@ interface CardRow {
   title: string;
   image: string | null;
   category: string | null;
+  skill_category: string | null;
   level: string | null;
   price: string;
   list_price: string;
@@ -551,6 +554,7 @@ function toCard(row: CardRow): CatalogCardDto {
     type: row.type,
     title: row.title,
     category: row.category,
+    skill_category: row.skill_category,
     level: row.level,
     price,
     original_price: listPrice,

@@ -73,13 +73,16 @@ describe('MerchantController classes', () => {
 
     await request(app.getHttpServer())
       .post('/api/v1/merchant/classes')
-      .send({ title: 'Kelas', type: 'kelas' })
+      .send({ title: 'Kelas', type: 'kelas', skill_category: 'Teknik Sipil' })
       .expect(201);
 
     expect(classService.createClass).toHaveBeenCalledWith(
       userId,
       merchantId,
-      expect.objectContaining({ title: 'Kelas' }),
+      expect.objectContaining({
+        title: 'Kelas',
+        skill_category: 'Teknik Sipil',
+      }),
     );
   });
 

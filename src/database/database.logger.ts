@@ -31,63 +31,73 @@ export class RedactingConsoleLogger extends AdvancedConsoleLogger {
   }
 }
 
+export interface DatabaseLoggerOptions {
+  // Production passes false: parameter values (password hashes, emails,
+  // account numbers, payloads) never reach the log, whatever `logging` lists.
+  withParameters: boolean;
+}
+
 export class DatabaseLogger implements TypeORMLogger {
   constructor(
     private readonly _logger: Logger,
     private readonly _options: TypeORMLoggerOptions,
+    private readonly output: DatabaseLoggerOptions = { withParameters: true },
   ) {}
 
   /**
    * Logs query and parameters used in it.
    */
-  logQuery(query: string, queryParameters?: any[]) {
-    const parameters = loggableParameters(query, queryParameters);
+  logQuery(query: string, parameters?: any[]) {
     if (
       this._options === 'all' ||
       this._options === true ||
       (this._options instanceof Array && this._options.indexOf('query') !== -1)
     ) {
-      const sql =
-        query +
-        (parameters && parameters.length
-          ? ' -- PARAMETERS: ' + this.stringifyParams(parameters)
-          : '');
-      this._logger.log('query' + ': ' + sql);
+      this._logger.log('query' + ': ' + this.statement(query, parameters));
     }
   }
 
   /**
-   * Logs query that is failed.
+   * Logs query that is failed. Without parameters (production) only the
+   * error's code and the constraint, table or column it names are written:
+   * PostgreSQL messages and details quote input values, e.g. an invalid
+   * uuid or a duplicate email.
    */
-  logQueryError(error: string, query: string, queryParameters?: any[]) {
-    const parameters = loggableParameters(query, queryParameters);
+  logQueryError(error: string | Error, query: string, parameters?: any[]) {
     if (
       this._options === 'all' ||
       this._options === true ||
       (this._options instanceof Array && this._options.indexOf('error') !== -1)
     ) {
-      const sql =
-        query +
-        (parameters && parameters.length
-          ? ' -- PARAMETERS: ' + this.stringifyParams(parameters)
-          : '');
-      this._logger.log(`query failed: ` + sql);
-      this._logger.log(`error:`, error);
+      const reason = this.output.withParameters
+        ? error instanceof Error
+          ? error.message
+          : String(error)
+        : describeDatabaseError(error);
+      this._logger.error(
+        `query failed: ${this.statement(query, parameters)} -- ERROR: ${reason}`,
+      );
     }
   }
 
   /**
    * Logs query that is slow.
    */
-  logQuerySlow(time: number, query: string, queryParameters?: any[]) {
+  logQuerySlow(time: number, query: string, parameters?: any[]) {
+    this._logger.warn(
+      `query is slow (${time} ms): ${this.statement(query, parameters)}`,
+    );
+  }
+
+  private statement(query: string, queryParameters?: any[]): string {
+    if (!this.output.withParameters) return query;
     const parameters = loggableParameters(query, queryParameters);
-    const sql =
+    return (
       query +
       (parameters && parameters.length
         ? ' -- PARAMETERS: ' + this.stringifyParams(parameters)
-        : '');
-    this._logger.log(`query is slow: ` + sql);
-    this._logger.log(`execution time: ` + time);
+        : '')
+    );
   }
 
   /**
@@ -154,4 +164,26 @@ export class DatabaseLogger implements TypeORMLogger {
       return parameters;
     }
   }
+}
+
+interface DatabaseErrorFields {
+  name?: string;
+  code?: string;
+  constraint?: string;
+  table?: string;
+  column?: string;
+  driverError?: DatabaseErrorFields;
+}
+
+/** An error's SQLSTATE code and the names it refers to, never its message. */
+export function describeDatabaseError(error: unknown): string {
+  const outer = (error ?? {}) as DatabaseErrorFields;
+  const source = outer.driverError ?? outer;
+  const parts = [
+    source.code && `code ${source.code}`,
+    source.constraint && `constraint ${source.constraint}`,
+    source.table && `table ${source.table}`,
+    source.column && `column ${source.column}`,
+  ].filter(Boolean);
+  return parts.length ? parts.join(', ') : (outer.name ?? 'unknown error');
 }

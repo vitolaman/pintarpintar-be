@@ -375,6 +375,7 @@ The backend emails users when these events happen. Every email has an HTML part 
 | Kata sandi diubah | user | a password change or a reset |
 | Lamaran: terkirim, jadwal wawancara, diterima, belum diterima | applicant (the application's email) | apply, schedule or reschedule an interview, accept, reject |
 | Jadwal sesi baru / diubah / dibatalkan | enrolled learners | a bootcamp meeting is created; its date, time, duration or link changes; or it is deleted |
+| Sesi dimulai 1 jam lagi / Kamu mengajar 1 jam lagi | enrolled learners / the meeting's mentor | a job every 5 minutes, for bootcamp meetings starting in more than 10 and at most 60 minutes; once per recipient and start time (a moved meeting is reminded again); a user who is both gets the mentor email |
 | Tugas dinilai | learner | a submission is graded |
 | Sertifikat terbit | learner | a certificate is issued, manually or automatically |
 

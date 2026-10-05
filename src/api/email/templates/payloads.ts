@@ -115,6 +115,7 @@ export interface ApplicationAcceptedEmail extends ApplicationEmail {
 }
 
 export interface MeetingEmail {
+  // The recipient's name: the learner, or the mentor in a mentor reminder.
   learner_name: string;
   class_title: string;
   meeting_title: string;
@@ -163,6 +164,8 @@ export interface EmailPayloads {
   meeting_created: MeetingEmail;
   meeting_updated: MeetingEmail;
   meeting_cancelled: MeetingEmail;
+  meeting_reminder: MeetingEmail;
+  meeting_mentor_reminder: MeetingEmail;
   submission_graded: SubmissionGradedEmail;
   certificate_issued: CertificateIssuedEmail;
 }

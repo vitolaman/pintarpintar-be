@@ -168,7 +168,7 @@ Deployment needs the six `PAYMENT_*` variables in `.env.example`. `PAYMENT_GATEW
 ### Merchant levels
 
 Each store is Basic, Silver or Gold by its monthly revenue (net of paid sales, Asia/Jakarta months): Silver from Rp 2,500,000 and Gold from Rp 5,000,000. A daily job (00:30 WIB) evaluates the month that ended, once per store:
-- a store moves straight to the level the month reaches; Gold drops by that month alone, Silver drops to Basic only after two months under Rp 2,500,000;
+- a store moves up straight to the level the month reaches (Basic can jump to Gold); a Gold month under Rp 5,000,000 makes it Silver, however low the month is; Silver drops to Basic only after two consecutive months under Rp 2,500,000 (counting the month before, whatever its level), so two very low months take Gold to Silver and then Basic;
 - a store with non-deleted items (drafts included) and no paid sale in two consecutive counted months gets a warning; a further month without a sale soft-deletes its digital products, classes, bootcamps and bundles, ends buyers' access to them and deactivates its discounts and vouchers. Counted months are full months after tracking started (registration, or deploy for older stores) and after any earlier removal;
 - every evaluation writes `notifications` rows for the owner (`merchant_level_evaluated`, plus `merchant_inactivity_warning` or `merchant_items_removed`) for an external email sender; this API neither sends nor lists them (`level.inactivity_warning` shows a warning).
 

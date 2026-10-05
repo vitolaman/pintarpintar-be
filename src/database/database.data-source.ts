@@ -67,9 +67,18 @@ import { SavedJobPosting } from '~/api/recruitment/entities/saved-job-posting.en
 import { MerchantDailyStat } from '~/api/merchant-income/entities/merchant-daily-stat.entity';
 import { EmailOutbox } from '~/api/email/entities/email-outbox.entity';
 import { PasswordResetToken } from '~/api/auth/entities/password-reset-token.entity';
+import type { LoggerOptions } from 'typeorm/logger/LoggerOptions';
 
 dotenvExpand.expand(dotenv.config({ path: process.env.ENV_FILE || '.env' }));
 const isProduction = process.env.NODE_ENV == 'production';
+// TypeORM reports a successful migration through the 'schema' log.
+const PRODUCTION_LOGGING: LoggerOptions = [
+  'error',
+  'warn',
+  'schema',
+  'migration',
+];
+const SLOW_QUERY_MS = 400;
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -152,10 +161,16 @@ export const dataSourceOptions: DataSourceOptions = {
   synchronize: false,
   migrationsRun: true,
   migrationsTransactionMode: 'each',
-  logging: true,
+  // Production logs failures, slow statements, warnings and migrations, never
+  // parameter values; development logs every statement for debugging.
+  logging: isProduction ? PRODUCTION_LOGGING : true,
   logger: isProduction
-    ? new DatabaseLogger(new Logger('Database'), true)
+    ? new DatabaseLogger(new Logger('Database'), PRODUCTION_LOGGING, {
+        withParameters: false,
+      })
     : new RedactingConsoleLogger(true),
+  // The PM's latency flag for one call (ms); slower statements are logged.
+  maxQueryExecutionTime: isProduction ? SLOW_QUERY_MS : undefined,
 };
 
 export const defaultDataSource = new DataSource(dataSourceOptions);

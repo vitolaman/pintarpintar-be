@@ -428,6 +428,13 @@ $ yarn start:local
 
 4. Hit any API endpoint (for example from Swagger), then search traces in Jaeger with service `pintar-pintar-be`.
 
+**Database log.** With `NODE_ENV=production` (the Docker image's runtime stage), the log never shows SQL parameter values. It shows:
+- failed statements, with the SQLSTATE code and the constraint, table or column (not the message, which can quote values);
+- statements slower than 400 ms, with their duration;
+- TypeORM warnings and migration runs.
+
+Successful statements are not logged. In development every statement is logged with its values, except that statements on `email_outbox` and `password_reset_tokens` show `[redacted]`. Traces carry statement text but no values.
+
 ## Required checks before pushing
 
 Run both commands on the merged state of `development` before pushing. `npm test` alone is not sufficient: it does not compile files that no spec imports, so build-only errors can pass tests and fail on `npm run build`.
@@ -469,7 +476,7 @@ Every variable the running application uses is listed in `.env.example` (Compose
 **Optional:**
 - `PAYOUT_ACCOUNT_ENCRYPTION_KEY`: never change or remove it once used.
 - `JWT_EXPIRES`: token lifetime (default `30d`).
-- `NODE_ENV`: `production` switches the database log format; it is also the traces' environment name.
+- `NODE_ENV`: `production` limits the database log to failures, slow statements (over 400 ms), warnings and migrations, without parameter values (see Observability); it is also the traces' environment name. The Docker image sets it.
 - The `OTEL_*` tracing settings. Tracing is on by default and exports to `http://localhost:4318/v1/traces`; set `OTEL_ENABLED=false` (or `OTEL_SDK_DISABLED=true`) to turn it off.
 - `ENV_FILE`, which selects the env file (default `.env`).
 - The five email settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SENDER`): without them the app runs and emails wait in the queue (see Automatic emails). `FRONTEND_URL` is optional (default `https://pintarpintar.id`). When the login mailbox differs from the sender address (for example `mail@` sending as `info@`), the mail server must allow it, for example as an alias. Deliverability also needs the sending domain's SPF, DKIM and DMARC records and the server's reverse DNS.

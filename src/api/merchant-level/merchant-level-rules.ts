@@ -45,9 +45,10 @@ export function levelForRevenue(revenue: number): MerchantStorageLevel {
 }
 
 /**
- * The level after evaluating one month: any merchant moves straight to the
- * level the month reaches, except that Silver drops to Basic only after two
- * consecutive months under the Silver threshold.
+ * The level after evaluating one month: any merchant moves up straight to the
+ * level the month reaches. Gold drops one level at most, to Silver; Silver
+ * drops to Basic only after two consecutive months under the Silver
+ * threshold (the PM's level guide).
  */
 export function nextLevel(
   current: MerchantStorageLevel,
@@ -55,6 +56,12 @@ export function nextLevel(
   previousMonthRevenue: number,
 ): MerchantStorageLevel {
   const reached = levelForRevenue(revenue);
+  if (
+    current === MerchantStorageLevel.GOLD &&
+    reached !== MerchantStorageLevel.GOLD
+  ) {
+    return MerchantStorageLevel.SILVER;
+  }
   if (
     current === MerchantStorageLevel.SILVER &&
     reached === MerchantStorageLevel.BASIC &&

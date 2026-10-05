@@ -19,7 +19,15 @@ describe('nextLevel', () => {
     ['exactly 5 million is Gold', SILVER, 5 * MILLION, 0, GOLD],
     ['Gold stays Gold', GOLD, 5 * MILLION, 0, GOLD],
     ['Gold drops to Silver', GOLD, 3 * MILLION, 9 * MILLION, SILVER],
-    ['Gold drops straight to Basic', GOLD, MILLION, 9 * MILLION, BASIC],
+    ['Gold drops one level, however low', GOLD, 0, 9 * MILLION, SILVER],
+    [
+      'Gold under 2.5 million drops to Silver',
+      GOLD,
+      MILLION,
+      9 * MILLION,
+      SILVER,
+    ],
+    ['just under 5 million drops Gold to Silver', GOLD, 4_999_999, 0, SILVER],
     ['Silver rises to Gold', SILVER, 7 * MILLION, 0, GOLD],
     ['Silver stays Silver', SILVER, 3 * MILLION, MILLION, SILVER],
     [
@@ -38,6 +46,13 @@ describe('nextLevel', () => {
     ],
   ])('%s', (_name, current, revenue, previous, expected) => {
     expect(nextLevel(current, revenue, previous)).toBe(expected);
+  });
+
+  it('takes Gold to Silver, then Basic, over two low months', () => {
+    const september = nextLevel(GOLD, MILLION, 9 * MILLION);
+    const october = nextLevel(september, MILLION, MILLION);
+
+    expect([september, october]).toEqual([SILVER, BASIC]);
   });
 
   it('maps revenue to the level it reaches', () => {

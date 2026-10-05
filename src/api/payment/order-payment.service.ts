@@ -14,6 +14,10 @@ import {
   merchantNetAmounts,
 } from './order-fulfillment.service';
 import { SETTLEMENT_FALLBACK_DAYS } from './payment.constants';
+import {
+  queueOrderClosedEmail,
+  queueOrderPaidEmails,
+} from '~/api/email/events/order-emails';
 
 const EXPIRY_BATCH_SIZE = 500;
 const SETTLEMENT_BATCH_SIZE = 200;
@@ -66,6 +70,7 @@ export class OrderPaymentService {
       }
       if (order.status === OrderStatus.PENDING) {
         await this.close(manager, order, OrderStatus.FAILED);
+        await queueOrderClosedEmail(manager, order.id, 'failed');
         this.logger.log(
           `Order ${order.orderNumber} failed with result ${result.resultCode}`,
         );
@@ -109,6 +114,7 @@ export class OrderPaymentService {
     );
     order.status = OrderStatus.PAID;
     await this.fulfillment.fulfil(manager, order);
+    await queueOrderPaidEmails(manager, order.id);
   }
 
   // Moves a locked pending order to a closed status and releases its codes.
@@ -165,6 +171,7 @@ export class OrderPaymentService {
       for (const { id } of overdue) {
         const order = await manager.findOneBy(Order, { id });
         await this.close(manager, order, OrderStatus.EXPIRED);
+        await queueOrderClosedEmail(manager, order.id, 'expired');
       }
       return overdue.length;
     });

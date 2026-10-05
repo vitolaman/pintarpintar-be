@@ -14,6 +14,11 @@ import { CreatePayoutAccountDto } from './dto/create-payout-account.dto';
 import { PayoutAccountResponseDto } from './dto/payout-account-response.dto';
 import { UpdatePayoutAccountDto } from './dto/update-payout-account.dto';
 import { MerchantPayoutAccount } from './entities/merchant-payout-account.entity';
+import {
+  PayoutAccountEmailFacts,
+  queuePayoutAccountChangedEmail,
+} from '~/api/email/events/merchant-emails';
+import type { PayoutAccountAction } from '~/api/email/templates/payloads';
 
 const UNVERIFIED = 'unverified';
 
@@ -53,7 +58,7 @@ export class PayoutAccountService {
         await this.clearOtherPrimaries(manager, merchant.id);
       }
 
-      return manager.save(
+      const created = await manager.save(
         MerchantPayoutAccount,
         manager.create(MerchantPayoutAccount, {
           merchantId: merchant.id,
@@ -65,6 +70,11 @@ export class PayoutAccountService {
           isPrimary,
         }),
       );
+      await queuePayoutAccountChangedEmail(
+        manager,
+        accountChange(created, 'added'),
+      );
+      return created;
     });
 
     return {
@@ -101,12 +111,24 @@ export class PayoutAccountService {
       ) {
         account.verificationStatus = UNVERIFIED;
       }
-      if (input.is_primary === true && !account.isPrimary) {
+      const destinationChanged =
+        input.bank_name !== undefined ||
+        input.account_holder_name !== undefined ||
+        input.account_number !== undefined;
+      const madePrimary = input.is_primary === true && !account.isPrimary;
+      if (madePrimary) {
         await this.clearOtherPrimaries(manager, merchant.id, account.id);
         account.isPrimary = true;
       }
 
-      return manager.save(MerchantPayoutAccount, account);
+      const saved = await manager.save(MerchantPayoutAccount, account);
+      if (destinationChanged || madePrimary) {
+        await queuePayoutAccountChangedEmail(
+          manager,
+          accountChange(saved, destinationChanged ? 'updated' : 'primary'),
+        );
+      }
+      return saved;
     });
 
     return {
@@ -120,9 +142,17 @@ export class PayoutAccountService {
       const merchant = await this.findMerchant(manager, userId, true);
       const account = await this.findOwnedAccount(manager, merchant.id, id);
 
+      const wasPrimary = account.isPrimary;
       await this.clearOtherPrimaries(manager, merchant.id, account.id);
       account.isPrimary = true;
-      return manager.save(MerchantPayoutAccount, account);
+      const saved = await manager.save(MerchantPayoutAccount, account);
+      if (!wasPrimary) {
+        await queuePayoutAccountChangedEmail(
+          manager,
+          accountChange(saved, 'primary'),
+        );
+      }
+      return saved;
     });
 
     return {
@@ -140,6 +170,10 @@ export class PayoutAccountService {
       account.isPrimary = false;
       await manager.save(MerchantPayoutAccount, account);
       await manager.softRemove(MerchantPayoutAccount, account);
+      await queuePayoutAccountChangedEmail(
+        manager,
+        accountChange(account, 'deleted'),
+      );
 
       if (wasPrimary) {
         const successor = await manager.findOne(MerchantPayoutAccount, {
@@ -211,4 +245,17 @@ export class PayoutAccountService {
       created_at: account.created_at,
     };
   }
+}
+
+function accountChange(
+  account: MerchantPayoutAccount,
+  action: PayoutAccountAction,
+): PayoutAccountEmailFacts {
+  return {
+    merchantId: account.merchantId,
+    action,
+    bankName: account.bankName,
+    maskedAccountNumber: account.maskedAccountNumber,
+    accountHolderName: account.accountHolderName,
+  };
 }

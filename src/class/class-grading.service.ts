@@ -19,6 +19,7 @@ import { Submission } from './entities/submission.entity';
 import { SubmissionAnswer } from './entities/submission-answer.entity';
 import { loadLearnerMetrics } from './learner-metrics';
 import { paginationMeta } from '../common/dto/response-meta.dto';
+import { queueSubmissionGradedEmail } from '~/api/email/events/learning-emails';
 
 interface SubmissionRow {
   id: string;
@@ -151,6 +152,11 @@ export class ClassGradingService {
       submission.graded_by = userId;
       submission.updated_by = userId;
       await manager.save(Submission, submission);
+      await queueSubmissionGradedEmail(
+        manager,
+        submission.id,
+        submission.graded_at.toISOString(),
+      );
       await this.certificates.issueEligible(manager, classId, [
         submission.user_id,
       ]);

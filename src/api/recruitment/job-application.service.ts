@@ -34,6 +34,7 @@ import { ApplicationStatus } from './recruitment.constants';
 import { findOwnMerchant } from './recruitment-merchant';
 import { ACTIVE_MENTOR_ID_SQL, PUBLIC_JOB_SQL } from './recruitment-sql';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
+import { queueApplicationEmail } from '~/api/email/events/recruitment-emails';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -152,6 +153,9 @@ export class JobApplicationService {
             status: 'review',
           }),
         );
+        await queueApplicationEmail(manager, application.id, {
+          type: 'submitted',
+        });
         return application.id;
       });
     } catch (error) {
@@ -299,6 +303,12 @@ export class JobApplicationService {
           interviewUrl: input.interview_url,
         },
       );
+      await queueApplicationEmail(manager, application.id, {
+        type: 'interview',
+        interviewAt: input.interview_at,
+        interviewUrl: input.interview_url,
+        rescheduled: application.status === 'interview',
+      });
     });
     return this.findApplicantResponse(
       userId,
@@ -320,6 +330,9 @@ export class JobApplicationService {
         { id: application.id },
         { status: 'rejected', decidedAt: new Date() },
       );
+      await queueApplicationEmail(manager, application.id, {
+        type: 'rejected',
+      });
     });
     return this.findApplicantResponse(
       userId,
@@ -360,6 +373,9 @@ export class JobApplicationService {
         { id: application.id },
         { status: 'accepted', decidedAt: new Date() },
       );
+      await queueApplicationEmail(manager, application.id, {
+        type: 'accepted',
+      });
     });
     return this.findApplicantResponse(
       userId,

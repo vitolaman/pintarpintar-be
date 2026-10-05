@@ -31,6 +31,7 @@ import {
   MerchantLevelSummaryDto,
 } from './dto/merchant-level.dto';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
+import { queueLevelEvaluationEmails } from '~/api/email/events/merchant-emails';
 
 const JAKARTA = 'Asia/Jakarta';
 
@@ -187,6 +188,16 @@ export class MerchantLevelService {
           }),
         ),
       );
+      await queueLevelEvaluationEmails(manager, {
+        evaluationId: evaluation.id,
+        merchantId,
+        period,
+        revenue,
+        levelBefore: merchant.storageLevel,
+        levelAfter: newLevel,
+        action,
+        removedItems,
+      });
       this.logger.log(
         `Merchant ${merchantId} ${period}: ${merchant.storageLevel} -> ${newLevel}, ${action}${removedItems ? ` (${removedItems} items removed)` : ''}`,
       );

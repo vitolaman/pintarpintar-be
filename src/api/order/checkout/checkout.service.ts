@@ -27,6 +27,7 @@ import { Order, OrderStatus } from '../entities/order.entity';
 import { OrderService } from '../order.service';
 import { PricingResult } from './checkout-pricing';
 import { CheckoutQuoteService, RejectedCode } from './checkout-quote.service';
+import { queueOrderAwaitingPaymentEmail } from '~/api/email/events/order-emails';
 
 @Injectable()
 export class CheckoutService {
@@ -97,6 +98,7 @@ export class CheckoutService {
         await this.payments.failPending(order.id);
         throw error;
       }
+      await queueOrderAwaitingPaymentEmail(this.dataSource.manager, order.id);
     }
 
     return {

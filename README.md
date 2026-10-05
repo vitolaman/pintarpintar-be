@@ -356,6 +356,32 @@ Merchants publish teaching vacancies; any logged-in user except the vacancy's me
 - `GET /api/v1/merchant/mentors` — accepted applicants plus the tutors of the merchant's classes, with `mentor_id`, class counts and ratings, and the page summary
 - `GET /api/v1/merchant/mentors/:userId` — the mentor's classes with students, ratings, and review counts
 
+### Automatic emails
+
+The backend emails users when these events happen. Every email has an HTML part and a plain-text part, in Indonesian (placeholder wording), with times in WIB and amounts in Rupiah:
+
+| Email | To | When |
+|---|---|---|
+| Menunggu pembayaran | buyer | a paid order's Duitku invoice is created (payment link and deadline) |
+| Pembayaran berhasil | buyer | the order is paid, including free orders; lists the items and each item's `post_purchase_instructions` |
+| Pesanan kedaluwarsa / Pembayaran gagal | buyer | the 60-minute expiry closes the order / Duitku reports a failure |
+| Penjualan baru | each merchant in the order | the order is paid, unless the merchant turned `email_new_sale` off; only its own items and net amounts |
+| Hasil level, Peringatan, Produk dihapus | merchant | each monthly level evaluation, inactivity warning and removal |
+| Penarikan saldo diajukan | merchant | a withdrawal request |
+| Rekening pencairan diubah | merchant | a payout account is added, changed, deleted or made primary (masked number) |
+| Kata sandi diubah | user | a password change |
+| Lamaran: terkirim, jadwal wawancara, diterima, belum diterima | applicant (the application's email) | apply, schedule or reschedule an interview, accept, reject |
+| Jadwal sesi baru / diubah / dibatalkan | enrolled learners | a bootcamp meeting is created; its date, time, duration or link changes; or it is deleted |
+| Tugas dinilai | learner | a submission is graded |
+| Sertifikat terbit | learner | a certificate is issued, manually or automatically |
+
+How sending works:
+- Each email is written to the `email_outbox` table in the event's own transaction, under a savepoint, so an email problem never fails the event. A deduplication key per event means a repeated Duitku callback or job never queues it twice.
+- A background job sends due emails every 30 seconds. A temporary SMTP failure (connection, login, 4xx) is retried after 1, 5, 15, 60 and 360 minutes; a permanent rejection (5xx for the recipient or message) or a sixth failure marks it `failed`.
+- Each email expires 3 days after it was queued; an awaiting-payment email at its payment deadline and a meeting email when the meeting starts. Expired emails are `discarded`, not sent late. Sent, failed and discarded rows are deleted after 90 days.
+- Until `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SENDER` and `FRONTEND_URL` are all set, nothing is sent and the app logs one warning naming the missing variables; emails keep waiting until they expire.
+- Templates live in `src/api/email/templates/`, one file per email; the wording can change there without touching the logic.
+
 ### Class discussions
 
 Open to the class's merchant owner, its active assigned mentors, and enrolled learners (anyone else gets 404); learners can reply but not start threads (403).
@@ -441,6 +467,7 @@ Every variable the running application uses is listed in `.env.example` (Compose
 - `NODE_ENV`: `production` switches the database log format; it is also the traces' environment name.
 - The `OTEL_*` tracing settings. Tracing is on by default and exports to `http://localhost:4318/v1/traces`; set `OTEL_ENABLED=false` (or `OTEL_SDK_DISABLED=true`) to turn it off.
 - `ENV_FILE`, which selects the env file (default `.env`).
+- The six email settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SENDER`, `FRONTEND_URL`): without them the app runs and emails wait in the queue (see Automatic emails). When the login mailbox differs from the sender address (for example `mail@` sending as `info@`), the mail server must allow it, for example as an alias. Deliverability also needs the sending domain's SPF, DKIM and DMARC records and the server's reverse DNS.
 - `REDIS_*` is not used: Redis is not wired into the application.
 
 **Deploy steps:**

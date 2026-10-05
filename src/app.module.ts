@@ -48,6 +48,7 @@ import { LearningModule } from './api/learning/learning.module';
 import { PaymentModule } from './api/payment/payment.module';
 import { RecruitmentModule } from './api/recruitment/recruitment.module';
 import { MerchantLevelModule } from './api/merchant-level/merchant-level.module';
+import { EmailModule } from './api/email/email.module';
 
 @Module({
   imports: [
@@ -103,6 +104,7 @@ import { MerchantLevelModule } from './api/merchant-level/merchant-level.module'
     PaymentModule,
     RecruitmentModule,
     MerchantLevelModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [

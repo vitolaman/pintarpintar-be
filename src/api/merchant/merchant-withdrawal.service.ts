@@ -18,6 +18,7 @@ import {
 import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { Merchant } from './entities/merchant.entity';
 import { MerchantService } from './merchant.service';
+import { queueWithdrawalRequestedEmail } from '~/api/email/events/merchant-emails';
 
 /**
  * "Tarik Saldo": reserves settled income for a manual transfer. The amount
@@ -73,7 +74,7 @@ export class MerchantWithdrawalService {
         .where('id = :id', { id: wallet.id })
         .setParameter('amount', input.amount)
         .execute();
-      return manager.save(
+      const saved = await manager.save(
         MerchantPayout,
         manager.create(MerchantPayout, {
           merchantId: merchant.id,
@@ -84,6 +85,17 @@ export class MerchantWithdrawalService {
           destinationBankAccount: `${account.bankName} ${account.maskedAccountNumber} a.n. ${account.accountHolderName}`,
         }),
       );
+      await queueWithdrawalRequestedEmail(manager, {
+        payoutId: saved.id,
+        merchantId: merchant.id,
+        amount: input.amount,
+        feeAmount: WITHDRAWAL_FEE,
+        bankName: account.bankName,
+        maskedAccountNumber: account.maskedAccountNumber,
+        accountHolderName: account.accountHolderName,
+        requestedAt: new Date(),
+      });
+      return saved;
     });
 
     const { data: wallet } = await this.merchantService.findWallet(userId);

@@ -1,23 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+/** Required before any email is sent. */
 export const MAIL_VARIABLES = [
   'MAIL_HOST',
   'MAIL_PORT',
   'MAIL_USERNAME',
   'MAIL_PASSWORD',
   'MAIL_SENDER',
-  'FRONTEND_URL',
 ] as const;
+
+/** Where email links and the logo point unless FRONTEND_URL overrides it. */
+export const DEFAULT_FRONTEND_URL = 'https://pintarpintar.id';
 
 const SMTP_TIMEOUT_MS = 20_000;
 
 /**
- * Email settings from the environment. Until every one is set, emails stay
- * queued instead of failing, so the app can run before SMTP exists.
+ * Email settings from the environment. Until every required one is set,
+ * emails stay queued instead of failing, so the app can run before SMTP
+ * exists.
  */
 @Injectable()
 export class MailSettings {
+  private readonly logger = new Logger(MailSettings.name);
+  private warnedFrontendUrl = false;
+
   constructor(private readonly config: ConfigService) {}
 
   /** Names of the variables that are missing or invalid (never values). */
@@ -31,8 +38,24 @@ export class MailSettings {
     return this.value('MAIL_SENDER');
   }
 
+  /**
+   * FRONTEND_URL when it is an absolute http(s) URL, otherwise the default.
+   * A value that is set but unusable is logged once (name only), so a typo
+   * never sends broken links.
+   */
   get frontendUrl(): string {
-    return this.value('FRONTEND_URL').replace(/\/+$/, '');
+    const configured = this.config.get<string>('FRONTEND_URL')?.trim() ?? '';
+    if (!configured) return DEFAULT_FRONTEND_URL;
+    if (/^https?:\/\/[^\s/?#]+/i.test(configured) && isUrl(configured)) {
+      return configured.replace(/\/+$/, '');
+    }
+    if (!this.warnedFrontendUrl) {
+      this.logger.warn(
+        `FRONTEND_URL is not an http(s) URL; email links use ${DEFAULT_FRONTEND_URL}`,
+      );
+      this.warnedFrontendUrl = true;
+    }
+    return DEFAULT_FRONTEND_URL;
   }
 
   /** nodemailer SMTP options; 465 is implicit TLS, others use STARTTLS. */
@@ -62,5 +85,13 @@ export class MailSettings {
 
   private value(name: (typeof MAIL_VARIABLES)[number]): string {
     return this.config.get<string>(name)?.trim() ?? '';
+  }
+}
+
+function isUrl(value: string): boolean {
+  try {
+    return Boolean(new URL(value));
+  } catch {
+    return false;
   }
 }

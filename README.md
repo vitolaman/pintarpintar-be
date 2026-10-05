@@ -379,7 +379,8 @@ How sending works:
 - Each email is written to the `email_outbox` table in the event's own transaction, under a savepoint, so an email problem never fails the event. A deduplication key per event means a repeated Duitku callback or job never queues it twice.
 - A background job sends due emails every 30 seconds. A temporary SMTP failure (connection, login, 4xx) is retried after 1, 5, 15, 60 and 360 minutes; a permanent rejection (5xx for the recipient or message) or a sixth failure marks it `failed`.
 - Each email expires 3 days after it was queued; an awaiting-payment email at its payment deadline and a meeting email when the meeting starts. Expired emails are `discarded`, not sent late. Sent, failed and discarded rows are deleted after 90 days.
-- Until `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SENDER` and `FRONTEND_URL` are all set, nothing is sent and the app logs one warning naming the missing variables; emails keep waiting until they expire.
+- Until `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` and `MAIL_SENDER` are all set, nothing is sent and the app logs one warning naming the missing variables; emails keep waiting until they expire.
+- Links and the logo point to `https://pintarpintar.id`. `FRONTEND_URL` overrides that for another environment; a value that is not an http(s) URL is ignored with one warning.
 - Templates live in `src/api/email/templates/`, one file per email; the wording can change there without touching the logic.
 
 ### Class discussions
@@ -467,7 +468,7 @@ Every variable the running application uses is listed in `.env.example` (Compose
 - `NODE_ENV`: `production` switches the database log format; it is also the traces' environment name.
 - The `OTEL_*` tracing settings. Tracing is on by default and exports to `http://localhost:4318/v1/traces`; set `OTEL_ENABLED=false` (or `OTEL_SDK_DISABLED=true`) to turn it off.
 - `ENV_FILE`, which selects the env file (default `.env`).
-- The six email settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SENDER`, `FRONTEND_URL`): without them the app runs and emails wait in the queue (see Automatic emails). When the login mailbox differs from the sender address (for example `mail@` sending as `info@`), the mail server must allow it, for example as an alias. Deliverability also needs the sending domain's SPF, DKIM and DMARC records and the server's reverse DNS.
+- The five email settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SENDER`): without them the app runs and emails wait in the queue (see Automatic emails). `FRONTEND_URL` is optional (default `https://pintarpintar.id`). When the login mailbox differs from the sender address (for example `mail@` sending as `info@`), the mail server must allow it, for example as an alias. Deliverability also needs the sending domain's SPF, DKIM and DMARC records and the server's reverse DNS.
 - `REDIS_*` is not used: Redis is not wired into the application.
 
 **Deploy steps:**

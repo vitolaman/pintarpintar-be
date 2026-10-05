@@ -17,7 +17,7 @@ export const passwordChanged: EmailTemplate<PasswordChangedEmail> = (
   const email = strong(change.email);
   if (change.via_reset) {
     return {
-      subject: 'Kata sandi akun Pintar Pintar kamu diubah',
+      subject: 'Kata sandi akun Pintar Pintar kamu telah diubah',
       title: 'Kata sandi diubah',
       preheader: `Kata sandi diatur ulang pada ${when}.`,
       blocks: [
@@ -35,7 +35,7 @@ export const passwordChanged: EmailTemplate<PasswordChangedEmail> = (
     };
   }
   return {
-    subject: 'Kata sandi akun Pintar Pintar kamu diubah',
+    subject: 'Kata sandi akun Pintar Pintar kamu telah diubah',
     title: 'Kata sandi diubah',
     preheader: `Kata sandi diubah pada ${when}.`,
     blocks: [

@@ -54,7 +54,7 @@ export const merchantWeeklyReport: EmailTemplate<MerchantWeeklyReportEmail> = (
             sectionHeading('Paling laris'),
             itemTable(
               report.top_items.map((item) => ({
-                title: `${item.title} (${item.sold}×)`,
+                title: `${item.title} · ${item.sold} terjual`,
                 type: item.type,
                 amount: item.amount,
               })),

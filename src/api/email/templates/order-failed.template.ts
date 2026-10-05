@@ -26,7 +26,7 @@ export const orderFailed: EmailTemplate<OrderClosedEmail> = (order, link) => {
         total: order.total_amount,
       }),
       plain(
-        'Jika saldo kamu terpotong, hubungi kami lewat halaman Bantuan dengan menyertakan nomor pesanan.',
+        'Jika dana kamu sudah terpotong, hubungi kami lewat halaman Bantuan dengan menyertakan nomor pesanan.',
       ),
     ],
     button: { label: 'Pesan ulang', url: link(FRONTEND_PATHS.cart) },

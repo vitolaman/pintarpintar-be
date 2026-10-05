@@ -30,7 +30,7 @@ export const withdrawalRequested: EmailTemplate<WithdrawalRequestedEmail> = (
       infoRows([
         ['Jumlah penarikan', rupiah(withdrawal.amount)],
         ['Biaya penarikan', rupiah(withdrawal.fee_amount)],
-        ['Diterima', rupiah(transfer)],
+        ['Dana diterima', rupiah(transfer)],
         [
           'Rekening tujuan',
           `${withdrawal.bank_name} ${withdrawal.masked_account_number}\na.n. ${withdrawal.account_holder_name}`,

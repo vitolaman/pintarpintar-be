@@ -4,7 +4,7 @@ import {
   infoRows,
   paragraph,
   strong,
-  wib,
+  wibDate,
 } from './layout';
 import type { CertificateIssuedEmail } from './payloads';
 import type { EmailTemplate } from './template';
@@ -27,7 +27,7 @@ export const certificateIssued: EmailTemplate<CertificateIssuedEmail> = (
       infoRows([
         ['Nomor sertifikat', certificate.certificate_number],
         ['Diterbitkan oleh', certificate.store_name],
-        ['Tanggal terbit', wib(certificate.issued_at)],
+        ['Tanggal terbit', wibDate(certificate.issued_at)],
       ]),
     ],
     button: { label: 'Lihat sertifikat', url: link(FRONTEND_PATHS.profile) },

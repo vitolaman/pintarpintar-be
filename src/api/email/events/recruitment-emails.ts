@@ -21,6 +21,7 @@ export type ApplicationEvent =
       interviewAt: string;
       interviewUrl: string | null;
       rescheduled: boolean;
+      previousInterviewAt: Date | null;
     };
 
 /**
@@ -95,6 +96,9 @@ export async function queueApplicationEmail(
               interview_at: interviewAt,
               interview_url: event.interviewUrl,
               rescheduled: event.rescheduled,
+              previous_interview_at: event.previousInterviewAt
+                ? new Date(event.previousInterviewAt).toISOString()
+                : null,
             },
           };
           break;

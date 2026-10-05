@@ -30,7 +30,8 @@ export const merchantNewSale: EmailTemplate<MerchantNewSaleEmail> = (
       ),
       infoRows([
         ['Nomor pesanan', sale.order_number],
-        ['Waktu pembayaran', wib(sale.paid_at)],
+        // A sale counts once paid, so its time is the payment time.
+        ['Waktu transaksi', wib(sale.paid_at)],
       ]),
       itemTable(sale.items, {
         totalLabel: 'Pendapatan bersih',

@@ -99,6 +99,7 @@ interface ApplicantRow {
 interface LockedApplication {
   id: string;
   status: ApplicationStatus;
+  interview_at: Date | null;
   applicant_user_id: string;
   merchant_id: string;
   class_id: string | null;
@@ -308,6 +309,8 @@ export class JobApplicationService {
         interviewAt: input.interview_at,
         interviewUrl: input.interview_url,
         rescheduled: application.status === 'interview',
+        previousInterviewAt:
+          application.status === 'interview' ? application.interview_at : null,
       });
     });
     return this.findApplicantResponse(
@@ -392,7 +395,7 @@ export class JobApplicationService {
   ): Promise<LockedApplication> {
     const merchant = await findOwnMerchant(manager, userId);
     const [application]: LockedApplication[] = await manager.query(
-      `SELECT application.id, application.status, application.applicant_user_id,
+      `SELECT application.id, application.status, application.interview_at, application.applicant_user_id,
               job.merchant_id, job.class_id
        FROM job_applications application
        INNER JOIN job_postings job

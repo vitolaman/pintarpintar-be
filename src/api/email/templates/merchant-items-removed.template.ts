@@ -11,12 +11,12 @@ export const merchantItemsRemoved: EmailTemplate<MerchantItemsRemovedEmail> = (
   return {
     subject: `Produk ${removal.store_name} telah dihapus`,
     title: 'Produk telah dihapus',
-    preheader: `${count} produk dan kelas dihapus karena tidak ada transaksi.`,
+    preheader: `${count} item dihapus karena tidak ada transaksi.`,
     blocks: [
       greeting(removal.owner_name),
       paragraph(
-        `Karena tidak ada transaksi selama tiga bulan berturut-turut, <b>${count}</b> produk, kelas, bootcamp, dan bundling di ${store.html} telah dihapus. Diskon dan voucher toko juga dinonaktifkan.`,
-        `Karena tidak ada transaksi selama tiga bulan berturut-turut, ${count} produk, kelas, bootcamp, dan bundling di ${store.text} telah dihapus. Diskon dan voucher toko juga dinonaktifkan.`,
+        `Karena tidak ada transaksi selama tiga bulan berturut-turut, <b>${count} item</b> (produk digital, kelas, bootcamp, dan bundling) di ${store.html} telah dihapus. Diskon dan voucher toko juga dinonaktifkan.`,
+        `Karena tidak ada transaksi selama tiga bulan berturut-turut, ${count} item (produk digital, kelas, bootcamp, dan bundling) di ${store.text} telah dihapus. Diskon dan voucher toko juga dinonaktifkan.`,
       ),
       plain(
         'Riwayat pesanan, saldo, dan ulasan tetap tersimpan. Kamu bisa menambahkan produk baru kapan saja.',

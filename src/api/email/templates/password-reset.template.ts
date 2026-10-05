@@ -29,7 +29,7 @@ export const passwordReset: EmailTemplate<PasswordResetEmail> = (
       ),
       infoRows([['Berlaku sampai', until]]),
       smallPrint(
-        'Tautan hanya bisa dipakai sekali. Jika kamu tidak meminta ini, abaikan email ini; kata sandi kamu tidak berubah.',
+        'Tautan hanya bisa dipakai sekali. Jika kamu tidak meminta ini, abaikan email ini. Kata sandi tidak berubah.',
       ),
     ],
     button: { label: 'Atur ulang kata sandi', url },

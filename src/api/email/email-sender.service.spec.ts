@@ -106,7 +106,7 @@ describe('EmailSenderService', () => {
       expect.objectContaining({
         from: 'Pintar Pintar <info@example.test>',
         to: 'ayu@example.test',
-        subject: 'Kata sandi akun Pintar Pintar kamu diubah',
+        subject: 'Kata sandi akun Pintar Pintar kamu telah diubah',
         html: expect.stringContaining('ayu@example.test'),
         text: expect.stringContaining('ayu@example.test'),
       }),
@@ -116,6 +116,36 @@ describe('EmailSenderService', () => {
       { id: 'email-1' },
       expect.objectContaining({ status: 'sent', attempts: 1, lastError: null }),
     );
+  });
+
+  it('sends the claimed emails in their due order', async () => {
+    const first = queued({ id: 'email-1', recipientEmail: 'one@example.test' });
+    const second = queued({
+      id: 'email-2',
+      recipientEmail: 'two@example.test',
+    });
+    // The claim query returns due order; the lookup returns any order.
+    claimManager.createQueryBuilder.mockReturnValue({
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 0 }),
+    });
+    claimManager.query.mockResolvedValue([
+      { id: 'email-1' },
+      { id: 'email-2' },
+    ]);
+    claimManager.findBy.mockResolvedValue([second, first]);
+
+    await service.sendBatch();
+
+    expect(claimManager.query.mock.calls[0][0]).toContain(
+      'ORDER BY next_attempt_at, created_at, id',
+    );
+    expect(sendMail.mock.calls.map(([mail]) => mail.to)).toEqual([
+      'one@example.test',
+      'two@example.test',
+    ]);
   });
 
   it('retries a temporary failure one minute later', async () => {

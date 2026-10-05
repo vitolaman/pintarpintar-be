@@ -140,7 +140,7 @@ export class EmailSenderService {
         `SELECT id FROM email_outbox
          WHERE status IN ('pending', 'sending') AND next_attempt_at <= now()
            AND expires_at > now() AND deleted_at IS NULL
-         ORDER BY next_attempt_at
+         ORDER BY next_attempt_at, created_at, id
          LIMIT ${BATCH_SIZE}
          FOR UPDATE SKIP LOCKED`,
       );
@@ -153,8 +153,13 @@ export class EmailSenderService {
         );
       }
       return {
+        // In the claim query's due-time order: the lease just gave every
+        // claimed row the same next_attempt_at, so it cannot order them.
         emails: ids.length
-          ? await manager.findBy(EmailOutbox, { id: In(ids) })
+          ? inClaimOrder(
+              ids,
+              await manager.findBy(EmailOutbox, { id: In(ids) }),
+            )
           : [],
         discarded: stale.affected ?? 0,
       };
@@ -254,4 +259,11 @@ export class EmailSenderService {
 function withoutFields(fields: string[]): string {
   const names = fields.map((field) => `'${field.replace(/'/g, "''")}'`);
   return `payload - ARRAY[${names.join(', ')}]::text[]`;
+}
+
+function inClaimOrder(ids: string[], emails: EmailOutbox[]): EmailOutbox[] {
+  const position = new Map(ids.map((id, index) => [id, index]));
+  return [...emails].sort(
+    (a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
+  );
 }

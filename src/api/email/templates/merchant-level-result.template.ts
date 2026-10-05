@@ -57,14 +57,14 @@ export const merchantLevelResult: EmailTemplate<MerchantLevelResultEmail> = (
     blocks: [
       greeting(result.owner_name),
       paragraph(
-        `${lead} Total transaksi ${store.html} bulan ${month} adalah <b>${revenue}</b>.`,
-        `${lead} Total transaksi ${store.text} bulan ${month} adalah ${revenue}.`,
+        `${lead} Total transaksi ${store.html} pada ${month} sebesar <b>${revenue}</b>.`,
+        `${lead} Total transaksi ${store.text} pada ${month} sebesar ${revenue}.`,
       ),
       infoRows([
         ['Level sebelumnya', before.label],
         ['Level sekarang', after.label],
         ['Maksimum upload per file', gigabytes(after.maxUploadBytes)],
-        ['Total storage', gigabytes(after.storageQuotaBytes)],
+        ['Kapasitas penyimpanan', gigabytes(after.storageQuotaBytes)],
       ]),
       plain(nextStep(result.level_after)),
     ],

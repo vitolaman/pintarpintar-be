@@ -22,8 +22,7 @@ const LEADS: Record<MeetingEvent, (className: string) => string> = {
   created: (className) => `Ada sesi baru di ${className}.`,
   updated: (className) =>
     `Jadwal sesi di ${className} diubah. Berikut jadwal terbarunya.`,
-  cancelled: (className) =>
-    `Sesi berikut di ${className} dibatalkan oleh mentor.`,
+  cancelled: (className) => `Sesi berikut di ${className} telah dibatalkan.`,
 };
 
 function meetingEmail(
@@ -32,13 +31,18 @@ function meetingEmail(
   link: Link,
 ): EmailContent {
   const course = strong(meeting.class_title);
-  const rows: Array<[string, string]> = [
-    ['Sesi', meeting.meeting_title],
-    ['Waktu', wib(meeting.starts_at)],
-  ];
-  if (event === 'updated' && meeting.previous_starts_at) {
-    rows.push(['Jadwal sebelumnya', wib(meeting.previous_starts_at)]);
-  }
+  // A change reads old to new; other events show the one date.
+  const rows: Array<[string, string]> =
+    event === 'updated' && meeting.previous_starts_at
+      ? [
+          ['Sesi', meeting.meeting_title],
+          ['Jadwal sebelumnya', wib(meeting.previous_starts_at)],
+          ['Jadwal baru', wib(meeting.starts_at)],
+        ]
+      : [
+          ['Sesi', meeting.meeting_title],
+          ['Tanggal', wib(meeting.starts_at)],
+        ];
   rows.push(['Durasi', `${meeting.duration_minutes} menit`]);
   if (event !== 'cancelled') {
     rows.push(['Tautan', meeting.live_url ?? 'Akan dibagikan mentor']);

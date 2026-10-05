@@ -1,4 +1,5 @@
 import { emailKinds, EmailPayloads, renderEmail } from './index';
+import { weeklyChange } from './merchant-weekly-report.template';
 
 const FRONTEND = 'https://pintarpintar.id';
 const order = {
@@ -66,6 +67,31 @@ const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
       settlement_date: '2026-10-08',
     },
     '8 Oktober 2026',
+  ],
+  merchant_weekly_report: [
+    {
+      owner_name: 'Bambang',
+      store_name: 'Studio Sipil',
+      week_start: '2026-09-28',
+      week_end: '2026-10-04',
+      revenue: 1245000,
+      previous_revenue: 980000,
+      transactions: 9,
+      buyers: 8,
+      top_items: [
+        { title: 'Template RAB', type: 'digital', amount: 595000, sold: 5 },
+        {
+          title: 'Bootcamp Estimasi',
+          type: 'bootcamp',
+          amount: 450000,
+          sold: 1,
+        },
+      ],
+      new_reviews: 3,
+      average_rating: 4.7,
+      withdrawable_balance: 3120000,
+    },
+    'naik 27% dari minggu lalu (Rp 980.000)',
   ],
   merchant_level_result: [
     {
@@ -338,6 +364,38 @@ describe('email templates', () => {
         FRONTEND,
       ).text,
     ).toContain(`Buka dashboard mentor: ${FRONTEND}/mentor/dashboard`);
+  });
+
+  it('summarises the week with the range, reviews and top items, without a total', () => {
+    const [payload] = SAMPLES.merchant_weekly_report;
+    const email = renderEmail('merchant_weekly_report', payload, FRONTEND);
+    expect(email.subject).toBe(
+      'Laporan mingguan Studio Sipil: 28 September 2026 – 4 Oktober 2026',
+    );
+    expect(email.text).toContain('Ulasan baru: 3 (rata-rata 4,7 / 5)');
+    expect(email.text).toContain(
+      '- Template RAB (5×) (Produk Digital): Rp 595.000',
+    );
+    expect(email.text).not.toContain('Total');
+    expect(email.text).toContain(
+      `Buka dashboard: ${FRONTEND}/merchant/dashboard`,
+    );
+    const quiet = renderEmail(
+      'merchant_weekly_report',
+      { ...payload, top_items: [], new_reviews: 0, average_rating: null },
+      FRONTEND,
+    );
+    expect(quiet.text).toContain('Ulasan baru: Belum ada');
+    expect(quiet.text).not.toContain('PALING LARIS');
+  });
+
+  it.each([
+    [1245000, 980000, 'naik 27% dari minggu lalu (Rp 980.000)'],
+    [500000, 1000000, 'turun 50% dari minggu lalu (Rp 1.000.000)'],
+    [100000, 100000, 'sama dengan minggu lalu'],
+    [100000, 0, 'minggu lalu belum ada pendapatan'],
+  ])('words a change from %d to %d', (revenue, previous, expected) => {
+    expect(weeklyChange(revenue, previous)).toBe(expected);
   });
 
   it('gives a cancelled meeting no join button', () => {

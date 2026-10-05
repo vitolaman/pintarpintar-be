@@ -17,6 +17,7 @@ import { merchantInactivityWarning } from './merchant-inactivity-warning.templat
 import { merchantItemsRemoved } from './merchant-items-removed.template';
 import { merchantLevelResult } from './merchant-level-result.template';
 import { merchantNewSale } from './merchant-new-sale.template';
+import { merchantWeeklyReport } from './merchant-weekly-report.template';
 import { orderAwaitingPayment } from './order-awaiting-payment.template';
 import { orderExpired } from './order-expired.template';
 import { orderFailed } from './order-failed.template';
@@ -35,6 +36,7 @@ const TEMPLATES: { [K in EmailKind]: EmailTemplate<EmailPayloads[K]> } = {
   order_expired: orderExpired,
   order_failed: orderFailed,
   merchant_new_sale: merchantNewSale,
+  merchant_weekly_report: merchantWeeklyReport,
   merchant_level_result: merchantLevelResult,
   merchant_inactivity_warning: merchantInactivityWarning,
   merchant_items_removed: merchantItemsRemoved,

@@ -1,4 +1,4 @@
-import type { EmailLine } from './layout';
+import type { EmailLine, ItemType } from './layout';
 
 // The data each email shows, captured when the email is queued. Times are ISO
 // strings and amounts are numbers, because the payload is stored as JSON.
@@ -45,6 +45,29 @@ export interface MerchantLevelResultEmail {
   revenue: number;
   level_before: MerchantLevel;
   level_after: MerchantLevel;
+}
+
+export interface WeeklyTopItem {
+  title: string;
+  type: ItemType;
+  amount: number;
+  sold: number;
+}
+
+export interface MerchantWeeklyReportEmail {
+  owner_name: string;
+  store_name: string;
+  // Monday and Sunday of the reported week (YYYY-MM-DD, Asia/Jakarta).
+  week_start: string;
+  week_end: string;
+  revenue: number;
+  previous_revenue: number;
+  transactions: number;
+  buyers: number;
+  top_items: WeeklyTopItem[];
+  new_reviews: number;
+  average_rating: number | null;
+  withdrawable_balance: number;
 }
 
 export interface MerchantInactivityWarningEmail {
@@ -150,6 +173,7 @@ export interface EmailPayloads {
   order_expired: OrderClosedEmail;
   order_failed: OrderClosedEmail;
   merchant_new_sale: MerchantNewSaleEmail;
+  merchant_weekly_report: MerchantWeeklyReportEmail;
   merchant_level_result: MerchantLevelResultEmail;
   merchant_inactivity_warning: MerchantInactivityWarningEmail;
   merchant_items_removed: MerchantItemsRemovedEmail;

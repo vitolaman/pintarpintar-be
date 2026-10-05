@@ -368,6 +368,7 @@ The backend emails users when these events happen. Every email has an HTML part 
 | Pembayaran berhasil | buyer | the order is paid, including free orders; lists the items and each item's `post_purchase_instructions` |
 | Pesanan kedaluwarsa / Pembayaran gagal | buyer | the 60-minute expiry closes the order / Duitku reports a failure |
 | Penjualan baru | each merchant in the order | the order is paid, unless the merchant turned `email_new_sale` off; only its own items and net amounts |
+| Laporan mingguan | merchant | Mondays from 08.00 WIB (hourly until 23.00, once per store and week), for the Monday–Sunday that ended: net income and change vs the week before, transactions, buyers, top 3 items, new reviews and average, withdrawable balance (dashboard figures); unless `email_weekly_report` is off or the week had no sale and no review |
 | Hasil level, Peringatan, Produk dihapus | merchant | each monthly level evaluation, inactivity warning and removal |
 | Penarikan saldo diajukan | merchant | a withdrawal request |
 | Rekening pencairan diubah | merchant | a payout account is added, changed, deleted or made primary (masked number) |

@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
-import { EmailReminderJobs } from './email-reminder-jobs.service';
+import { EmailScheduleJobs } from './email-schedule-jobs.service';
 import { reminderEmail, ReminderRow } from './events/learning-emails';
+import { weeklyReportEmail } from './events/merchant-report-emails';
 
 const row = (overrides: Partial<ReminderRow> = {}): ReminderRow => ({
   meeting_id: 'meeting-1',
@@ -51,12 +52,66 @@ describe('meeting reminders', () => {
     const transaction = jest.fn(
       () => new Promise<void>((resolve) => (release = resolve)),
     );
-    const jobs = new EmailReminderJobs({
+    const jobs = new EmailScheduleJobs({
       manager: { transaction },
     } as unknown as DataSource);
 
     const first = jobs.queueMeetingReminders();
     await jobs.queueMeetingReminders();
+    release();
+    await first;
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('keys a weekly report by store and week, with numbers from the row', () => {
+    const email = weeklyReportEmail(
+      {
+        merchant_id: 'merchant-1',
+        store_name: 'Studio Sipil',
+        owner_id: 'owner-1',
+        owner_name: 'Bambang',
+        owner_email: 'bambang@example.test',
+        revenue: '600000.00',
+        previous_revenue: '400000',
+        transactions: 2,
+        buyers: 2,
+        top_items: [
+          { title: 'RAB', type: 'digital', amount: '600000.00', sold: 2 },
+        ],
+        new_reviews: 1,
+        average_rating: '4.0',
+        withdrawable_balance: '150000',
+      },
+      '2026-09-28',
+    );
+    expect(email).toMatchObject({
+      kind: 'merchant_weekly_report',
+      to: 'bambang@example.test',
+      dedupeKey: 'weekly-report:merchant-1:2026-09-28',
+      payload: {
+        week_start: '2026-09-28',
+        week_end: '2026-10-04',
+        revenue: 600000,
+        previous_revenue: 400000,
+        top_items: [{ title: 'RAB', type: 'digital', amount: 600000, sold: 2 }],
+        average_rating: 4,
+        withdrawable_balance: 150000,
+      },
+    });
+  });
+
+  it('never runs two weekly report jobs at once', async () => {
+    let release: () => void = () => undefined;
+    const transaction = jest.fn(
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+    const jobs = new EmailScheduleJobs({
+      manager: { transaction },
+    } as unknown as DataSource);
+
+    const first = jobs.queueWeeklyReports();
+    await jobs.queueWeeklyReports();
     release();
     await first;
 

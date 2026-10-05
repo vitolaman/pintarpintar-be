@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { MailSettings } from './mail-settings';
+import { DEFAULT_FRONTEND_URL, MailSettings } from './mail-settings';
 
 const settings = (values: Record<string, string | undefined>) =>
   new MailSettings({
@@ -33,6 +33,42 @@ describe('MailSettings', () => {
     expect(settings({ ...COMPLETE, MAIL_PORT: 'smtp' }).missing()).toEqual([
       'MAIL_PORT',
     ]);
+  });
+
+  it('does not require FRONTEND_URL and defaults it to pintarpintar.id', () => {
+    const mail = settings({ ...COMPLETE, FRONTEND_URL: undefined });
+    expect(mail.missing()).toEqual([]);
+    expect(mail.frontendUrl).toBe('https://pintarpintar.id');
+    expect(DEFAULT_FRONTEND_URL).toBe('https://pintarpintar.id');
+    expect(settings({ ...COMPLETE, FRONTEND_URL: '  ' }).frontendUrl).toBe(
+      'https://pintarpintar.id',
+    );
+  });
+
+  it('lets FRONTEND_URL override the default', () => {
+    expect(
+      settings({
+        ...COMPLETE,
+        FRONTEND_URL: 'https://staging.pintarpintar.id//',
+      }).frontendUrl,
+    ).toBe('https://staging.pintarpintar.id');
+    expect(
+      settings({ ...COMPLETE, FRONTEND_URL: 'http://localhost:3000' })
+        .frontendUrl,
+    ).toBe('http://localhost:3000');
+  });
+
+  it('uses the default, warning once, when FRONTEND_URL is unusable', () => {
+    const mail = settings({ ...COMPLETE, FRONTEND_URL: 'typo-frontend-value' });
+    const warn = jest
+      .spyOn(mail['logger'], 'warn')
+      .mockImplementation(() => undefined);
+
+    expect(mail.frontendUrl).toBe('https://pintarpintar.id');
+    expect(mail.frontendUrl).toBe('https://pintarpintar.id');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('FRONTEND_URL');
+    expect(warn.mock.calls[0][0]).not.toContain('typo-frontend-value');
   });
 
   it('uses STARTTLS on 587 and implicit TLS on 465', () => {

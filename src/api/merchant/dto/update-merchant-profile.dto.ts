@@ -20,6 +20,12 @@ import {
 } from '~/common/decorator/input.decorator';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
+import {
+  MerchantBusinessType,
+  merchantBusinessTypes,
+  MerchantProductType,
+  ProductTypesInput,
+} from '../merchant-onboarding';
 
 // A leading "@" is not part of the handle, so "@" alone clears it.
 const stripHandlePrefix = ({ value }: { value: unknown }) => {
@@ -50,6 +56,17 @@ export class UpdateMerchantProfileDto {
     example: 'Teknik & Arsitektur',
   })
   category_label?: string | null;
+
+  @EnumInput(merchantBusinessTypes, {
+    presence: 'optional',
+    example: 'company',
+    description:
+      'Jenis Merchant from the registration form: individual, institution or company',
+  })
+  business_type?: MerchantBusinessType;
+
+  @ProductTypesInput({ optional: true })
+  product_types?: MerchantProductType[];
 
   @ClearableText({ max: 120, example: 'Bandung' })
   city?: string | null;

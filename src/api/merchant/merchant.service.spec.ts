@@ -38,9 +38,15 @@ describe('MerchantService', () => {
   let levelSummary: { findSummary: jest.Mock };
   let service: MerchantService;
 
-  const registrationInput = {
+  const registrationInput: RegisterMerchantDto = {
     store_name: 'Akademi Teknik Raka',
     store_description: 'Kelas teknik untuk profesional.',
+    terms_accepted: true,
+    business_type: 'institution',
+    category_label: 'Teknik & Arsitektur',
+    city: 'Bandung',
+    public_phone: '0812 3456 7890',
+    product_types: ['kelas', 'bootcamp'],
   };
 
   beforeEach(() => {
@@ -122,6 +128,12 @@ describe('MerchantService', () => {
       expect.objectContaining({
         merchantId,
         slug: 'akademi-teknik-raka',
+        termsAcceptedAt: expect.any(Date),
+        businessType: 'institution',
+        categoryLabel: 'Teknik & Arsitektur',
+        city: 'Bandung',
+        publicPhone: '0812 3456 7890',
+        productTypes: ['kelas', 'bootcamp'],
       }),
     );
   });
@@ -682,6 +694,19 @@ describe('UpdateMerchantProfileDto', () => {
     });
   });
 
+  it('updates the registration answers, which cannot be cleared', async () => {
+    const dto = parse({ business_type: 'Company', product_types: ['digital'] });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto).toMatchObject({
+      business_type: 'company',
+      product_types: ['digital'],
+    });
+    expect(
+      await errorFields({ business_type: null, product_types: null }),
+    ).toEqual(['business_type', 'product_types']);
+    expect(await errorFields({ product_types: [] })).toEqual(['product_types']);
+  });
+
   it('treats a blank experience as unset and accepts a numeric string', async () => {
     expect(parse({ experience_years: '' }).experience_years).toBeUndefined();
     const dto = parse({ experience_years: '4' });
@@ -710,6 +735,12 @@ describe('RegisterMerchantDto', () => {
   const valid = {
     store_name: ' Akademi Teknik ',
     store_description: 'Kelas teknik.',
+    terms_accepted: true,
+    business_type: 'individual',
+    category_label: 'Desain & Kreatif',
+    city: 'Jakarta Selatan',
+    public_phone: '0812 3456 7890',
+    product_types: ['digital'],
   };
   const errorFields = async (input: object) =>
     (
@@ -732,6 +763,78 @@ describe('RegisterMerchantDto', () => {
       ).toEqual(['store_name', 'store_description']);
     },
   );
+
+  it('accepts the complete registration form', async () => {
+    expect(await errorFields({})).toEqual([]);
+  });
+
+  it.each([
+    ['terms not accepted', { terms_accepted: false }, 'terms_accepted'],
+    ['terms as a string', { terms_accepted: 'yes' }, 'terms_accepted'],
+    [
+      'an unknown merchant type',
+      { business_type: 'koperasi' },
+      'business_type',
+    ],
+    [
+      'a free-text category',
+      { category_label: 'Teknik & Engineering' },
+      'category_label',
+    ],
+    ['no product type', { product_types: [] }, 'product_types'],
+    [
+      'an unknown product type',
+      { product_types: ['kelas', 'webinar'] },
+      'product_types',
+    ],
+    [
+      'product types that are not a list',
+      { product_types: 'kelas' },
+      'product_types',
+    ],
+    ['a blank city', { city: ' ' }, 'city'],
+    [
+      'a phone over 32 characters',
+      { public_phone: '0'.repeat(33) },
+      'public_phone',
+    ],
+  ])('rejects %s', async (_name, input, field) => {
+    expect(await errorFields(input)).toEqual([field]);
+  });
+
+  it.each([
+    'terms_accepted',
+    'business_type',
+    'city',
+    'public_phone',
+    'product_types',
+  ])('requires %s', async (field) => {
+    const input: Record<string, unknown> = { ...valid };
+    delete input[field];
+    const errors = await validate(plainToInstance(RegisterMerchantDto, input));
+
+    expect(errors.map((error) => error.property)).toEqual([field]);
+  });
+
+  it('takes Lainnya as no category', async () => {
+    const dto = plainToInstance(RegisterMerchantDto, {
+      ...valid,
+      category_label: null,
+    });
+
+    expect(await validate(dto)).toEqual([]);
+    expect(dto.category_label).toBeNull();
+  });
+
+  it('collapses repeated product types into the fixed order, ignoring case', async () => {
+    const dto = plainToInstance(RegisterMerchantDto, {
+      ...valid,
+      product_types: ['Digital', ' kelas ', 'digital', 'BOOTCAMP'],
+    });
+
+    expect(await validate(dto)).toEqual([]);
+    expect(dto.product_types).toEqual(['kelas', 'bootcamp', 'digital']);
+  });
 });
 
 describe('BalanceHistoryQueryDto', () => {

@@ -5,6 +5,10 @@ export interface LandingLayout {
   item_order: Record<string, string[]>;
 }
 import { BaseEntity } from '~/common/entities/base-entity';
+import type {
+  MerchantBusinessType,
+  MerchantProductType,
+} from '../merchant-onboarding';
 
 @Entity({ name: 'merchant_profiles' })
 export class MerchantProfile extends BaseEntity {
@@ -67,6 +71,19 @@ export class MerchantProfile extends BaseEntity {
 
   @Column({ name: 'terms_accepted_at', type: 'timestamp', nullable: true })
   termsAcceptedAt: Date | null;
+
+  // Registration form answers; null for merchants registered before the form
+  // asked for them.
+  @Column({
+    name: 'business_type',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  businessType: MerchantBusinessType | null;
+
+  @Column({ name: 'product_types', type: 'text', array: true, nullable: true })
+  productTypes: MerchantProductType[] | null;
 
   @Column({ name: 'refund_policy', type: 'text', nullable: true })
   refundPolicy: string | null;

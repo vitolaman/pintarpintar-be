@@ -18,8 +18,8 @@ export const interviewScheduled: EmailTemplate<InterviewScheduledEmail> = (
     ? 'Jadwal wawancara diubah'
     : 'Jadwal wawancara';
   const lead = interview.rescheduled
-    ? 'Jadwal wawancara kamu diubah.'
-    : 'Kamu diundang wawancara.';
+    ? 'Jadwal wawancara kamu diubah untuk posisi'
+    : 'Kamu diundang wawancara untuk posisi';
   const job = strong(interview.job_title);
   const store = strong(interview.store_name);
   const when = wib(interview.interview_at);
@@ -30,11 +30,17 @@ export const interviewScheduled: EmailTemplate<InterviewScheduledEmail> = (
     blocks: [
       greeting(interview.applicant_name),
       paragraph(
-        `${lead} Posisi ${job.html} di ${store.html}.`,
-        `${lead} Posisi ${job.text} di ${store.text}.`,
+        `${lead} ${job.html} di ${store.html}.`,
+        `${lead} ${job.text} di ${store.text}.`,
       ),
       infoRows([
-        ['Waktu', when],
+        // A reschedule reads old to new, like a moved session.
+        ...(interview.rescheduled && interview.previous_interview_at
+          ? ([
+              ['Jadwal sebelumnya', wib(interview.previous_interview_at)],
+              ['Jadwal baru', when],
+            ] as Array<[string, string]>)
+          : ([['Tanggal', when]] as Array<[string, string]>)),
         [
           'Tautan wawancara',
           interview.interview_url ?? 'Akan dikirim oleh merchant',

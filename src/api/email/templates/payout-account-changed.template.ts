@@ -19,6 +19,14 @@ const ACTIONS: Record<PayoutAccountAction, string> = {
   primary: 'dijadikan rekening utama',
 };
 
+// "ditambahkan ke toko", "dihapus dari toko", "diubah di toko".
+const PREPOSITIONS: Record<PayoutAccountAction, string> = {
+  added: 'ke',
+  updated: 'di',
+  deleted: 'dari',
+  primary: 'di',
+};
+
 export const payoutAccountChanged: EmailTemplate<PayoutAccountChangedEmail> = (
   change,
   link,
@@ -35,8 +43,8 @@ export const payoutAccountChanged: EmailTemplate<PayoutAccountChangedEmail> = (
     blocks: [
       greeting(change.owner_name),
       paragraph(
-        `Rekening ${account.html} a.n. ${strong(holder).html} telah ${action} di toko ${store.html} pada ${when}.`,
-        `Rekening ${account.text} a.n. ${holder} telah ${action} di toko ${store.text} pada ${when}.`,
+        `Rekening ${account.html} a.n. ${strong(holder).html} telah ${action} ${PREPOSITIONS[change.action]} toko ${store.html} pada ${when}.`,
+        `Rekening ${account.text} a.n. ${holder} telah ${action} ${PREPOSITIONS[change.action]} toko ${store.text} pada ${when}.`,
       ),
       noteBox(
         'Bukan kamu?',

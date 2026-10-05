@@ -131,6 +131,8 @@ export interface InterviewScheduledEmail extends ApplicationEmail {
   interview_at: string;
   interview_url: string | null;
   rescheduled: boolean;
+  // The time before a reschedule; absent in emails queued before it existed.
+  previous_interview_at?: string | null;
 }
 
 export interface ApplicationAcceptedEmail extends ApplicationEmail {

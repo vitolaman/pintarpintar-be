@@ -29,7 +29,7 @@ describe('EmailSenderService', () => {
     createQueryBuilder: jest.Mock;
     query: jest.Mock;
     update: jest.Mock;
-    findBy: jest.Mock;
+    find: jest.Mock;
   };
   let recorded: jest.Mock;
   let sendMail: jest.Mock;
@@ -44,7 +44,7 @@ describe('EmailSenderService', () => {
       execute: jest.fn().mockResolvedValue({ affected: discarded }),
     });
     claimManager.query.mockResolvedValue(emails.map(({ id }) => ({ id })));
-    claimManager.findBy.mockResolvedValue(emails);
+    claimManager.find.mockResolvedValue(emails);
   }
 
   beforeEach(() => {
@@ -52,7 +52,7 @@ describe('EmailSenderService', () => {
       createQueryBuilder: jest.fn(),
       query: jest.fn(),
       update: jest.fn(),
-      findBy: jest.fn(),
+      find: jest.fn(),
     };
     recorded = jest.fn();
     sendMail = jest.fn();
@@ -106,7 +106,7 @@ describe('EmailSenderService', () => {
       expect.objectContaining({
         from: 'Pintar Pintar <info@example.test>',
         to: 'ayu@example.test',
-        subject: 'Kata sandi akun Pintar Pintar kamu diubah',
+        subject: 'Kata sandi akun Pintar Pintar kamu telah diubah',
         html: expect.stringContaining('ayu@example.test'),
         text: expect.stringContaining('ayu@example.test'),
       }),
@@ -115,6 +115,19 @@ describe('EmailSenderService', () => {
       EmailOutbox,
       { id: 'email-1' },
       expect.objectContaining({ status: 'sent', attempts: 1, lastError: null }),
+    );
+  });
+
+  it('sends the claimed emails oldest first', async () => {
+    claim([queued()]);
+
+    await service.sendBatch();
+
+    expect(claimManager.find).toHaveBeenCalledWith(
+      EmailOutbox,
+      expect.objectContaining({
+        order: { nextAttemptAt: 'ASC', created_at: 'ASC' },
+      }),
     );
   });
 

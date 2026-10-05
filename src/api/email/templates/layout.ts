@@ -95,6 +95,12 @@ export function wib(moment: string | Date): string {
   return `${jakarta.getUTCDate()} ${MONTHS[jakarta.getUTCMonth()]} ${jakarta.getUTCFullYear()}, ${hours}.${minutes} WIB`;
 }
 
+/** The Asia/Jakarta date of a moment, e.g. "5 Oktober 2026". */
+export function wibDate(moment: string | Date): string {
+  const jakarta = new Date(new Date(moment).getTime() + JAKARTA_OFFSET_MS);
+  return `${jakarta.getUTCDate()} ${MONTHS[jakarta.getUTCMonth()]} ${jakarta.getUTCFullYear()}`;
+}
+
 /** A calendar date (YYYY-MM-DD), e.g. "8 Oktober 2026". */
 export function tanggal(date: string): string {
   const [year, month, day] = date.slice(0, 10).split('-').map(Number);
@@ -276,7 +282,7 @@ export function layout(
 ${content.blocks.map((block) => block.html).join('\n')}
 ${buttonHtml}
 </td></tr>
-<tr><td style="padding:20px 32px 28px;border-top:1px solid ${LINE};font:12px/1.6 ${FONT};color:${MUTED};">Email ini dikirim otomatis oleh Pintar Pintar. Butuh bantuan? Kunjungi <a href="${escapeHtml(helpUrl)}" style="color:${MUTED};">${escapeHtml(helpUrl.replace(/^https?:\/\//, ''))}</a>.<br>© ${year} Pintar Pintar</td></tr>
+<tr><td style="padding:20px 32px 28px;border-top:1px solid ${LINE};font:12px/1.6 ${FONT};color:${MUTED};">Email ini dikirim otomatis oleh Pintar Pintar. Mohon tidak membalas email ini. Butuh bantuan? Kunjungi <a href="${escapeHtml(helpUrl)}" style="color:${MUTED};">${escapeHtml(helpUrl.replace(/^https?:\/\//, ''))}</a>.<br>© ${year} Pintar Pintar</td></tr>
 </table></div>
 </body></html>`;
   const text = [
@@ -286,7 +292,7 @@ ${buttonHtml}
     ...(button ? ['', `${button.label}: ${button.url}`] : []),
     '',
     '--',
-    `Email ini dikirim otomatis oleh Pintar Pintar. Butuh bantuan? ${helpUrl}`,
+    `Email ini dikirim otomatis oleh Pintar Pintar. Mohon tidak membalas email ini. Butuh bantuan? ${helpUrl}`,
   ].join('\n');
   return { subject: content.subject, html, text };
 }

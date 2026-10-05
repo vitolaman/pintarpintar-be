@@ -344,7 +344,14 @@ describe('email templates', () => {
   it('reminds learners with the join link, or Portal Saya without one', () => {
     const [payload] = SAMPLES.meeting_reminder;
     const withLink = renderEmail('meeting_reminder', payload, FRONTEND);
-    expect(withLink.subject).toBe('Sesi dimulai 1 jam lagi: Sesi 3: Kurva S');
+    expect(withLink.subject).toBe(
+      'Reminder: kelas Sesi 3: Kurva S akan dimulai dalam 60 menit',
+    );
+    expect(withLink.text).toContain(
+      'akan dimulai dalam 60 menit. Siapkan perangkat dan koneksi kamu.',
+    );
+    expect(withLink.text).toContain('Tanggal: 12 Oktober 2026, 19.00 WIB');
+    expect(withLink.text).not.toMatch(/sekitar|1 jam/);
     expect(withLink.text).toContain('Gabung sesi: https://zoom.us/j/1');
     expect(
       renderEmail('meeting_reminder', { ...payload, live_url: null }, FRONTEND)
@@ -355,8 +362,14 @@ describe('email templates', () => {
   it('reminds the mentor with mentor wording and the dashboard fallback', () => {
     const [payload] = SAMPLES.meeting_mentor_reminder;
     const email = renderEmail('meeting_mentor_reminder', payload, FRONTEND);
-    expect(email.subject).toBe('Kamu mengajar 1 jam lagi: Sesi 3: Kurva S');
-    expect(email.text).toContain('Kamu dijadwalkan mengajar');
+    expect(email.subject).toBe(
+      'Reminder: kelas Sesi 3: Kurva S akan dimulai dalam 60 menit',
+    );
+    expect(email.text).toContain('Kelas akan dimulai dalam 60 menit');
+    expect(email.text).toContain(
+      'Kamu dijadwalkan mengajar sesi di Bootcamp Manajemen Proyek dalam 60 menit.',
+    );
+    expect(email.text).not.toMatch(/Anda|sekitar/);
     expect(
       renderEmail(
         'meeting_mentor_reminder',
@@ -374,7 +387,7 @@ describe('email templates', () => {
     );
     expect(email.text).toContain('Ulasan baru: 3 (rata-rata 4,7 / 5)');
     expect(email.text).toContain(
-      '- Template RAB (5×) (Produk Digital): Rp 595.000',
+      '- Template RAB · 5 terjual (Produk Digital): Rp 595.000',
     );
     expect(email.text).not.toContain('Total');
     expect(email.text).toContain(
@@ -396,6 +409,98 @@ describe('email templates', () => {
     [100000, 0, 'minggu lalu belum ada pendapatan'],
   ])('words a change from %d to %d', (revenue, previous, expected) => {
     expect(weeklyChange(revenue, previous)).toBe(expected);
+  });
+
+  it('shows a moved session from the old date to the new one', () => {
+    const [payload] = SAMPLES.meeting_updated;
+    const text = renderEmail('meeting_updated', payload, FRONTEND).text;
+    expect(text).toContain(
+      'Jadwal sebelumnya: 10 Oktober 2026, 19.00 WIB\nJadwal baru: 12 Oktober 2026, 19.00 WIB',
+    );
+    expect(text).not.toContain('Waktu');
+  });
+
+  it('labels standalone dates as Tanggal', () => {
+    for (const kind of [
+      'meeting_created',
+      'meeting_cancelled',
+      'interview_scheduled',
+    ] as const) {
+      const [payload] = SAMPLES[kind] as [never, string];
+      const text = renderEmail(kind, payload, FRONTEND).text;
+      expect(text).toMatch(/Tanggal: \d+ \w+ 2026, \d{2}\.\d{2} WIB/);
+      expect(text).not.toMatch(/^Waktu:/m);
+    }
+  });
+
+  it('labels the merchant sale time as the transaction time', () => {
+    const [payload] = SAMPLES.merchant_new_sale;
+    const text = renderEmail('merchant_new_sale', payload, FRONTEND).text;
+    expect(text).toContain('Waktu transaksi: 5 Oktober 2026, 14.41 WIB');
+    expect(text).not.toContain('Waktu pembayaran');
+  });
+
+  it('uses kamu everywhere, never Anda', () => {
+    for (const kind of emailKinds) {
+      const [payload] = SAMPLES[kind] as [never, string];
+      expect(renderEmail(kind, payload, FRONTEND).text).not.toMatch(/\bAnda\b/);
+    }
+  });
+
+  it('asks readers not to reply in every footer', () => {
+    for (const kind of emailKinds) {
+      const [payload] = SAMPLES[kind] as [never, string];
+      expect(renderEmail(kind, payload, FRONTEND).text).toContain(
+        'Mohon tidak membalas email ini.',
+      );
+    }
+  });
+
+  it.each([
+    ['added', 'ditambahkan ke toko'],
+    ['deleted', 'dihapus dari toko'],
+    ['updated', 'diubah di toko'],
+    ['primary', 'dijadikan rekening utama di toko'],
+  ])('uses the right preposition when an account is %s', (action, phrase) => {
+    const [payload] = SAMPLES.payout_account_changed;
+    expect(
+      renderEmail(
+        'payout_account_changed',
+        { ...payload, action } as never,
+        FRONTEND,
+      ).text,
+    ).toContain(phrase);
+  });
+
+  it('shows a rescheduled interview from the old date to the new one', () => {
+    const [payload] = SAMPLES.interview_scheduled;
+    const moved = renderEmail(
+      'interview_scheduled',
+      {
+        ...payload,
+        rescheduled: true,
+        previous_interview_at: '2026-10-07T03:00:00Z',
+      },
+      FRONTEND,
+    ).text;
+    expect(moved).toContain(
+      'Jadwal wawancara kamu diubah untuk posisi Mentor AutoCAD di Studio Sipil.',
+    );
+    expect(moved).toContain(
+      'Jadwal sebelumnya: 7 Oktober 2026, 10.00 WIB\nJadwal baru: 8 Oktober 2026, 10.00 WIB',
+    );
+    const first = renderEmail('interview_scheduled', payload, FRONTEND).text;
+    expect(first).toContain(
+      'Kamu diundang wawancara untuk posisi Mentor AutoCAD',
+    );
+    expect(first).toContain('Tanggal: 8 Oktober 2026, 10.00 WIB');
+  });
+
+  it('dates a certificate without a time', () => {
+    const [payload] = SAMPLES.certificate_issued;
+    expect(renderEmail('certificate_issued', payload, FRONTEND).text).toContain(
+      'Tanggal terbit: 5 Oktober 2026\n',
+    );
   });
 
   it('gives a cancelled meeting no join button', () => {

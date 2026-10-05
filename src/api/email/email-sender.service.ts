@@ -153,8 +153,12 @@ export class EmailSenderService {
         );
       }
       return {
+        // Oldest first, so emails go out in the order they were due.
         emails: ids.length
-          ? await manager.findBy(EmailOutbox, { id: In(ids) })
+          ? await manager.find(EmailOutbox, {
+              where: { id: In(ids) },
+              order: { nextAttemptAt: 'ASC', created_at: 'ASC' },
+            })
           : [],
         discarded: stale.affected ?? 0,
       };

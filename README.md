@@ -111,8 +111,11 @@ The collections take `limit` (default 10, at most 50) and return the newest firs
 ### Class reviews
 
 - `POST /api/v1/reviews` — `class_id` (enrolled learners) or `product_id` (buyers with unexpired access), `rating` 1–5, optional `comment`; one review per class or product (409 for a second)
-- `GET /api/v1/reviews/classes/:classId` — **public**; average, count, and paged reviews
-- `GET /api/v1/reviews/digital-products/:productId` — **public**; reviews of a published digital product
+- `GET /api/v1/reviews/classes/:classId` — **public**; average, count, and paged reviews. Each review has `helpful_count`, `viewer_has_voted`, `is_own_review` and `replies` (oldest first, with `author_role` `merchant`, `mentor` or `buyer`); `viewer_can_reply` says whether the caller may reply. The caller fields are false without a token
+- `GET /api/v1/reviews/digital-products/:productId` — **public**; reviews of a published digital product, with the same fields
+- `PUT /api/v1/reviews/:id/helpful` — marks a review "Membantu", once per user (repeating changes nothing); not on your own review (403). Returns `helpful_count` and `viewer_has_voted`
+- `DELETE /api/v1/reviews/:id/helpful` — removes the caller's mark (repeating changes nothing); returns the same fields
+- `POST /api/v1/reviews/:id/replies` — `{comment}` (1–2,000 characters); enrolled learners or buyers of the item, its merchant owner and the class's active mentors (others 403); the reply keeps the author's role; no edit or delete; 10 replies a minute per client address
 - `GET /api/v1/reviews/merchants/:merchantId` — **public**; reviews of a merchant's classes and products (Review tab)
 
 ### Pusat Bantuan

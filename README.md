@@ -437,6 +437,10 @@ $ yarn start:local
 
 Successful statements are not logged. In development every statement is logged with its values, except that statements on `email_outbox` and `password_reset_tokens` show `[redacted]`. Traces carry statement text but no values.
 
+**Error log.** Every error response is one line from the `HTTP` logger: `<status> <METHOD> <path>`, without the query string, request body or headers.
+- A 4xx is a warning with the message the client received, without a stack.
+- A 5xx is an error with its stack. In production a database error shows its SQLSTATE code and constraint or table instead of the database message, which can quote values.
+
 ## Required checks before pushing
 
 Run both commands on the merged state of `development` before pushing. `npm test` alone is not sufficient: it does not compile files that no spec imports, so build-only errors can pass tests and fail on `npm run build`.

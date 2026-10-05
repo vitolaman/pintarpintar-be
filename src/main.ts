@@ -37,7 +37,11 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-  app.useGlobalFilters(new CustomHttpExceptionFilter());
+  app.useGlobalFilters(
+    new CustomHttpExceptionFilter({
+      sanitizeDatabaseErrors: process.env.NODE_ENV === 'production',
+    }),
+  );
   // Responses carry image URLs only; without the base URL every image is null.
   if (!process.env.ASSET_PUBLIC_BASE_URL) {
     new Logger('Bootstrap').error(

@@ -6,11 +6,12 @@ import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthSessionController } from './auth-session.controller';
 import { AuthService } from './auth.service';
+import { PasswordResetService } from './password-reset.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   controllers: [AuthController, AuthSessionController],
-  providers: [AuthService],
+  providers: [AuthService, PasswordResetService],
   exports: [AuthService, JwtModule],
   imports: [
     JwtModule.registerAsync({

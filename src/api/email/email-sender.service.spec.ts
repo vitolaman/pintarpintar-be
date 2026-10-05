@@ -169,6 +169,51 @@ describe('EmailSenderService', () => {
     });
   });
 
+  it('removes the reset token from the stored email once sent', async () => {
+    claim([
+      queued({
+        kind: 'password_reset',
+        payload: {
+          user_name: 'Ayu',
+          reset_token: 'secret-token',
+          expires_at: '2026-10-05T08:30:00Z',
+        },
+      }),
+    ]);
+
+    await service.sendBatch();
+
+    const [, , changes] = recorded.mock.calls[0];
+    expect(changes.status).toBe('sent');
+    expect(changes.payload()).toBe("payload - ARRAY['reset_token']::text[]");
+  });
+
+  it('keeps other payloads when sent', async () => {
+    claim([queued()]);
+    await service.sendBatch();
+    expect(recorded.mock.calls[0][2].payload).toBeUndefined();
+  });
+
+  it('keeps the reset token while a retry is pending', async () => {
+    claim([
+      queued({
+        kind: 'password_reset',
+        payload: {
+          user_name: 'Ayu',
+          reset_token: 'secret-token',
+          expires_at: '2026-10-05T08:30:00Z',
+        },
+      }),
+    ]);
+    sendMail.mockRejectedValue(new Error('socket hang up'));
+    jest.spyOn(service['logger'], 'warn').mockImplementation(() => undefined);
+
+    await service.sendBatch();
+
+    expect(recorded.mock.calls[0][2]).toMatchObject({ status: 'pending' });
+    expect(recorded.mock.calls[0][2].payload).toBeUndefined();
+  });
+
   it('fails an email it cannot render without sending it', async () => {
     claim([queued({ kind: 'not_a_kind' })]);
     jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);

@@ -146,6 +146,8 @@ export const FRONTEND_PATHS = {
   merchantSettings: '/merchant/settings',
   merchantDashboard: '/merchant/dashboard',
   security: '/settings/security',
+  login: '/login',
+  resetPassword: '/reset-password',
   applications: '/mentor/progress-lamaran',
   mentorDashboard: '/mentor/dashboard',
   jobBoard: '/job-board',

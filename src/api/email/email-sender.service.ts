@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, In } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import {
   describeFailure,
   isPermanentFailure,
@@ -10,7 +11,11 @@ import {
 } from './email-delivery-rules';
 import { EmailOutbox } from './entities/email-outbox.entity';
 import { MailSettings } from './mail-settings';
-import { isEmailKind, renderEmail } from './templates';
+import {
+  isEmailKind,
+  renderEmail,
+  SENSITIVE_PAYLOAD_FIELDS,
+} from './templates';
 
 const BATCH_SIZE = 25;
 // A claimed email is retried after this time if its sender stopped midway.
@@ -117,6 +122,20 @@ export class EmailSenderService {
         .set({ status: 'discarded' })
         .where("status IN ('pending', 'sending') AND expires_at <= now()")
         .execute();
+      for (const [kind, fields] of Object.entries(SENSITIVE_PAYLOAD_FIELDS)) {
+        await manager
+          .createQueryBuilder()
+          .update(EmailOutbox)
+          .set({ payload: () => withoutFields(fields) })
+          .where(
+            "kind = :kind AND status = 'discarded' AND payload ?| :fields",
+            {
+              kind,
+              fields,
+            },
+          )
+          .execute();
+      }
       const due: Array<{ id: string }> = await manager.query(
         `SELECT id FROM email_outbox
          WHERE status IN ('pending', 'sending') AND next_attempt_at <= now()
@@ -212,14 +231,27 @@ export class EmailSenderService {
     }
   }
 
+  // A final status also removes the fields that must not stay stored.
   private async record(
     email: EmailOutbox,
-    changes: Parameters<DataSource['manager']['update']>[2],
+    changes: QueryDeepPartialEntity<EmailOutbox>,
   ): Promise<void> {
+    const fields = isEmailKind(email.kind)
+      ? SENSITIVE_PAYLOAD_FIELDS[email.kind]
+      : undefined;
+    const final = changes.status === 'sent' || changes.status === 'failed';
     await this.dataSource.manager.update(
       EmailOutbox,
       { id: email.id },
-      changes,
+      fields && final
+        ? { ...changes, payload: () => withoutFields(fields) }
+        : changes,
     );
   }
+}
+
+// Field names come from SENSITIVE_PAYLOAD_FIELDS, never from input.
+function withoutFields(fields: string[]): string {
+  const names = fields.map((field) => `'${field.replace(/'/g, "''")}'`);
+  return `payload - ARRAY[${names.join(', ')}]::text[]`;
 }

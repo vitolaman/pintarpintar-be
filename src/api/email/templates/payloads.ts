@@ -87,6 +87,15 @@ export interface PasswordChangedEmail {
   user_name: string;
   email: string;
   changed_at: string;
+  // True when the password was set through a reset link.
+  via_reset?: boolean;
+}
+
+export interface PasswordResetEmail {
+  user_name: string;
+  // Removed from the stored email once it is sent, failed or discarded.
+  reset_token?: string;
+  expires_at: string;
 }
 
 export interface ApplicationEmail {
@@ -146,6 +155,7 @@ export interface EmailPayloads {
   withdrawal_requested: WithdrawalRequestedEmail;
   payout_account_changed: PayoutAccountChangedEmail;
   password_changed: PasswordChangedEmail;
+  password_reset: PasswordResetEmail;
   application_submitted: ApplicationEmail;
   interview_scheduled: InterviewScheduledEmail;
   application_accepted: ApplicationAcceptedEmail;

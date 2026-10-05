@@ -124,6 +124,14 @@ const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
     },
     'ayu@example.test',
   ],
+  password_reset: [
+    {
+      user_name: 'Ayu',
+      reset_token: 'abc-DEF_123',
+      expires_at: '2026-10-05T08:30:00Z',
+    },
+    '5 Oktober 2026, 15.30 WIB',
+  ],
   application_submitted: [application, 'Mentor AutoCAD'],
   interview_scheduled: [
     {
@@ -266,6 +274,43 @@ describe('email templates', () => {
         FRONTEND,
       ).subject,
     ).toBe('Jadwal wawancara diubah: Mentor AutoCAD');
+  });
+
+  it('links the reset email to the reset page with its token', () => {
+    const [payload] = SAMPLES.password_reset;
+    const email = renderEmail('password_reset', payload, FRONTEND);
+    expect(email.html).toContain(
+      `href="${FRONTEND}/reset-password?token=abc-DEF_123"`,
+    );
+    expect(email.text).toContain(
+      `Atur ulang kata sandi: ${FRONTEND}/reset-password?token=abc-DEF_123`,
+    );
+  });
+
+  it('refuses to render a reset email whose token was removed', () => {
+    const [payload] = SAMPLES.password_reset;
+    expect(() =>
+      renderEmail(
+        'password_reset',
+        { ...payload, reset_token: undefined },
+        FRONTEND,
+      ),
+    ).toThrow('the reset token was already removed');
+  });
+
+  it('words the password notice for a reset, with a sign-in button', () => {
+    const [payload] = SAMPLES.password_changed;
+    const email = renderEmail(
+      'password_changed',
+      { ...payload, via_reset: true },
+      FRONTEND,
+    );
+    expect(email.text).toContain('diatur ulang lewat tautan email');
+    expect(email.text).toContain('dikeluarkan dari semua perangkat.');
+    expect(email.text).toContain(`Masuk: ${FRONTEND}/login`);
+    expect(renderEmail('password_changed', payload, FRONTEND).text).toContain(
+      'semua perangkat lain',
+    );
   });
 
   it('gives a cancelled meeting no join button', () => {

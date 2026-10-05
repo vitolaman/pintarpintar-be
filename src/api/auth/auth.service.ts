@@ -16,6 +16,7 @@ import { AuthTokenWithUserDto } from './dto/auth-token-with-user.dto';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignInResDto } from './dto/sign-in.res.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
+import { queuePasswordChangedEmail } from '~/api/email/events/account-emails';
 
 @Injectable()
 export class AuthService {
@@ -99,6 +100,7 @@ export class AuthService {
       user.passwordHash = await hash(input.new_password, 10);
       user.tokenVersion += 1;
       await manager.save(User, user);
+      await queuePasswordChangedEmail(manager, user);
       return user.tokenVersion;
     });
     return this.createTokenResponse('Password changed', userId, version);

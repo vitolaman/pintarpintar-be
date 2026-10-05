@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -43,6 +44,11 @@ import {
 } from './meeting-sql';
 import { applyCoverInput, findCovers } from '../api/item-cover/item-covers';
 import { paginationMeta } from '../common/dto/response-meta.dto';
+import {
+  loadMeetingForEmail,
+  meetingScheduleChanged,
+  queueMeetingEmails,
+} from '~/api/email/events/learning-emails';
 
 // A lead tutor may edit the class's presentation; pricing, type, and status
 // stay with the owner.
@@ -290,6 +296,12 @@ export class ClassService {
           created_by: userId,
         }),
       );
+      await queueMeetingEmails(
+        manager,
+        'created',
+        await loadMeetingForEmail(manager, meeting.id),
+        'created',
+      );
       return {
         data: await this.findMeetingResponse(manager, classId, meeting.id),
         responseMessage: 'Create meeting success',
@@ -320,6 +332,7 @@ export class ClassService {
         await this.assertClassTutor(manager, classId, dto.mentor_id);
       }
 
+      const before = await loadMeetingForEmail(manager, meeting.id);
       const { live_url, ...meetingChanges } = pickDefined(
         dto,
         MEETING_UPDATE_FIELDS,
@@ -328,6 +341,16 @@ export class ClassService {
       if (live_url !== undefined) meeting.liveUrl = live_url;
       meeting.updated_by = userId;
       await manager.save(meeting);
+      const after = await loadMeetingForEmail(manager, meeting.id);
+      if (meetingScheduleChanged(before, after)) {
+        await queueMeetingEmails(
+          manager,
+          'updated',
+          after,
+          randomUUID(),
+          before,
+        );
+      }
       return {
         data: await this.findMeetingResponse(manager, classId, meeting.id),
         responseMessage: 'Update meeting success',
@@ -356,11 +379,13 @@ export class ClassService {
       });
       if (!meeting) throw new NotFoundException('Meeting not found');
 
+      const cancelled = await loadMeetingForEmail(manager, meeting.id);
       await manager.update(
         Meeting,
         { id: meeting.id },
         { deleted_at: new Date(), deleted_by: userId },
       );
+      await queueMeetingEmails(manager, 'cancelled', cancelled, 'cancelled');
       await this.certificates.issueEligible(manager, classId);
     });
   }

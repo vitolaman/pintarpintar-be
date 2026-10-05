@@ -1,0 +1,50 @@
+import { ConfigService } from '@nestjs/config';
+import { MailSettings } from './mail-settings';
+
+const settings = (values: Record<string, string | undefined>) =>
+  new MailSettings({
+    get: (name: string) => values[name],
+  } as unknown as ConfigService);
+
+const COMPLETE = {
+  MAIL_HOST: 'mail.example.test',
+  MAIL_PORT: '587',
+  MAIL_USERNAME: 'mail@example.test',
+  MAIL_PASSWORD: 'secret',
+  MAIL_SENDER: 'Pintar Pintar <info@example.test>',
+  FRONTEND_URL: 'https://pintarpintar.id/',
+};
+
+describe('MailSettings', () => {
+  it('is complete when every variable is set', () => {
+    const mail = settings(COMPLETE);
+    expect(mail.missing()).toEqual([]);
+    expect(mail.frontendUrl).toBe('https://pintarpintar.id');
+  });
+
+  it('names missing, blank and invalid variables, never values', () => {
+    expect(
+      settings({
+        ...COMPLETE,
+        MAIL_HOST: ' ',
+        MAIL_PASSWORD: undefined,
+      }).missing(),
+    ).toEqual(['MAIL_HOST', 'MAIL_PASSWORD']);
+    expect(settings({ ...COMPLETE, MAIL_PORT: 'smtp' }).missing()).toEqual([
+      'MAIL_PORT',
+    ]);
+  });
+
+  it('uses STARTTLS on 587 and implicit TLS on 465', () => {
+    expect(settings(COMPLETE).smtpTransport()).toMatchObject({
+      host: 'mail.example.test',
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      auth: { user: 'mail@example.test', pass: 'secret' },
+    });
+    expect(
+      settings({ ...COMPLETE, MAIL_PORT: '465' }).smtpTransport(),
+    ).toMatchObject({ port: 465, secure: true, requireTLS: false });
+  });
+});

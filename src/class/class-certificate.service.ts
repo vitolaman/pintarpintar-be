@@ -19,6 +19,7 @@ import { Certificate, CertificateStatus } from './entities/certificate.entity';
 import { ClassCertificateSettings } from './entities/class-certificate-settings.entity';
 import { LearnerMetrics, loadLearnerMetrics } from './learner-metrics';
 import { paginationMeta } from '../common/dto/response-meta.dto';
+import { queueCertificateIssuedEmail } from '~/api/email/events/learning-emails';
 
 export interface CertificateSettings {
   auto_issue: boolean;
@@ -428,7 +429,7 @@ export class ClassCertificateService {
        FROM certificates WHERE "certNo" LIKE 'PP-CERT-' || $1 || '-%'`,
       [year],
     );
-    return manager.save(
+    const certificate = await manager.save(
       Certificate,
       manager.create(Certificate, {
         class_id: classId,
@@ -439,6 +440,8 @@ export class ClassCertificateService {
         created_by: issuedBy ?? null,
       }),
     );
+    await queueCertificateIssuedEmail(manager, certificate.id);
+    return certificate;
   }
 
   async loadSettings(

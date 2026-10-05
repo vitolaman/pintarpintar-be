@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { DataSource, DataSourceOptions } from 'typeorm';
-import { DatabaseLogger } from './database.logger';
+import { DatabaseLogger, RedactingConsoleLogger } from './database.logger';
 import * as dotenv from 'dotenv';
 import * as dotenvExpand from 'dotenv-expand';
 import { User } from '~/api/user/entities/user.entity';
@@ -66,6 +66,7 @@ import { ItemCoverImage } from '~/api/item-cover/entities/item-cover-image.entit
 import { SavedJobPosting } from '~/api/recruitment/entities/saved-job-posting.entity';
 import { MerchantDailyStat } from '~/api/merchant-income/entities/merchant-daily-stat.entity';
 import { EmailOutbox } from '~/api/email/entities/email-outbox.entity';
+import { PasswordResetToken } from '~/api/auth/entities/password-reset-token.entity';
 
 dotenvExpand.expand(dotenv.config({ path: process.env.ENV_FILE || '.env' }));
 const isProduction = process.env.NODE_ENV == 'production';
@@ -141,6 +142,7 @@ export const dataSourceOptions: DataSourceOptions = {
     SavedJobPosting,
     MerchantDailyStat,
     EmailOutbox,
+    PasswordResetToken,
   ],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations
   // remain in `migrations/` as reference only and must never run on this database.
@@ -153,7 +155,7 @@ export const dataSourceOptions: DataSourceOptions = {
   logging: true,
   logger: isProduction
     ? new DatabaseLogger(new Logger('Database'), true)
-    : 'advanced-console',
+    : new RedactingConsoleLogger(true),
 };
 
 export const defaultDataSource = new DataSource(dataSourceOptions);

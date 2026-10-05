@@ -69,6 +69,8 @@ The catalog keeps accepting `kelas-live` in `type` (the "Kelas Live" filter); it
 - `POST /api/v1/auth/sign-in` — **public**; `data: {token, user}`; a wrong email or password is 403
 - `PATCH /api/v1/auth/password` — current password required (a wrong one is 400); the new one has at least 8 characters with a digit and differs from the current one; other devices are signed out; `data.token` replaces this device's token
 - `POST /api/v1/auth/end-other-sessions` — signs out every other device; `data.token` replaces this device's token
+- `POST /api/v1/auth/password-reset` — **public**; `email`; always 200 `{data: null, responseMessage: "If the email is registered, a reset link has been sent"}`, so it reveals no accounts. An active account gets the "Atur ulang kata sandi" email with a single-use link to `<frontend>/reset-password?token=…`, valid for 60 minutes; at most one email a minute and five an hour per account; 5 requests per 10 minutes per client address (429)
+- `POST /api/v1/auth/password-reset/confirm` — **public**; `token` (from the link) and `new_password` (at least 8 characters with a digit); 200 `{data: null, responseMessage: "Password reset"}` signs the account out everywhere, makes every reset link of the account unusable and emails the "Kata sandi diubah" notice; an unknown, malformed, expired or used token is 400 "This reset link is invalid or has expired"; 10 requests per 10 minutes per client address (429). Frontend flow: `/reset-password` without `token` asks for the email and calls the first route; with `token` it asks for the new password and calls this one, then sends the user to `/login`
 - `GET /api/v1/users/me` — `{data, responseMessage}` like every other route
 - `PATCH /api/v1/users/me` — `name` only (up to 120 characters); returns the same user object as `GET`
 - `DELETE /api/v1/users/me` — returns the account as it was; its tokens stop working; frees the email for a new sign-up and deactivates the user's merchant (buyers keep access)
@@ -369,7 +371,8 @@ The backend emails users when these events happen. Every email has an HTML part 
 | Hasil level, Peringatan, Produk dihapus | merchant | each monthly level evaluation, inactivity warning and removal |
 | Penarikan saldo diajukan | merchant | a withdrawal request |
 | Rekening pencairan diubah | merchant | a payout account is added, changed, deleted or made primary (masked number) |
-| Kata sandi diubah | user | a password change |
+| Atur ulang kata sandi | user | a password reset request (link valid 60 minutes; the token is removed from the stored email once sent) |
+| Kata sandi diubah | user | a password change or a reset |
 | Lamaran: terkirim, jadwal wawancara, diterima, belum diterima | applicant (the application's email) | apply, schedule or reschedule an interview, accept, reject |
 | Jadwal sesi baru / diubah / dibatalkan | enrolled learners | a bootcamp meeting is created; its date, time, duration or link changes; or it is deleted |
 | Tugas dinilai | learner | a submission is graded |
@@ -382,6 +385,7 @@ How sending works:
 - Until `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` and `MAIL_SENDER` are all set, nothing is sent and the app logs one warning naming the missing variables; emails keep waiting until they expire.
 - Links and the logo point to `https://pintarpintar.id`. `FRONTEND_URL` overrides that for another environment; a value that is not an http(s) URL is ignored with one warning.
 - Templates live in `src/api/email/templates/`, one file per email; the wording can change there without touching the logic.
+- The SQL log never shows the parameters of statements on `email_outbox` or `password_reset_tokens` (`[redacted]`), so queued payloads and reset tokens stay out of the logs.
 
 ### Class discussions
 

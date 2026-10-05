@@ -55,6 +55,33 @@ export const DefaultResponse = <TModel extends Type<any>>(
   );
 };
 
+/** A 200 response that carries only a message, with `data: null`. */
+export const MessageResponse = (
+  responseMessage: string,
+  exceptions: Array<any> = [],
+) => {
+  return applyDecorators(
+    ApiException(() => [...exceptions, InternalServerErrorException], {
+      template: {
+        statusCode: '$status',
+        responseMessage: ['$description'],
+        error: '$error',
+      },
+    }),
+    ApiResponse({
+      status: HttpStatus.OK,
+      schema: {
+        type: 'object',
+        required: ['data', 'responseMessage'],
+        properties: {
+          data: { type: 'object', nullable: true, example: null },
+          responseMessage: { type: 'string', example: responseMessage },
+        },
+      },
+    }),
+  );
+};
+
 export const EmptyResponse = (exceptions: Array<any> = [NotFoundException]) => {
   return applyDecorators(
     ApiException(() => [...exceptions, InternalServerErrorException], {

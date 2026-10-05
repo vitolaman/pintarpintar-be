@@ -19,6 +19,7 @@ import { orderFailed } from './order-failed.template';
 import { orderPaid } from './order-paid.template';
 import type { EmailKind, EmailPayloads } from './payloads';
 import { passwordChanged } from './password-changed.template';
+import { passwordReset } from './password-reset.template';
 import { payoutAccountChanged } from './payout-account-changed.template';
 import { submissionGraded } from './submission-graded.template';
 import type { EmailTemplate } from './template';
@@ -36,6 +37,7 @@ const TEMPLATES: { [K in EmailKind]: EmailTemplate<EmailPayloads[K]> } = {
   withdrawal_requested: withdrawalRequested,
   payout_account_changed: payoutAccountChanged,
   password_changed: passwordChanged,
+  password_reset: passwordReset,
   application_submitted: applicationSubmitted,
   interview_scheduled: interviewScheduled,
   application_accepted: applicationAccepted,
@@ -48,6 +50,14 @@ const TEMPLATES: { [K in EmailKind]: EmailTemplate<EmailPayloads[K]> } = {
 };
 
 export const emailKinds = Object.keys(TEMPLATES) as EmailKind[];
+
+/**
+ * Payload fields that must not stay stored after delivery; they are removed
+ * when the email is sent, failed or discarded.
+ */
+export const SENSITIVE_PAYLOAD_FIELDS: Partial<Record<EmailKind, string[]>> = {
+  password_reset: ['reset_token'],
+};
 
 export function isEmailKind(kind: string): kind is EmailKind {
   return Object.prototype.hasOwnProperty.call(TEMPLATES, kind);

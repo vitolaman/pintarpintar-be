@@ -29,7 +29,7 @@ describe('EmailSenderService', () => {
     createQueryBuilder: jest.Mock;
     query: jest.Mock;
     update: jest.Mock;
-    find: jest.Mock;
+    findBy: jest.Mock;
   };
   let recorded: jest.Mock;
   let sendMail: jest.Mock;
@@ -44,7 +44,7 @@ describe('EmailSenderService', () => {
       execute: jest.fn().mockResolvedValue({ affected: discarded }),
     });
     claimManager.query.mockResolvedValue(emails.map(({ id }) => ({ id })));
-    claimManager.find.mockResolvedValue(emails);
+    claimManager.findBy.mockResolvedValue(emails);
   }
 
   beforeEach(() => {
@@ -52,7 +52,7 @@ describe('EmailSenderService', () => {
       createQueryBuilder: jest.fn(),
       query: jest.fn(),
       update: jest.fn(),
-      find: jest.fn(),
+      findBy: jest.fn(),
     };
     recorded = jest.fn();
     sendMail = jest.fn();
@@ -118,17 +118,34 @@ describe('EmailSenderService', () => {
     );
   });
 
-  it('sends the claimed emails oldest first', async () => {
-    claim([queued()]);
+  it('sends the claimed emails in their due order', async () => {
+    const first = queued({ id: 'email-1', recipientEmail: 'one@example.test' });
+    const second = queued({
+      id: 'email-2',
+      recipientEmail: 'two@example.test',
+    });
+    // The claim query returns due order; the lookup returns any order.
+    claimManager.createQueryBuilder.mockReturnValue({
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 0 }),
+    });
+    claimManager.query.mockResolvedValue([
+      { id: 'email-1' },
+      { id: 'email-2' },
+    ]);
+    claimManager.findBy.mockResolvedValue([second, first]);
 
     await service.sendBatch();
 
-    expect(claimManager.find).toHaveBeenCalledWith(
-      EmailOutbox,
-      expect.objectContaining({
-        order: { nextAttemptAt: 'ASC', created_at: 'ASC' },
-      }),
+    expect(claimManager.query.mock.calls[0][0]).toContain(
+      'ORDER BY next_attempt_at, created_at, id',
     );
+    expect(sendMail.mock.calls.map(([mail]) => mail.to)).toEqual([
+      'one@example.test',
+      'two@example.test',
+    ]);
   });
 
   it('retries a temporary failure one minute later', async () => {

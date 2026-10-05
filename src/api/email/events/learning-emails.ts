@@ -102,6 +102,92 @@ export async function queueMeetingEmails(
   });
 }
 
+export interface ReminderRow {
+  meeting_id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  role: 'mentor' | 'learner';
+  title: string;
+  starts_at: Date;
+  duration_minutes: number | null;
+  live_url: string | null;
+  class_title: string;
+}
+
+// Bootcamp meetings starting in more than 10 and at most 60 minutes, with
+// their mentor and enrolled learners; a user who is both is the mentor.
+const DUE_REMINDERS_SQL = `
+  WITH due AS (
+    SELECT meeting.id, meeting.title, meeting.duration_minutes, meeting.mentor_id,
+           meeting.class_id, class.title AS class_title,
+           NULLIF(btrim(meeting."liveUrl"), '') AS live_url,
+           (meeting."date" + meeting."time") AT TIME ZONE 'Asia/Jakarta' AS starts_at
+    FROM meetings meeting
+    INNER JOIN classes class
+      ON class.id = meeting.class_id AND class.deleted_at IS NULL AND class.type = 'live-bootcamp'
+    WHERE meeting.deleted_at IS NULL AND meeting."date" IS NOT NULL AND meeting."time" IS NOT NULL
+      AND (meeting."date" + meeting."time") AT TIME ZONE 'Asia/Jakarta' > now() + interval '10 minutes'
+      AND (meeting."date" + meeting."time") AT TIME ZONE 'Asia/Jakarta' <= now() + interval '60 minutes'
+  ), recipients AS (
+    SELECT due.id AS meeting_id, mentor_user.id AS user_id, mentor_user.name, mentor_user.email,
+           'mentor' AS role, 0 AS rank
+    FROM due
+    INNER JOIN mentors mentor ON mentor.id = due.mentor_id AND mentor.deleted_at IS NULL
+    INNER JOIN users mentor_user ON mentor_user.id = mentor.user_id AND mentor_user.deleted_at IS NULL
+    UNION ALL
+    SELECT due.id, learner.id, learner.name, learner.email, 'learner', 1
+    FROM due
+    INNER JOIN enrollments enrollment
+      ON enrollment.class_id = due.class_id AND enrollment.deleted_at IS NULL
+    INNER JOIN users learner ON learner.id = enrollment.user_id AND learner.deleted_at IS NULL
+  )
+  SELECT DISTINCT ON (recipients.meeting_id, recipients.user_id)
+         recipients.meeting_id, recipients.user_id, recipients.name, recipients.email, recipients.role,
+         due.title, due.starts_at, due.duration_minutes, due.live_url, due.class_title
+  FROM recipients
+  INNER JOIN due ON due.id = recipients.meeting_id
+  ORDER BY recipients.meeting_id, recipients.user_id, recipients.rank`;
+
+/**
+ * One reminder email per recipient and start time; the key repeats on every
+ * run inside the window, so only the first queues it, and a moved meeting
+ * gets a new key.
+ */
+export function reminderEmail(row: ReminderRow): EmailToQueue {
+  const startsAt = new Date(row.starts_at);
+  return {
+    kind:
+      row.role === 'mentor' ? 'meeting_mentor_reminder' : 'meeting_reminder',
+    to: row.email,
+    userId: row.user_id,
+    dedupeKey: `meeting:${row.meeting_id}:reminder:${startsAt.toISOString()}:${row.user_id}`,
+    payload: {
+      learner_name: row.name,
+      class_title: row.class_title,
+      meeting_title: row.title,
+      starts_at: startsAt.toISOString(),
+      previous_starts_at: null,
+      duration_minutes: row.duration_minutes ?? DEFAULT_MEETING_MINUTES,
+      live_url: row.live_url,
+    },
+    expiresAt: startsAt,
+  };
+}
+
+/** Queues the reminders that are due now; returns how many were considered. */
+export async function queueDueMeetingReminders(
+  manager: EntityManager,
+): Promise<number> {
+  let considered = 0;
+  await guardEmailQueue(manager, 'meeting reminder', async (manager) => {
+    const rows: ReminderRow[] = await manager.query(DUE_REMINDERS_SQL);
+    considered = rows.length;
+    await queueEmails(manager, rows.map(reminderEmail));
+  });
+  return considered;
+}
+
 /** True when a change matters to learners: time, duration or link. */
 export function meetingScheduleChanged(
   before: MeetingRow | null,

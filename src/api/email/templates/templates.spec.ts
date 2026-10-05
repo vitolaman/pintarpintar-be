@@ -150,6 +150,8 @@ const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
   meeting_created: [meeting, '12 Oktober 2026, 19.00 WIB'],
   meeting_updated: [meeting, '10 Oktober 2026, 19.00 WIB'],
   meeting_cancelled: [meeting, 'Sesi 3: Kurva S'],
+  meeting_reminder: [meeting, '12 Oktober 2026, 19.00 WIB'],
+  meeting_mentor_reminder: [meeting, '12 Oktober 2026, 19.00 WIB'],
   submission_graded: [
     {
       learner_name: 'Ayu',
@@ -311,6 +313,31 @@ describe('email templates', () => {
     expect(renderEmail('password_changed', payload, FRONTEND).text).toContain(
       'semua perangkat lain',
     );
+  });
+
+  it('reminds learners with the join link, or Portal Saya without one', () => {
+    const [payload] = SAMPLES.meeting_reminder;
+    const withLink = renderEmail('meeting_reminder', payload, FRONTEND);
+    expect(withLink.subject).toBe('Sesi dimulai 1 jam lagi: Sesi 3: Kurva S');
+    expect(withLink.text).toContain('Gabung sesi: https://zoom.us/j/1');
+    expect(
+      renderEmail('meeting_reminder', { ...payload, live_url: null }, FRONTEND)
+        .text,
+    ).toContain(`Buka Portal Saya: ${FRONTEND}/portal-saya`);
+  });
+
+  it('reminds the mentor with mentor wording and the dashboard fallback', () => {
+    const [payload] = SAMPLES.meeting_mentor_reminder;
+    const email = renderEmail('meeting_mentor_reminder', payload, FRONTEND);
+    expect(email.subject).toBe('Kamu mengajar 1 jam lagi: Sesi 3: Kurva S');
+    expect(email.text).toContain('Kamu dijadwalkan mengajar');
+    expect(
+      renderEmail(
+        'meeting_mentor_reminder',
+        { ...payload, live_url: null },
+        FRONTEND,
+      ).text,
+    ).toContain(`Buka dashboard mentor: ${FRONTEND}/mentor/dashboard`);
   });
 
   it('gives a cancelled meeting no join button', () => {

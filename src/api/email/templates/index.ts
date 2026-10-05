@@ -9,6 +9,10 @@ import {
   meetingCreated,
   meetingUpdated,
 } from './meeting.template';
+import {
+  meetingMentorReminder,
+  meetingReminder,
+} from './meeting-reminder.template';
 import { merchantInactivityWarning } from './merchant-inactivity-warning.template';
 import { merchantItemsRemoved } from './merchant-items-removed.template';
 import { merchantLevelResult } from './merchant-level-result.template';
@@ -45,6 +49,8 @@ const TEMPLATES: { [K in EmailKind]: EmailTemplate<EmailPayloads[K]> } = {
   meeting_created: meetingCreated,
   meeting_updated: meetingUpdated,
   meeting_cancelled: meetingCancelled,
+  meeting_reminder: meetingReminder,
+  meeting_mentor_reminder: meetingMentorReminder,
   submission_graded: submissionGraded,
   certificate_issued: certificateIssued,
 };

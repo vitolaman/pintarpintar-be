@@ -20,7 +20,7 @@ export const submissionGraded: EmailTemplate<SubmissionGradedEmail> = (
       : `${grade.score} / ${grade.max_score}`;
   const course = strong(grade.class_title);
   return {
-    subject: `Tugas ${grade.assignment_title} sudah dinilai`,
+    subject: `Tugas sudah dinilai: ${grade.assignment_title}`,
     title: 'Tugas sudah dinilai',
     preheader: `Nilai kamu: ${score}.`,
     blocks: [

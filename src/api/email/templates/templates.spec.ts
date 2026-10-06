@@ -288,6 +288,17 @@ describe('email templates', () => {
     expect(render('basic', 'silver')).toContain('5 GB');
   });
 
+  it('names the graded assignment after the subject label, so a title starting with Tugas reads once', () => {
+    const [payload] = SAMPLES.submission_graded;
+    expect(
+      renderEmail(
+        'submission_graded',
+        { ...payload, assignment_title: 'Tugas 1: Denah' },
+        FRONTEND,
+      ).subject,
+    ).toBe('Tugas sudah dinilai: Tugas 1: Denah');
+  });
+
   it('labels a free order as Gratis and a rescheduled interview as changed', () => {
     const [paid] = SAMPLES.order_paid;
     expect(

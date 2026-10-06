@@ -18,6 +18,7 @@ import {
   assertOwnedAsset,
   assetFieldDescription,
   purposeVisibility,
+  allowedTypesText,
   sizeLimitText,
 } from './asset-purpose-rules';
 
@@ -617,5 +618,80 @@ describe('per-file limit by merchant level', () => {
         { classId: 'class-id' },
       ),
     ).resolves.toMatchObject({ id: 'asset-id' });
+  });
+});
+
+describe('digital-product files: any type except unsafe ones', () => {
+  const file = (filename: string, mimeType = 'application/octet-stream') => ({
+    filename,
+    mimeType,
+    sizeBytes: 1024,
+  });
+
+  it.each([
+    ['a Revit model', 'gedung-hotel.rvt'],
+    ['a Revit family', 'pintu.RFA'],
+    ['an IFC model', 'struktur.ifc'],
+    ['a Navisworks model', 'koordinasi.nwd'],
+    ['a macro workbook', 'rab.xlsm'],
+    ['a 7z archive', 'paket.7z'],
+    ['an SVG icon pack', 'ikon.svg'],
+  ])('accepts %s', (_label, filename) => {
+    expect(() =>
+      assertFileFitsPurpose('digital_file', file(filename)),
+    ).not.toThrow();
+  });
+
+  it('keeps accepting known formats with their own type', () => {
+    expect(() =>
+      assertFileFitsPurpose(
+        'digital_file',
+        file('panduan.pdf', 'application/pdf'),
+      ),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ['an uppercase program', 'setup.EXE', 'application/octet-stream'],
+    ['an installer', 'app.msi', 'application/octet-stream'],
+    ['a script', 'jalankan.bat', 'application/octet-stream'],
+    ['an Android app', 'aplikasi.apk', 'application/octet-stream'],
+    ['a web page', 'promo.html', 'text/html'],
+    ['a web page renamed to PDF', 'panduan.pdf', 'text/html'],
+    [
+      'a program renamed to an unknown type',
+      'model.rvt',
+      'application/x-msdownload',
+    ],
+  ])('refuses %s', (_label, filename, mimeType) => {
+    expect(() =>
+      assertFileFitsPurpose('digital_file', file(filename, mimeType)),
+    ).toThrow(
+      "Programs, scripts, installers and web pages can't be sold as a product file (for example EXE, BAT, APK, HTML)",
+    );
+  });
+
+  it('refuses a file without an extension', () => {
+    expect(() => assertFileFitsPurpose('digital_file', file('README'))).toThrow(
+      'The file needs an extension, such as .pdf or .zip',
+    );
+  });
+
+  it('still refuses a known format whose type disagrees', () => {
+    expect(() =>
+      assertFileFitsPurpose('digital_file', file('doc.pdf', 'image/png')),
+    ).toThrow("The file's content does not match its .pdf extension");
+  });
+
+  it('leaves other fields on their lists', () => {
+    expect(() =>
+      assertFileFitsPurpose('class_resource', file('gedung-hotel.rvt')),
+    ).toThrow(BadRequestException);
+  });
+
+  it('describes the field in plain words', () => {
+    expect(allowedTypesText('digital_file')).toBe(
+      'any file type except programs, scripts, installers and web pages (for example EXE, BAT, APK, HTML)',
+    );
   });
 });

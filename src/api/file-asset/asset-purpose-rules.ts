@@ -102,25 +102,117 @@ type AssetVisibility = 'public' | 'private';
 // whether it becomes public or private.
 export const PENDING_VISIBILITY = 'pending';
 
+// Types a field refuses although it accepts any other file.
+type BlockedTypes = {
+  extensions: string[];
+  mimeTypes: string[];
+  // Shown to the user when a blocked file is attached.
+  message: string;
+  // Swagger and error text for what the field accepts.
+  description: string;
+};
+
 type AssetPurposeRule = {
-  kinds: FileKind[];
   // 'merchant_level': the owning merchant's per-file limit for its level.
   maxBytes: number | 'merchant_level';
   visibility: AssetVisibility;
-  // Narrows the kinds to these extensions when set.
-  extensions?: string[];
+} & (
+  | {
+      kinds: FileKind[];
+      // Narrows the kinds to these extensions when set.
+      extensions?: string[];
+    }
+  | { blocked: BlockedTypes }
+);
+
+// Digital products may be any file a buyer downloads, except programs,
+// scripts, installers, shortcuts and web pages, which could harm the buyer
+// (user decision 2026-10-06: the variety of product files is too large for a
+// list).
+const UNSAFE_PRODUCT_FILES: BlockedTypes = {
+  extensions: [
+    // programs and libraries
+    'exe',
+    'msi',
+    'msix',
+    'com',
+    'scr',
+    'pif',
+    'cpl',
+    'dll',
+    'sys',
+    'drv',
+    // scripts
+    'bat',
+    'cmd',
+    'ps1',
+    'psm1',
+    'vbs',
+    'vbe',
+    'js',
+    'jse',
+    'mjs',
+    'wsf',
+    'wsh',
+    'hta',
+    'msc',
+    'sh',
+    'bash',
+    'zsh',
+    'csh',
+    'command',
+    'run',
+    'bin',
+    // shortcuts and system settings
+    'lnk',
+    'reg',
+    'inf',
+    // app packages and installers
+    'jar',
+    'apk',
+    'aab',
+    'xapk',
+    'ipa',
+    'app',
+    'dmg',
+    'pkg',
+    'deb',
+    'rpm',
+    'appimage',
+    // web pages
+    'html',
+    'htm',
+    'xhtml',
+    'mht',
+    'mhtml',
+  ],
+  mimeTypes: [
+    'application/x-msdownload',
+    'application/x-msdos-program',
+    'application/x-ms-installer',
+    'application/x-msi',
+    'application/x-dosexec',
+    'application/x-executable',
+    'application/x-mach-binary',
+    'application/x-sh',
+    'application/x-shellscript',
+    'application/x-bat',
+    'application/vnd.android.package-archive',
+    'application/java-archive',
+    'application/x-apple-diskimage',
+    'application/javascript',
+    'text/javascript',
+    'text/html',
+    'application/xhtml+xml',
+  ],
+  message:
+    "Programs, scripts, installers and web pages can't be sold as a product file (for example EXE, BAT, APK, HTML)",
+  description:
+    'any file type except programs, scripts, installers and web pages (for example EXE, BAT, APK, HTML)',
 };
 
 const IMAGE_ONLY: FileKind[] = ['image'];
 const CLASS_FILE_KINDS: FileKind[] = ['document', 'archive', 'image', 'cad'];
-const DIGITAL_FILE_KINDS: FileKind[] = [
-  ...CLASS_FILE_KINDS,
-  'spreadsheet',
-  'presentation',
-  'design',
-  'video',
-];
-
 export const ASSET_PURPOSE_RULES = {
   merchant_logo: {
     kinds: IMAGE_ONLY,
@@ -168,7 +260,7 @@ export const ASSET_PURPOSE_RULES = {
     visibility: 'private',
   },
   digital_file: {
-    kinds: DIGITAL_FILE_KINDS,
+    blocked: UNSAFE_PRODUCT_FILES,
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
@@ -248,7 +340,10 @@ export type UploadLimit = {
   maxBytes: number;
 };
 
-function allowedExtensions(rule: AssetPurposeRule): string[] {
+function allowedExtensions(rule: {
+  kinds: FileKind[];
+  extensions?: string[];
+}): string[] {
   return (
     rule.extensions ??
     Object.entries(FILE_FORMATS)
@@ -271,6 +366,7 @@ function gigabytes(bytes: number): string {
 /** The accepted file types of a field, for example "PNG, JPG, JPEG or WEBP". */
 export function allowedTypesText(purpose: AssetPurpose): string {
   const rule: AssetPurposeRule = ASSET_PURPOSE_RULES[purpose];
+  if ('blocked' in rule) return rule.blocked.description;
   return joinWithOr(
     allowedExtensions(rule).map((extension) => extension.toUpperCase()),
   );
@@ -312,12 +408,32 @@ export function assertFileFitsPurpose(
   const extension = fileExtension(file.filename);
   const kind = resolveKind(extension, mimeType);
 
-  const extensionAllowed =
-    !rule.extensions || rule.extensions.includes(extension);
-  if (!extensionAllowed || !kind || !rule.kinds.includes(kind)) {
-    throw new BadRequestException(
-      `Allowed file types: ${allowedTypesText(purpose)}`,
-    );
+  if ('blocked' in rule) {
+    if (!extension) {
+      throw new BadRequestException(
+        'The file needs an extension, such as .pdf or .zip',
+      );
+    }
+    if (
+      rule.blocked.extensions.includes(extension) ||
+      rule.blocked.mimeTypes.includes(mimeType)
+    ) {
+      throw new BadRequestException(rule.blocked.message);
+    }
+    // A known format must still match its reported type, as for listed fields.
+    if (FILE_FORMATS[extension] && !kind) {
+      throw new BadRequestException(
+        `The file's content does not match its .${extension} extension`,
+      );
+    }
+  } else {
+    const extensionAllowed =
+      !rule.extensions || rule.extensions.includes(extension);
+    if (!extensionAllowed || !kind || !rule.kinds.includes(kind)) {
+      throw new BadRequestException(
+        `Allowed file types: ${allowedTypesText(purpose)}`,
+      );
+    }
   }
   if (rule.maxBytes === 'merchant_level') {
     const limit = merchantLimit ?? {

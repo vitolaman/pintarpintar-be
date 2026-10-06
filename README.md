@@ -243,7 +243,7 @@ Each item has up to 5 ordered covers; the first is the main cover, returned as `
 
 - `GET /api/v1/merchant/digital-products` — own products with downloads, rating, and revenue; filter by `status` (`published`, `unpublished`, `unlisted`) and `search`
 - `GET /api/v1/merchant/digital-products/:id` — includes a signed download link for the product file
-- `POST /api/v1/merchant/digital-products` — `category_slug` (`pdf`, `template`, `e-book`, `project-files`, `template-canva`, `excel`, `desain-grafis`, `videografi`, `lainnya`, or a sub-category such as `photoshop` or `video-effect`; the tree is `GET /api/v1/catalog/categories`), prices (`discount_price` at most `original_price`), status (default `unpublished`), covers, one file (required for `published`), post-purchase instructions
+- `POST /api/v1/merchant/digital-products` — `category_slug` (`pdf`, `template`, `e-book`, `project-files`, `template-canva`, `excel`, `desain-grafis`, `videografi`, `lainnya`, or a sub-category such as `photoshop` or `video-effect`; the tree is `GET /api/v1/catalog/categories`), prices (`discount_price` at most `original_price`), status (default `unpublished`), covers, one file (required for `published`; any type with an extension except programs, scripts, installers and web pages such as EXE, BAT, APK or HTML; its extension becomes `file_format`, e.g. `RVT`), post-purchase instructions
 - `PATCH /api/v1/merchant/digital-products/:id` — a new `file_asset_id` replaces the single file
 - `DELETE /api/v1/merchant/digital-products/:id` — 409 while the product is in a published or unlisted bundle; buyers keep access
 

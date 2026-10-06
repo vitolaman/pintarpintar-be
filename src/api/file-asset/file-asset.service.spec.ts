@@ -244,6 +244,7 @@ describe('learning file purposes', () => {
   it.each([
     ['submission_file', 'denah.dwg', 'application/octet-stream', 5 * MB],
     ['submission_file', 'tugas.pdf', 'application/pdf', 20 * MB],
+    ['submission_file', 'gedung.rvt', 'application/octet-stream', 500 * MB],
     ['submission_file', 'proyek.zip', 'application/zip', MB],
     ['submission_file', 'laporan.docx', 'application/octet-stream', MB],
     ['submission_file', 'arsip.rar', 'application/vnd.rar', MB],
@@ -265,8 +266,8 @@ describe('learning file purposes', () => {
   it.each([
     ['submission_file', 'tool.exe', 'application/octet-stream', MB],
     ['submission_file', 'jawaban.pdf', 'text/html', MB],
-    ['submission_file', 'besar.pdf', 'application/pdf', 21 * MB],
-    ['submission_file', 'besar.rvt', 'application/octet-stream', 25 * MB],
+    ['submission_file', 'besar.pdf', 'application/pdf', 500 * MB + 1],
+    ['submission_file', 'besar.rvt', 'application/octet-stream', 600 * MB],
     ['submission_file', 'blob', 'application/pdf', MB],
     ['certificate_file', 'sertifikat.webp', 'image/webp', MB],
     ['certificate_file', 'sertifikat.pdf', 'application/pdf', 11 * MB],
@@ -736,5 +737,17 @@ describe('class materials and assignment attachments: any type except unsafe one
     expect(() =>
       assertFileFitsPurpose('class_resource', file('README')),
     ).toThrow('The file needs an extension, such as .pdf or .zip');
+  });
+});
+
+describe('submission size', () => {
+  it('states the 500 MB limit', () => {
+    expect(() =>
+      assertFileFitsPurpose('submission_file', {
+        filename: 'model.rvt',
+        mimeType: 'application/octet-stream',
+        sizeBytes: 500 * MB + 1,
+      }),
+    ).toThrow('The file must be 500 MB or smaller');
   });
 });

@@ -139,7 +139,9 @@ export class OrderFulfillmentService {
       refs.productIds.length && { userId, productId: In(refs.productIds) },
       refs.bundleIds.length && { userId, bundleId: In(refs.bundleIds) },
     ].filter(Boolean);
-    if (criteria.length) await manager.delete(CartItem, criteria);
+    // One delete per condition: `delete` reads an array as primary-key ids,
+    // so passing the list matched no cart rows.
+    for (const where of criteria) await manager.delete(CartItem, where);
   }
 }
 

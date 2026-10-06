@@ -320,7 +320,7 @@ describe('ClassService access control', () => {
         user_id: 'student-id',
         class_id: classId,
         join_date: '2026-09-01',
-        progress: '40',
+        progress: 40,
         created_at: new Date('2026-09-01T00:00:00.000Z'),
         user: {
           id: 'student-id',

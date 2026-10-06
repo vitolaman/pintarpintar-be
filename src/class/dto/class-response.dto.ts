@@ -232,7 +232,8 @@ export class StudentResponseDto {
   @ApiProperty() user_id: string;
   @ApiProperty() class_id: string;
   @ApiPropertyOptional() join_date: string;
-  @ApiPropertyOptional() progress: string;
+  @ApiProperty({ description: 'Percent of the class completed, 0–100' })
+  progress: number;
   @ApiProperty() created_at: Date;
   @ApiProperty({ type: StudentUserResponseDto }) user: StudentUserResponseDto;
 }

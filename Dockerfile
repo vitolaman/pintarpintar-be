@@ -31,6 +31,9 @@ COPY --chown=node:node .env .env
 # Switch to the node user
 USER node
 ENV NODE_ENV=production
+# Timestamp columns without a time zone are written and read in the process
+# time zone, so the app must run in UTC like the database session.
+ENV TZ=UTC
 
 # Define entrypoint and command
 ENTRYPOINT [ "node" ]

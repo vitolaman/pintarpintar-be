@@ -1,3 +1,4 @@
+import { parseProgress } from './learning-progress.service';
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
@@ -586,7 +587,7 @@ export class ClassService {
       user_id: row.user_id,
       class_id: row.class_id,
       join_date: row.join_date,
-      progress: row.progress,
+      progress: parseProgress(row.progress),
       created_at: row.created_at,
       user: {
         id: row.student_id,

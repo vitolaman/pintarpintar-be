@@ -25,24 +25,29 @@ const settings = DEFAULT_CERTIFICATE_SETTINGS;
 
 describe('certificate eligibility', () => {
   it('accepts a finished video class without meetings or assignments', () => {
-    expect(isEligible(metrics(), settings, false)).toBe(true);
+    expect(isEligible(metrics(), settings, 0)).toBe(true);
   });
 
   it.each([
-    ['unfinished videos', metrics({ progress: 99 }), false],
+    ['unfinished videos', metrics({ progress: 99 }), 0],
     [
       'attendance below the minimum',
       metrics({ started_meetings: 4, attendance_percent: 75 }),
-      false,
+      0,
     ],
-    ['no graded work in a class with assignments', metrics(), true],
+    ['no graded work in a class with assignments', metrics(), 1],
     [
       'an average below the minimum score',
       metrics({ average_score: 74.9, graded_assignments: 2 }),
-      true,
+      2,
     ],
-  ])('rejects %s', (_label, value, hasAssignments) => {
-    expect(isEligible(value, settings, hasAssignments)).toBe(false);
+    [
+      'an assignment still ungraded or unsubmitted',
+      metrics({ average_score: 90, graded_assignments: 1 }),
+      2,
+    ],
+  ])('rejects %s', (_label, value, assignmentCount) => {
+    expect(isEligible(value, settings, assignmentCount)).toBe(false);
   });
 
   it('accepts learners meeting every minimum', () => {
@@ -52,18 +57,18 @@ describe('certificate eligibility', () => {
           started_meetings: 5,
           attendance_percent: 80,
           average_score: 75,
-          graded_assignments: 1,
+          graded_assignments: 2,
         }),
         settings,
-        true,
+        2,
       ),
     ).toBe(true);
   });
 
   it('ignores attendance when no meeting has started', () => {
-    expect(
-      isEligible(metrics({ attendance_percent: null }), settings, false),
-    ).toBe(true);
+    expect(isEligible(metrics({ attendance_percent: null }), settings, 0)).toBe(
+      true,
+    );
   });
 });
 

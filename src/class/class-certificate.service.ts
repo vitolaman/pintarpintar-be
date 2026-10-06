@@ -40,17 +40,20 @@ export interface LearnerCertificateState {
   status: LearnerCertificateStatus;
   eligible: boolean;
   metrics: LearnerMetrics;
+  // The class's non-deleted assignments; each needs a graded submission.
+  assignment_count: number;
   certificate: Certificate | null;
 }
 
 // Eligible = progress 100%, attendance at least the minimum when the class has
-// started meetings, and a graded average at least the minimum score when the
-// class has assignments. Only issued certificates are stored; pending and
+// started meetings, and, when the class has assignments, a graded submission
+// for every one of them with an average at least the minimum score (user
+// decision 2026-10-06: there are no optional assignments). Only issued certificates are stored; pending and
 // ineligible are computed.
 export function isEligible(
   metrics: LearnerMetrics,
   settings: CertificateSettings,
-  classHasAssignments: boolean,
+  assignmentCount: number,
 ): boolean {
   if (metrics.progress < 100) return false;
   if (
@@ -60,8 +63,9 @@ export function isEligible(
     return false;
   }
   if (
-    classHasAssignments &&
-    (metrics.average_score === null ||
+    assignmentCount > 0 &&
+    (metrics.graded_assignments < assignmentCount ||
+      metrics.average_score === null ||
       metrics.average_score < settings.min_score)
   ) {
     return false;
@@ -78,6 +82,8 @@ export interface CertificateView {
   progress: number;
   attendance_percent: number | null;
   average_score: number | null;
+  graded_assignments: number;
+  assignment_count: number;
   requirements: CertificateSettings;
 }
 
@@ -306,6 +312,8 @@ export class ClassCertificateService {
           progress: state.metrics.progress,
           attendance_percent: state.metrics.attendance_percent,
           average_score: state.metrics.average_score,
+          graded_assignments: state.metrics.graded_assignments,
+          assignment_count: state.assignment_count,
           requirements: settings,
         };
       }),
@@ -397,11 +405,12 @@ export class ClassCertificateService {
     return metrics.map((metric) => {
       const certificate =
         certificates.find((row) => row.user_id === metric.user_id) ?? null;
-      const eligible = isEligible(metric, effective, assignments > 0);
+      const eligible = isEligible(metric, effective, assignments);
       return {
         user_id: metric.user_id,
         eligible,
         metrics: metric,
+        assignment_count: assignments,
         certificate,
         status: certificate ? 'issued' : eligible ? 'pending' : 'ineligible',
       };

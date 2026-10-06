@@ -49,6 +49,16 @@ export class CertificateViewDto {
   @ApiProperty() progress: number;
   @ApiPropertyOptional({ nullable: true }) attendance_percent: number | null;
   @ApiPropertyOptional({ nullable: true }) average_score: number | null;
+  @ApiProperty({
+    description:
+      "Assignments of the class with the learner's graded submission",
+  })
+  graded_assignments: number;
+  @ApiProperty({
+    description:
+      'Assignments of the class; a certificate needs every one graded',
+  })
+  assignment_count: number;
   @ApiProperty({ type: CertificateSettingsDto })
   requirements: CertificateSettingsDto;
 }

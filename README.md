@@ -293,7 +293,7 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 - `PATCH /api/v1/classes/:classId/meetings/:meetingId/attendances/:userId` — `meeting.edit`; `hadir`, `izin` or `alpa`
 - `GET /api/v1/classes/:classId/certificate-settings` — `sertifikat.lihat`; defaults: manual, attendance 80, score 75
 - `PATCH /api/v1/classes/:classId/certificate-settings` — `sertifikat.edit`; `auto_issue`, `min_attendance_percent`, `min_score` (0–100); saving in automatic mode issues every eligible learner's certificate
-- `GET /api/v1/classes/:classId/certificates` — `sertifikat.lihat`; status `issued`, `pending` (eligible, not issued) or `ineligible` per learner
+- `GET /api/v1/classes/:classId/certificates` — `sertifikat.lihat`; status `issued`, `pending` (eligible, not issued) or `ineligible` per learner, with `graded_assignments` and `assignment_count`. Eligible means 100% progress, the minimum attendance once meetings have started, and a graded submission for every assignment with an average at least the minimum score; an issued certificate stays when an assignment is added later
 - `POST /api/v1/classes/:classId/certificates/:userId/issue` — `sertifikat.tambah`; eligible learners only (400 otherwise, 409 when already issued); numbers `PP-CERT-YYYY-NNNN` (Asia/Jakarta year, never reused)
 - `PUT /api/v1/classes/:classId/certificates/:userId/file` — `sertifikat.edit`; an uploaded PDF, PNG or JPG
 - `DELETE /api/v1/classes/:classId/certificates/:userId` — `sertifikat.delete`; withdraws the certificate

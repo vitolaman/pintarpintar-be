@@ -125,11 +125,11 @@ type AssetPurposeRule = {
   | { blocked: BlockedTypes }
 );
 
-// Digital products may be any file a buyer downloads, except programs,
-// scripts, installers, shortcuts and web pages, which could harm the buyer
-// (user decision 2026-10-06: the variety of product files is too large for a
-// list).
-const UNSAFE_PRODUCT_FILES: BlockedTypes = {
+// Product files, class materials, assignment attachments and submissions may
+// be any file someone downloads, except programs, scripts, installers,
+// shortcuts and web pages, which could harm whoever opens them (user decisions
+// 2026-10-06: the variety of these files is too large for a list).
+const UNSAFE_FILES: BlockedTypes = {
   extensions: [
     // programs and libraries
     'exe',
@@ -206,13 +206,12 @@ const UNSAFE_PRODUCT_FILES: BlockedTypes = {
     'application/xhtml+xml',
   ],
   message:
-    "Programs, scripts, installers and web pages can't be sold as a product file (for example EXE, BAT, APK, HTML)",
+    "Programs, scripts, installers and web pages aren't allowed (for example EXE, BAT, APK, HTML)",
   description:
     'any file type except programs, scripts, installers and web pages (for example EXE, BAT, APK, HTML)',
 };
 
 const IMAGE_ONLY: FileKind[] = ['image'];
-const CLASS_FILE_KINDS: FileKind[] = ['document', 'archive', 'image', 'cad'];
 export const ASSET_PURPOSE_RULES = {
   merchant_logo: {
     kinds: IMAGE_ONLY,
@@ -245,12 +244,12 @@ export const ASSET_PURPOSE_RULES = {
     visibility: 'public',
   },
   class_resource: {
-    kinds: CLASS_FILE_KINDS,
+    blocked: UNSAFE_FILES,
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
   assignment_resource: {
-    kinds: CLASS_FILE_KINDS,
+    blocked: UNSAFE_FILES,
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
@@ -260,13 +259,12 @@ export const ASSET_PURPOSE_RULES = {
     visibility: 'private',
   },
   digital_file: {
-    blocked: UNSAFE_PRODUCT_FILES,
+    blocked: UNSAFE_FILES,
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
   submission_file: {
-    kinds: ['document', 'archive', 'cad'],
-    extensions: ['pdf', 'dwg', 'zip'],
+    blocked: UNSAFE_FILES,
     maxBytes: 20 * MEBIBYTE,
     visibility: 'private',
   },

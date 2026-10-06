@@ -195,10 +195,10 @@ describe('field rules by purpose', () => {
     ['a PDF banner', 'merchant_banner', 'b.pdf', 'application/pdf', 1000],
     ['an avatar without a type', 'user_avatar', 'me.png', undefined, 1000],
     [
-      'a video as a class resource',
+      'a program as a class resource',
       'class_resource',
-      'clip.mp4',
-      'video/mp4',
+      'setup.exe',
+      'application/octet-stream',
       MB,
     ],
     [
@@ -245,6 +245,10 @@ describe('learning file purposes', () => {
     ['submission_file', 'denah.dwg', 'application/octet-stream', 5 * MB],
     ['submission_file', 'tugas.pdf', 'application/pdf', 20 * MB],
     ['submission_file', 'proyek.zip', 'application/zip', MB],
+    ['submission_file', 'laporan.docx', 'application/octet-stream', MB],
+    ['submission_file', 'arsip.rar', 'application/vnd.rar', MB],
+    ['submission_file', 'perhitungan.xlsx', 'application/octet-stream', 2 * MB],
+    ['submission_file', 'model.rvt', 'application/octet-stream', 15 * MB],
     ['certificate_file', 'sertifikat.pdf', 'application/pdf', 10 * MB],
     ['certificate_file', 'sertifikat.jpg', 'image/jpeg', MB],
     ['certificate_file', 'sertifikat.png', 'image/png', MB],
@@ -259,9 +263,10 @@ describe('learning file purposes', () => {
   });
 
   it.each([
-    ['submission_file', 'laporan.docx', 'application/octet-stream', MB],
-    ['submission_file', 'arsip.rar', 'application/vnd.rar', MB],
+    ['submission_file', 'tool.exe', 'application/octet-stream', MB],
+    ['submission_file', 'jawaban.pdf', 'text/html', MB],
     ['submission_file', 'besar.pdf', 'application/pdf', 21 * MB],
+    ['submission_file', 'besar.rvt', 'application/octet-stream', 25 * MB],
     ['submission_file', 'blob', 'application/pdf', MB],
     ['certificate_file', 'sertifikat.webp', 'image/webp', MB],
     ['certificate_file', 'sertifikat.pdf', 'application/pdf', 11 * MB],
@@ -390,8 +395,8 @@ describe('assertOwnedAsset', () => {
     ['a class cover as a product file', asset, 'digital_file'],
     ['a private file as a product cover', privateFile, 'product_cover'],
     [
-      'a spreadsheet as a class resource',
-      { ...privateFile, originalFilename: 'sheet.xlsx' },
+      'a script as a class resource',
+      { ...privateFile, originalFilename: 'jalankan.bat' },
       'class_resource',
     ],
   ])('rejects %s', async (_name, value, purpose) => {
@@ -522,12 +527,12 @@ describe('upload rule messages', () => {
       }),
     ).toThrow('Allowed file types: PNG, JPG, JPEG or WEBP');
     expect(() =>
-      assertFileFitsPurpose('submission_file', {
-        filename: 'tugas.rar',
-        mimeType: 'application/vnd.rar',
+      assertFileFitsPurpose('class_video', {
+        filename: 'materi.pdf',
+        mimeType: 'application/pdf',
         sizeBytes: MB,
       }),
-    ).toThrow('Allowed file types: PDF, DWG or ZIP');
+    ).toThrow('Allowed file types: MP4, MOV or WEBM');
   });
 
   it('describes each field from its rule', () => {
@@ -667,7 +672,7 @@ describe('digital-product files: any type except unsafe ones', () => {
     expect(() =>
       assertFileFitsPurpose('digital_file', file(filename, mimeType)),
     ).toThrow(
-      "Programs, scripts, installers and web pages can't be sold as a product file (for example EXE, BAT, APK, HTML)",
+      "Programs, scripts, installers and web pages aren't allowed (for example EXE, BAT, APK, HTML)",
     );
   });
 
@@ -685,7 +690,7 @@ describe('digital-product files: any type except unsafe ones', () => {
 
   it('leaves other fields on their lists', () => {
     expect(() =>
-      assertFileFitsPurpose('class_resource', file('gedung-hotel.rvt')),
+      assertFileFitsPurpose('class_video', file('gedung-hotel.rvt')),
     ).toThrow(BadRequestException);
   });
 
@@ -693,5 +698,43 @@ describe('digital-product files: any type except unsafe ones', () => {
     expect(allowedTypesText('digital_file')).toBe(
       'any file type except programs, scripts, installers and web pages (for example EXE, BAT, APK, HTML)',
     );
+  });
+});
+
+describe('class materials and assignment attachments: any type except unsafe ones', () => {
+  const file = (filename: string, mimeType = 'application/octet-stream') => ({
+    filename,
+    mimeType,
+    sizeBytes: 5 * MB,
+  });
+
+  it.each([
+    ['class_resource', 'model.rvt'],
+    ['class_resource', 'struktur.ifc'],
+    ['class_resource', 'slide.pptx'],
+    ['assignment_resource', 'template.xlsx'],
+    ['assignment_resource', 'contoh.nwd'],
+  ])('accepts a %s %s', (purpose, filename) => {
+    expect(() =>
+      assertFileFitsPurpose(purpose as never, file(filename)),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ['class_resource', 'setup.exe', 'application/octet-stream'],
+    ['assignment_resource', 'tool.EXE', 'application/octet-stream'],
+    ['assignment_resource', 'soal.pdf', 'text/html'],
+  ])('refuses a %s %s', (purpose, filename, mimeType) => {
+    expect(() =>
+      assertFileFitsPurpose(purpose as never, file(filename, mimeType)),
+    ).toThrow(
+      "Programs, scripts, installers and web pages aren't allowed (for example EXE, BAT, APK, HTML)",
+    );
+  });
+
+  it('refuses a class material without an extension', () => {
+    expect(() =>
+      assertFileFitsPurpose('class_resource', file('README')),
+    ).toThrow('The file needs an extension, such as .pdf or .zip');
   });
 });

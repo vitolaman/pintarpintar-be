@@ -263,9 +263,11 @@ export const ASSET_PURPOSE_RULES = {
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
+  // 500 MiB covers Revit models and zipped architecture or civil project
+  // folders (user decision 2026-10-06); submissions are not store storage.
   submission_file: {
     blocked: UNSAFE_FILES,
-    maxBytes: 20 * MEBIBYTE,
+    maxBytes: 500 * MEBIBYTE,
     visibility: 'private',
   },
   certificate_file: {

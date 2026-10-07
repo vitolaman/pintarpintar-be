@@ -288,6 +288,17 @@ describe('email templates', () => {
     expect(render('basic', 'silver')).toContain('5 GB');
   });
 
+  it('tells the buyer the payment did not go through and where to get help', () => {
+    const [payload] = SAMPLES.order_failed;
+    const text = renderEmail('order_failed', payload, FRONTEND).text;
+    expect(text).toContain(
+      'Pembayaran pesanan ORD-20261005-0012 belum berhasil diproses, pesanan telah dibatalkan.',
+    );
+    expect(text).toContain(
+      'Jika butuh bantuan, silahkan hubungi kami lewat halaman Bantuan dengan menyertakan nomor pesanan.',
+    );
+  });
+
   it('ends the inactivity warning with the deletion notice', () => {
     const [payload] = SAMPLES.merchant_inactivity_warning;
     const email = renderEmail('merchant_inactivity_warning', payload, FRONTEND);

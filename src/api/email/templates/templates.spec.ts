@@ -288,6 +288,13 @@ describe('email templates', () => {
     expect(render('basic', 'silver')).toContain('5 GB');
   });
 
+  it('asks learners to follow the changed session schedule', () => {
+    const [payload] = SAMPLES.meeting_updated;
+    expect(renderEmail('meeting_updated', payload, FRONTEND).text).toContain(
+      'Jadwal sesi di Bootcamp Manajemen Proyek diubah. Mohon sesuaikan dengan jadwal yang baru berikut.',
+    );
+  });
+
   it('asks the buyer to pay before the deadline', () => {
     const [payload] = SAMPLES.order_awaiting_payment;
     expect(

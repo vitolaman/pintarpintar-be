@@ -1,5 +1,5 @@
 # Stage 1: Development
-FROM node:20.18.0-alpine AS development
+FROM node:22.12.0-alpine AS development
 WORKDIR /code
 ENV NODE_ENV=development
 COPY --chown=node:node package.json package-lock.json ./
@@ -8,7 +8,7 @@ COPY --chown=node:node . .
 USER node
 
 # Stage 2: Build
-FROM node:20.18.0-alpine AS build
+FROM node:22.12.0-alpine AS build
 WORKDIR /code
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node --from=development /code/node_modules ./node_modules
@@ -19,7 +19,7 @@ RUN npm ci --only=production --ignore-scripts --legacy-peer-deps && npm prune --
 USER node
 
 # Stage 3: Production
-FROM node:20.18.0-alpine AS production
+FROM node:22.12.0-alpine AS production
 WORKDIR /code
 
 # Copy necessary files from the build stage

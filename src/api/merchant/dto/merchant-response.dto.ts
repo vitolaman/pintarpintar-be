@@ -65,6 +65,21 @@ export class MerchantResponseDto {
   @ApiProperty({ type: MerchantLevelSummaryDto })
   level: MerchantLevelSummaryDto;
 
+  @ApiProperty({
+    description:
+      'True while the merchant has an active Pro period; a Pro merchant has no per-file upload limit, only the storage quota',
+  })
+  is_pro: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    format: 'date-time',
+    description:
+      'End of the Pro time that continues from now without a gap; null when not Pro',
+  })
+  pro_until: Date | null;
+
   @ApiProperty()
   slug: string;
 

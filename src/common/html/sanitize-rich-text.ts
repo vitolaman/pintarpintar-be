@@ -1,4 +1,7 @@
-import sanitizeHtml from 'sanitize-html';
+// sanitize-html is CommonJS (`export =` typings) and this project compiles
+// without esModuleInterop, so a default import compiles to a missing
+// `.default` and throws at runtime; the namespace import is the working form.
+import * as sanitizeHtml from 'sanitize-html';
 
 export const RICH_TEXT_MAX_LENGTH = 10000;
 

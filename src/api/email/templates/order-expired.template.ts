@@ -3,7 +3,6 @@ import {
   greeting,
   itemTable,
   paragraph,
-  plain,
   strong,
 } from './layout';
 import type { OrderClosedEmail } from './payloads';
@@ -25,7 +24,6 @@ export const orderExpired: EmailTemplate<OrderClosedEmail> = (order, link) => {
         totalLabel: 'Total pesanan',
         total: order.total_amount,
       }),
-      plain('Kamu bisa memesan ulang kapan saja.'),
     ],
     button: { label: 'Pesan ulang', url: link(FRONTEND_PATHS.cart) },
   };

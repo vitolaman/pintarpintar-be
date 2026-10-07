@@ -324,9 +324,11 @@ describe('email templates', () => {
 
   it('tells the buyer the payment time ran out and nothing was charged', () => {
     const [payload] = SAMPLES.order_expired;
-    expect(renderEmail('order_expired', payload, FRONTEND).text).toContain(
+    const text = renderEmail('order_expired', payload, FRONTEND).text;
+    expect(text).toContain(
       'Batas waktu pembayaran pesanan ORD-20261005-0012 telah habis. Pesanan dibatalkan secara otomatis. Tidak ada dana yang terpotong.',
     );
+    expect(text).not.toContain('Kamu bisa memesan ulang');
   });
 
   it('names the graded assignment after the subject label, so a title starting with Tugas reads once', () => {

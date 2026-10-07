@@ -394,6 +394,7 @@ describe('MerchantDashboardService', () => {
       amount: 399000,
       net_amount: 359100,
       payment_method: 'BC',
+      payment_method_label: 'BCA Virtual Account',
       platform_fee: null,
       transaction_fee: null,
     });
@@ -403,6 +404,27 @@ describe('MerchantDashboardService', () => {
       total: 1,
       total_page: 1,
     });
+  });
+
+  it('names the payment method of free sales and none of unpaid ones', async () => {
+    const sale = { id: 'item', amount: '0', gross_amount: '0' };
+    query
+      .mockResolvedValueOnce([{ id: 'merchant-id', storage_level: 'basic' }])
+      .mockResolvedValueOnce([{ total: 2 }])
+      .mockResolvedValueOnce([
+        { ...sale, payment_method: null, status: 'paid' },
+        { ...sale, payment_method: null, status: 'pending' },
+      ]);
+
+    const { data } = await service.findSales(
+      'user-id',
+      plainToInstance(SalesQueryDto, {}),
+    );
+
+    expect(data.map((row) => row.payment_method_label)).toEqual([
+      'Gratis',
+      null,
+    ]);
   });
 
   it('reports export truncation beyond 5000 rows', async () => {

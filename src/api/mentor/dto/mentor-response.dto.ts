@@ -2,6 +2,9 @@ import { ClassKind, classKinds } from '~/common/catalog/item-kind';
 import { TUTOR_ROLES } from '~/class/class-permissions';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+// A mentor created by an accepted job application has no mentor profile
+// until the mentor registration is completed; its professional fields and
+// documents read null until then.
 export class MentorResponseDto {
   @ApiProperty()
   id: string;
@@ -18,8 +21,8 @@ export class MentorResponseDto {
   @ApiProperty()
   status: string;
 
-  @ApiProperty()
-  phone: string;
+  @ApiProperty({ nullable: true, type: String })
+  phone: string | null;
 
   @ApiPropertyOptional({ nullable: true })
   headline: string | null;
@@ -27,29 +30,35 @@ export class MentorResponseDto {
   @ApiPropertyOptional({ nullable: true })
   bio: string | null;
 
-  @ApiProperty()
-  expertise: string;
+  @ApiProperty({ nullable: true, type: String })
+  expertise: string | null;
 
   @ApiProperty({ type: [String], example: ['AutoCAD', 'SAP2000'] })
   expertise_list: string[];
 
-  @ApiProperty()
-  experience_years: number;
+  @ApiProperty({ nullable: true, type: Number })
+  experience_years: number | null;
 
-  @ApiProperty()
-  education: string;
+  @ApiProperty({ nullable: true, type: String })
+  education: string | null;
 
   @ApiPropertyOptional({ nullable: true })
   portfolio_url: string | null;
 
-  @ApiProperty()
-  linkedin_url: string;
+  @ApiProperty({ nullable: true, type: String })
+  linkedin_url: string | null;
 
-  @ApiProperty()
-  cv_asset_id: string;
+  @ApiProperty({ nullable: true, type: String, format: 'uuid' })
+  cv_asset_id: string | null;
 
-  @ApiProperty()
-  skill_certificate_asset_id: string;
+  @ApiProperty({ nullable: true, type: String, format: 'uuid' })
+  skill_certificate_asset_id: string | null;
+
+  @ApiProperty({
+    description:
+      'false until the mentor registration (profile and documents) is completed',
+  })
+  registration_complete: boolean;
 }
 
 export class MentorMerchantAssignmentDto {

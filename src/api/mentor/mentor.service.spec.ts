@@ -325,6 +325,7 @@ describe('MentorService', () => {
     );
     mentorRepository.createQueryBuilder.mockReturnValue({
       innerJoin: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -354,6 +355,7 @@ describe('MentorService', () => {
     );
     mentorRepository.createQueryBuilder.mockReturnValue({
       innerJoin: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -376,6 +378,79 @@ describe('MentorService', () => {
     expect(manager.save).toHaveBeenCalledWith(
       MentorProfile,
       expect.objectContaining({ portfolioUrl: null }),
+    );
+  });
+});
+
+describe('MentorService own profile', () => {
+  const userId = 'user-1';
+  let builder: Record<string, jest.Mock>;
+  let service: MentorService;
+
+  beforeEach(() => {
+    builder = {};
+    for (const method of [
+      'innerJoin',
+      'leftJoin',
+      'select',
+      'where',
+      'andWhere',
+    ]) {
+      builder[method] = jest.fn(() => builder);
+    }
+    builder.getRawOne = jest.fn();
+    service = new MentorService(
+      {} as DataSource,
+      { createQueryBuilder: () => builder } as unknown as Repository<Mentor>,
+      new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
+    );
+  });
+
+  it('reads a hired mentor before registration with empty professional fields', async () => {
+    builder.getRawOne.mockResolvedValue({
+      id: 'mentor-1',
+      status: 'active',
+      expertise: null,
+      experience_years: null,
+      cv_asset_id: null,
+      registration_complete: false,
+    });
+
+    const { data } = await service.findProfile(userId);
+
+    expect(data).toMatchObject({
+      expertise_list: [],
+      experience_years: null,
+      cv_asset_id: null,
+      registration_complete: false,
+    });
+    expect(builder.leftJoin).toHaveBeenCalledTimes(2);
+    expect(builder.andWhere).toHaveBeenCalledWith(
+      "(mentor_profile.id IS NOT NULL OR mentor.status = 'active')",
+    );
+  });
+
+  it('reads a registered mentor as complete', async () => {
+    builder.getRawOne.mockResolvedValue({
+      expertise: 'BIM, Revit',
+      experience_years: '5',
+      registration_complete: true,
+    });
+
+    const { data } = await service.findProfile(userId);
+
+    expect(data).toMatchObject({
+      expertise_list: ['BIM', 'Revit'],
+      experience_years: 5,
+      registration_complete: true,
+    });
+  });
+
+  it('answers 404 to a user without a mentor record', async () => {
+    builder.getRawOne.mockResolvedValue(undefined);
+
+    await expect(service.findProfile(userId)).rejects.toThrow(
+      'Mentor not found',
     );
   });
 });

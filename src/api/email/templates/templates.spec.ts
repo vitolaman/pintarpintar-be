@@ -288,6 +288,15 @@ describe('email templates', () => {
     expect(render('basic', 'silver')).toContain('5 GB');
   });
 
+  it('asks the buyer to pay before the deadline', () => {
+    const [payload] = SAMPLES.order_awaiting_payment;
+    expect(
+      renderEmail('order_awaiting_payment', payload, FRONTEND).text,
+    ).toContain(
+      'Pesanan kamu sudah dibuat. Mohon selesaikan pembayaran sebelum 5 Oktober 2026, 15.30 WIB. Pesanan akan dibatalkan otomatis jika lewat dari batas waktu.',
+    );
+  });
+
   it('tells the buyer the payment time ran out and nothing was charged', () => {
     const [payload] = SAMPLES.order_expired;
     expect(renderEmail('order_expired', payload, FRONTEND).text).toContain(

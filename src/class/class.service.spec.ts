@@ -860,3 +860,86 @@ describe('ClassService meetings', () => {
     expect(manager.save).not.toHaveBeenCalled();
   });
 });
+
+describe('ClassService.deleteClass', () => {
+  const classId = 'class-id';
+  const unused = {} as never;
+  let manager: Record<string, jest.Mock>;
+  let access: { requireOwner: jest.Mock };
+  let service: ClassService;
+  const usage = (overrides: Record<string, boolean> = {}) => [
+    {
+      has_learners: false,
+      in_pending_order: false,
+      in_active_bundle: false,
+      ...overrides,
+    },
+  ];
+
+  beforeEach(() => {
+    manager = { query: jest.fn(), update: jest.fn() };
+    access = { requireOwner: jest.fn() };
+    const classes = {
+      manager: { transaction: jest.fn((callback) => callback(manager)) },
+    } as unknown as Repository<Class>;
+    service = new ClassService(
+      classes,
+      unused,
+      unused,
+      unused,
+      access as unknown as ClassAccessService,
+      unused,
+    );
+  });
+
+  it('soft-deletes an unused class and records who deleted it', async () => {
+    manager.query.mockResolvedValueOnce([]).mockResolvedValueOnce(usage());
+
+    await service.deleteClass('owner-id', classId);
+
+    expect(access.requireOwner).toHaveBeenCalledWith(
+      'owner-id',
+      classId,
+      manager,
+    );
+    expect(manager.query.mock.calls[0][0]).toContain('FOR UPDATE');
+    expect(manager.update).toHaveBeenCalledWith(
+      Class,
+      { id: classId },
+      expect.objectContaining({ deleted_by: 'owner-id' }),
+    );
+  });
+
+  it.each([
+    ['has_learners', 'Archive this class instead: learners are enrolled'],
+    [
+      'in_pending_order',
+      'This class is in an unpaid order; try again after it is paid or expires',
+    ],
+    [
+      'in_active_bundle',
+      'Remove this class from its active bundles before deleting it',
+    ],
+  ])('refuses with 409 when %s', async (reason, message) => {
+    manager.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(usage({ [reason]: true }));
+
+    await expect(service.deleteClass('owner-id', classId)).rejects.toEqual(
+      new ConflictException(message),
+    );
+    expect(manager.update).not.toHaveBeenCalled();
+  });
+
+  it('lets a tutor delete nothing', async () => {
+    access.requireOwner.mockRejectedValue(
+      new ForbiddenException('Only the class owner can do this'),
+    );
+
+    await expect(service.deleteClass('tutor-id', classId)).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(manager.query).not.toHaveBeenCalled();
+    expect(manager.update).not.toHaveBeenCalled();
+  });
+});

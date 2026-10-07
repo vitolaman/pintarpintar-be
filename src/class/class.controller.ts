@@ -72,6 +72,7 @@ import {
   VideoResponseDto,
 } from './dto/class-response.dto';
 import {
+  CLASS_DELETE_CONFLICTS,
   CLASS_NOT_FOUND,
   OWNER_ONLY,
   notFound,
@@ -128,6 +129,16 @@ export class ClassController {
     @Body() dto: UpdateClassDto,
   ) {
     return this.classService.updateClass(req.user.id, classId, dto);
+  }
+
+  @Delete(':classId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @EmptyResponse([OWNER_ONLY, CLASS_NOT_FOUND, ...CLASS_DELETE_CONFLICTS])
+  deleteClass(
+    @Req() req: AuthenticatedRequest,
+    @Param('classId', ParseUUIDPipe) classId: string,
+  ) {
+    return this.classService.deleteClass(req.user.id, classId);
   }
 
   @Post(':classId/chapters')

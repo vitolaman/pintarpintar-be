@@ -69,6 +69,20 @@ export class ProfileResponseDto {
   })
   merchant_id: string | null;
 
+  @ApiProperty({
+    description: "True while the user's merchant has an active Pro period",
+  })
+  is_pro: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    format: 'date-time',
+    description:
+      'End of the Pro time that continues from now without a gap; null when not Pro or not a merchant',
+  })
+  pro_until: Date | null;
+
   @ApiProperty({ description: 'Account creation time' })
   member_since: Date;
 

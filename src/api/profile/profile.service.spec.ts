@@ -13,12 +13,21 @@ import { User } from '../user/entities/user.entity';
 describe('ProfileService', () => {
   const userId = '06f7152e-7cc9-42f6-a4f0-8a84eb31e384';
   let service: ProfileService;
-  let dataSource: { transaction: jest.Mock; query: jest.Mock };
+  let dataSource: {
+    transaction: jest.Mock;
+    query: jest.Mock;
+    manager: { find: jest.Mock };
+  };
   let users: jest.Mocked<Partial<Repository<User>>>;
   const mentorWorkspace = { findTeachingClasses: jest.fn() };
 
   beforeEach(() => {
-    dataSource = { transaction: jest.fn(), query: jest.fn() };
+    // No Pro periods unless a test adds them.
+    dataSource = {
+      transaction: jest.fn(),
+      query: jest.fn(),
+      manager: { find: jest.fn().mockResolvedValue([]) },
+    };
     users = { createQueryBuilder: jest.fn() };
 
     service = new ProfileService(
@@ -232,6 +241,8 @@ describe('ProfileService', () => {
         email: 'budi@example.com',
         is_mentor: true,
         is_merchant: false,
+        is_pro: false,
+        pro_until: null,
         avatar_asset_id: null,
         phone: '+62 812-3456-7890',
         headline: null,

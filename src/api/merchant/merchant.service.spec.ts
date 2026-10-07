@@ -32,7 +32,7 @@ describe('MerchantService', () => {
   let manager: Record<string, jest.Mock>;
   let query: jest.Mock;
   let dataSource: Pick<DataSource, 'transaction' | 'query' | 'manager'>;
-  let merchants: { findOneBy: jest.Mock };
+  let merchants: { findOneBy: jest.Mock; manager?: { find: jest.Mock } };
   let wallets: { findOneBy: jest.Mock; query: jest.Mock };
   let preferences: { findOneBy: jest.Mock };
   let levelSummary: { findSummary: jest.Mock };
@@ -66,7 +66,10 @@ describe('MerchantService', () => {
       query: query,
       manager: { find: jest.fn().mockResolvedValue([]) },
     } as unknown as Pick<DataSource, 'transaction' | 'query' | 'manager'>;
-    merchants = { findOneBy: jest.fn() };
+    merchants = {
+      findOneBy: jest.fn(),
+      manager: { find: jest.fn().mockResolvedValue([]) },
+    } as typeof merchants;
     wallets = { findOneBy: jest.fn(), query: jest.fn() };
     preferences = { findOneBy: jest.fn() };
     levelSummary = { findSummary: jest.fn().mockResolvedValue(LEVEL) };
@@ -255,9 +258,8 @@ describe('MerchantService', () => {
         cover_object_key: null,
       }),
     };
-    (merchants as Record<string, jest.Mock>).createQueryBuilder = jest
-      .fn()
-      .mockReturnValue(queryBuilder);
+    (merchants as unknown as Record<string, jest.Mock>).createQueryBuilder =
+      jest.fn().mockReturnValue(queryBuilder);
     (dataSource.manager.find as jest.Mock).mockResolvedValueOnce([
       { name: 'AutoCAD' },
       { name: 'SAP2000' },
@@ -272,6 +274,8 @@ describe('MerchantService', () => {
     ).resolves.toEqual({
       ...row,
       experience_years: null,
+      is_pro: false,
+      pro_until: null,
       avatar_url: 'https://cdn.example.com/merchants/logo.png',
       cover_url: null,
       skills: ['AutoCAD', 'SAP2000'],

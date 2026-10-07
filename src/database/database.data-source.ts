@@ -57,6 +57,8 @@ import { Faq } from '~/api/faq/entities/faq.entity';
 import { Review } from '~/api/review/entities/review.entity';
 import { ReviewHelpfulVote } from '~/api/review/entities/review-helpful-vote.entity';
 import { ReviewReply } from '~/api/review/entities/review-reply.entity';
+import { ProPlan } from '~/api/pro/entities/pro-plan.entity';
+import { MerchantProPeriod } from '~/api/pro/entities/merchant-pro-period.entity';
 import { JobApplication } from '~/api/recruitment/entities/job-application.entity';
 import { JobPosting } from '~/api/recruitment/entities/job-posting.entity';
 import { MerchantMentor } from '~/api/recruitment/entities/merchant-mentor.entity';
@@ -156,6 +158,8 @@ export const dataSourceOptions: DataSourceOptions = {
     PasswordResetToken,
     ReviewHelpfulVote,
     ReviewReply,
+    ProPlan,
+    MerchantProPeriod,
   ],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations
   // remain in `migrations/` as reference only and must never run on this database.

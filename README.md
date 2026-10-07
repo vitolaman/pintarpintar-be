@@ -177,9 +177,17 @@ Each store is Basic, Silver or Gold by its monthly revenue (net of paid sales, A
 - a store with non-deleted items (drafts included) and no paid sale in two consecutive counted months gets a warning; a further month without a sale soft-deletes its digital products, classes, bootcamps and bundles, ends buyers' access to them and deactivates its discounts and vouchers. Counted months are full months after tracking started (registration, or deploy for older stores) and after any earlier removal;
 - every evaluation writes `notifications` rows for the owner (`merchant_level_evaluated`, plus `merchant_inactivity_warning` or `merchant_items_removed`) for an external email sender; this API neither sends nor lists them (`level.inactivity_warning` shows a warning).
 
-Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos, assignment attachments and digital-product files, checked when the file is attached. Storage quota by level: 30, 100 or 200 GB, counting each distinct file attached to the store's non-deleted (drafts included) class materials, class videos, assignment attachments and digital-product files (covers, logos and profile images do not count). Attaching a file that would pass the quota is refused with 400; removing an item frees its space (the stored object is kept); a store over its quota after a level drop keeps its files but cannot add new ones. `level.storage_used_bytes` shows the current use.
+Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos, assignment attachments and digital-product files, checked when the file is attached; a Pro store has no per-file limit (see Pintar Pintar Pro). Storage quota by level: 30, 100 or 200 GB, counting each distinct file attached to the store's non-deleted (drafts included) class materials, class videos, assignment attachments and digital-product files (covers, logos and profile images do not count). Attaching a file that would pass the quota is refused with 400; removing an item frees its space (the stored object is kept); a store over its quota after a level drop keeps its files but cannot add new ones. `level.storage_used_bytes` shows the current use.
 
 - `GET /api/v1/merchant/level-evaluations` — the store's monthly evaluations, newest first
+
+### Pintar Pintar Pro
+
+Pro is for merchants. Each store's Pro time is a list of periods (`merchant_pro_periods`); a store is Pro while an `active` period covers now, so Pro ends by itself at the end date. Plans (`pro_plans`: duration in months and price) are rows set by the platform team; none exist yet, and buying Pro is not implemented yet. While Pro, the store's content files have no per-file limit; the storage quota still applies, image caps stay, and files attached while Pro stay after it ends.
+
+- `GET /api/v1/pro-plans` — **public**; the offered plans (empty until plans exist)
+- `GET /api/v1/merchant/pro-subscription` — `is_pro`, `pro_until` (end of the Pro time continuing from now), the current period, upcoming periods and past or cancelled periods
+- `GET /api/v1/profile` and `GET /api/v1/merchant/profile` also return `is_pro` and `pro_until`
 
 ### Merchant dashboard
 

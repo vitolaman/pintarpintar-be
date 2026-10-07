@@ -47,6 +47,7 @@ import { MerchantLevelService } from '../merchant-level/merchant-level.service';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
+import { merchantProStatus } from '../pro/pro-status';
 
 // Income is the merchant's net from items in paid orders (price minus the
 // item's code discount share; digital products, classes, and bundles in
@@ -641,12 +642,20 @@ export class MerchantService {
       cover_url: assetUrl(cover_object_key),
       skills: await this.findSkills(row.id),
       level: await this.merchantLevels.findSummary(row.id),
+      ...(await this.proFields(row.id)),
       landing: this.toLanding(
         landing_background_asset_id,
         landing_background_object_key,
         landing_layout,
       ),
     };
+  }
+
+  private async proFields(
+    merchantId: string,
+  ): Promise<{ is_pro: boolean; pro_until: Date | null }> {
+    const pro = await merchantProStatus(this.merchants.manager, merchantId);
+    return { is_pro: pro.isPro, pro_until: pro.proUntil };
   }
 
   private sanitizeDescription(description: string): string {

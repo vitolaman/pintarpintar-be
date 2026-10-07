@@ -360,6 +360,8 @@ describe('assertOwnedAsset', () => {
     ({
       // No content stored yet, so the storage quota is not reached.
       query: jest.fn(async () => [{ used_bytes: '0', counted: false }]),
+      // No Pro periods, so the level's per-file limit applies.
+      find: jest.fn(async () => []),
       findOneBy: jest.fn(async (entity) =>
         entity === Merchant
           ? { id: 'merchant-id', storageLevel: 'basic' }
@@ -461,6 +463,7 @@ describe('assertOwnedAsset claims a pending asset', () => {
       manager: {
         update,
         findOneBy,
+        find: jest.fn(async () => []),
         query: jest.fn(async () => [{ used_bytes: '0', counted: false }]),
       } as unknown as EntityManager,
     };
@@ -595,9 +598,21 @@ describe('per-file limit by merchant level', () => {
     mimeType: 'application/zip',
     sizeBytes: String(2 * GB),
   };
-  const classOf = (level: MerchantStorageLevel) =>
+  const proPeriod = {
+    status: 'active',
+    startsAt: new Date(Date.now() - 86400000),
+    endsAt: new Date(Date.now() + 86400000),
+  };
+  const classOf = (
+    level: MerchantStorageLevel,
+    { pro = false, usedBytes = 0 } = {},
+  ) =>
     ({
-      query: jest.fn(async () => [{ used_bytes: '0', counted: false }]),
+      query: jest.fn(async () => [
+        { used_bytes: String(usedBytes), counted: false },
+      ]),
+      // A Pro merchant has one period covering now.
+      find: jest.fn(async () => (pro ? [proPeriod] : [])),
       findOneBy: jest.fn(async (entity) => {
         if (entity === Class) return { id: 'class-id', merchant_id: 'm' };
         if (entity === Merchant) return { id: 'm', storageLevel: level };
@@ -624,6 +639,30 @@ describe('per-file limit by merchant level', () => {
         { classId: 'class-id' },
       ),
     ).resolves.toMatchObject({ id: 'asset-id' });
+  });
+
+  it('lifts the per-file limit for a Pro merchant', async () => {
+    await expect(
+      assertOwnedAsset(
+        classOf(MerchantStorageLevel.BASIC, { pro: true }),
+        USER_ID,
+        'asset-id',
+        'class_resource',
+        { classId: 'class-id' },
+      ),
+    ).resolves.toMatchObject({ id: 'asset-id' });
+  });
+
+  it('keeps the storage quota for a Pro merchant', async () => {
+    await expect(
+      assertOwnedAsset(
+        classOf(MerchantStorageLevel.BASIC, { pro: true, usedBytes: 29 * GB }),
+        USER_ID,
+        'asset-id',
+        'class_resource',
+        { classId: 'class-id' },
+      ),
+    ).rejects.toThrow('Storage is full: the Basic level allows 30');
   });
 });
 

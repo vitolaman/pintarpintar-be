@@ -4,7 +4,6 @@ import {
   greeting,
   noteBox,
   paragraph,
-  plain,
   strong,
 } from './layout';
 import type { MerchantInactivityWarningEmail } from './payloads';
@@ -29,9 +28,6 @@ export const merchantInactivityWarning: EmailTemplate<
       noteBox(
         'Yang terjadi jika tetap tidak ada transaksi',
         `Jika sampai akhir ${deadline} belum ada transaksi, semua produk digital, kelas, bootcamp, dan bundling di toko kamu dihapus otomatis, dan diskon serta voucher dinonaktifkan.`,
-      ),
-      plain(
-        'Satu transaksi saja sebelum batas waktu sudah cukup untuk membatalkan penghapusan.',
       ),
     ],
     button: {

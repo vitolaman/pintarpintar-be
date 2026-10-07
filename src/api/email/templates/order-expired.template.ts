@@ -3,7 +3,6 @@ import {
   greeting,
   itemTable,
   paragraph,
-  plain,
   strong,
 } from './layout';
 import type { OrderClosedEmail } from './payloads';
@@ -14,18 +13,17 @@ export const orderExpired: EmailTemplate<OrderClosedEmail> = (order, link) => {
   return {
     subject: `Pesanan ${order.order_number} kedaluwarsa`,
     title: 'Pesanan kedaluwarsa',
-    preheader: 'Batas waktu pembayaran sudah lewat.',
+    preheader: 'Batas waktu pembayaran telah kadaluwarsa.',
     blocks: [
       greeting(order.buyer_name),
       paragraph(
-        `Batas waktu pembayaran pesanan ${number.html} sudah lewat, jadi pesanan dibatalkan otomatis. Tidak ada dana yang terpotong.`,
-        `Batas waktu pembayaran pesanan ${number.text} sudah lewat, jadi pesanan dibatalkan otomatis. Tidak ada dana yang terpotong.`,
+        `Batas waktu pembayaran pesanan ${number.html} telah habis. Pesanan dibatalkan secara otomatis. Tidak ada dana yang terpotong.`,
+        `Batas waktu pembayaran pesanan ${number.text} telah habis. Pesanan dibatalkan secara otomatis. Tidak ada dana yang terpotong.`,
       ),
       itemTable(order.items, {
         totalLabel: 'Total pesanan',
         total: order.total_amount,
       }),
-      plain('Kamu bisa memesan ulang kapan saja.'),
     ],
     button: { label: 'Pesan ulang', url: link(FRONTEND_PATHS.cart) },
   };

@@ -18,15 +18,15 @@ export const orderFailed: EmailTemplate<OrderClosedEmail> = (order, link) => {
     blocks: [
       greeting(order.buyer_name),
       paragraph(
-        `Pembayaran pesanan ${number.html} tidak berhasil diproses oleh penyedia pembayaran, jadi pesanan dibatalkan.`,
-        `Pembayaran pesanan ${number.text} tidak berhasil diproses oleh penyedia pembayaran, jadi pesanan dibatalkan.`,
+        `Pembayaran pesanan ${number.html} belum berhasil diproses, pesanan telah dibatalkan.`,
+        `Pembayaran pesanan ${number.text} belum berhasil diproses, pesanan telah dibatalkan.`,
       ),
       itemTable(order.items, {
         totalLabel: 'Total pesanan',
         total: order.total_amount,
       }),
       plain(
-        'Jika dana kamu sudah terpotong, hubungi kami lewat halaman Bantuan dengan menyertakan nomor pesanan.',
+        'Jika butuh bantuan, silahkan hubungi kami lewat halaman Bantuan dengan menyertakan nomor pesanan.',
       ),
     ],
     button: { label: 'Pesan ulang', url: link(FRONTEND_PATHS.cart) },

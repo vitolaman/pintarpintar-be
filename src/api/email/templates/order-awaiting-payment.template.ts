@@ -20,8 +20,8 @@ export const orderAwaitingPayment: EmailTemplate<OrderAwaitingPaymentEmail> = (
     blocks: [
       greeting(order.buyer_name),
       paragraph(
-        `Pesanan kamu sudah dibuat. Selesaikan pembayaran sebelum <b>${deadline}</b>. Pesanan akan dibatalkan otomatis jika lewat dari batas waktu.`,
-        `Pesanan kamu sudah dibuat. Selesaikan pembayaran sebelum ${deadline}. Pesanan akan dibatalkan otomatis jika lewat dari batas waktu.`,
+        `Pesanan kamu sudah dibuat. Mohon selesaikan pembayaran sebelum <b>${deadline}</b>. Pesanan akan dibatalkan otomatis jika lewat dari batas waktu.`,
+        `Pesanan kamu sudah dibuat. Mohon selesaikan pembayaran sebelum ${deadline}. Pesanan akan dibatalkan otomatis jika lewat dari batas waktu.`,
       ),
       infoRows([
         ['Nomor pesanan', order.order_number],

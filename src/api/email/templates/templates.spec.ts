@@ -288,6 +288,13 @@ describe('email templates', () => {
     expect(render('basic', 'silver')).toContain('5 GB');
   });
 
+  it('tells the buyer the payment time ran out and nothing was charged', () => {
+    const [payload] = SAMPLES.order_expired;
+    expect(renderEmail('order_expired', payload, FRONTEND).text).toContain(
+      'Batas waktu pembayaran pesanan ORD-20261005-0012 telah habis. Pesanan dibatalkan secara otomatis. Tidak ada dana yang terpotong.',
+    );
+  });
+
   it('names the graded assignment after the subject label, so a title starting with Tugas reads once', () => {
     const [payload] = SAMPLES.submission_graded;
     expect(

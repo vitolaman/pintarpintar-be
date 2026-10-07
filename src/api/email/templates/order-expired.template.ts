@@ -18,8 +18,8 @@ export const orderExpired: EmailTemplate<OrderClosedEmail> = (order, link) => {
     blocks: [
       greeting(order.buyer_name),
       paragraph(
-        `Batas waktu pembayaran pesanan ${number.html} sudah lewat, jadi pesanan dibatalkan otomatis. Tidak ada dana yang terpotong.`,
-        `Batas waktu pembayaran pesanan ${number.text} sudah lewat, jadi pesanan dibatalkan otomatis. Tidak ada dana yang terpotong.`,
+        `Batas waktu pembayaran pesanan ${number.html} telah habis. Pesanan dibatalkan secara otomatis. Tidak ada dana yang terpotong.`,
+        `Batas waktu pembayaran pesanan ${number.text} telah habis. Pesanan dibatalkan secara otomatis. Tidak ada dana yang terpotong.`,
       ),
       itemTable(order.items, {
         totalLabel: 'Total pesanan',

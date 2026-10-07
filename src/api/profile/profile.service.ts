@@ -24,6 +24,7 @@ import { classKindSql } from '../../common/catalog/item-kind';
 import { MentorWorkspaceService } from '../mentor/mentor-workspace.service';
 import { splitSkills } from '../../common/util/skill-list';
 import { UpdateOnboardingDto } from './dto/update-onboarding.dto';
+import { merchantProStatus } from '../pro/pro-status';
 import { OnboardingRole } from './onboarding.constants';
 import {
   LearningItemResponseDto,
@@ -391,6 +392,9 @@ export class ProfileService {
     if (!row) {
       throw new NotFoundException('User not found');
     }
+    const pro = row.merchant_id
+      ? await merchantProStatus(this.dataSource.manager, row.merchant_id)
+      : { isPro: false, proUntil: null };
 
     return {
       id: row.id,
@@ -405,6 +409,8 @@ export class ProfileService {
       bio: row.bio,
       mentor_id: row.mentor_id,
       merchant_id: row.merchant_id,
+      is_pro: pro.isPro,
+      pro_until: pro.proUntil,
       member_since: row.member_since,
       expertise_list: splitSkills(row.mentor_expertise),
       onboarding: {

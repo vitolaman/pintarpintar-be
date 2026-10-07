@@ -18,6 +18,7 @@ import {
   assertOwnedAsset,
   assetFieldDescription,
   purposeVisibility,
+  allowedTypesText,
   sizeLimitText,
 } from './asset-purpose-rules';
 
@@ -194,10 +195,10 @@ describe('field rules by purpose', () => {
     ['a PDF banner', 'merchant_banner', 'b.pdf', 'application/pdf', 1000],
     ['an avatar without a type', 'user_avatar', 'me.png', undefined, 1000],
     [
-      'a video as a class resource',
+      'a program as a class resource',
       'class_resource',
-      'clip.mp4',
-      'video/mp4',
+      'setup.exe',
+      'application/octet-stream',
       MB,
     ],
     [
@@ -243,7 +244,12 @@ describe('learning file purposes', () => {
   it.each([
     ['submission_file', 'denah.dwg', 'application/octet-stream', 5 * MB],
     ['submission_file', 'tugas.pdf', 'application/pdf', 20 * MB],
+    ['submission_file', 'gedung.rvt', 'application/octet-stream', 500 * MB],
     ['submission_file', 'proyek.zip', 'application/zip', MB],
+    ['submission_file', 'laporan.docx', 'application/octet-stream', MB],
+    ['submission_file', 'arsip.rar', 'application/vnd.rar', MB],
+    ['submission_file', 'perhitungan.xlsx', 'application/octet-stream', 2 * MB],
+    ['submission_file', 'model.rvt', 'application/octet-stream', 15 * MB],
     ['certificate_file', 'sertifikat.pdf', 'application/pdf', 10 * MB],
     ['certificate_file', 'sertifikat.jpg', 'image/jpeg', MB],
     ['certificate_file', 'sertifikat.png', 'image/png', MB],
@@ -258,9 +264,10 @@ describe('learning file purposes', () => {
   });
 
   it.each([
-    ['submission_file', 'laporan.docx', 'application/octet-stream', MB],
-    ['submission_file', 'arsip.rar', 'application/vnd.rar', MB],
-    ['submission_file', 'besar.pdf', 'application/pdf', 21 * MB],
+    ['submission_file', 'tool.exe', 'application/octet-stream', MB],
+    ['submission_file', 'jawaban.pdf', 'text/html', MB],
+    ['submission_file', 'besar.pdf', 'application/pdf', 500 * MB + 1],
+    ['submission_file', 'besar.rvt', 'application/octet-stream', 600 * MB],
     ['submission_file', 'blob', 'application/pdf', MB],
     ['certificate_file', 'sertifikat.webp', 'image/webp', MB],
     ['certificate_file', 'sertifikat.pdf', 'application/pdf', 11 * MB],
@@ -353,6 +360,8 @@ describe('assertOwnedAsset', () => {
     ({
       // No content stored yet, so the storage quota is not reached.
       query: jest.fn(async () => [{ used_bytes: '0', counted: false }]),
+      // No Pro periods, so the level's per-file limit applies.
+      find: jest.fn(async () => []),
       findOneBy: jest.fn(async (entity) =>
         entity === Merchant
           ? { id: 'merchant-id', storageLevel: 'basic' }
@@ -389,8 +398,8 @@ describe('assertOwnedAsset', () => {
     ['a class cover as a product file', asset, 'digital_file'],
     ['a private file as a product cover', privateFile, 'product_cover'],
     [
-      'a spreadsheet as a class resource',
-      { ...privateFile, originalFilename: 'sheet.xlsx' },
+      'a script as a class resource',
+      { ...privateFile, originalFilename: 'jalankan.bat' },
       'class_resource',
     ],
   ])('rejects %s', async (_name, value, purpose) => {
@@ -454,6 +463,7 @@ describe('assertOwnedAsset claims a pending asset', () => {
       manager: {
         update,
         findOneBy,
+        find: jest.fn(async () => []),
         query: jest.fn(async () => [{ used_bytes: '0', counted: false }]),
       } as unknown as EntityManager,
     };
@@ -521,12 +531,12 @@ describe('upload rule messages', () => {
       }),
     ).toThrow('Allowed file types: PNG, JPG, JPEG or WEBP');
     expect(() =>
-      assertFileFitsPurpose('submission_file', {
-        filename: 'tugas.rar',
-        mimeType: 'application/vnd.rar',
+      assertFileFitsPurpose('class_video', {
+        filename: 'materi.pdf',
+        mimeType: 'application/pdf',
         sizeBytes: MB,
       }),
-    ).toThrow('Allowed file types: PDF, DWG or ZIP');
+    ).toThrow('Allowed file types: MP4, MOV or WEBM');
   });
 
   it('describes each field from its rule', () => {
@@ -588,9 +598,21 @@ describe('per-file limit by merchant level', () => {
     mimeType: 'application/zip',
     sizeBytes: String(2 * GB),
   };
-  const classOf = (level: MerchantStorageLevel) =>
+  const proPeriod = {
+    status: 'active',
+    startsAt: new Date(Date.now() - 86400000),
+    endsAt: new Date(Date.now() + 86400000),
+  };
+  const classOf = (
+    level: MerchantStorageLevel,
+    { pro = false, usedBytes = 0 } = {},
+  ) =>
     ({
-      query: jest.fn(async () => [{ used_bytes: '0', counted: false }]),
+      query: jest.fn(async () => [
+        { used_bytes: String(usedBytes), counted: false },
+      ]),
+      // A Pro merchant has one period covering now.
+      find: jest.fn(async () => (pro ? [proPeriod] : [])),
       findOneBy: jest.fn(async (entity) => {
         if (entity === Class) return { id: 'class-id', merchant_id: 'm' };
         if (entity === Merchant) return { id: 'm', storageLevel: level };
@@ -617,5 +639,154 @@ describe('per-file limit by merchant level', () => {
         { classId: 'class-id' },
       ),
     ).resolves.toMatchObject({ id: 'asset-id' });
+  });
+
+  it('lifts the per-file limit for a Pro merchant', async () => {
+    await expect(
+      assertOwnedAsset(
+        classOf(MerchantStorageLevel.BASIC, { pro: true }),
+        USER_ID,
+        'asset-id',
+        'class_resource',
+        { classId: 'class-id' },
+      ),
+    ).resolves.toMatchObject({ id: 'asset-id' });
+  });
+
+  it('keeps the storage quota for a Pro merchant', async () => {
+    await expect(
+      assertOwnedAsset(
+        classOf(MerchantStorageLevel.BASIC, { pro: true, usedBytes: 29 * GB }),
+        USER_ID,
+        'asset-id',
+        'class_resource',
+        { classId: 'class-id' },
+      ),
+    ).rejects.toThrow('Storage is full: the Basic level allows 30');
+  });
+});
+
+describe('digital-product files: any type except unsafe ones', () => {
+  const file = (filename: string, mimeType = 'application/octet-stream') => ({
+    filename,
+    mimeType,
+    sizeBytes: 1024,
+  });
+
+  it.each([
+    ['a Revit model', 'gedung-hotel.rvt'],
+    ['a Revit family', 'pintu.RFA'],
+    ['an IFC model', 'struktur.ifc'],
+    ['a Navisworks model', 'koordinasi.nwd'],
+    ['a macro workbook', 'rab.xlsm'],
+    ['a 7z archive', 'paket.7z'],
+    ['an SVG icon pack', 'ikon.svg'],
+  ])('accepts %s', (_label, filename) => {
+    expect(() =>
+      assertFileFitsPurpose('digital_file', file(filename)),
+    ).not.toThrow();
+  });
+
+  it('keeps accepting known formats with their own type', () => {
+    expect(() =>
+      assertFileFitsPurpose(
+        'digital_file',
+        file('panduan.pdf', 'application/pdf'),
+      ),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ['an uppercase program', 'setup.EXE', 'application/octet-stream'],
+    ['an installer', 'app.msi', 'application/octet-stream'],
+    ['a script', 'jalankan.bat', 'application/octet-stream'],
+    ['an Android app', 'aplikasi.apk', 'application/octet-stream'],
+    ['a web page', 'promo.html', 'text/html'],
+    ['a web page renamed to PDF', 'panduan.pdf', 'text/html'],
+    [
+      'a program renamed to an unknown type',
+      'model.rvt',
+      'application/x-msdownload',
+    ],
+  ])('refuses %s', (_label, filename, mimeType) => {
+    expect(() =>
+      assertFileFitsPurpose('digital_file', file(filename, mimeType)),
+    ).toThrow(
+      "Programs, scripts, installers and web pages aren't allowed (for example EXE, BAT, APK, HTML)",
+    );
+  });
+
+  it('refuses a file without an extension', () => {
+    expect(() => assertFileFitsPurpose('digital_file', file('README'))).toThrow(
+      'The file needs an extension, such as .pdf or .zip',
+    );
+  });
+
+  it('still refuses a known format whose type disagrees', () => {
+    expect(() =>
+      assertFileFitsPurpose('digital_file', file('doc.pdf', 'image/png')),
+    ).toThrow("The file's content does not match its .pdf extension");
+  });
+
+  it('leaves other fields on their lists', () => {
+    expect(() =>
+      assertFileFitsPurpose('class_video', file('gedung-hotel.rvt')),
+    ).toThrow(BadRequestException);
+  });
+
+  it('describes the field in plain words', () => {
+    expect(allowedTypesText('digital_file')).toBe(
+      'any file type except programs, scripts, installers and web pages (for example EXE, BAT, APK, HTML)',
+    );
+  });
+});
+
+describe('class materials and assignment attachments: any type except unsafe ones', () => {
+  const file = (filename: string, mimeType = 'application/octet-stream') => ({
+    filename,
+    mimeType,
+    sizeBytes: 5 * MB,
+  });
+
+  it.each([
+    ['class_resource', 'model.rvt'],
+    ['class_resource', 'struktur.ifc'],
+    ['class_resource', 'slide.pptx'],
+    ['assignment_resource', 'template.xlsx'],
+    ['assignment_resource', 'contoh.nwd'],
+  ])('accepts a %s %s', (purpose, filename) => {
+    expect(() =>
+      assertFileFitsPurpose(purpose as never, file(filename)),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ['class_resource', 'setup.exe', 'application/octet-stream'],
+    ['assignment_resource', 'tool.EXE', 'application/octet-stream'],
+    ['assignment_resource', 'soal.pdf', 'text/html'],
+  ])('refuses a %s %s', (purpose, filename, mimeType) => {
+    expect(() =>
+      assertFileFitsPurpose(purpose as never, file(filename, mimeType)),
+    ).toThrow(
+      "Programs, scripts, installers and web pages aren't allowed (for example EXE, BAT, APK, HTML)",
+    );
+  });
+
+  it('refuses a class material without an extension', () => {
+    expect(() =>
+      assertFileFitsPurpose('class_resource', file('README')),
+    ).toThrow('The file needs an extension, such as .pdf or .zip');
+  });
+});
+
+describe('submission size', () => {
+  it('states the 500 MB limit', () => {
+    expect(() =>
+      assertFileFitsPurpose('submission_file', {
+        filename: 'model.rvt',
+        mimeType: 'application/octet-stream',
+        sizeBytes: 500 * MB + 1,
+      }),
+    ).toThrow('The file must be 500 MB or smaller');
   });
 });

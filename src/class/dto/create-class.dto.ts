@@ -77,6 +77,13 @@ export class CreateClassDto {
   @EnumInput(classCategories, { presence: 'nullable', description: 'Bidang' })
   category?: ClassCategory | null;
 
+  @RequiredText({
+    max: 64,
+    example: 'Teknik Sipil',
+    description: "Kategori Skill: the label of the form's selector",
+  })
+  skill_category: string;
+
   @EnumInput(learningLevels, { presence: 'nullable' })
   level?: LearningLevel | null;
 

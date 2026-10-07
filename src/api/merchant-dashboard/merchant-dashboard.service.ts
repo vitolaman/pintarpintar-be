@@ -24,6 +24,7 @@ import {
   IncomePeriod,
   MerchantIncomeService,
 } from '../merchant-income/merchant-income.service';
+import { paymentMethodLabel } from '../payment/payment-methods';
 import * as moment from 'moment-timezone';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 
@@ -390,6 +391,10 @@ export class MerchantDashboardService {
       item_title: row.item_title,
       amount: Number(row.gross_amount),
       payment_method: row.payment_method,
+      payment_method_label: paymentMethodLabel(
+        row.payment_method,
+        row.status === 'paid',
+      ),
       coupon_code: row.coupon_code,
       platform_fee: null,
       transaction_fee: null,

@@ -242,6 +242,7 @@ describe('ClassService access control', () => {
     await expect(
       service.createClass(userId, merchantId, {
         title: 'X',
+        skill_category: 'Teknik Sipil',
         original_price: 100000,
         discount_price: 120000,
       }),
@@ -255,6 +256,7 @@ describe('ClassService access control', () => {
     const response = await service.createClass(userId, merchantId, {
       title: 'Bootcamp',
       type: 'bootcamp',
+      skill_category: 'Teknik Sipil',
       original_price: 300000,
       discount_price: 250000,
     });
@@ -263,12 +265,14 @@ describe('ClassService access control', () => {
       Class,
       expect.objectContaining({
         type: ClassType.LIVE_BOOTCAMP,
+        skill_category: 'Teknik Sipil',
         originalPrice: 300000,
         discountedPrice: 250000,
       }),
     );
     expect(response.data).toMatchObject({
       type: 'bootcamp',
+      skill_category: 'Teknik Sipil',
       original_price: 300000,
       discount_price: 250000,
     });
@@ -316,7 +320,7 @@ describe('ClassService access control', () => {
         user_id: 'student-id',
         class_id: classId,
         join_date: '2026-09-01',
-        progress: '40',
+        progress: 40,
         created_at: new Date('2026-09-01T00:00:00.000Z'),
         user: {
           id: 'student-id',

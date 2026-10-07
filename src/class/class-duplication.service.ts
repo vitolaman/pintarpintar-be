@@ -49,6 +49,7 @@ export class ClassDuplicationService {
           cover_asset_id: source.cover_asset_id,
           post_purchase_instructions: source.post_purchase_instructions,
           category: source.category,
+          skill_category: source.skill_category,
           level: source.level,
           duration: source.duration,
           prerequisites: source.prerequisites,

@@ -120,29 +120,6 @@ export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
   bundle: 'Bundling',
 };
 
-// Duitku payment method codes; an unknown code is shown as it is.
-const PAYMENT_METHODS: Record<string, string> = {
-  BC: 'BCA Virtual Account',
-  M2: 'Mandiri Virtual Account',
-  I1: 'BNI Virtual Account',
-  BR: 'BRI Virtual Account',
-  BT: 'Permata Virtual Account',
-  B1: 'CIMB Niaga Virtual Account',
-  A1: 'ATM Bersama',
-  OV: 'OVO',
-  SP: 'ShopeePay',
-  DA: 'DANA',
-  LA: 'LinkAja',
-  NQ: 'QRIS',
-  FT: 'Gerai Retail',
-  VC: 'Kartu Kredit',
-};
-
-export function paymentMethodLabel(code: string | null): string {
-  if (!code) return 'Gratis';
-  return PAYMENT_METHODS[code] ?? code;
-}
-
 /** Frontend pages the emails link to, so a route change is one edit. */
 export const FRONTEND_PATHS = {
   portal: '/portal-saya',

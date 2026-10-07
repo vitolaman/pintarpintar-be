@@ -288,6 +288,62 @@ describe('email templates', () => {
     expect(render('basic', 'silver')).toContain('5 GB');
   });
 
+  it('tells the buyer the payment did not go through and where to get help', () => {
+    const [payload] = SAMPLES.order_failed;
+    const text = renderEmail('order_failed', payload, FRONTEND).text;
+    expect(text).toContain(
+      'Pembayaran pesanan ORD-20261005-0012 belum berhasil diproses, pesanan telah dibatalkan.',
+    );
+    expect(text).toContain(
+      'Jika butuh bantuan, silahkan hubungi kami lewat halaman Bantuan dengan menyertakan nomor pesanan.',
+    );
+  });
+
+  it('ends the inactivity warning with the deletion notice', () => {
+    const [payload] = SAMPLES.merchant_inactivity_warning;
+    const email = renderEmail('merchant_inactivity_warning', payload, FRONTEND);
+    expect(email.text).toContain('diskon serta voucher dinonaktifkan.');
+    expect(email.text).not.toContain('Satu transaksi saja');
+  });
+
+  it('asks learners to follow the changed session schedule', () => {
+    const [payload] = SAMPLES.meeting_updated;
+    expect(renderEmail('meeting_updated', payload, FRONTEND).text).toContain(
+      'Jadwal sesi di Bootcamp Manajemen Proyek diubah. Mohon sesuaikan dengan jadwal yang baru berikut.',
+    );
+  });
+
+  it('asks the buyer to pay before the deadline', () => {
+    const [payload] = SAMPLES.order_awaiting_payment;
+    expect(
+      renderEmail('order_awaiting_payment', payload, FRONTEND).text,
+    ).toContain(
+      'Pesanan kamu sudah dibuat. Mohon selesaikan pembayaran sebelum 5 Oktober 2026, 15.30 WIB. Pesanan akan dibatalkan otomatis jika lewat dari batas waktu.',
+    );
+  });
+
+  it('tells the buyer the payment time ran out and nothing was charged', () => {
+    const [payload] = SAMPLES.order_expired;
+    const email = renderEmail('order_expired', payload, FRONTEND);
+    expect(email.html).toContain('Batas waktu pembayaran telah kadaluwarsa.');
+    const text = email.text;
+    expect(text).toContain(
+      'Batas waktu pembayaran pesanan ORD-20261005-0012 telah habis. Pesanan dibatalkan secara otomatis. Tidak ada dana yang terpotong.',
+    );
+    expect(text).not.toContain('Kamu bisa memesan ulang');
+  });
+
+  it('names the graded assignment after the subject label, so a title starting with Tugas reads once', () => {
+    const [payload] = SAMPLES.submission_graded;
+    expect(
+      renderEmail(
+        'submission_graded',
+        { ...payload, assignment_title: 'Tugas 1: Denah' },
+        FRONTEND,
+      ).subject,
+    ).toBe('Tugas sudah dinilai: Tugas 1: Denah');
+  });
+
   it('labels a free order as Gratis and a rescheduled interview as changed', () => {
     const [paid] = SAMPLES.order_paid;
     expect(

@@ -152,7 +152,7 @@ The collections take `limit` (default 10, at most 50) and return the newest firs
 
 - `POST /api/v1/orders/preview` — prices up to 20 items with up to one voucher and one discount code (each applies to its own merchant's items); writes nothing. An invalid code does not fail the preview: it is left out and listed in `rejected_codes: [{code, reason}]` (`not_found`, `expired`, `not_started`, `used_up`, `already_used`, `minimum_not_met`, `not_applicable`); `POST /api/v1/orders` still rejects it. Unavailable, owned or repeated items and two codes of one kind are a 400 in both
 - `POST /api/v1/orders` — creates one `ORD-YYYYMMDD-NNNN` order that stays payable for 60 minutes and returns Duitku's `payment_reference` (for `checkout.process`) and `payment_url`; a Rp0 order is paid at once, and totals between Rp1 and Rp9,999 are rejected. 409 with `details.order_id` when an item already awaits payment in another order; 502 when Duitku fails (the order becomes `failed` and its codes are released); 503 when payment is not configured
-- `GET /api/v1/orders/:id` — the buyer's order for the return page; the payment link is included only while the order can be paid
+- `GET /api/v1/orders/:id` — the buyer's order for the return page; the payment link is included only while the order can be paid; `payment_method` is the Duitku channel code and `payment_method_label` its name ("Gratis" for a free order, `null` while unpaid)
 - `POST /api/v1/orders/:id/cancel` — cancels a pending order within its window and releases its codes
 - `POST /api/v1/orders/:id/check-payment` — asks Duitku for the status of an unpaid order and applies a success like the callback (recovers a missed notification); 10 per minute per client address
 - `POST /api/v1/payments/duitku/callback` — **public**; Duitku's signed payment notification: marks the order paid, or a pending order `failed` on any other result; a bad signature, an unknown order or a wrong amount is 400
@@ -177,14 +177,22 @@ Each store is Basic, Silver or Gold by its monthly revenue (net of paid sales, A
 - a store with non-deleted items (drafts included) and no paid sale in two consecutive counted months gets a warning; a further month without a sale soft-deletes its digital products, classes, bootcamps and bundles, ends buyers' access to them and deactivates its discounts and vouchers. Counted months are full months after tracking started (registration, or deploy for older stores) and after any earlier removal;
 - every evaluation writes `notifications` rows for the owner (`merchant_level_evaluated`, plus `merchant_inactivity_warning` or `merchant_items_removed`) for an external email sender; this API neither sends nor lists them (`level.inactivity_warning` shows a warning).
 
-Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos, assignment attachments and digital-product files, checked when the file is attached. Storage quota by level: 30, 100 or 200 GB, counting each distinct file attached to the store's non-deleted (drafts included) class materials, class videos, assignment attachments and digital-product files (covers, logos and profile images do not count). Attaching a file that would pass the quota is refused with 400; removing an item frees its space (the stored object is kept); a store over its quota after a level drop keeps its files but cannot add new ones. `level.storage_used_bytes` shows the current use.
+Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos, assignment attachments and digital-product files, checked when the file is attached; a Pro store has no per-file limit (see Pintar Pintar Pro). Storage quota by level: 30, 100 or 200 GB, counting each distinct file attached to the store's non-deleted (drafts included) class materials, class videos, assignment attachments and digital-product files (covers, logos and profile images do not count). Attaching a file that would pass the quota is refused with 400; removing an item frees its space (the stored object is kept); a store over its quota after a level drop keeps its files but cannot add new ones. `level.storage_used_bytes` shows the current use.
 
 - `GET /api/v1/merchant/level-evaluations` — the store's monthly evaluations, newest first
+
+### Pintar Pintar Pro
+
+Pro is for merchants. Each store's Pro time is a list of periods (`merchant_pro_periods`); a store is Pro while an `active` period covers now, so Pro ends by itself at the end date. Plans (`pro_plans`: duration in months and price) are rows set by the platform team; none exist yet, and buying Pro is not implemented yet. While Pro, the store's content files have no per-file limit; the storage quota still applies, image caps stay, and files attached while Pro stay after it ends.
+
+- `GET /api/v1/pro-plans` — **public**; the offered plans (empty until plans exist)
+- `GET /api/v1/merchant/pro-subscription` — `is_pro`, `pro_until` (end of the Pro time continuing from now), the current period, upcoming periods and past or cancelled periods
+- `GET /api/v1/profile` and `GET /api/v1/merchant/profile` also return `is_pro` and `pro_until`
 
 ### Merchant dashboard
 
 - `GET /api/v1/merchant/dashboard` — summary and `level` (see Merchant levels); rating and latest review cover class and digital-product reviews; activity lists the 10 newest enrolments, reviews and digital or bundle purchases. `period_days` is 7, 30 (default), 90 or 365: N covers today and the N − 1 days before it (Asia/Jakarta), compared with the N days before that. Revenue, transactions and the chart follow the Analitik rules; `students` counts distinct buyers of paid orders
-- `GET /api/v1/merchant/sales` — price (`amount`), net after the item's share of the voucher and discount code (`net_amount`), and payment method per item; revenue figures across the dashboard use the net
+- `GET /api/v1/merchant/sales` — price (`amount`), net after the item's share of the voucher and discount code (`net_amount`), and payment method per item (`payment_method` code and readable `payment_method_label`, as in the order detail); revenue figures across the dashboard use the net
 - `GET /api/v1/merchant/sales/export` — the filtered sales as JSON `rows` (up to 5,000, `truncated` when there are more) for the page to save as a spreadsheet; same filters as the list
 - `GET /api/v1/merchant/customers`
 - `GET /api/v1/merchant/wallet` — `earning_balance`, `settled_balance` (withdrawable), `clearing_balance` (not yet settled), `lifetime_earnings` and `total_withdrawn`
@@ -243,7 +251,7 @@ Each item has up to 5 ordered covers; the first is the main cover, returned as `
 
 - `GET /api/v1/merchant/digital-products` — own products with downloads, rating, and revenue; filter by `status` (`published`, `unpublished`, `unlisted`) and `search`
 - `GET /api/v1/merchant/digital-products/:id` — includes a signed download link for the product file
-- `POST /api/v1/merchant/digital-products` — `category_slug` (`pdf`, `template`, `e-book`, `project-files`, `template-canva`, `excel`, `desain-grafis`, `videografi`, `lainnya`, or a sub-category such as `photoshop` or `video-effect`; the tree is `GET /api/v1/catalog/categories`), prices (`discount_price` at most `original_price`), status (default `unpublished`), covers, one file (required for `published`), post-purchase instructions
+- `POST /api/v1/merchant/digital-products` — `category_slug` (`pdf`, `template`, `e-book`, `project-files`, `template-canva`, `excel`, `desain-grafis`, `videografi`, `lainnya`, or a sub-category such as `photoshop` or `video-effect`; the tree is `GET /api/v1/catalog/categories`), prices (`discount_price` at most `original_price`), status (default `unpublished`), covers, one file (required for `published`; any type with an extension except programs, scripts, installers and web pages such as EXE, BAT, APK or HTML; its extension becomes `file_format`, e.g. `RVT`), post-purchase instructions
 - `PATCH /api/v1/merchant/digital-products/:id` — a new `file_asset_id` replaces the single file
 - `DELETE /api/v1/merchant/digital-products/:id` — 409 while the product is in a published or unlisted bundle; buyers keep access
 
@@ -252,7 +260,7 @@ Each item has up to 5 ordered covers; the first is the main cover, returned as `
 The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderator`) act within their permission matrix (areas `materi`, `meeting`, `tugas`, `nilai`, `sertifikat` × `lihat`, `tambah`, `edit`, `delete`): a missing permission or an owner-only action is 403, anyone else gets 404 (inviting a tutor is 404 for everyone but the owner). Class status `archived` means unlisted (hidden from lists, open by link). Writes return `{data, responseMessage}`; deletes return 204.
 
 - `GET /api/v1/merchant/classes` — the signed-in owner's store; filter by `status` and `type`; `limit` up to 100
-- `POST /api/v1/merchant/classes` — also accepts Bidang (`category`: Coding/Elektro/Mesin/Desain/Sipil/Kimia), `level` (Pemula/Menengah/Mahir), `duration`, `prerequisites`, and `learning_outcomes` (up to 20); `PATCH /api/v1/classes/:classId` updates them
+- `POST /api/v1/merchant/classes` — requires Kategori Skill (`skill_category`: the label of the form's selector, 1–64 characters, trimmed; the FE owns the options); also accepts Bidang (`category`: Coding/Elektro/Mesin/Desain/Sipil/Kimia), `level` (Pemula/Menengah/Mahir), `duration`, `prerequisites`, and `learning_outcomes` (up to 20); `PATCH /api/v1/classes/:classId` updates them (`skill_category` can be changed but not cleared; classes created before it have `null`). Class responses, catalog cards and the home carousels return `skill_category`
 - `GET /api/v1/classes/:classId`
 - `PATCH /api/v1/classes/:classId` — details, prices, covers, post-purchase instructions; a lead tutor may change everything except `type`, `status` and prices; other tutors get 403
 - `POST /api/v1/classes/:classId/duplicate` — owner only; `{type}`; a draft "(Salinan)" copy with details, prices, covers, syllabus, assignments (with their questions and original due dates), certificate settings, and FAQ (no learners, reviews, discussions, submissions, certificates, tutors, or meetings)
@@ -293,7 +301,7 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 - `PATCH /api/v1/classes/:classId/meetings/:meetingId/attendances/:userId` — `meeting.edit`; `hadir`, `izin` or `alpa`
 - `GET /api/v1/classes/:classId/certificate-settings` — `sertifikat.lihat`; defaults: manual, attendance 80, score 75
 - `PATCH /api/v1/classes/:classId/certificate-settings` — `sertifikat.edit`; `auto_issue`, `min_attendance_percent`, `min_score` (0–100); saving in automatic mode issues every eligible learner's certificate
-- `GET /api/v1/classes/:classId/certificates` — `sertifikat.lihat`; status `issued`, `pending` (eligible, not issued) or `ineligible` per learner
+- `GET /api/v1/classes/:classId/certificates` — `sertifikat.lihat`; status `issued`, `pending` (eligible, not issued) or `ineligible` per learner, with `graded_assignments` and `assignment_count`. Eligible means 100% progress, the minimum attendance once meetings have started, and a graded submission for every assignment with an average at least the minimum score; an issued certificate stays when an assignment is added later
 - `POST /api/v1/classes/:classId/certificates/:userId/issue` — `sertifikat.tambah`; eligible learners only (400 otherwise, 409 when already issued); numbers `PP-CERT-YYYY-NNNN` (Asia/Jakarta year, never reused)
 - `PUT /api/v1/classes/:classId/certificates/:userId/file` — `sertifikat.edit`; an uploaded PDF, PNG or JPG
 - `DELETE /api/v1/classes/:classId/certificates/:userId` — `sertifikat.delete`; withdraws the certificate
@@ -308,7 +316,7 @@ Every route that needs a login requires an active enrollment or product access a
 - `POST /api/v1/learning/videos/:videoId/complete` — idempotent; returns progress and the next video
 - `GET /api/v1/learning/classes/:classId/assignments` — without answer keys; own latest submission
 - `GET /api/v1/learning/assignments/:assignmentId/quiz`
-- `POST /api/v1/learning/assignments/:assignmentId/submit` — `file_asset_id` of an own upload (PDF, DWG or ZIP, 20 MB); replaces before the due time (clearing the grade); a late first submission is accepted, a late change is 409
+- `POST /api/v1/learning/assignments/:assignmentId/submit` — `file_asset_id` of an own upload (any type with an extension except programs, scripts, installers and web pages; 500 MB); replaces before the due time (clearing the grade); a late first submission is accepted, a late change is 409
 - `POST /api/v1/learning/assignments/:assignmentId/submit-quiz` — every question answered once; multiple choice is scored at once and essays wait for a tutor; a quiz with only multiple-choice questions is graded on submission, and in automatic mode an eligible learner gets the certificate at once
 - `GET /api/v1/learning/classes/:classId/grades` — scores, feedback, Partisipasi and average
 - `GET /api/v1/learning/meetings/:meetingId` — the check-in page (`/absensi`)
@@ -321,14 +329,14 @@ Every route that needs a login requires an active enrollment or product access a
 
 - `POST /api/v1/upload/initiate`
 - `POST /api/v1/upload/presigned-urls`
-- `POST /api/v1/upload/complete` — `parts` lists each `ETag` with its `PartNumber` (an integer from 1 to 10,000); also registers the file and returns its `asset_id`; send it in the form field the file is for. The field checks the file when the form is saved: covers, logos, banners, landing backgrounds and the user photo take PNG/JPG/WebP images (2 MB for logo and photo, otherwise 4 MB) and make the file public; class materials and assignment attachments (documents, archives, images, DWG/DXF/SKP), class videos (MP4/MOV/WebM) and digital-product files (each up to the store level's per-file limit: 1, 5 or 10 GB, and within its storage quota), submissions (PDF/DWG/ZIP, 20 MB), certificate files (PDF/PNG/JPG, 10 MB) and CVs (PDF/DOC/DOCX, 10 MB) make it private. A file used in a public field cannot go into a private one, or the reverse. Each field's accepted types and size are in its Swagger description, and a rejected file gets a plain message such as "The file must be 2 MB or smaller" or "Allowed file types: PDF, DWG or ZIP". Private files are only served through signed links that expire after 10 minutes. The file must be the caller's own finished upload: presigning or completing another user's key is a 403. `partsCount` is 1–10,000, and part upload URLs last 1 hour. The type is judged from the file extension and the `contentType` sent to initiate
+- `POST /api/v1/upload/complete` — `parts` lists each `ETag` with its `PartNumber` (an integer from 1 to 10,000); also registers the file and returns its `asset_id`; send it in the form field the file is for. The field checks the file when the form is saved: covers, logos, banners, landing backgrounds and the user photo take PNG/JPG/WebP images (2 MB for logo and photo, otherwise 4 MB) and make the file public; class materials, assignment attachments and digital-product files (any type with an extension except programs, scripts, installers and web pages such as EXE, BAT, APK or HTML), class videos (MP4/MOV/WebM) (each up to the store level's per-file limit: 1, 5 or 10 GB, and within its storage quota), submissions (the same block list, 500 MB), certificate files (PDF/PNG/JPG, 10 MB) and CVs (PDF/DOC/DOCX, 10 MB) make it private. A file used in a public field cannot go into a private one, or the reverse. Each field's accepted types and size are in its Swagger description, and a rejected file gets a plain message such as "The file must be 2 MB or smaller" or "Allowed file types: PDF, DWG or ZIP". Private files are only served through signed links that expire after 10 minutes. The file must be the caller's own finished upload: presigning or completing another user's key is a 403. `partsCount` is 1–10,000, and part upload URLs last 1 hour. The type is judged from the file extension and the `contentType` sent to initiate
 
 ### Mentor
 
 - `POST /api/v1/mentor/register` — the mentor fields plus `cv_asset_id` (PDF, DOC or DOCX, 10 MB) and `skill_certificate_asset_id` (PDF, PNG or JPG, 10 MB), two different uploads of the caller; a new mentor signs up as a user first; also completes the mentor record of an accepted job applicant
 - `GET /api/v1/mentors/:id` — **public**; `:id` is the mentor id (`mentor_id`); only active mentors with a completed registration
-- `GET /api/v1/mentor/profile`
-- `PATCH /api/v1/mentor/profile`
+- `GET /api/v1/mentor/profile` — also for a mentor hired through a job posting before the registration: `registration_complete` is false and the professional fields and documents are null until `POST /api/v1/mentor/register` completes the record
+- `PATCH /api/v1/mentor/profile` — 404 until the registration is complete
 - `GET /api/v1/mentor/assignments` — merchant, product, and class tutor assignments (with role and permissions)
 - `GET /api/v1/mentor/dashboard` — stats, upcoming sessions, recent learner messages, class progress
 - `GET /api/v1/mentor/classes` — assigned classes (Kelas-kelas) with `cover_url`, filterable by type and search

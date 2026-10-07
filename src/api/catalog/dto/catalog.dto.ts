@@ -239,6 +239,14 @@ export class CatalogCardDto {
 
   @ApiProperty({
     nullable: true,
+    example: 'Teknik Sipil',
+    description:
+      'Classes: their Kategori Skill (null for classes created before the field); digital products: null',
+  })
+  skill_category: string | null;
+
+  @ApiProperty({
+    nullable: true,
     enum: catalogLevels,
     description: 'Null when unset',
   })

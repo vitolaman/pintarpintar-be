@@ -41,6 +41,7 @@ import { CartModule } from './api/cart/cart.module';
 import { FaqModule } from './api/faq/faq.module';
 import { CatalogModule } from './api/catalog/catalog.module';
 import { ReviewModule } from './api/review/review.module';
+import { ProModule } from './api/pro/pro.module';
 import { PromoModule } from './api/promo/promo.module';
 import { DiscussionModule } from './api/discussion/discussion.module';
 import { DigitalProductModule } from './api/digital-product/digital-product.module';
@@ -97,6 +98,7 @@ import { EmailModule } from './api/email/email.module';
     FaqModule,
     CatalogModule,
     ReviewModule,
+    ProModule,
     PromoModule,
     DiscussionModule,
     DigitalProductModule,

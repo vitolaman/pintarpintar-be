@@ -83,6 +83,15 @@ export class UpdateClassDto {
   @EnumInput(classCategories, { presence: 'nullable', description: 'Bidang' })
   category?: ClassCategory | null;
 
+  @RequiredText({
+    max: 64,
+    optional: true,
+    example: 'Teknik Sipil',
+    description:
+      "Kategori Skill: the selector's label; omit to keep it. Cannot be cleared.",
+  })
+  skill_category?: string;
+
   @EnumInput(learningLevels, { presence: 'nullable' })
   level?: LearningLevel | null;
 

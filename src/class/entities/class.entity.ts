@@ -61,6 +61,16 @@ export class Class extends AuditedBaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   category: ClassCategory | null;
 
+  // Kategori Skill: the label of the FE selector, which owns the options.
+  // Null only for classes created before the field.
+  @Column({
+    name: 'skill_category',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  skill_category: string | null;
+
   // Constrained by `chk_classes_level` to `learningLevels`.
   @Column({ type: 'varchar', length: 20, nullable: true })
   level: LearningLevel | null;

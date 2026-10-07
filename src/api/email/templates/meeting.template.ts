@@ -21,7 +21,7 @@ const TITLES: Record<MeetingEvent, string> = {
 const LEADS: Record<MeetingEvent, (className: string) => string> = {
   created: (className) => `Ada sesi baru di ${className}.`,
   updated: (className) =>
-    `Jadwal sesi di ${className} diubah. Berikut jadwal terbarunya.`,
+    `Jadwal sesi di ${className} diubah. Mohon sesuaikan dengan jadwal yang baru berikut.`,
   cancelled: (className) => `Sesi berikut di ${className} telah dibatalkan.`,
 };
 

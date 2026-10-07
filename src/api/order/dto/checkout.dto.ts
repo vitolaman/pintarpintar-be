@@ -169,6 +169,14 @@ export class OrderDetailResponseDto {
   })
   payment_method: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    example: 'BCA Virtual Account',
+    description:
+      'Readable name of the payment channel: "Gratis" for a free order, the code for an unknown channel, null while unpaid',
+  })
+  payment_method_label: string | null;
+
   @ApiProperty({ type: [CheckoutItemResponseDto] })
   items: CheckoutItemResponseDto[];
 

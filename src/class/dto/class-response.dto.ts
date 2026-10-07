@@ -38,6 +38,12 @@ export class ClassResponseDto {
   post_purchase_instructions: string | null;
   @ApiPropertyOptional({ nullable: true, enum: classCategories })
   category: string | null;
+  @ApiProperty({
+    nullable: true,
+    example: 'Teknik Sipil',
+    description: 'Kategori Skill; null for classes created before the field',
+  })
+  skill_category: string | null;
   @ApiPropertyOptional({ nullable: true, enum: learningLevels })
   level: string | null;
   @ApiPropertyOptional({ nullable: true }) duration: string | null;
@@ -226,7 +232,8 @@ export class StudentResponseDto {
   @ApiProperty() user_id: string;
   @ApiProperty() class_id: string;
   @ApiPropertyOptional() join_date: string;
-  @ApiPropertyOptional() progress: string;
+  @ApiProperty({ description: 'Percent of the class completed, 0–100' })
+  progress: number;
   @ApiProperty() created_at: Date;
   @ApiProperty({ type: StudentUserResponseDto }) user: StudentUserResponseDto;
 }

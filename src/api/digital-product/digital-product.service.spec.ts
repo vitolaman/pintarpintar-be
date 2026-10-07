@@ -107,6 +107,7 @@ describe('DigitalProductService', () => {
       findOne: jest.fn(async (entity) =>
         entity === Merchant ? merchant : owned && { ...owned },
       ),
+      find: jest.fn(async () => []),
       findOneBy: jest.fn(async (entity) => {
         if (entity === Category) return category;
         if (entity === Merchant) return { ...merchant, storageLevel: 'basic' };

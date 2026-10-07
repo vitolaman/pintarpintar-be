@@ -1,3 +1,4 @@
+import { parseProgress } from './learning-progress.service';
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
@@ -59,6 +60,7 @@ const LEAD_TUTOR_CLASS_FIELDS = [
   'cover_asset_ids',
   'post_purchase_instructions',
   'category',
+  'skill_category',
   'level',
   'duration',
   'prerequisites',
@@ -134,6 +136,7 @@ export class ClassService {
           discountedPrice: dto.discount_price,
           post_purchase_instructions: dto.post_purchase_instructions ?? null,
           category: dto.category ?? null,
+          skill_category: dto.skill_category,
           level: dto.level ?? null,
           duration: dto.duration ?? null,
           prerequisites: dto.prerequisites ?? null,
@@ -584,7 +587,7 @@ export class ClassService {
       user_id: row.user_id,
       class_id: row.class_id,
       join_date: row.join_date,
-      progress: row.progress,
+      progress: parseProgress(row.progress),
       created_at: row.created_at,
       user: {
         id: row.student_id,
@@ -695,6 +698,7 @@ export class ClassService {
       covers: coverLists.get(cls.id) ?? [],
       post_purchase_instructions: cls.post_purchase_instructions,
       category: cls.category,
+      skill_category: cls.skill_category,
       level: cls.level,
       duration: cls.duration,
       prerequisites: cls.prerequisites,

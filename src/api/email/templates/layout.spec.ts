@@ -3,7 +3,6 @@ import {
   escapeHtml,
   itemTable,
   multiline,
-  paymentMethodLabel,
   rupiah,
   tanggal,
   wib,
@@ -40,12 +39,6 @@ describe('email formatting', () => {
   it('names dates and months in Indonesian', () => {
     expect(tanggal('2026-10-08')).toBe('8 Oktober 2026');
     expect(bulan('2026-09-01')).toBe('September 2026');
-  });
-
-  it('names payment methods, and free orders', () => {
-    expect(paymentMethodLabel('BC')).toBe('BCA Virtual Account');
-    expect(paymentMethodLabel('XX')).toBe('XX');
-    expect(paymentMethodLabel(null)).toBe('Gratis');
   });
 
   it('lists items with the same data in HTML and text', () => {

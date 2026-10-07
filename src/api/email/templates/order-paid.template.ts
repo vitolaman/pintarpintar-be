@@ -4,11 +4,11 @@ import {
   infoRows,
   itemTable,
   noteBox,
-  paymentMethodLabel,
   plain,
   sectionHeading,
   wib,
 } from './layout';
+import { paymentChannelName } from '../../payment/payment-methods';
 import type { OrderPaidEmail } from './payloads';
 import type { EmailTemplate } from './template';
 
@@ -27,7 +27,7 @@ export const orderPaid: EmailTemplate<OrderPaidEmail> = (order, link) => {
       infoRows([
         ['Nomor pesanan', order.order_number],
         ['Waktu pembayaran', wib(order.paid_at)],
-        ['Metode pembayaran', paymentMethodLabel(order.payment_method)],
+        ['Metode pembayaran', paymentChannelName(order.payment_method)],
       ]),
       itemTable(order.items, {
         discount: order.discount_amount,

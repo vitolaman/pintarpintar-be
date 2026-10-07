@@ -288,6 +288,13 @@ describe('email templates', () => {
     expect(render('basic', 'silver')).toContain('5 GB');
   });
 
+  it('ends the inactivity warning with the deletion notice', () => {
+    const [payload] = SAMPLES.merchant_inactivity_warning;
+    const email = renderEmail('merchant_inactivity_warning', payload, FRONTEND);
+    expect(email.text).toContain('diskon serta voucher dinonaktifkan.');
+    expect(email.text).not.toContain('Satu transaksi saja');
+  });
+
   it('asks learners to follow the changed session schedule', () => {
     const [payload] = SAMPLES.meeting_updated;
     expect(renderEmail('meeting_updated', payload, FRONTEND).text).toContain(

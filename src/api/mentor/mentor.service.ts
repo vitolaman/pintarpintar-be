@@ -409,12 +409,12 @@ export class MentorService {
         'user',
         'user.id = mentor.user_id AND user.deleted_at IS NULL',
       )
-      .innerJoin(
+      .leftJoin(
         MentorProfile,
         'mentor_profile',
         'mentor_profile.mentor_id = mentor.id AND mentor_profile.deleted_at IS NULL',
       )
-      .innerJoin(
+      .leftJoin(
         Profile,
         'profile',
         'profile.user_id = user.id AND profile.deleted_at IS NULL',
@@ -435,14 +435,19 @@ export class MentorService {
         'mentor_profile.linkedin_url AS linkedin_url',
         'mentor_profile.cv_asset_id AS cv_asset_id',
         'mentor_profile.skill_certificate_asset_id AS skill_certificate_asset_id',
+        'mentor_profile.id IS NOT NULL AS registration_complete',
       ])
       .where('mentor.user_id = :userId', { userId })
       .andWhere('mentor.deleted_at IS NULL')
-      .getRawOne<MentorResponseDto & { experience_years: string }>();
+      // Only an active mentor reads its profile before registration, as only
+      // an active one can complete it.
+      .andWhere("(mentor_profile.id IS NOT NULL OR mentor.status = 'active')")
+      .getRawOne<MentorResponseDto & { experience_years: string | null }>();
     if (!row) throw new NotFoundException('Mentor not found');
     return {
       ...row,
-      experience_years: Number(row.experience_years),
+      experience_years:
+        row.experience_years === null ? null : Number(row.experience_years),
       expertise_list: splitSkills(row.expertise),
     };
   }

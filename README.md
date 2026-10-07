@@ -152,7 +152,7 @@ The collections take `limit` (default 10, at most 50) and return the newest firs
 
 - `POST /api/v1/orders/preview` — prices up to 20 items with up to one voucher and one discount code (each applies to its own merchant's items); writes nothing. An invalid code does not fail the preview: it is left out and listed in `rejected_codes: [{code, reason}]` (`not_found`, `expired`, `not_started`, `used_up`, `already_used`, `minimum_not_met`, `not_applicable`); `POST /api/v1/orders` still rejects it. Unavailable, owned or repeated items and two codes of one kind are a 400 in both
 - `POST /api/v1/orders` — creates one `ORD-YYYYMMDD-NNNN` order that stays payable for 60 minutes and returns Duitku's `payment_reference` (for `checkout.process`) and `payment_url`; a Rp0 order is paid at once, and totals between Rp1 and Rp9,999 are rejected. 409 with `details.order_id` when an item already awaits payment in another order; 502 when Duitku fails (the order becomes `failed` and its codes are released); 503 when payment is not configured
-- `GET /api/v1/orders/:id` — the buyer's order for the return page; the payment link is included only while the order can be paid
+- `GET /api/v1/orders/:id` — the buyer's order for the return page; the payment link is included only while the order can be paid; `payment_method` is the Duitku channel code and `payment_method_label` its name ("Gratis" for a free order, `null` while unpaid)
 - `POST /api/v1/orders/:id/cancel` — cancels a pending order within its window and releases its codes
 - `POST /api/v1/orders/:id/check-payment` — asks Duitku for the status of an unpaid order and applies a success like the callback (recovers a missed notification); 10 per minute per client address
 - `POST /api/v1/payments/duitku/callback` — **public**; Duitku's signed payment notification: marks the order paid, or a pending order `failed` on any other result; a bad signature, an unknown order or a wrong amount is 400
@@ -184,7 +184,7 @@ Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos,
 ### Merchant dashboard
 
 - `GET /api/v1/merchant/dashboard` — summary and `level` (see Merchant levels); rating and latest review cover class and digital-product reviews; activity lists the 10 newest enrolments, reviews and digital or bundle purchases. `period_days` is 7, 30 (default), 90 or 365: N covers today and the N − 1 days before it (Asia/Jakarta), compared with the N days before that. Revenue, transactions and the chart follow the Analitik rules; `students` counts distinct buyers of paid orders
-- `GET /api/v1/merchant/sales` — price (`amount`), net after the item's share of the voucher and discount code (`net_amount`), and payment method per item; revenue figures across the dashboard use the net
+- `GET /api/v1/merchant/sales` — price (`amount`), net after the item's share of the voucher and discount code (`net_amount`), and payment method per item (`payment_method` code and readable `payment_method_label`, as in the order detail); revenue figures across the dashboard use the net
 - `GET /api/v1/merchant/sales/export` — the filtered sales as JSON `rows` (up to 5,000, `truncated` when there are more) for the page to save as a spreadsheet; same filters as the list
 - `GET /api/v1/merchant/customers`
 - `GET /api/v1/merchant/wallet` — `earning_balance`, `settled_balance` (withdrawable), `clearing_balance` (not yet settled), `lifetime_earnings` and `total_withdrawn`
@@ -327,8 +327,8 @@ Every route that needs a login requires an active enrollment or product access a
 
 - `POST /api/v1/mentor/register` — the mentor fields plus `cv_asset_id` (PDF, DOC or DOCX, 10 MB) and `skill_certificate_asset_id` (PDF, PNG or JPG, 10 MB), two different uploads of the caller; a new mentor signs up as a user first; also completes the mentor record of an accepted job applicant
 - `GET /api/v1/mentors/:id` — **public**; `:id` is the mentor id (`mentor_id`); only active mentors with a completed registration
-- `GET /api/v1/mentor/profile`
-- `PATCH /api/v1/mentor/profile`
+- `GET /api/v1/mentor/profile` — also for a mentor hired through a job posting before the registration: `registration_complete` is false and the professional fields and documents are null until `POST /api/v1/mentor/register` completes the record
+- `PATCH /api/v1/mentor/profile` — 404 until the registration is complete
 - `GET /api/v1/mentor/assignments` — merchant, product, and class tutor assignments (with role and permissions)
 - `GET /api/v1/mentor/dashboard` — stats, upcoming sessions, recent learner messages, class progress
 - `GET /api/v1/mentor/classes` — assigned classes (Kelas-kelas) with `cover_url`, filterable by type and search

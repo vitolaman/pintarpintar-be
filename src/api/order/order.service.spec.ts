@@ -179,6 +179,23 @@ describe('OrderService', () => {
     }
   });
 
+  it('names the payment channel of a paid order and none of an unpaid one', async () => {
+    query.mockResolvedValue([]);
+    builder.getRawAndEntities.mockResolvedValueOnce({
+      entities: [{ ...order, paymentMethod: 'M2' }],
+      raw: [{ purchase_id: 'order-1', effective_status: 'paid' }],
+    });
+
+    const paid = await service.findDetail('user-id', 'order-1');
+    const unpaid = await service.findDetail('user-id', 'order-1');
+
+    expect(paid).toMatchObject({
+      payment_method: 'M2',
+      payment_method_label: 'Mandiri Virtual Account',
+    });
+    expect(unpaid.payment_method_label).toBeNull();
+  });
+
   it('queries no items for an empty page', async () => {
     builder.getRawAndEntities.mockResolvedValue({ entities: [], raw: [] });
 

@@ -11,6 +11,7 @@ import { Order, OrderStatus } from './entities/order.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 import { assetUrl } from '~/common/storage/asset-url';
 import { classKindSql } from '~/common/catalog/item-kind';
+import { paymentMethodLabel } from '../payment/payment-methods';
 
 // An unpaid order past its expiry reads as expired even before the sweep
 // records it.
@@ -116,6 +117,10 @@ export class OrderService {
       expires_at: order.expiresAt,
       paid_at: order.paidAt,
       payment_method: order.paymentMethod,
+      payment_method_label: paymentMethodLabel(
+        order.paymentMethod,
+        order.effectiveStatus === OrderStatus.PAID,
+      ),
       items: items.map((item) => ({
         type: item.type,
         item_id: item.item_id,

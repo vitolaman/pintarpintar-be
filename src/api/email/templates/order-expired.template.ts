@@ -13,7 +13,7 @@ export const orderExpired: EmailTemplate<OrderClosedEmail> = (order, link) => {
   return {
     subject: `Pesanan ${order.order_number} kedaluwarsa`,
     title: 'Pesanan kedaluwarsa',
-    preheader: 'Batas waktu pembayaran sudah lewat.',
+    preheader: 'Batas waktu pembayaran telah kadaluwarsa.',
     blocks: [
       greeting(order.buyer_name),
       paragraph(

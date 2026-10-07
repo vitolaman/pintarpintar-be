@@ -324,7 +324,9 @@ describe('email templates', () => {
 
   it('tells the buyer the payment time ran out and nothing was charged', () => {
     const [payload] = SAMPLES.order_expired;
-    const text = renderEmail('order_expired', payload, FRONTEND).text;
+    const email = renderEmail('order_expired', payload, FRONTEND);
+    expect(email.html).toContain('Batas waktu pembayaran telah kadaluwarsa.');
+    const text = email.text;
     expect(text).toContain(
       'Batas waktu pembayaran pesanan ORD-20261005-0012 telah habis. Pesanan dibatalkan secara otomatis. Tidak ada dana yang terpotong.',
     );

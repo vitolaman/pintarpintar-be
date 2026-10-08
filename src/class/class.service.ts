@@ -24,6 +24,11 @@ import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { ClassAccessService } from './class-access.service';
+import {
+  CLASS_HAS_LEARNERS,
+  CLASS_IN_ACTIVE_BUNDLE,
+  CLASS_IN_PENDING_ORDER,
+} from './class-route-errors';
 import { ClassCertificateService } from './class-certificate.service';
 import { ClassListQueryDto } from './dto/class-list-query.dto';
 import {
@@ -270,6 +275,57 @@ export class ClassService {
       const saved = await manager.save(cls);
       const [data] = await this.toClassResponses([saved], manager);
       return { data, responseMessage: 'Update class success' };
+    });
+  }
+
+  // A soft delete for classes nobody depends on. Learner reads skip deleted
+  // classes, so a class with enrolled learners is archived instead; the class
+  // row lock orders this check against a concurrent checkout or enrolment.
+  async deleteClass(userId: string, classId: string): Promise<void> {
+    await this.classRepo.manager.transaction(async (manager) => {
+      await this.classAccess.requireOwner(userId, classId, manager);
+      await manager.query(
+        'SELECT id FROM classes WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+        [classId],
+      );
+
+      const [usage] = await manager.query(
+        `SELECT
+           EXISTS (
+             SELECT 1 FROM enrollments enrollment
+             WHERE enrollment.class_id = $1 AND enrollment.deleted_at IS NULL
+           ) AS has_learners,
+           EXISTS (
+             SELECT 1 FROM order_items item
+             INNER JOIN orders purchase
+               ON purchase.id = item.order_id AND purchase.deleted_at IS NULL
+             WHERE item.class_id = $1 AND item.deleted_at IS NULL
+               AND purchase.status = 'pending' AND purchase.expires_at > now()
+           ) AS in_pending_order,
+           EXISTS (
+             SELECT 1 FROM bundle_items item
+             INNER JOIN bundles bundle
+               ON bundle.id = item.bundle_id AND bundle.deleted_at IS NULL
+               AND bundle.status IN ('published', 'unlisted')
+             WHERE item.class_id = $1 AND item.deleted_at IS NULL
+           ) AS in_active_bundle`,
+        [classId],
+      );
+      if (usage.has_learners) {
+        throw new ConflictException(CLASS_HAS_LEARNERS);
+      }
+      if (usage.in_pending_order) {
+        throw new ConflictException(CLASS_IN_PENDING_ORDER);
+      }
+      if (usage.in_active_bundle) {
+        throw new ConflictException(CLASS_IN_ACTIVE_BUNDLE);
+      }
+
+      await manager.update(
+        Class,
+        { id: classId },
+        { deleted_at: new Date(), deleted_by: userId },
+      );
     });
   }
 

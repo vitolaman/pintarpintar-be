@@ -22,7 +22,7 @@ const classId = '40000000-0000-4000-8000-000000000001';
 
 const input: CreateJobPostingDto = {
   title: 'Instruktur AutoCAD',
-  category: 'Desain Teknik & Arsitektur',
+  category: 'Teknik Sipil',
   contract_type: 'Part-Time',
   work_type: 'Remote',
   location: 'Full Remote',
@@ -46,11 +46,15 @@ describe('job posting DTOs', () => {
 
   it.each([
     [{}, []],
-    [{ category: 'Coding' }, ['category']],
+    [{ category: 'Coding' }, []],
+    [{ category: '  ' }, ['category']],
+    [{ category: 'x'.repeat(65) }, ['category']],
     [{ contract_type: 'Freelance' }, ['contract_type']],
     [{ work_type: 'Office' }, ['work_type']],
     [{ title: '  ' }, ['title']],
     [{ salary: 'x'.repeat(101) }, ['salary']],
+    [{ location: 'x'.repeat(151) }, ['location']],
+    [{ location: undefined, salary: undefined }, []],
     [
       {
         skills: Array(21)
@@ -84,15 +88,15 @@ describe('job posting DTOs', () => {
     ).toEqual(['work_type']);
   });
 
-  it('matches enums ignoring case and stores them canonically', async () => {
+  it('matches enums ignoring case and keeps the category label as sent', async () => {
     const dto = plainToInstance(CreateJobPostingDto, {
       ...input,
-      category: ' desain teknik & arsitektur ',
+      category: ' Lifestyle & Hobi ',
       contract_type: 'part-time',
       work_type: 'ON-SITE',
     });
     expect(dto).toMatchObject({
-      category: 'Desain Teknik & Arsitektur',
+      category: 'Lifestyle & Hobi',
       contract_type: 'Part-Time',
       work_type: 'On-Site',
     });
@@ -100,13 +104,32 @@ describe('job posting DTOs', () => {
   });
 
   it.each([[''], ['  '], [null]])(
+    'clears location and salary given %j on create and update',
+    async (value) => {
+      const created = plainToInstance(CreateJobPostingDto, {
+        ...input,
+        location: value,
+        salary: value,
+      });
+      expect(created).toMatchObject({ location: null, salary: null });
+      expect(await validate(created)).toEqual([]);
+      const updated = plainToInstance(UpdateJobPostingDto, {
+        location: value,
+        salary: value,
+      });
+      expect(updated).toMatchObject({ location: null, salary: null });
+      expect(await validate(updated)).toEqual([]);
+    },
+  );
+
+  it.each([[''], ['  '], [null]])(
     'rejects a required text of %j on create and update',
-    async (location) => {
+    async (requirements) => {
       expect(
-        await errorFields(CreateJobPostingDto, { ...input, location }),
-      ).toEqual(['location']);
-      expect(await errorFields(UpdateJobPostingDto, { location })).toEqual([
-        'location',
+        await errorFields(CreateJobPostingDto, { ...input, requirements }),
+      ).toEqual(['requirements']);
+      expect(await errorFields(UpdateJobPostingDto, { requirements })).toEqual([
+        'requirements',
       ]);
     },
   );
@@ -193,6 +216,26 @@ describe('JobPostingService', () => {
     expect(manager.create).toHaveBeenCalledWith(
       JobPosting,
       expect.objectContaining({ merchantId, status: 'active', skills: [] }),
+    );
+  });
+
+  it('stores a vacancy without location and salary as null', async () => {
+    await service.create(userId, {
+      ...input,
+      location: undefined,
+      salary: undefined,
+    });
+    expect(manager.create).toHaveBeenCalledWith(
+      JobPosting,
+      expect.objectContaining({ location: null, salary: null }),
+    );
+  });
+
+  it('clears the salary on update', async () => {
+    job = { ...job, salary: 'Rp 1' };
+    await service.update(userId, jobId, { salary: null });
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({ salary: null }),
     );
   });
 

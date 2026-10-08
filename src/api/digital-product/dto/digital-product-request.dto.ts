@@ -42,6 +42,13 @@ export class CreateDigitalProductDto {
   @Matches(CATEGORY_SLUG, { message: 'category_slug must be a category slug' })
   category_slug: string;
 
+  @RequiredText({
+    max: 64,
+    example: 'Teknik Sipil',
+    description: "Kategori Skill: the label of the form's selector",
+  })
+  skill_category: string;
+
   @NumberInput({
     min: 0,
     example: 150000,
@@ -105,6 +112,15 @@ export class UpdateDigitalProductDto {
   @ValidateIf((_, value) => value !== undefined)
   @Matches(CATEGORY_SLUG, { message: 'category_slug must be a category slug' })
   category_slug?: string;
+
+  @RequiredText({
+    max: 64,
+    optional: true,
+    example: 'Teknik Sipil',
+    description:
+      "Kategori Skill: the selector's label; omit to keep it. Cannot be cleared.",
+  })
+  skill_category?: string;
 
   @NumberInput({ presence: 'optional', min: 0 })
   @IsNumber({ maxDecimalPlaces: 2 })

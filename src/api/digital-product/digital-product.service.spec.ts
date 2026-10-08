@@ -35,6 +35,7 @@ const detailRow = {
   is_published: true,
   published_at: new Date('2026-09-30T00:00:00Z'),
   post_purchase_instructions: null,
+  skill_category: 'Teknik Sipil',
   created_at: new Date('2026-09-30T00:00:00Z'),
   updated_at: new Date('2026-09-30T00:00:00Z'),
   category_id: 'category-id',
@@ -139,6 +140,7 @@ describe('DigitalProductService', () => {
     service.create(USER, {
       title: 'Template RAB',
       category_slug: 'excel',
+      skill_category: 'Teknik Sipil',
       original_price: 150000,
       status: 'unpublished',
       ...input,
@@ -155,6 +157,7 @@ describe('DigitalProductService', () => {
       rating: 4.3,
       revenue: 396000,
       category: { slug: 'excel' },
+      skill_category: 'Teknik Sipil',
       file: { format: 'XLSX', size: 2048, download_url: null },
     });
   });
@@ -181,6 +184,7 @@ describe('DigitalProductService', () => {
       discountPrice: '99000',
       currency: 'IDR',
       productType: 'digital',
+      skillCategory: 'Teknik Sipil',
       publicationStatus: 'published',
       isPublished: true,
       publishedAt: expect.any(Date),
@@ -288,6 +292,16 @@ describe('DigitalProductService', () => {
     expect(savedProduct().publishedAt).toBe(firstPublished);
   });
 
+  it('changes the skill category and keeps it when omitted', async () => {
+    await service.update(USER, PRODUCT, { skill_category: 'Desain & Kreatif' });
+    expect(savedProduct()).toMatchObject({ skillCategory: 'Desain & Kreatif' });
+
+    manager.save.mockClear();
+    owned = { ...owned, skillCategory: 'Teknik Sipil' };
+    await service.update(USER, PRODUCT, { title: 'Baru' });
+    expect(savedProduct()).toMatchObject({ skillCategory: 'Teknik Sipil' });
+  });
+
   it('replaces the category by removing the other links', async () => {
     await service.update(USER, PRODUCT, { category_slug: 'excel' });
 
@@ -341,6 +355,7 @@ describe('digital product DTO validation', () => {
   const valid = {
     title: 'Template',
     category_slug: 'template-canva',
+    skill_category: 'Teknik Sipil',
     original_price: 50000,
     status: 'unlisted',
   };
@@ -354,6 +369,9 @@ describe('digital product DTO validation', () => {
     [{ ...valid, file_asset_id: 'x' }, ['file_asset_id']],
     [{ ...valid, title: '   ' }, ['title']],
     [{ ...valid, title: null }, ['title']],
+    [{ ...valid, skill_category: undefined }, ['skill_category']],
+    [{ ...valid, skill_category: '  ' }, ['skill_category']],
+    [{ ...valid, skill_category: 'x'.repeat(65) }, ['skill_category']],
     [valid, []],
   ])('create %j fails on %j', async (input, fields) => {
     expect(await errorFields(CreateDigitalProductDto, input)).toEqual(fields);
@@ -391,6 +409,15 @@ describe('digital product DTO validation', () => {
       'title',
     ]);
   });
+
+  it.each(['', '  ', null])(
+    'rejects clearing the skill category with %j',
+    async (skill_category) => {
+      expect(
+        await errorFields(UpdateDigitalProductDto, { skill_category }),
+      ).toEqual(['skill_category']);
+    },
+  );
 
   it('rejects clearing the list price or status on update', async () => {
     expect(

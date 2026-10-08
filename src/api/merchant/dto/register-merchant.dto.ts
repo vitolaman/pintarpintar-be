@@ -2,7 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { Equals, IsBoolean, IsOptional } from 'class-validator';
 import { merchantCategoryLabels } from '~/common/constants/merchant-category';
-import { EnumInput, RequiredText } from '~/common/decorator/input.decorator';
+import {
+  ClearableText,
+  EnumInput,
+  RequiredText,
+} from '~/common/decorator/input.decorator';
 import {
   MerchantBusinessType,
   merchantBusinessTypes,
@@ -61,6 +65,41 @@ export class RegisterMerchantDto {
 
   @ProductTypesInput()
   product_types: MerchantProductType[];
+
+  @ApiPropertyOptional({
+    nullable: true,
+    example: true,
+    description: 'Pernah jualan kelas atau produk digital? (Sudah = true)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  has_sold_before?: boolean | null;
+
+  @ClearableText({
+    max: 2_000,
+    description: 'Ide produk atau kelas (asked when not sold before)',
+  })
+  product_idea?: string | null;
+
+  @ClearableText({
+    max: 100,
+    example: '1-5-juta',
+    description: 'Rata-rata nominal transaksi per bulan, as the form sends it',
+  })
+  monthly_revenue_range?: string | null;
+
+  @ClearableText({
+    max: 100,
+    example: '51-100',
+    description: 'Rata-rata jumlah transaksi per bulan, as the form sends it',
+  })
+  monthly_transaction_range?: string | null;
+
+  @ClearableText({
+    max: 2_000,
+    description: 'Produk atau kelas yang pernah dijual',
+  })
+  sold_products?: string | null;
 
   @ApiPropertyOptional({ nullable: true, default: false, example: false })
   @IsOptional()

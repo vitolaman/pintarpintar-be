@@ -45,7 +45,8 @@ const PRODUCT_DETAILS_SQL = `
          cover.object_key AS cover_object_key,
          COALESCE(product.original_price, 0) AS original_price, product.discount_price,
          product.publication_status AS status, product.is_published, product.published_at,
-         product.post_purchase_instructions, product.created_at, product.updated_at,
+         product.post_purchase_instructions, product.skill_category,
+         product.created_at, product.updated_at,
          category.id AS category_id, category.name AS category_name, category.slug AS category_slug,
          file.asset_id AS file_asset_id, file.file_format, file.file_size, file.file_url,
          file_asset.original_filename AS file_name, file_asset.object_key AS file_object_key,
@@ -99,6 +100,7 @@ interface ProductRow {
   is_published: boolean;
   published_at: Date | null;
   post_purchase_instructions: string | null;
+  skill_category: string | null;
   created_at: Date;
   updated_at: Date;
   category_id: string | null;
@@ -206,6 +208,7 @@ export class DigitalProductService {
         currency: 'IDR',
         productType: 'digital',
         postPurchaseInstructions: input.post_purchase_instructions ?? null,
+        skillCategory: input.skill_category,
         publishedAt: null,
       });
       applyStatus(product, status);
@@ -291,6 +294,9 @@ export class DigitalProductService {
         product.discountPrice = String(input.discount_price ?? 0);
       }
       if (main !== undefined) product.coverAssetId = main;
+      if (input.skill_category !== undefined) {
+        product.skillCategory = input.skill_category;
+      }
       if (input.post_purchase_instructions !== undefined) {
         product.postPurchaseInstructions = input.post_purchase_instructions;
       }
@@ -443,6 +449,7 @@ export class DigitalProductService {
             slug: row.category_slug,
           }
         : null,
+      skill_category: row.skill_category,
       cover_asset_id: row.cover_asset_id,
       cover_url: assetUrl(row.cover_object_key),
       covers,

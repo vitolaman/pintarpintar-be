@@ -19,8 +19,6 @@ import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
 import {
   APPLICATION_STATUSES,
   ApplicationStatus,
-  JOB_CATEGORIES,
-  JobCategory,
 } from '../recruitment.constants';
 import { JobClassDto, JobMerchantDto } from './job-posting.dto';
 import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
@@ -122,7 +120,8 @@ export class ApplicationCountsDto {
 export class ApplicationJobDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty() title: string;
-  @ApiProperty({ enum: JOB_CATEGORIES }) category: JobCategory;
+  @ApiProperty({ description: 'Kategori Spesialisasi label' })
+  category: string;
 }
 
 class ApplicationProgressFields {

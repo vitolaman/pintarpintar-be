@@ -11,7 +11,7 @@ const savedAt = new Date('2026-10-02T03:00:00Z');
 const jobRow = (id: string) => ({
   id,
   title: `Job ${id.slice(-1)}`,
-  category: 'Desain Teknik & Arsitektur',
+  category: 'Teknik Sipil',
   contract_type: 'Part-Time',
   work_type: 'Remote',
   location: 'Remote',

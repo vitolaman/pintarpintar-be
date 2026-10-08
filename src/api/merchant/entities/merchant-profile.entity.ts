@@ -85,6 +85,33 @@ export class MerchantProfile extends BaseEntity {
   @Column({ name: 'product_types', type: 'text', array: true, nullable: true })
   productTypes: MerchantProductType[] | null;
 
+  // Selling-experience answers of the registration form, stored as sent and
+  // shown only to the owner; the form decides which questions apply.
+  @Column({ name: 'has_sold_before', type: 'boolean', nullable: true })
+  hasSoldBefore: boolean | null;
+
+  @Column({ name: 'product_idea', type: 'text', nullable: true })
+  productIdea: string | null;
+
+  @Column({
+    name: 'monthly_revenue_range',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  monthlyRevenueRange: string | null;
+
+  @Column({
+    name: 'monthly_transaction_range',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  monthlyTransactionRange: string | null;
+
+  @Column({ name: 'sold_products', type: 'text', nullable: true })
+  soldProducts: string | null;
+
   @Column({ name: 'refund_policy', type: 'text', nullable: true })
   refundPolicy: string | null;
 

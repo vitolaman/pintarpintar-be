@@ -1,11 +1,6 @@
 import { Column, Entity } from 'typeorm';
 import { BaseEntity } from '~/common/entities/base-entity';
-import {
-  ContractType,
-  JobCategory,
-  JobStatus,
-  WorkType,
-} from '../recruitment.constants';
+import { ContractType, JobStatus, WorkType } from '../recruitment.constants';
 
 @Entity({ name: 'job_postings' })
 export class JobPosting extends BaseEntity {
@@ -18,8 +13,8 @@ export class JobPosting extends BaseEntity {
   @Column({ type: 'varchar', length: 150 })
   title: string;
 
-  @Column({ type: 'varchar', length: 60 })
-  category: JobCategory;
+  @Column({ type: 'varchar', length: 64 })
+  category: string;
 
   @Column({ name: 'contract_type', type: 'varchar', length: 20 })
   contractType: ContractType;
@@ -27,11 +22,11 @@ export class JobPosting extends BaseEntity {
   @Column({ name: 'work_type', type: 'varchar', length: 20 })
   workType: WorkType;
 
-  @Column({ type: 'varchar', length: 150 })
-  location: string;
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  location: string | null;
 
-  @Column({ type: 'varchar', length: 100 })
-  salary: string;
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  salary: string | null;
 
   @Column({ type: 'text' })
   requirements: string;

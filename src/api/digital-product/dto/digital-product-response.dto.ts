@@ -26,6 +26,12 @@ export class DigitalProductResponseDto {
   @ApiPropertyOptional({ nullable: true }) description: string | null;
   @ApiPropertyOptional({ type: ProductCategoryDto, nullable: true })
   category: ProductCategoryDto | null;
+  @ApiProperty({
+    nullable: true,
+    example: 'Teknik Sipil',
+    description: 'Kategori Skill; null for products created before the field',
+  })
+  skill_category: string | null;
   @ApiPropertyOptional({ nullable: true }) cover_asset_id: string | null;
   @ApiPropertyOptional({
     nullable: true,

@@ -79,7 +79,7 @@ const CARD_SQL = `
       AND (class.status = 'published' OR ($9::boolean AND class.status = 'archived'))
     UNION ALL
     SELECT product.id, 'digital', product.title, cover.object_key, category.name,
-           NULL, product.level,
+           product.skill_category, product.level,
            (CASE WHEN product.discount_price > 0 THEN product.discount_price ELSE COALESCE(product.original_price, 0) END)::numeric,
            COALESCE(product.original_price, 0)::numeric,
            product.created_at, product.merchant_id, product.description,

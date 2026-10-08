@@ -36,6 +36,15 @@ export class Product extends BaseEntity {
   @Column({ nullable: true })
   level: string | null;
 
+  // Kategori Skill: the label of the form's selector, as on classes.
+  @Column({
+    name: 'skill_category',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  skillCategory: string | null;
+
   @Column({ name: 'original_price', type: 'numeric', nullable: true })
   originalPrice: string | null;
 

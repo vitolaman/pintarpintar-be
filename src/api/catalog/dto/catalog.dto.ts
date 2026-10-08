@@ -241,7 +241,7 @@ export class CatalogCardDto {
     nullable: true,
     example: 'Teknik Sipil',
     description:
-      'Classes: their Kategori Skill (null for classes created before the field); digital products: null',
+      'Kategori Skill; null for classes and digital products created before the field',
   })
   skill_category: string | null;
 

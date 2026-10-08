@@ -1,11 +1,6 @@
-// Labels of the "Buat Job Posting" form; stored and returned unchanged.
-export const JOB_CATEGORIES = [
-  'Pemrograman & Teknologi',
-  'Desain Teknik & Arsitektur',
-  'Pemasaran & Bisnis',
-  'Pengembangan Karier & Soft Skill',
-  'Lainnya / Multidisiplin',
-] as const;
+// The category ("Kategori Spesialisasi") is the label of the form's selector,
+// which owns the options, as for the class "Kategori Skill".
+export const MAX_JOB_CATEGORY_LENGTH = 64;
 
 export const CONTRACT_TYPES = ['Part-Time', 'Full-Time'] as const;
 
@@ -20,7 +15,6 @@ export const APPLICATION_STATUSES = [
   'rejected',
 ] as const;
 
-export type JobCategory = (typeof JOB_CATEGORIES)[number];
 export type ContractType = (typeof CONTRACT_TYPES)[number];
 export type WorkType = (typeof WORK_TYPES)[number];
 export type JobStatus = (typeof JOB_STATUSES)[number];

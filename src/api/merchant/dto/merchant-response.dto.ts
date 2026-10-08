@@ -155,6 +155,40 @@ export class MerchantResponseDto {
   })
   product_types: MerchantProductType[] | null;
 
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Pernah jualan kelas atau produk digital? Registration answer, owner only; null when not answered',
+  })
+  has_sold_before: boolean | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Ide produk atau kelas; registration answer, owner only',
+  })
+  product_idea: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Rata-rata nominal transaksi per bulan; registration answer, owner only',
+  })
+  monthly_revenue_range: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Rata-rata jumlah transaksi per bulan; registration answer, owner only',
+  })
+  monthly_transaction_range: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Produk atau kelas yang pernah dijual; registration answer, owner only',
+  })
+  sold_products: string | null;
+
   @ApiPropertyOptional({
     format: 'uuid',
     nullable: true,

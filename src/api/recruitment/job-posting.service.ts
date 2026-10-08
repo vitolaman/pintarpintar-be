@@ -48,8 +48,8 @@ interface JobRow {
   category: JobPostingResponseDto['category'];
   contract_type: JobPostingResponseDto['contract_type'];
   work_type: JobPostingResponseDto['work_type'];
-  location: string;
-  salary: string;
+  location: string | null;
+  salary: string | null;
   requirements: string;
   skills: string[];
   status: JobPostingResponseDto['status'];
@@ -85,8 +85,8 @@ export class JobPostingService {
           category: input.category,
           contractType: input.contract_type,
           workType: input.work_type,
-          location: input.location,
-          salary: input.salary,
+          location: input.location ?? null,
+          salary: input.salary ?? null,
           requirements: input.requirements,
           skills: input.skills ?? [],
           status: 'active',

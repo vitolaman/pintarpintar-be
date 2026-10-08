@@ -165,6 +165,11 @@ export class MerchantService {
           city: input.city,
           publicPhone: input.public_phone,
           productTypes: input.product_types,
+          hasSoldBefore: input.has_sold_before ?? null,
+          productIdea: input.product_idea ?? null,
+          monthlyRevenueRange: input.monthly_revenue_range ?? null,
+          monthlyTransactionRange: input.monthly_transaction_range ?? null,
+          soldProducts: input.sold_products ?? null,
         }),
       );
       await manager.save(
@@ -613,6 +618,11 @@ export class MerchantService {
         'profile.terms_accepted_at AS terms_accepted_at',
         'profile.business_type AS business_type',
         'profile.product_types AS product_types',
+        'profile.has_sold_before AS has_sold_before',
+        'profile.product_idea AS product_idea',
+        'profile.monthly_revenue_range AS monthly_revenue_range',
+        'profile.monthly_transaction_range AS monthly_transaction_range',
+        'profile.sold_products AS sold_products',
         'profile.avatar_asset_id AS avatar_asset_id',
         'avatar_asset.object_key AS avatar_object_key',
         'profile.cover_asset_id AS cover_asset_id',

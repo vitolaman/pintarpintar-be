@@ -10,6 +10,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import {
+  ClearableText,
   EnumInput,
   QueryFilter,
   RequiredText,
@@ -19,10 +20,9 @@ import { RequestPaginatedQueryDto } from '~/common/dto/request-paginated.dto';
 import {
   CONTRACT_TYPES,
   ContractType,
-  JOB_CATEGORIES,
-  JobCategory,
   JobStatus,
   JOB_STATUSES,
+  MAX_JOB_CATEGORY_LENGTH,
   WORK_TYPES,
   WorkType,
 } from '../recruitment.constants';
@@ -56,8 +56,12 @@ export class CreateJobPostingDto {
   })
   title: string;
 
-  @EnumInput(JOB_CATEGORIES, { example: 'Desain Teknik & Arsitektur' })
-  category: JobCategory;
+  @RequiredText({
+    max: MAX_JOB_CATEGORY_LENGTH,
+    example: 'Teknik Sipil',
+    description: "Kategori Spesialisasi: the label of the form's selector",
+  })
+  category: string;
 
   @EnumInput(CONTRACT_TYPES, { example: 'Part-Time' })
   contract_type: ContractType;
@@ -65,15 +69,15 @@ export class CreateJobPostingDto {
   @EnumInput(WORK_TYPES, { example: 'Remote' })
   work_type: WorkType;
 
-  @RequiredText({ max: 150, example: 'Full Remote (Seluruh Indonesia)' })
-  location: string;
+  @ClearableText({ max: 150, example: 'Full Remote (Seluruh Indonesia)' })
+  location?: string | null;
 
-  @RequiredText({
+  @ClearableText({
     max: 100,
     example: 'Rp 5.000.000 - Rp 8.000.000 / bulan',
-    description: 'Free text, as entered',
+    description: 'Kisaran Honor: free text, as entered',
   })
-  salary: string;
+  salary?: string | null;
 
   @RequiredText({
     max: 5000,
@@ -105,8 +109,9 @@ export class CreateJobPostingDto {
   class_id?: string | null;
 }
 
-// Null is validated, so it is rejected for every field except `class_id`,
-// where it clears the link. An empty `skills` array clears the list.
+// Null is validated, so it is rejected for every field except `location`,
+// `salary` and `class_id`, where it clears the value. An empty `skills`
+// array clears the list.
 export class UpdateJobPostingDto extends PartialType(CreateJobPostingDto, {
   skipNullProperties: false,
 }) {}
@@ -133,8 +138,16 @@ export class PublicJobQueryDto extends RequestPaginatedQueryDto {
   @MaxLength(100)
   location?: string;
 
-  @EnumInput(JOB_CATEGORIES, { presence: 'filter' })
-  category?: JobCategory;
+  @ApiPropertyOptional({
+    example: 'Teknik Sipil',
+    description:
+      'Matches the category label exactly. A blank value means no filter.',
+  })
+  @QueryFilter()
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_JOB_CATEGORY_LENGTH)
+  category?: string;
 
   @EnumInput(CONTRACT_TYPES, { presence: 'filter' })
   contract_type?: ContractType;
@@ -158,11 +171,12 @@ export class JobClassDto {
 export class JobPostingResponseDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty() title: string;
-  @ApiProperty({ enum: JOB_CATEGORIES }) category: JobCategory;
+  @ApiProperty({ description: 'Kategori Spesialisasi label' })
+  category: string;
   @ApiProperty({ enum: CONTRACT_TYPES }) contract_type: ContractType;
   @ApiProperty({ enum: WORK_TYPES }) work_type: WorkType;
-  @ApiProperty() location: string;
-  @ApiProperty() salary: string;
+  @ApiPropertyOptional({ nullable: true }) location: string | null;
+  @ApiPropertyOptional({ nullable: true }) salary: string | null;
   @ApiProperty() requirements: string;
   @ApiProperty({ type: [String] }) skills: string[];
   @ApiProperty({ enum: JOB_STATUSES }) status: JobStatus;

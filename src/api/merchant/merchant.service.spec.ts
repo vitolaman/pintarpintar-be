@@ -137,6 +137,42 @@ describe('MerchantService', () => {
         city: 'Bandung',
         publicPhone: '0812 3456 7890',
         productTypes: ['kelas', 'bootcamp'],
+        hasSoldBefore: null,
+        productIdea: null,
+        monthlyRevenueRange: null,
+        monthlyTransactionRange: null,
+        soldProducts: null,
+      }),
+    );
+  });
+
+  it('stores the selling-experience answers as sent', async () => {
+    const user = { id: userId, name: 'Raka Wijaya', isMerchant: false } as User;
+    manager.findOne.mockImplementation((target) =>
+      target === User ? Promise.resolve(user) : Promise.resolve(null),
+    );
+    manager.findOneBy.mockResolvedValue(null);
+    jest.spyOn(service, 'findMerchantProfile').mockResolvedValue({
+      data: { id: merchantId } as never,
+      responseMessage: 'Get merchant profile success',
+    });
+
+    await service.register(userId, {
+      ...registrationInput,
+      has_sold_before: true,
+      monthly_revenue_range: '1-5-juta',
+      monthly_transaction_range: '51-100',
+      sold_products: 'Kelas AutoCAD dasar',
+    });
+
+    expect(manager.save).toHaveBeenCalledWith(
+      MerchantProfile,
+      expect.objectContaining({
+        hasSoldBefore: true,
+        productIdea: null,
+        monthlyRevenueRange: '1-5-juta',
+        monthlyTransactionRange: '51-100',
+        soldProducts: 'Kelas AutoCAD dasar',
       }),
     );
   });
@@ -818,6 +854,39 @@ describe('RegisterMerchantDto', () => {
     const errors = await validate(plainToInstance(RegisterMerchantDto, input));
 
     expect(errors.map((error) => error.property)).toEqual([field]);
+  });
+
+  it('accepts the selling-experience answers as free text', async () => {
+    const dto = plainToInstance(RegisterMerchantDto, {
+      ...valid,
+      has_sold_before: false,
+      product_idea: ' Kelas Revit untuk pemula ',
+      monthly_revenue_range: 'Rp1–5 juta',
+      monthly_transaction_range: '  ',
+      sold_products: '',
+    });
+
+    expect(await validate(dto)).toEqual([]);
+    expect(dto).toMatchObject({
+      has_sold_before: false,
+      product_idea: 'Kelas Revit untuk pemula',
+      monthly_revenue_range: 'Rp1–5 juta',
+      monthly_transaction_range: null,
+      sold_products: null,
+    });
+  });
+
+  it.each([
+    [{ has_sold_before: 'sudah' }, 'has_sold_before'],
+    [{ product_idea: 'x'.repeat(2001) }, 'product_idea'],
+    [{ sold_products: 'x'.repeat(2001) }, 'sold_products'],
+    [{ monthly_revenue_range: 'x'.repeat(101) }, 'monthly_revenue_range'],
+    [
+      { monthly_transaction_range: 'x'.repeat(101) },
+      'monthly_transaction_range',
+    ],
+  ])('rejects the answer %j', async (input, field) => {
+    expect(await errorFields(input)).toEqual([field]);
   });
 
   it('takes Lainnya as no category', async () => {

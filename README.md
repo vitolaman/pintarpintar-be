@@ -455,10 +455,11 @@ Successful statements are not logged. In development every statement is logged w
 
 ## Required checks before pushing
 
-Run both commands on the merged state of `development` before pushing. `npm test` alone is not sufficient: it does not compile files that no spec imports, so build-only errors can pass tests and fail on `npm run build`.
+Run these commands on the merged state of `development` before pushing. `npm test` alone is not sufficient: it does not compile files that no spec imports, so build-only errors can pass tests and fail on `npm run build`. Jest transpiles without type checking (ts-jest `isolatedModules`, needed to load the ESM-only `htmlparser2` packages that `sanitize-html` 2.18 uses), so the specs are type-checked by `tsc`.
 
 ```bash
 $ npm run build
+$ npx tsc --noEmit -p tsconfig.json
 $ npm test
 ```
 

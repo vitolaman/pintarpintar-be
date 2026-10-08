@@ -14,6 +14,7 @@ import {
   merchantNetAmounts,
 } from './order-fulfillment.service';
 import { SETTLEMENT_FALLBACK_DAYS } from './payment.constants';
+import { queueBalanceSettledEmails } from '~/api/email/events/merchant-emails';
 import {
   queueOrderClosedEmail,
   queueOrderPaidEmails,
@@ -197,11 +198,9 @@ export class OrderPaymentService {
       if (due.length === 0) return 0;
 
       const orderIds = due.map((row) => row.id);
-      await creditWallets(
-        manager,
-        await merchantNetAmounts(manager, orderIds),
-        'settled',
-      );
+      const amounts = await merchantNetAmounts(manager, orderIds);
+      await creditWallets(manager, amounts, 'settled');
+      await queueBalanceSettledEmails(manager, orderIds, amounts);
       await manager
         .createQueryBuilder()
         .update(Order)

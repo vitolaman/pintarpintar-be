@@ -117,6 +117,48 @@ const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
     { owner_name: 'Dimas', store_name: 'Rupa Kreatif', removed_count: 7 },
     '7',
   ],
+  merchant_balance_settled: [
+    {
+      owner_name: 'Bambang',
+      store_name: 'Studio Sipil',
+      amount: 200000,
+      order_count: 2,
+      settled_at: '2026-10-08T01:00:00Z',
+    },
+    'Rp 200.000',
+  ],
+  withdrawal_succeeded: [
+    {
+      owner_name: 'Sari',
+      store_name: 'Akademi MP',
+      amount: 1500000,
+      fee_amount: 5000,
+      destination: 'BCA •••• 7890 a.n. Sari Handayani',
+      requested_at: '2026-10-05T03:12:00Z',
+    },
+    'Rp 1.495.000',
+  ],
+  withdrawal_failed: [
+    {
+      owner_name: 'Sari',
+      store_name: 'Akademi MP',
+      amount: 1500000,
+      fee_amount: 5000,
+      destination: 'BCA •••• 7890 a.n. Sari Handayani',
+      requested_at: '2026-10-05T03:12:00Z',
+    },
+    'BCA •••• 7890 a.n. Sari Handayani',
+  ],
+  merchant_new_applicant: [
+    {
+      owner_name: 'Bambang',
+      store_name: 'Studio Sipil',
+      applicant_name: 'Fajar',
+      job_title: 'Mentor AutoCAD',
+      applied_at: '2026-10-08T02:15:00Z',
+    },
+    '8 Oktober 2026, 09.15 WIB',
+  ],
   withdrawal_requested: [
     {
       owner_name: 'Sari',
@@ -223,6 +265,47 @@ describe('email templates', () => {
       expect(email.text).not.toMatch(/<[a-z]|&amp;|&lt;/);
     },
   );
+
+  it('words the merchant sale as the payment-received notice with a dashboard button', () => {
+    const [payload] = SAMPLES.merchant_new_sale;
+    const email = renderEmail(
+      'merchant_new_sale',
+      {
+        ...payload,
+        items: [
+          ...payload.items,
+          { title: 'Kelas Revit', type: 'kelas', amount: 200000 },
+        ],
+        net_total: 311360,
+      },
+      FRONTEND,
+    );
+
+    expect(email.subject).toBe('Pembayaran baru diterima');
+    expect(email.text).toContain(
+      'Pembayaran berhasil diterima sebesar Rp 311.360 pada pembelian produk Template RAB Excel, Kelas Revit. Silahkan cek riwayat transaksi pada dashboard merchant.',
+    );
+    expect(email.html).toContain(`href="${FRONTEND}/merchant/dashboard"`);
+    expect(email.text).toContain('Buka Dashboard Merchant');
+  });
+
+  it('never promises a refund to the balance when a withdrawal fails', () => {
+    const [payload] = SAMPLES.withdrawal_failed;
+    const email = renderEmail('withdrawal_failed', payload, FRONTEND);
+
+    expect(email.subject).toBe('Penarikan saldo Rp 1.500.000 gagal diproses');
+    expect(email.text).toContain('halaman Bantuan');
+    expect(email.text).not.toMatch(/dikembalikan|refund/i);
+  });
+
+  it('names the applicant without contact details and links to the job postings', () => {
+    const [payload] = SAMPLES.merchant_new_applicant;
+    const email = renderEmail('merchant_new_applicant', payload, FRONTEND);
+
+    expect(email.subject).toBe('Lamaran baru untuk Mentor AutoCAD');
+    expect(email.text).toContain('Fajar melamar posisi Mentor AutoCAD');
+    expect(email.html).toContain(`href="${FRONTEND}/merchant/job-posting"`);
+  });
 
   it('shows merchant instructions only under items that have them', () => {
     const [payload] = SAMPLES.order_paid;

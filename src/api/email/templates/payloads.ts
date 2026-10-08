@@ -94,6 +94,32 @@ export interface WithdrawalRequestedEmail {
   requested_at: string;
 }
 
+export interface MerchantBalanceSettledEmail {
+  owner_name: string;
+  store_name: string;
+  amount: number;
+  order_count: number;
+  settled_at: string;
+}
+
+export interface WithdrawalOutcomeEmail {
+  owner_name: string;
+  store_name: string;
+  amount: number;
+  fee_amount: number;
+  // As stored on the withdrawal: bank, masked number and holder.
+  destination: string;
+  requested_at: string;
+}
+
+export interface MerchantNewApplicantEmail {
+  owner_name: string;
+  store_name: string;
+  applicant_name: string;
+  job_title: string;
+  applied_at: string;
+}
+
 export type PayoutAccountAction = 'added' | 'updated' | 'deleted' | 'primary';
 
 export interface PayoutAccountChangedEmail {
@@ -179,7 +205,11 @@ export interface EmailPayloads {
   merchant_level_result: MerchantLevelResultEmail;
   merchant_inactivity_warning: MerchantInactivityWarningEmail;
   merchant_items_removed: MerchantItemsRemovedEmail;
+  merchant_balance_settled: MerchantBalanceSettledEmail;
   withdrawal_requested: WithdrawalRequestedEmail;
+  withdrawal_succeeded: WithdrawalOutcomeEmail;
+  withdrawal_failed: WithdrawalOutcomeEmail;
+  merchant_new_applicant: MerchantNewApplicantEmail;
   payout_account_changed: PayoutAccountChangedEmail;
   password_changed: PasswordChangedEmail;
   password_reset: PasswordResetEmail;

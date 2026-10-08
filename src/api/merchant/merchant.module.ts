@@ -9,6 +9,7 @@ import { MerchantProfile } from './entities/merchant-profile.entity';
 import { Merchant } from './entities/merchant.entity';
 import { MerchantPayout } from './entities/merchant-payout.entity';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
+import { MerchantWithdrawalJobsService } from './merchant-withdrawal-jobs.service';
 import { MerchantWithdrawalService } from './merchant-withdrawal.service';
 import { MerchantPayoutAccount } from '../payout-account/entities/merchant-payout-account.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
@@ -32,6 +33,10 @@ import { MerchantLevelModule } from '../merchant-level/merchant-level.module';
     MerchantLevelModule,
   ],
   controllers: [MerchantController],
-  providers: [MerchantService, MerchantWithdrawalService],
+  providers: [
+    MerchantService,
+    MerchantWithdrawalService,
+    MerchantWithdrawalJobsService,
+  ],
 })
 export class MerchantModule {}

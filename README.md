@@ -379,14 +379,17 @@ The backend emails users when these events happen. Every email has an HTML part 
 | Menunggu pembayaran | buyer | a paid order's Duitku invoice is created (payment link and deadline) |
 | Pembayaran berhasil | buyer | the order is paid, including free orders; lists the items and each item's `post_purchase_instructions` |
 | Pesanan kedaluwarsa / Pembayaran gagal | buyer | the 60-minute expiry closes the order / Duitku reports a failure |
-| Penjualan baru | each merchant in the order | the order is paid, unless the merchant turned `email_new_sale` off; only its own items and net amounts |
+| Pembayaran baru diterima | each merchant in the order | the order is paid, unless the merchant turned `email_new_sale` off; its own net amount, items and a button to the merchant dashboard |
+| Saldo siap ditarik | merchant | the settlement job (every 30 minutes) makes paid income withdrawable: the amount and number of orders, once per merchant and run |
 | Laporan mingguan | merchant | Mondays from 08.00 WIB (hourly until 23.00, once per store and week), for the Monday–Sunday that ended: net income and change vs the week before, transactions, buyers, top 3 items, new reviews and average, withdrawable balance (dashboard figures); unless `email_weekly_report` is off or the week had no sale and no review |
 | Hasil level, Peringatan, Produk dihapus | merchant | each monthly level evaluation, inactivity warning and removal |
 | Penarikan saldo diajukan | merchant | a withdrawal request |
+| Penarikan saldo berhasil / gagal diproses | merchant | a job every 10 minutes finds withdrawals marked `success` or `failed` (they are completed by hand) and emails each outcome once; only withdrawals requested since 2026-10-05 and within the last 60 days; the failure email does not promise a refund to the balance |
 | Rekening pencairan diubah | merchant | a payout account is added, changed, deleted or made primary (masked number) |
 | Atur ulang kata sandi | user | a password reset request (link valid 60 minutes; the token is removed from the stored email once sent) |
 | Kata sandi diubah | user | a password change or a reset |
 | Lamaran: terkirim, jadwal wawancara, diterima, belum diterima | applicant (the application's email) | apply, schedule or reschedule an interview, accept, reject |
+| Lamaran baru | the posting's merchant owner | a mentor applies, unless the owner turned `email_new_applicant` off; the applicant's name, the position and the time, without contact details |
 | Jadwal sesi baru / diubah / dibatalkan | enrolled learners | a bootcamp meeting is created; its date, time, duration or link changes; or it is deleted |
 | Sesi dimulai 1 jam lagi / Kamu mengajar 1 jam lagi | enrolled learners / the meeting's mentor | a job every 5 minutes, for bootcamp meetings starting in more than 10 and at most 60 minutes; once per recipient and start time (a moved meeting is reminded again); a user who is both gets the mentor email |
 | Tugas dinilai | learner | a submission is graded |

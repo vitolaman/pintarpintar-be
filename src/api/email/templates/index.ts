@@ -13,9 +13,11 @@ import {
   meetingMentorReminder,
   meetingReminder,
 } from './meeting-reminder.template';
+import { merchantBalanceSettled } from './merchant-balance-settled.template';
 import { merchantInactivityWarning } from './merchant-inactivity-warning.template';
 import { merchantItemsRemoved } from './merchant-items-removed.template';
 import { merchantLevelResult } from './merchant-level-result.template';
+import { merchantNewApplicant } from './merchant-new-applicant.template';
 import { merchantNewSale } from './merchant-new-sale.template';
 import { merchantWeeklyReport } from './merchant-weekly-report.template';
 import { orderAwaitingPayment } from './order-awaiting-payment.template';
@@ -28,6 +30,10 @@ import { passwordReset } from './password-reset.template';
 import { payoutAccountChanged } from './payout-account-changed.template';
 import { submissionGraded } from './submission-graded.template';
 import type { EmailTemplate } from './template';
+import {
+  withdrawalFailed,
+  withdrawalSucceeded,
+} from './withdrawal-outcome.template';
 import { withdrawalRequested } from './withdrawal-requested.template';
 
 const TEMPLATES: { [K in EmailKind]: EmailTemplate<EmailPayloads[K]> } = {
@@ -40,7 +46,11 @@ const TEMPLATES: { [K in EmailKind]: EmailTemplate<EmailPayloads[K]> } = {
   merchant_level_result: merchantLevelResult,
   merchant_inactivity_warning: merchantInactivityWarning,
   merchant_items_removed: merchantItemsRemoved,
+  merchant_balance_settled: merchantBalanceSettled,
   withdrawal_requested: withdrawalRequested,
+  withdrawal_succeeded: withdrawalSucceeded,
+  withdrawal_failed: withdrawalFailed,
+  merchant_new_applicant: merchantNewApplicant,
   payout_account_changed: payoutAccountChanged,
   password_changed: passwordChanged,
   password_reset: passwordReset,

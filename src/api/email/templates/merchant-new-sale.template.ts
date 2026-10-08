@@ -4,6 +4,7 @@ import {
   infoRows,
   itemTable,
   paragraph,
+  rupiah,
   smallPrint,
   strong,
   tanggal,
@@ -12,24 +13,26 @@ import {
 import type { MerchantNewSaleEmail } from './payloads';
 import type { EmailTemplate } from './template';
 
+// The PM's basic "payment received" wording (2026-10-07).
 export const merchantNewSale: EmailTemplate<MerchantNewSaleEmail> = (
   sale,
   link,
 ) => {
-  const buyer = strong(sale.buyer_name);
-  const store = strong(sale.store_name);
+  const amount = strong(rupiah(sale.net_total));
+  const products = strong(sale.items.map((item) => item.title).join(', '));
   return {
-    subject: `Penjualan baru: ${sale.order_number}`,
-    title: 'Ada penjualan baru',
-    preheader: `${sale.buyer_name} membeli dari ${sale.store_name}.`,
+    subject: 'Pembayaran baru diterima',
+    title: 'Pembayaran baru diterima',
+    preheader: `Pembayaran ${rupiah(sale.net_total)} untuk ${sale.store_name} sudah diterima.`,
     blocks: [
       greeting(sale.owner_name),
       paragraph(
-        `${buyer.html} baru saja membeli dari ${store.html}.`,
-        `${buyer.text} baru saja membeli dari ${store.text}.`,
+        `Pembayaran berhasil diterima sebesar ${amount.html} pada pembelian produk ${products.html}. Silahkan cek riwayat transaksi pada dashboard merchant.`,
+        `Pembayaran berhasil diterima sebesar ${amount.text} pada pembelian produk ${products.text}. Silahkan cek riwayat transaksi pada dashboard merchant.`,
       ),
       infoRows([
         ['Nomor pesanan', sale.order_number],
+        ['Pembeli', sale.buyer_name],
         // A sale counts once paid, so its time is the payment time.
         ['Waktu transaksi', wib(sale.paid_at)],
       ]),
@@ -45,6 +48,9 @@ export const merchantNewSale: EmailTemplate<MerchantNewSaleEmail> = (
           ]
         : []),
     ],
-    button: { label: 'Lihat penjualan', url: link(FRONTEND_PATHS.sales) },
+    button: {
+      label: 'Buka Dashboard Merchant',
+      url: link(FRONTEND_PATHS.merchantDashboard),
+    },
   };
 };

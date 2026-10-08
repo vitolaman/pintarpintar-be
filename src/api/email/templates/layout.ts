@@ -132,6 +132,7 @@ export const FRONTEND_PATHS = {
   login: '/login',
   resetPassword: '/reset-password',
   applications: '/mentor/progress-lamaran',
+  jobPosting: '/merchant/job-posting',
   mentorDashboard: '/mentor/dashboard',
   jobBoard: '/job-board',
   profile: '/profile',

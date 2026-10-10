@@ -55,6 +55,7 @@ import { HelpTicket } from '~/api/help-ticket/entities/help-ticket.entity';
 import { CertificationPartnershipRequest } from '~/api/partnership-request/entities/certification-partnership-request.entity';
 import { FaqCategory } from '~/api/faq/entities/faq-category.entity';
 import { Faq } from '~/api/faq/entities/faq.entity';
+import { PlatformReview } from '~/api/review/entities/platform-review.entity';
 import { Review } from '~/api/review/entities/review.entity';
 import { ReviewHelpfulVote } from '~/api/review/entities/review-helpful-vote.entity';
 import { ReviewReply } from '~/api/review/entities/review-reply.entity';
@@ -146,6 +147,7 @@ export const dataSourceOptions: DataSourceOptions = {
     FaqCategory,
     Faq,
     Review,
+    PlatformReview,
     JobPosting,
     JobApplication,
     MerchantMentor,

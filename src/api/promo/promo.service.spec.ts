@@ -49,7 +49,7 @@ describe('PromoService', () => {
 
     const response = await service.findVouchers({ limit: 6 } as never);
 
-    expect(voucherService.findRandomPublic).toHaveBeenCalledWith(9);
+    expect(voucherService.findRandomPublic).toHaveBeenCalledWith(9, undefined);
     expect(response).toEqual({
       data: { featured: picked.slice(0, 3), vouchers: picked.slice(3) },
       responseMessage: 'Get promo vouchers success',

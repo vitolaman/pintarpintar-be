@@ -10,6 +10,7 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { PublicVoucherResponseDto } from '~/api/voucher/dto/voucher-response.dto';
 import {
   CatalogItemRefDto,
   catalogItemTypes,
@@ -130,6 +131,20 @@ export class CheckoutPreviewResponseDto {
 
   @ApiProperty({ example: 548000, description: 'Amount to pay' })
   total_amount: number;
+
+  @ApiProperty({
+    type: [PublicVoucherResponseDto],
+    description:
+      "The caller's claimed, usable vouchers of the selected items' merchants, newest claim first",
+  })
+  claimed_vouchers: PublicVoucherResponseDto[];
+
+  @ApiProperty({
+    type: [PublicVoucherResponseDto],
+    description:
+      "The other usable vouchers of the selected items' merchants, newest first",
+  })
+  recommended_vouchers: PublicVoucherResponseDto[];
 }
 
 export class OrderCodeResponseDto {

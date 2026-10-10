@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, IsNull } from 'typeorm';
 import { assetUrl } from '../../common/storage/asset-url';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import {
@@ -19,6 +19,7 @@ import {
   VoucherResponseDto,
 } from './dto/voucher-response.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
+import { CouponClaim } from './entities/coupon-claim.entity';
 import { Voucher } from './entities/voucher.entity';
 import { isPromoCodeAvailable } from '~/common/promo-code/promo-code-namespace';
 import { escapeLike } from '~/common/util/escape-like';
@@ -38,7 +39,24 @@ export const VOUCHER_TAGS = [
 ];
 
 type MerchantScope = { slug: string | null; id: string | null };
-const ANY_MERCHANT: MerchantScope = { slug: null, id: null };
+
+interface PublicVoucherFilter {
+  search?: string;
+  categoryLabel?: string | null;
+  merchant?: MerchantScope;
+  merchantIds?: string[];
+  voucherId?: string;
+  viewerId?: string;
+  claims?: 'any' | 'claimed' | 'unclaimed';
+}
+
+const PUBLIC_VOUCHER_ORDER = {
+  newest: 'coupon.created_at DESC, coupon.id DESC',
+  random: 'random()',
+  claimed:
+    'claim.created_at DESC NULLS LAST, coupon.created_at DESC, coupon.id DESC',
+};
+type PublicVoucherOrder = keyof typeof PUBLIC_VOUCHER_ORDER;
 
 @Injectable()
 export class VoucherService {
@@ -198,53 +216,35 @@ export class VoucherService {
     });
   }
 
-  async findPublic(query: PublicVoucherQueryDto) {
+  async findPublic(query: PublicVoucherQueryDto, viewerId?: string) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
-    const offset = (page - 1) * limit;
-    const now = new Date();
-    // Wildcards in the search text match literally.
-    const search = escapeLike(query.search?.trim() ?? '');
-    const merchant: MerchantScope = {
-      slug: query.merchant_slug ?? null,
-      id: query.merchant_id ?? null,
-    };
     const categoryLabel = query.category_slug
       ? merchantCategoryLabelForSlug(query.category_slug)
       : null;
     if (query.category_slug && categoryLabel === null) {
       return this.emptyPublicPage(page, limit);
     }
-
-    const [rows, countRows] = await Promise.all([
-      this.publicVoucherRows(
-        now,
-        search,
-        categoryLabel,
-        merchant,
-        limit,
-        offset,
-      ),
-      this.publicVoucherCount(now, search, categoryLabel, merchant),
-    ]);
-    const total = Number(countRows[0]?.total ?? 0);
-
+    const filter: PublicVoucherFilter = {
+      search: query.search,
+      categoryLabel,
+      merchant: {
+        slug: query.merchant_slug ?? null,
+        id: query.merchant_id ?? null,
+      },
+      viewerId,
+    };
     return {
-      data: rows.map((row) => this.toPublicVoucherResponse(row)),
-      meta: paginationMeta(page, limit, total),
+      ...(await this.publicVoucherPage(filter, page, limit, 'newest')),
       responseMessage: 'Get public vouchers success',
     };
   }
 
-  async findFeatured() {
+  async findFeatured(viewerId?: string) {
     const rows = await this.publicVoucherRows(
-      new Date(),
-      '',
-      null,
-      ANY_MERCHANT,
-      FEATURED_VOUCHER_COUNT,
-      0,
+      { viewerId },
       'random',
+      FEATURED_VOUCHER_COUNT,
     );
     return {
       data: rows.map((row) => this.toPublicVoucherResponse(row)),
@@ -252,17 +252,63 @@ export class VoucherService {
     };
   }
 
-  async findRandomPublic(limit: number) {
-    const rows = await this.publicVoucherRows(
-      new Date(),
-      '',
-      null,
-      ANY_MERCHANT,
-      limit,
-      0,
-      'random',
-    );
+  async findRandomPublic(limit: number, viewerId?: string) {
+    const rows = await this.publicVoucherRows({ viewerId }, 'random', limit);
     return rows.map((row) => this.toPublicVoucherResponse(row));
+  }
+
+  // Only vouchers still usable; one that expires or runs out leaves the list
+  // while its claim stays.
+  async findClaimed(userId: string, page = 1, limit = 10) {
+    const filter: PublicVoucherFilter = { viewerId: userId, claims: 'claimed' };
+    return {
+      ...(await this.publicVoucherPage(filter, page, limit, 'claimed')),
+      responseMessage: 'Get claimed vouchers success',
+    };
+  }
+
+  // Claiming saves a usable voucher for checkout; it reserves no use.
+  async claim(userId: string, voucherId: string) {
+    const [row] = await this.publicVoucherRows(
+      { voucherId, viewerId: userId },
+      'newest',
+      1,
+    );
+    if (!row) throw new NotFoundException('Voucher not found');
+    await this.dataSource
+      .createQueryBuilder()
+      .insert()
+      .into(CouponClaim)
+      .values({ userId, couponId: voucherId })
+      .orIgnore()
+      .execute();
+    return {
+      data: { ...this.toPublicVoucherResponse(row), is_claimed: true },
+      responseMessage: 'Claim voucher success',
+    };
+  }
+
+  async unclaim(userId: string, voucherId: string): Promise<void> {
+    await this.dataSource.manager.softDelete(CouponClaim, {
+      userId,
+      couponId: voucherId,
+      deleted_at: IsNull(),
+    });
+  }
+
+  // The usable vouchers of the given merchants, split by the buyer's claims.
+  async checkoutVouchers(userId: string, merchantIds: string[]) {
+    if (merchantIds.length === 0) return { claimed: [], recommended: [] };
+    const rows = await this.publicVoucherRows(
+      { merchantIds, viewerId: userId },
+      'claimed',
+      null,
+    );
+    const vouchers = rows.map((row) => this.toPublicVoucherResponse(row));
+    return {
+      claimed: vouchers.filter((voucher) => voucher.is_claimed),
+      recommended: vouchers.filter((voucher) => !voucher.is_claimed),
+    };
   }
 
   private emptyPublicPage(page: number, limit: number) {
@@ -344,37 +390,33 @@ export class VoucherService {
     ) as Promise<VoucherRow[]>;
   }
 
-  private publicVoucherRows(
-    now: Date,
-    search: string,
-    categoryLabel: string | null,
-    merchant: MerchantScope,
+  private async publicVoucherPage(
+    filter: PublicVoucherFilter,
+    page: number,
     limit: number,
-    offset: number,
-    order: 'newest' | 'random' = 'newest',
+    order: PublicVoucherOrder,
+  ) {
+    const [rows, total] = await Promise.all([
+      this.publicVoucherRows(filter, order, limit, (page - 1) * limit),
+      this.publicVoucherCount(filter),
+    ]);
+    return {
+      data: rows.map((row) => this.toPublicVoucherResponse(row)),
+      meta: paginationMeta(page, limit, total),
+    };
+  }
+
+  // A null limit returns every match.
+  private publicVoucherRows(
+    filter: PublicVoucherFilter,
+    order: PublicVoucherOrder,
+    limit: number | null,
+    offset = 0,
   ): Promise<PublicVoucherRow[]> {
+    const { sql, params } = this.publicVoucherSource(filter);
     return this.dataSource.query(
       `
-        WITH visible AS (
-          SELECT coupon.id
-          FROM coupons coupon
-          INNER JOIN merchants merchant
-            ON merchant.id = coupon.merchant_id
-            AND merchant.deleted_at IS NULL
-            AND merchant.status = 'active'
-          LEFT JOIN coupon_usages usage
-            ON usage.coupon_id = coupon.id AND usage.deleted_at IS NULL
-          WHERE coupon.deleted_at IS NULL
-            AND coupon.is_active = true
-            AND (coupon.starts_at IS NULL OR coupon.starts_at <= $1)
-            AND (coupon.expires_at IS NULL OR coupon.expires_at > $1)
-            AND ($2 = '' OR coupon.name ILIKE '%' || $2 || '%'
-              OR coupon.code ILIKE '%' || $2 || '%'
-              OR coupon.description ILIKE '%' || $2 || '%'
-              OR merchant.store_name ILIKE '%' || $2 || '%')
-          GROUP BY coupon.id
-          HAVING coupon.max_uses IS NULL OR COUNT(usage.id) < coupon.max_uses
-        )
+        ${sql.with}
         SELECT
           coupon.id, coupon.name, coupon.code, coupon.description,
           coupon.discount_type, coupon.discount_value,
@@ -388,32 +430,44 @@ export class VoucherService {
           profile.category_label AS merchant_category_label,
           (ARRAY[${VOUCHER_TAGS.map((tag) => `'${tag}'`).join(', ')}])[
             1 + mod(abs(hashtext(coupon.id::text)), ${VOUCHER_TAGS.length})
-          ] AS tag
-        FROM visible
-        INNER JOIN coupons coupon ON coupon.id = visible.id
-        INNER JOIN merchants merchant ON merchant.id = coupon.merchant_id
-        LEFT JOIN merchant_profiles profile
-          ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
-        LEFT JOIN file_assets avatar
-          ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
-        WHERE ($3::varchar IS NULL OR profile.category_label = $3)
-          AND ($4::varchar IS NULL OR profile.slug = $4)
-          AND ($7::uuid IS NULL OR merchant.id = $7)
-        ORDER BY ${order === 'random' ? 'random()' : 'coupon.created_at DESC, coupon.id DESC'}
-        LIMIT $5 OFFSET $6
+          ] AS tag,
+          claim.id IS NOT NULL AS is_claimed
+        ${sql.from}
+        ORDER BY ${PUBLIC_VOUCHER_ORDER[order]}
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `,
-      [now, search, categoryLabel, merchant.slug, limit, offset, merchant.id],
+      [...params, limit, offset],
     ) as Promise<PublicVoucherRow[]>;
   }
 
-  private publicVoucherCount(
-    now: Date,
-    search: string,
-    categoryLabel: string | null,
-    merchant: MerchantScope,
-  ): Promise<Array<{ total: number }>> {
-    return this.dataSource.query(
-      `
+  private async publicVoucherCount(
+    filter: PublicVoucherFilter,
+  ): Promise<number> {
+    const { sql, params } = this.publicVoucherSource(filter);
+    const rows = (await this.dataSource.query(
+      `${sql.with} SELECT COUNT(*)::integer AS total ${sql.from}`,
+      params,
+    )) as Array<{ total: number }>;
+    return Number(rows[0]?.total ?? 0);
+  }
+
+  // Usable vouchers: active and in period, of an active store, with uses
+  // left. `claim` is the viewer's live claim, absent without a viewer.
+  private publicVoucherSource(filter: PublicVoucherFilter) {
+    const params = [
+      new Date(),
+      // Wildcards in the search text match literally.
+      escapeLike(filter.search?.trim() ?? ''),
+      filter.categoryLabel ?? null,
+      filter.merchant?.slug ?? null,
+      filter.merchant?.id ?? null,
+      filter.merchantIds ?? null,
+      filter.voucherId ?? null,
+      filter.viewerId ?? null,
+      filter.claims ?? 'any',
+    ];
+    const sql = {
+      with: `
         WITH visible AS (
           SELECT coupon.id
           FROM coupons coupon
@@ -431,21 +485,32 @@ export class VoucherService {
               OR coupon.code ILIKE '%' || $2 || '%'
               OR coupon.description ILIKE '%' || $2 || '%'
               OR merchant.store_name ILIKE '%' || $2 || '%')
+            AND ($6::uuid[] IS NULL OR coupon.merchant_id = ANY($6::uuid[]))
+            AND ($7::uuid IS NULL OR coupon.id = $7)
           GROUP BY coupon.id
           HAVING coupon.max_uses IS NULL OR COUNT(usage.id) < coupon.max_uses
         )
-        SELECT COUNT(*)::integer AS total
+      `,
+      from: `
         FROM visible
         INNER JOIN coupons coupon ON coupon.id = visible.id
         INNER JOIN merchants merchant ON merchant.id = coupon.merchant_id
         LEFT JOIN merchant_profiles profile
           ON profile.merchant_id = merchant.id AND profile.deleted_at IS NULL
+        LEFT JOIN file_assets avatar
+          ON avatar.id = profile.avatar_asset_id AND avatar.deleted_at IS NULL
+        LEFT JOIN coupon_claims claim
+          ON claim.coupon_id = coupon.id
+          AND claim.user_id = $8::uuid
+          AND claim.deleted_at IS NULL
         WHERE ($3::varchar IS NULL OR profile.category_label = $3)
           AND ($4::varchar IS NULL OR profile.slug = $4)
           AND ($5::uuid IS NULL OR merchant.id = $5)
+          AND ($9::text = 'any'
+            OR ($9::text = 'claimed') = (claim.id IS NOT NULL))
       `,
-      [now, search, categoryLabel, merchant.slug, merchant.id],
-    ) as Promise<Array<{ total: number }>>;
+    };
+    return { sql, params };
   }
 
   private toVoucherResponse(row: VoucherRow): VoucherResponseDto {
@@ -562,4 +627,5 @@ interface PublicVoucherRow {
   merchant_avatar_object_key: string | null;
   merchant_tagline: string | null;
   merchant_category_label: string | null;
+  is_claimed: boolean;
 }

@@ -50,6 +50,7 @@ import { Discount } from '~/api/discount/entities/discount.entity';
 import { DiscountCode } from '~/api/discount/entities/discount-code.entity';
 import { DiscountProduct } from '~/api/discount/entities/discount-product.entity';
 import { CouponUsage } from '~/api/voucher/entities/coupon-usage.entity';
+import { CouponClaim } from '~/api/voucher/entities/coupon-claim.entity';
 import { Voucher } from '~/api/voucher/entities/voucher.entity';
 import { HelpTicket } from '~/api/help-ticket/entities/help-ticket.entity';
 import { CertificationPartnershipRequest } from '~/api/partnership-request/entities/certification-partnership-request.entity';
@@ -144,6 +145,7 @@ export const dataSourceOptions: DataSourceOptions = {
     ClassCertificateSettings,
     Voucher,
     CouponUsage,
+    CouponClaim,
     Discount,
     DiscountProduct,
     DiscountCode,

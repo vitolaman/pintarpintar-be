@@ -45,7 +45,10 @@ export class PromoController {
     HttpStatus.OK,
     [BadRequestException],
   )
-  findVouchers(@Query() query: PromoVouchersQueryDto) {
-    return this.promoService.findVouchers(query);
+  findVouchers(
+    @Req() req: { user?: { id: string } },
+    @Query() query: PromoVouchersQueryDto,
+  ) {
+    return this.promoService.findVouchers(query, req.user?.id);
   }
 }

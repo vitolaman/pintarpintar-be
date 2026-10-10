@@ -125,4 +125,10 @@ export class PublicVoucherResponseDto {
     description: 'Presentation tag, stable per voucher',
   })
   tag: string;
+
+  @ApiProperty({
+    description:
+      'Whether the caller claimed this voucher; false without a token',
+  })
+  is_claimed: boolean;
 }

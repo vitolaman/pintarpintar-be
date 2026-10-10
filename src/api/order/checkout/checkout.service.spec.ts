@@ -1,6 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { User } from '~/api/user/entities/user.entity';
+import { VoucherService } from '~/api/voucher/voucher.service';
 import { CheckoutQuote, CheckoutQuoteService } from './checkout-quote.service';
 import { CheckoutService } from './checkout.service';
 
@@ -37,6 +38,7 @@ const quoteResult = (override: Partial<CheckoutQuote> = {}): CheckoutQuote => ({
 describe('CheckoutService', () => {
   let manager: Record<string, jest.Mock>;
   let quotes: { quote: jest.Mock };
+  let vouchers: { checkoutVouchers: jest.Mock };
   let service: CheckoutService;
 
   beforeEach(() => {
@@ -45,6 +47,12 @@ describe('CheckoutService', () => {
       findOneByOrFail: jest.fn(async () => ({ id: userId })),
     };
     quotes = { quote: jest.fn(async () => quoteResult()) };
+    vouchers = {
+      checkoutVouchers: jest.fn(async () => ({
+        claimed: [{ id: 'claimed' }],
+        recommended: [{ id: 'other' }],
+      })),
+    };
     service = new CheckoutService(
       {
         manager,
@@ -54,6 +62,7 @@ describe('CheckoutService', () => {
       {} as never,
       {} as never,
       {} as never,
+      vouchers as unknown as VoucherService,
     );
   });
 
@@ -80,6 +89,11 @@ describe('CheckoutService', () => {
       });
       expect(data.items[0]).not.toHaveProperty('image');
       expect(data.total_amount).toBe(500000);
+      expect(vouchers.checkoutVouchers).toHaveBeenCalledWith(userId, [
+        'merchant-id',
+      ]);
+      expect(data.claimed_vouchers).toEqual([{ id: 'claimed' }]);
+      expect(data.recommended_vouchers).toEqual([{ id: 'other' }]);
     } finally {
       process.env.ASSET_PUBLIC_BASE_URL = baseUrl;
       if (baseUrl === undefined) delete process.env.ASSET_PUBLIC_BASE_URL;

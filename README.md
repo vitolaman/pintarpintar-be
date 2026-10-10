@@ -117,6 +117,9 @@ The collections take `limit` (default 10, at most 50) and return the newest firs
 - `DELETE /api/v1/reviews/:id/helpful` — removes the caller's mark (repeating changes nothing); returns the same fields
 - `POST /api/v1/reviews/:id/replies` — `{comment}` (1–2,000 characters); enrolled learners or buyers of the item, its merchant owner and the class's active mentors (others 403); the reply keeps the author's role; no edit or delete; 10 replies a minute per client address
 - `GET /api/v1/reviews/merchants/:merchantId` — **public**; reviews of a merchant's classes and products (Review tab)
+- `GET /api/v1/merchant/platform-review` — the store's review of Pintar Pintar, or `null`
+- `PUT /api/v1/merchant/platform-review` — `{rating, comment}` (rating 1–5, comment up to 2,000); active store owners only; one review per store: 201 when created, 200 when replaced
+- `GET /api/v1/platform-reviews` — **public**; store reviews of Pintar Pintar, newest first, paginated, with `average_rating` (one decimal) and `review_count`; each with the store's name, slug and logo, never the owner
 
 ### Komunitas
 

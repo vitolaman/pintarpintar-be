@@ -60,6 +60,7 @@ import { CommunityReply } from '~/api/community/entities/community-reply.entity'
 import { CommunityThread } from '~/api/community/entities/community-thread.entity';
 import { FaqCategory } from '~/api/faq/entities/faq-category.entity';
 import { Faq } from '~/api/faq/entities/faq.entity';
+import { PlatformReview } from '~/api/review/entities/platform-review.entity';
 import { Review } from '~/api/review/entities/review.entity';
 import { ReviewHelpfulVote } from '~/api/review/entities/review-helpful-vote.entity';
 import { ReviewReply } from '~/api/review/entities/review-reply.entity';
@@ -156,6 +157,7 @@ export const dataSourceOptions: DataSourceOptions = {
     FaqCategory,
     Faq,
     Review,
+    PlatformReview,
     JobPosting,
     JobApplication,
     MerchantMentor,

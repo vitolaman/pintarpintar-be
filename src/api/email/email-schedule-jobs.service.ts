@@ -4,12 +4,14 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { queueDueMeetingReminders } from './events/learning-emails';
 import { queueWeeklyMerchantReports } from './events/merchant-report-emails';
+import { queueProExpiryEmails } from './events/pro-expiry-emails';
 
 /** Scheduled emails that no user action triggers. */
 @Injectable()
 export class EmailScheduleJobs {
   private remindersRunning = false;
   private reportsRunning = false;
+  private proExpiryRunning = false;
 
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
@@ -36,6 +38,19 @@ export class EmailScheduleJobs {
       await queueWeeklyMerchantReports(this.dataSource.manager);
     } finally {
       this.reportsRunning = false;
+    }
+  }
+
+  // Hourly from 08.00 WIB: the first run sends the day's Pro expiry emails,
+  // later runs catch up after downtime and otherwise add nothing.
+  @Cron('0 8-23 * * *', { timeZone: 'Asia/Jakarta' })
+  async queueProExpiryEmails(): Promise<void> {
+    if (this.proExpiryRunning) return;
+    this.proExpiryRunning = true;
+    try {
+      await queueProExpiryEmails(this.dataSource.manager);
+    } finally {
+      this.proExpiryRunning = false;
     }
   }
 }

@@ -159,6 +159,30 @@ const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
     },
     '8 Oktober 2026, 09.15 WIB',
   ],
+  pro_expiring: [
+    {
+      owner_name: 'Bambang',
+      store_name: 'Studio Sipil',
+      end_date: '2026-10-31',
+    },
+    '31 Oktober 2026',
+  ],
+  pro_not_renewed: [
+    {
+      owner_name: 'Bambang',
+      store_name: 'Studio Sipil',
+      end_date: '2026-11-07',
+    },
+    '7 November 2026',
+  ],
+  pro_ended: [
+    {
+      owner_name: 'Bambang',
+      store_name: 'Studio Sipil',
+      end_date: '2026-11-07',
+    },
+    'tidak berlaku lagi',
+  ],
   withdrawal_requested: [
     {
       owner_name: 'Sari',
@@ -306,6 +330,36 @@ describe('email templates', () => {
     expect(email.subject).toBe('Lamaran baru untuk Mentor AutoCAD');
     expect(email.text).toContain('Fajar melamar posisi Mentor AutoCAD');
     expect(email.html).toContain(`href="${FRONTEND}/merchant/job-posting"`);
+  });
+
+  it('words the Pro expiry emails firmly, with the renew or sign-up button', () => {
+    const expiring = renderEmail(
+      'pro_expiring',
+      SAMPLES.pro_expiring[0],
+      FRONTEND,
+    );
+    const notRenewed = renderEmail(
+      'pro_not_renewed',
+      SAMPLES.pro_not_renewed[0],
+      FRONTEND,
+    );
+    const ended = renderEmail('pro_ended', SAMPLES.pro_ended[0], FRONTEND);
+
+    expect(expiring.subject).toBe(
+      'Pro Subscription kamu berakhir pada 31 Oktober 2026',
+    );
+    expect(notRenewed.subject).toBe(
+      'Pro Subscription kamu belum diperpanjang dan akan berakhir pada 7 November 2026',
+    );
+    expect(ended.subject).toBe('Pro Subscription kamu telah berakhir');
+    expect(expiring.text).toContain('Perpanjang Pro');
+    expect(notRenewed.text).toContain('Perpanjang Pro');
+    expect(ended.text).toContain('Daftar Ulang Pro');
+    expect(ended.text).toContain('Benefit Pro Subscription');
+    for (const email of [expiring, notRenewed, ended]) {
+      expect(email.text).not.toMatch(/tambahan|sisa|lagi selama|Masa Pro/i);
+      expect(email.html).toContain(`href="${FRONTEND}/merchant/dashboard"`);
+    }
   });
 
   it('shows merchant instructions only under items that have them', () => {

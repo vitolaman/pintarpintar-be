@@ -28,6 +28,7 @@ import { MentorModule } from './api/mentor/mentor.module';
 import { UploadModule } from './upload/upload.module';
 import { ClassModule } from './class/class.module';
 import { VoucherModule } from './api/voucher/voucher.module';
+import { CommunityModule } from './api/community/community.module';
 import { HelpTicketModule } from './api/help-ticket/help-ticket.module';
 import { PartnershipRequestModule } from './api/partnership-request/partnership-request.module';
 import { PortalModule } from './api/portal/portal.module';
@@ -88,6 +89,7 @@ import { EmailModule } from './api/email/email.module';
     VoucherModule,
     HelpTicketModule,
     PartnershipRequestModule,
+    CommunityModule,
     PortalModule,
     OrderModule,
     PayoutAccountModule,

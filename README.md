@@ -118,6 +118,29 @@ The collections take `limit` (default 10, at most 50) and return the newest firs
 - `POST /api/v1/reviews/:id/replies` — `{comment}` (1–2,000 characters); enrolled learners or buyers of the item, its merchant owner and the class's active mentors (others 403); the reply keeps the author's role; no edit or delete; 10 replies a minute per client address
 - `GET /api/v1/reviews/merchants/:merchantId` — **public**; reviews of a merchant's classes and products (Review tab)
 
+### Komunitas
+
+Groups with threads, replies and likes. A group is `public` (anyone joins at once; anyone, signed in or not, reads its threads) or `request` (the owner accepts each request; only members read it). Only the owner and members post or reply. Authors show name, avatar and a badge (`Merchant` with a store, else `Mentor`, else `Siswa`), never contact data.
+
+- `POST /api/v1/community-groups` — `{name, image_asset_id, description, access}` (name up to 80, image PNG/JPG/WebP up to 2 MB, description up to 500); the creator owns the group
+- `GET /api/v1/community-groups` — **public**; newest first, paginated, `search` on the name; `joined=true` (with a token) lists only the caller's groups; each with `member_count`, `owner` and the caller's `membership` (`owner`, `member`, `pending`, `none`)
+- `GET /api/v1/community-groups/:id` — **public**; one group
+- `POST /api/v1/community-groups/:id/join` — joins a public group or requests a request-only one; repeating changes nothing
+- `DELETE /api/v1/community-groups/:id/membership` — leaves or cancels a request; the owner cannot leave (400)
+- `GET /api/v1/community-groups/:id/requests` — owner only (403); pending requests oldest first
+- `POST /api/v1/community-groups/:id/requests/:userId/accept` — owner only; the requester becomes a member; 404 when there is no pending request
+- `POST /api/v1/community-groups/:id/requests/:userId/reject` — owner only; removes the request; 404 when there is no pending request
+- `GET /api/v1/community-threads` — **public**; newest first, paginated; `group_id` for one group (403 for a request-only group the caller is not in), otherwise every group the caller can read; each with `like_count`, `liked`, `reply_count`, the attachment (`name`, `size`, a signed `download_url` valid 10 minutes) and the promoted `item` card (`is_available` false once it is no longer sold)
+- `GET /api/v1/community-threads/:id` — **public** for readable groups; the thread with its replies, oldest first
+- `POST /api/v1/community-threads` — members only; `{group_id, content, attachment_asset_id, item}`: content up to 5,000; an attachment of any type except programs, scripts, installers and web pages, up to 20 MB; `item` (`{id}`) only for merchants and only a published item of their own store; at least one of the three (400)
+- `DELETE /api/v1/community-threads/:id` — the author or the group owner (403 otherwise); 204
+- `POST /api/v1/community-threads/:id/replies` — members only; `{content}` up to 2,000
+- `DELETE /api/v1/community-replies/:id` — the author or the group owner; 204
+- `PUT /api/v1/community-threads/:id/like` — like a thread the caller can read; repeating changes nothing; returns `like_count` and `liked`
+- `DELETE /api/v1/community-threads/:id/like` — remove the like
+- `PUT /api/v1/community-replies/:id/like` — like a reply the caller can read; repeating changes nothing
+- `DELETE /api/v1/community-replies/:id/like` — remove the like
+
 ### Pusat Bantuan
 
 - `GET /api/v1/faqs` — **public**

@@ -112,14 +112,61 @@ export class VoucherController {
   @Get('vouchers')
   @Public()
   @PaginatedResponse(PublicVoucherResponseDto, 'Get public vouchers success')
-  findPublic(@Query() query: PublicVoucherQueryDto) {
-    return this.voucherService.findPublic(query);
+  findPublic(
+    @Req() req: { user?: { id: string } },
+    @Query() query: PublicVoucherQueryDto,
+  ) {
+    return this.voucherService.findPublic(query, req.user?.id);
   }
 
   @Get('vouchers/featured')
   @Public()
   @ArrayResponse(PublicVoucherResponseDto, 'Get featured vouchers success')
-  findFeatured() {
-    return this.voucherService.findFeatured();
+  findFeatured(@Req() req: { user?: { id: string } }) {
+    return this.voucherService.findFeatured(req.user?.id);
+  }
+
+  // Only claimed vouchers that are still usable.
+  @Get('vouchers/claimed')
+  @ApiBearerAuth()
+  @PaginatedResponse(PublicVoucherResponseDto, 'Get claimed vouchers success')
+  findClaimed(
+    @Req() req: { user: { id: string } },
+    @Query() query: RequestPaginatedQueryDto,
+  ) {
+    return this.voucherService.findClaimed(
+      req.user.id,
+      query.page,
+      query.limit,
+    );
+  }
+
+  // Claiming again changes nothing; a claim reserves no use.
+  @Post('vouchers/:id/claim')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(
+    PublicVoucherResponseDto,
+    'Claim voucher success',
+    HttpStatus.OK,
+    [VOUCHER_NOT_FOUND],
+  )
+  claim(
+    @Req() req: { user: { id: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.voucherService.claim(req.user.id, id);
+  }
+
+  // Removing a missing claim changes nothing.
+  @Delete('vouchers/:id/claim')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @EmptyResponse([])
+  unclaim(
+    @Req() req: { user: { id: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.voucherService.unclaim(req.user.id, id);
   }
 }

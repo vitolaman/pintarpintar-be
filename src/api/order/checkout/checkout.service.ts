@@ -17,6 +17,7 @@ import {
 } from '~/api/payment/payment.constants';
 import { User } from '~/api/user/entities/user.entity';
 import { CouponUsage } from '~/api/voucher/entities/coupon-usage.entity';
+import { VoucherService } from '~/api/voucher/voucher.service';
 import { CatalogItemColumns } from '~/common/catalog/catalog-item';
 import {
   CheckoutPreviewResponseDto,
@@ -37,10 +38,12 @@ export class CheckoutService {
     private readonly duitku: DuitkuClient,
     private readonly payments: OrderPaymentService,
     private readonly orders: OrderService,
+    private readonly vouchers: VoucherService,
   ) {}
 
   // Lenient: codes that cannot be used are left out of the price and listed
-  // in `rejected_codes`; checkout still rejects them.
+  // in `rejected_codes`; checkout still rejects them. The voucher lists cover
+  // only the merchants of the selected items; a typed code needs no claim.
   async preview(userId: string, request: CheckoutRequestDto) {
     const { pricing, rejectedCodes } = await this.quotes.quote(
       this.dataSource.manager,
@@ -48,8 +51,14 @@ export class CheckoutService {
       request,
       { lockCodes: false, lenient: true },
     );
+    const merchantIds = [...new Set(pricing.items.map((i) => i.merchantId))];
+    const vouchers = await this.vouchers.checkoutVouchers(userId, merchantIds);
     return {
-      data: toPreview(pricing, rejectedCodes),
+      data: {
+        ...toPreview(pricing, rejectedCodes),
+        claimed_vouchers: vouchers.claimed,
+        recommended_vouchers: vouchers.recommended,
+      },
       responseMessage: 'Preview checkout success',
     };
   }
@@ -275,7 +284,10 @@ async function nextOrderNumber(manager: EntityManager): Promise<string> {
 function toPreview(
   pricing: PricingResult,
   rejectedCodes: RejectedCode[],
-): CheckoutPreviewResponseDto {
+): Omit<
+  CheckoutPreviewResponseDto,
+  'claimed_vouchers' | 'recommended_vouchers'
+> {
   return {
     items: pricing.items.map((item) => ({
       type: item.type,

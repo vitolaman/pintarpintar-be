@@ -30,9 +30,10 @@ export class PromoService {
   // One random draw keeps the featured strip and the voucher list disjoint
   // whenever enough vouchers exist; a short list is topped up with the
   // featured vouchers so it still shows as many as possible.
-  async findVouchers(query: PromoVouchersQueryDto) {
+  async findVouchers(query: PromoVouchersQueryDto, viewerId?: string) {
     const picked = await this.voucherService.findRandomPublic(
       FEATURED_VOUCHER_COUNT + query.limit,
+      viewerId,
     );
     const featured = picked.slice(0, FEATURED_VOUCHER_COUNT);
     const others = picked.slice(FEATURED_VOUCHER_COUNT);

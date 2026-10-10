@@ -101,7 +101,10 @@ The collections take `limit` (default 10, at most 50) and return the newest firs
 ### Vouchers
 
 - `GET /api/v1/vouchers` — **public**; usable vouchers of active merchants, paginated; `search` (name, code, description, store name), `category_slug`, and merchant (`merchant_slug` or `merchant_id`) filters
-- `GET /api/v1/vouchers/featured` — **public**; 3 random usable vouchers (every public voucher carries a `tag`)
+- `GET /api/v1/vouchers/featured` — **public**; 3 random usable vouchers (every public voucher carries a `tag`, and `is_claimed`, false without a token)
+- `GET /api/v1/vouchers/claimed` — the caller's claimed vouchers that are still usable, newest claim first, paginated
+- `POST /api/v1/vouchers/:id/claim` — claims a usable voucher (200, again changes nothing; 404 when it is not usable). A claim only saves the voucher for checkout: it reserves no use, and a typed code works without one
+- `DELETE /api/v1/vouchers/:id/claim` — removes the claim (204, also when there is none)
 - `POST /api/v1/merchant/vouchers` — merchant
 - `GET /api/v1/merchant/vouchers` — merchant
 - `GET /api/v1/merchant/vouchers/:id` — merchant
@@ -180,7 +183,7 @@ Groups with threads, replies and likes. A group is `public` (anyone joins at onc
 
 ### Checkout and payment (Duitku POP)
 
-- `POST /api/v1/orders/preview` — prices up to 20 items with up to one voucher and one discount code (each applies to its own merchant's items); writes nothing. An invalid code does not fail the preview: it is left out and listed in `rejected_codes: [{code, reason}]` (`not_found`, `expired`, `not_started`, `used_up`, `already_used`, `minimum_not_met`, `not_applicable`); `POST /api/v1/orders` still rejects it. Unavailable, owned or repeated items and two codes of one kind are a 400 in both
+- `POST /api/v1/orders/preview` — prices up to 20 items with up to one voucher and one discount code (each applies to its own merchant's items); writes nothing. An invalid code does not fail the preview: it is left out and listed in `rejected_codes: [{code, reason}]` (`not_found`, `expired`, `not_started`, `used_up`, `already_used`, `minimum_not_met`, `not_applicable`); `POST /api/v1/orders` still rejects it. Unavailable, owned or repeated items and two codes of one kind are a 400 in both; the preview also lists the usable vouchers of the selected items' merchants: `claimed_vouchers` (claimed by the caller) and `recommended_vouchers` (the others)
 - `POST /api/v1/orders` — creates one `ORD-YYYYMMDD-NNNN` order that stays payable for 60 minutes and returns Duitku's `payment_reference` (for `checkout.process`) and `payment_url`; a Rp0 order is paid at once, and totals between Rp1 and Rp9,999 are rejected. 409 with `details.order_id` when an item already awaits payment in another order; 502 when Duitku fails (the order becomes `failed` and its codes are released); 503 when payment is not configured
 - `GET /api/v1/orders/:id` — the buyer's order for the return page; the payment link is included only while the order can be paid; `payment_method` is the Duitku channel code and `payment_method_label` its name ("Gratis" for a free order, `null` while unpaid)
 - `POST /api/v1/orders/:id/cancel` — cancels a pending order within its window and releases its codes

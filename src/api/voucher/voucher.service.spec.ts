@@ -231,8 +231,8 @@ describe('VoucherService', () => {
       dataSource.query.mock.calls;
     expect(featuredSql).toContain('ORDER BY random()');
     expect(featuredSql).toContain('hashtext(coupon.id::text)');
-    expect(featuredParams.slice(4)).toEqual([3, 0, null]);
-    expect(promoParams.slice(4)).toEqual([6, 0, null]);
+    expect(featuredParams.slice(7)).toEqual([null, 'any', 3, 0]);
+    expect(promoParams.slice(7)).toEqual([null, 'any', 6, 0]);
   });
 
   it('returns a null category slug for a merchant without a canonical category', () => {
@@ -301,14 +301,127 @@ describe('VoucherService', () => {
 
     await service.findPublic({ merchant_id: merchantId });
 
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.stringContaining('merchant.id = $7'),
-      expect.arrayContaining([merchantId]),
+    const calls = dataSource.query.mock.calls as Array<[string, unknown[]]>;
+    expect(calls).toHaveLength(2);
+    for (const [sql, params] of calls) {
+      expect(sql).toContain('merchant.id = $5');
+      expect(params[4]).toBe(merchantId);
+    }
+  });
+
+  it("marks the viewer's claims on public vouchers and none without a token", async () => {
+    dataSource.query.mockImplementation((sql: string) =>
+      Promise.resolve(
+        sql.includes('COUNT(*)')
+          ? [{ total: 1 }]
+          : [{ ...publicVoucherRow, is_claimed: true }],
+      ),
     );
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.stringContaining('merchant.id = $5'),
-      expect.arrayContaining([merchantId]),
+
+    const signedIn = await service.findPublic({}, userId);
+    await service.findPublic({});
+
+    expect(signedIn.data[0].is_claimed).toBe(true);
+    const [[rowsSql, viewerParams], , [, guestParams]] = dataSource.query.mock
+      .calls as Array<[string, unknown[]]>;
+    expect(rowsSql).toContain('claim.id IS NOT NULL AS is_claimed');
+    expect(rowsSql).toContain('claim.user_id = $8::uuid');
+    expect(viewerParams[7]).toBe(userId);
+    expect(guestParams[7]).toBeNull();
+  });
+
+  it('lists only claimed vouchers, newest claim first', async () => {
+    dataSource.query.mockImplementation((sql: string) =>
+      Promise.resolve(
+        sql.includes('COUNT(*)')
+          ? [{ total: 1 }]
+          : [{ ...publicVoucherRow, is_claimed: true }],
+      ),
     );
+
+    const response = await service.findClaimed(userId, 1, 10);
+
+    expect(response.meta).toMatchObject({ total: 1 });
+    const [[sql, params]] = dataSource.query.mock.calls as Array<
+      [string, unknown[]]
+    >;
+    expect(sql).toContain('ORDER BY claim.created_at DESC NULLS LAST');
+    expect(params.slice(7)).toEqual([userId, 'claimed', 10, 0]);
+  });
+
+  it('claims a usable voucher once without reserving a use', async () => {
+    const execute = jest.fn().mockResolvedValue(undefined);
+    const builder = {
+      insert: jest.fn().mockReturnThis(),
+      into: jest.fn().mockReturnThis(),
+      values: jest.fn().mockReturnThis(),
+      orIgnore: jest.fn().mockReturnThis(),
+      execute,
+    };
+    Object.assign(dataSource, { createQueryBuilder: () => builder });
+    dataSource.query.mockResolvedValue([
+      { ...publicVoucherRow, is_claimed: false },
+    ]);
+
+    const response = await service.claim(userId, voucherId);
+
+    expect(response.data).toMatchObject({ id: voucherId, is_claimed: true });
+    expect(builder.values).toHaveBeenCalledWith({
+      userId,
+      couponId: voucherId,
+    });
+    expect(builder.orIgnore).toHaveBeenCalled();
+    expect(execute).toHaveBeenCalledTimes(1);
+    const [[sql, params]] = dataSource.query.mock.calls as Array<
+      [string, unknown[]]
+    >;
+    expect(sql).not.toContain('INSERT');
+    expect(params[6]).toBe(voucherId);
+  });
+
+  it('refuses to claim a voucher that is not usable', async () => {
+    dataSource.query.mockResolvedValue([]);
+
+    await expect(service.claim(userId, voucherId)).rejects.toThrow(
+      'Voucher not found',
+    );
+  });
+
+  it("unclaims only the caller's live claim", async () => {
+    await service.unclaim(userId, voucherId);
+
+    expect(manager.softDelete).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ userId, couponId: voucherId }),
+    );
+  });
+
+  it("splits the checkout merchants' vouchers by the buyer's claims", async () => {
+    dataSource.query.mockResolvedValue([
+      { ...publicVoucherRow, id: 'claimed', is_claimed: true },
+      { ...publicVoucherRow, id: 'other', is_claimed: false },
+    ]);
+
+    const vouchers = await service.checkoutVouchers(userId, [merchantId]);
+
+    expect(vouchers.claimed.map((voucher) => voucher.id)).toEqual(['claimed']);
+    expect(vouchers.recommended.map((voucher) => voucher.id)).toEqual([
+      'other',
+    ]);
+    const [[sql, params]] = dataSource.query.mock.calls as Array<
+      [string, unknown[]]
+    >;
+    expect(sql).toContain('coupon.merchant_id = ANY($6::uuid[])');
+    expect(params[5]).toEqual([merchantId]);
+    expect(params.slice(7)).toEqual([userId, 'any', null, 0]);
+  });
+
+  it('skips the voucher query when no merchant is selected', async () => {
+    await expect(service.checkoutVouchers(userId, [])).resolves.toEqual({
+      claimed: [],
+      recommended: [],
+    });
+    expect(dataSource.query).not.toHaveBeenCalled();
   });
 
   it.each([

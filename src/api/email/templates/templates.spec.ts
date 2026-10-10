@@ -256,7 +256,8 @@ describe('email templates', () => {
       const email = renderEmail(kind, payload, FRONTEND);
 
       expect(email.subject.trim()).not.toBe('');
-      expect(email.html).toContain(`src="${FRONTEND}/logo.png"`);
+      expect(email.html).toContain(`src="${FRONTEND}/logo2.jpg"`);
+      expect(email.html).toContain('bgcolor="#2D78F7"');
       expect(email.html).toContain(
         'Email ini dikirim otomatis oleh Pintar Pintar',
       );

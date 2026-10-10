@@ -9,6 +9,9 @@ const TEXT = '#3B4256';
 const MUTED = '#6B7287';
 const LINE = '#E3E7EF';
 const SOFT = '#EEF4FE';
+// The background baked into the white logo (`/logo2.jpg` on the frontend),
+// so the logo blends into the header band without a visible box.
+const HEADER_BLUE = '#2D78F7';
 const FONT = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
 
 export interface Block {
@@ -254,8 +257,8 @@ export function layout(
 <div style="margin:0;padding:24px 12px;background:#F3F5F9;">
 <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(content.preheader)}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:12px;border-collapse:separate;">
-<tr><td style="padding:28px 32px 8px;"><img src="${escapeHtml(frontendUrl)}/logo.png" width="96" alt="Pintar Pintar" style="display:block;border:0;height:auto;font:bold 18px ${FONT};color:${NAVY};"></td></tr>
-<tr><td style="padding:16px 32px 8px;">
+<tr><td bgcolor="${HEADER_BLUE}" style="padding:20px 32px;background:${HEADER_BLUE};border-radius:12px 12px 0 0;"><img src="${escapeHtml(frontendUrl)}/logo2.jpg" width="96" alt="Pintar Pintar" style="display:block;border:0;height:auto;font:bold 18px ${FONT};color:#FFFFFF;"></td></tr>
+<tr><td style="padding:28px 32px 8px;">
 <h1 style="margin:0 0 20px;font:bold 22px/1.3 ${FONT};color:${NAVY};">${escapeHtml(content.title)}</h1>
 ${content.blocks.map((block) => block.html).join('\n')}
 ${buttonHtml}

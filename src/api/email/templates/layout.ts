@@ -3,20 +3,28 @@
 // Each block carries its HTML and its plain-text form, so both parts of an
 // email always hold the same information.
 
+import { EMAIL_ASSETS_PATH, EMAIL_LOGO_FILE } from '../email-assets';
+
 const NAVY = '#1B2440';
 const BLUE = '#3A7EF3';
 const TEXT = '#3B4256';
 const MUTED = '#6B7287';
 const LINE = '#E3E7EF';
 const SOFT = '#EEF4FE';
-// The background baked into the white logo (`/logo2.jpg` on the frontend),
-// so the logo blends into the header band without a visible box.
+// The brand blue of the white logo. The logo is a transparent PNG, so it has
+// no box of its own when a mail app recolours the header in dark mode.
 const HEADER_BLUE = '#2D78F7';
 const FONT = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
 
 export interface Block {
   html: string;
   text: string;
+}
+
+/** Public base URLs, without a trailing slash. */
+export interface EmailUrls {
+  frontend: string;
+  api: string;
 }
 
 export interface EmailButton {
@@ -245,21 +253,22 @@ export function smallPrint(text: string): Block {
 
 export function layout(
   content: EmailContent,
-  frontendUrl: string,
+  urls: EmailUrls,
   year = new Date().getFullYear(),
 ): RenderedEmail {
   const { button } = content;
   const buttonHtml = button
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 24px;"><tr><td style="border-radius:8px;background:${BLUE};"><a href="${escapeHtml(button.url)}" style="display:inline-block;padding:12px 24px;font:bold 15px/1.2 ${FONT};color:#FFFFFF;text-decoration:none;border-radius:8px;">${escapeHtml(button.label)}</a></td></tr></table>`
     : '';
-  const helpUrl = `${frontendUrl}${FRONTEND_PATHS.help}`;
+  const helpUrl = `${urls.frontend}${FRONTEND_PATHS.help}`;
+  const logoUrl = `${urls.api}${EMAIL_ASSETS_PATH}/${EMAIL_LOGO_FILE}`;
   const html = `<!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(content.subject)}</title></head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escapeHtml(content.subject)}</title></head>
 <body style="margin:0;padding:0;background:#F3F5F9;">
 <div style="margin:0;padding:24px 12px;background:#F3F5F9;">
 <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(content.preheader)}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:12px;border-collapse:separate;">
-<tr><td bgcolor="${HEADER_BLUE}" style="padding:20px 32px;background:${HEADER_BLUE};border-radius:12px 12px 0 0;"><img src="${escapeHtml(frontendUrl)}/logo2.jpg" width="96" alt="Pintar Pintar" style="display:block;border:0;height:auto;font:bold 18px ${FONT};color:#FFFFFF;"></td></tr>
+<tr><td bgcolor="${HEADER_BLUE}" style="padding:20px 32px;background:${HEADER_BLUE};border-radius:12px 12px 0 0;"><img src="${escapeHtml(logoUrl)}" width="96" alt="Pintar Pintar" style="display:block;border:0;height:auto;font:bold 18px ${FONT};color:#FFFFFF;"></td></tr>
 <tr><td style="padding:28px 32px 8px;">
 <h1 style="margin:0 0 20px;font:bold 22px/1.3 ${FONT};color:${NAVY};">${escapeHtml(content.title)}</h1>
 ${content.blocks.map((block) => block.html).join('\n')}

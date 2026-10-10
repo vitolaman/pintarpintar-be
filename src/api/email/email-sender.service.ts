@@ -175,11 +175,10 @@ export class EmailSenderService {
       if (!isEmailKind(email.kind)) {
         throw new Error(`unknown email kind ${email.kind}`);
       }
-      rendered = renderEmail(
-        email.kind,
-        email.payload as never,
-        this.settings.frontendUrl,
-      );
+      rendered = renderEmail(email.kind, email.payload as never, {
+        frontend: this.settings.frontendUrl,
+        api: this.settings.apiPublicUrl,
+      });
     } catch (error) {
       await this.record(email, {
         status: 'failed',

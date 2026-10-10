@@ -15,6 +15,7 @@ import { TOO_MANY_REQUESTS_MESSAGE } from './common/guard/client-address-throttl
 // import { RedisModule } from './common/redis/src';
 // import { RedisHealthIndicator } from './common/redis/src/redis-health-indicator';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { EMAIL_ASSETS_PATH } from './api/email/email-assets';
 import { join } from 'path';
 import jwtConfig from './config/jwt.config';
 import adminJwtConfig from './config/admin-jwt.config';
@@ -62,6 +63,14 @@ import { EmailModule } from './api/email/email.module';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'master_profile_pics'),
       serveRoot: '/master-profile-pictures',
+    }),
+    // Images that emails link to, such as the transparent header logo.
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, 'api', 'email', 'assets'),
+      serveRoot: EMAIL_ASSETS_PATH,
+      serveStaticOptions: { index: false, maxAge: '7d' },
+      // No single-page-app fallback: a missing image is a plain 404.
+      exclude: [`${EMAIL_ASSETS_PATH}/(.*)`],
     }),
     ConfigModule.forRoot({
       isGlobal: true,

@@ -71,6 +71,32 @@ describe('MailSettings', () => {
     expect(warn.mock.calls[0][0]).not.toContain('typo-frontend-value');
   });
 
+  it('defaults API_PUBLIC_URL to the live API and lets it be overridden', () => {
+    expect(settings(COMPLETE).apiPublicUrl).toBe('https://api.pintarpintar.id');
+    expect(
+      settings({ ...COMPLETE, API_PUBLIC_URL: 'http://localhost:3001/' })
+        .apiPublicUrl,
+    ).toBe('http://localhost:3001');
+  });
+
+  it('warns once per unusable URL variable, by name', () => {
+    const mail = settings({
+      ...COMPLETE,
+      FRONTEND_URL: 'typo-frontend-value',
+      API_PUBLIC_URL: 'typo-api-value',
+    });
+    const warn = jest
+      .spyOn(mail['logger'], 'warn')
+      .mockImplementation(() => undefined);
+
+    expect(mail.apiPublicUrl).toBe('https://api.pintarpintar.id');
+    expect(mail.apiPublicUrl).toBe('https://api.pintarpintar.id');
+    expect(mail.frontendUrl).toBe('https://pintarpintar.id');
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[0][0]).toContain('API_PUBLIC_URL');
+    expect(warn.mock.calls[0][0]).not.toContain('typo-api-value');
+  });
+
   it('uses STARTTLS on 587 and implicit TLS on 465', () => {
     expect(settings(COMPLETE).smtpTransport()).toMatchObject({
       host: 'mail.example.test',

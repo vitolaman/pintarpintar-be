@@ -346,18 +346,18 @@ describe('email templates', () => {
     const ended = renderEmail('pro_ended', SAMPLES.pro_ended[0], FRONTEND);
 
     expect(expiring.subject).toBe(
-      'Masa Pro kamu berakhir pada 31 Oktober 2026',
+      'Pro Subscription kamu berakhir pada 31 Oktober 2026',
     );
     expect(notRenewed.subject).toBe(
-      'Masa Pro kamu belum diperpanjang dan akan berakhir pada 7 November 2026',
+      'Pro Subscription kamu belum diperpanjang dan akan berakhir pada 7 November 2026',
     );
-    expect(ended.subject).toBe('Masa Pro kamu telah berakhir');
+    expect(ended.subject).toBe('Pro Subscription kamu telah berakhir');
     expect(expiring.text).toContain('Perpanjang Pro');
     expect(notRenewed.text).toContain('Perpanjang Pro');
     expect(ended.text).toContain('Daftar Ulang Pro');
-    expect(ended.text).toContain('Benefit Pro');
+    expect(ended.text).toContain('Benefit Pro Subscription');
     for (const email of [expiring, notRenewed, ended]) {
-      expect(email.text).not.toMatch(/tambahan|sisa|lagi selama/i);
+      expect(email.text).not.toMatch(/tambahan|sisa|lagi selama|Masa Pro/i);
       expect(email.html).toContain(`href="${FRONTEND}/merchant/dashboard"`);
     }
   });

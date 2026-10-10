@@ -22,19 +22,22 @@ import { DuitkuCallbackDto } from './dto/duitku-callback.dto';
 import { DuitkuClient } from './duitku/duitku.client';
 import { isValidCallbackSignature } from './duitku/duitku-signature';
 import { OrderPaymentService } from './order-payment.service';
+import { ProPaymentService } from './pro-payment.service';
 
 @Controller('api/v1/payments')
 @ApiTags('Payments')
 export class PaymentCallbackController {
   constructor(
     private readonly duitku: DuitkuClient,
-    private readonly payments: OrderPaymentService,
+    private readonly orderPayments: OrderPaymentService,
+    private readonly proPayments: ProPaymentService,
   ) {}
 
   /**
-   * Duitku's payment notification. An order is also marked paid by
-   * check-payment, or at checkout when it totals Rp0. Duitku retries until it
-   * receives 200, so a repeat is acknowledged without applying anything twice.
+   * Duitku's payment notification for both orders and Pro subscriptions.
+   * Differentiates based on the merchant order ID prefix (ORD- vs PRO-).
+   * Duitku retries until it receives 200, so a repeat is acknowledged without
+   * applying anything twice.
    */
   @Public()
   @Post('duitku/callback')
@@ -69,17 +72,31 @@ export class PaymentCallbackController {
     }
 
     try {
-      await this.payments.applyGatewayResult({
-        orderNumber: callback.merchantOrderId,
+      const result = {
         resultCode: callback.resultCode,
         amount: callback.amount,
         reference: callback.reference ?? null,
         paymentMethod: callback.paymentCode ?? null,
         settlementDate: callback.settlementDate ?? null,
-      });
+      };
+
+      // Route to appropriate payment service based on order ID prefix
+      if (callback.merchantOrderId.startsWith('PRO-')) {
+        await this.proPayments.applyGatewayResult({
+          transactionNumber: callback.merchantOrderId,
+          ...result,
+        });
+      } else if (callback.merchantOrderId.startsWith('ORD-')) {
+        await this.orderPayments.applyGatewayResult({
+          orderNumber: callback.merchantOrderId,
+          ...result,
+        });
+      } else {
+        throw new BadRequestException('Unknown merchant order ID format');
+      }
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw new BadRequestException('Unknown order');
+        throw new BadRequestException('Unknown order or transaction');
       }
       throw error;
     }

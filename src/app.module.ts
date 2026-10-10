@@ -29,6 +29,7 @@ import { UploadModule } from './upload/upload.module';
 import { ClassModule } from './class/class.module';
 import { VoucherModule } from './api/voucher/voucher.module';
 import { HelpTicketModule } from './api/help-ticket/help-ticket.module';
+import { PartnershipRequestModule } from './api/partnership-request/partnership-request.module';
 import { PortalModule } from './api/portal/portal.module';
 import { OrderModule } from './api/order/order.module';
 import { PayoutAccountModule } from './api/payout-account/payout-account.module';
@@ -86,6 +87,7 @@ import { EmailModule } from './api/email/email.module';
     UploadModule,
     VoucherModule,
     HelpTicketModule,
+    PartnershipRequestModule,
     PortalModule,
     OrderModule,
     PayoutAccountModule,

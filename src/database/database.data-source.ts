@@ -52,6 +52,7 @@ import { DiscountProduct } from '~/api/discount/entities/discount-product.entity
 import { CouponUsage } from '~/api/voucher/entities/coupon-usage.entity';
 import { Voucher } from '~/api/voucher/entities/voucher.entity';
 import { HelpTicket } from '~/api/help-ticket/entities/help-ticket.entity';
+import { CertificationPartnershipRequest } from '~/api/partnership-request/entities/certification-partnership-request.entity';
 import { FaqCategory } from '~/api/faq/entities/faq-category.entity';
 import { Faq } from '~/api/faq/entities/faq.entity';
 import { Review } from '~/api/review/entities/review.entity';
@@ -141,6 +142,7 @@ export const dataSourceOptions: DataSourceOptions = {
     DiscountProduct,
     DiscountCode,
     HelpTicket,
+    CertificationPartnershipRequest,
     FaqCategory,
     Faq,
     Review,

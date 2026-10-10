@@ -125,6 +125,10 @@ The collections take `limit` (default 10, at most 50) and return the newest firs
 - `GET /api/v1/help-tickets` — the caller's tickets, paginated
 - `GET /api/v1/help-tickets/:id` — one of the caller's tickets
 
+### Sertifikasi
+
+- `POST /api/v1/certification-partnership-requests` — **public**; the "Ajukan Kerjasama Sertifikasi" form: `institution_name` (required, up to 200), `profile` (optional, up to 2,000), `email` and `phone` (required, phone up to 32); linked to the user when a valid token is sent; stored only (no email or status yet); 5 per visitor address per 10 minutes (429 beyond)
+
 ### Profile and Portal Saya
 
 - `GET /api/v1/profile` — includes `member_since` and `onboarding {role, custom_role, skills, completed_at}`

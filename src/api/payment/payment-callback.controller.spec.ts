@@ -1,7 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { createHmac } from 'node:crypto';
 import { DuitkuClient } from './duitku/duitku.client';
 import { OrderPaymentService } from './order-payment.service';
 import { PaymentCallbackController } from './payment-callback.controller';
+import { ProPaymentService } from './pro-payment.service';
 
 // HMAC-SHA256('DMOCK1' + '150000' + 'ORD-20260930-0001', 'secret-key').
 const SIGNATURE =
@@ -9,12 +11,20 @@ const SIGNATURE =
 
 describe('PaymentCallbackController', () => {
   const applyGatewayResult = jest.fn();
+  const applyProGatewayResult = jest.fn();
   const controller = new PaymentCallbackController(
     {
       requireConfig: () => ({ merchantCode: 'DMOCK1', apiKey: 'secret-key' }),
     } as unknown as DuitkuClient,
     { applyGatewayResult } as unknown as OrderPaymentService,
+    {
+      applyGatewayResult: applyProGatewayResult,
+    } as unknown as ProPaymentService,
   );
+  const signed = (merchantOrderId: string) =>
+    createHmac('sha256', 'secret-key')
+      .update(`DMOCK1150000${merchantOrderId}`)
+      .digest('hex');
   const callback = (override: Record<string, unknown> = {}) =>
     ({
       merchantCode: 'DMOCK1',
@@ -28,7 +38,10 @@ describe('PaymentCallbackController', () => {
       ...override,
     }) as Record<string, unknown>;
 
-  beforeEach(() => applyGatewayResult.mockReset());
+  beforeEach(() => {
+    applyGatewayResult.mockReset();
+    applyProGatewayResult.mockReset();
+  });
 
   it('applies a verified notification', async () => {
     await expect(controller.handleDuitkuCallback(callback())).resolves.toEqual({
@@ -42,6 +55,31 @@ describe('PaymentCallbackController', () => {
       paymentMethod: 'BC',
       settlementDate: '2026-10-02',
     });
+    expect(applyProGatewayResult).not.toHaveBeenCalled();
+  });
+
+  it('routes a Pro subscription notification to the Pro payments', async () => {
+    const id = 'PRO-20261010-0001';
+    await expect(
+      controller.handleDuitkuCallback(
+        callback({ merchantOrderId: id, signature: signed(id) }),
+      ),
+    ).resolves.toEqual({ responseMessage: 'Callback processed' });
+    expect(applyProGatewayResult).toHaveBeenCalledWith(
+      expect.objectContaining({ transactionNumber: id, resultCode: '00' }),
+    );
+    expect(applyGatewayResult).not.toHaveBeenCalled();
+  });
+
+  it('rejects an order id of an unknown format', async () => {
+    const id = 'XYZ-1';
+    await expect(
+      controller.handleDuitkuCallback(
+        callback({ merchantOrderId: id, signature: signed(id) }),
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(applyGatewayResult).not.toHaveBeenCalled();
+    expect(applyProGatewayResult).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -78,11 +116,11 @@ describe('PaymentCallbackController', () => {
     expect(applyGatewayResult).not.toHaveBeenCalled();
   });
 
-  it('reports an unknown order as a bad request', async () => {
+  it('reports an unknown order or Pro transaction as a bad request', async () => {
     applyGatewayResult.mockRejectedValueOnce(new NotFoundException());
 
     await expect(controller.handleDuitkuCallback(callback())).rejects.toThrow(
-      new BadRequestException('Unknown order'),
+      new BadRequestException('Unknown order or transaction'),
     );
   });
 });

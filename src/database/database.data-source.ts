@@ -53,6 +53,11 @@ import { CouponUsage } from '~/api/voucher/entities/coupon-usage.entity';
 import { Voucher } from '~/api/voucher/entities/voucher.entity';
 import { HelpTicket } from '~/api/help-ticket/entities/help-ticket.entity';
 import { CertificationPartnershipRequest } from '~/api/partnership-request/entities/certification-partnership-request.entity';
+import { CommunityGroupMember } from '~/api/community/entities/community-group-member.entity';
+import { CommunityGroup } from '~/api/community/entities/community-group.entity';
+import { CommunityLike } from '~/api/community/entities/community-like.entity';
+import { CommunityReply } from '~/api/community/entities/community-reply.entity';
+import { CommunityThread } from '~/api/community/entities/community-thread.entity';
 import { FaqCategory } from '~/api/faq/entities/faq-category.entity';
 import { Faq } from '~/api/faq/entities/faq.entity';
 import { Review } from '~/api/review/entities/review.entity';
@@ -143,6 +148,11 @@ export const dataSourceOptions: DataSourceOptions = {
     DiscountCode,
     HelpTicket,
     CertificationPartnershipRequest,
+    CommunityGroup,
+    CommunityGroupMember,
+    CommunityThread,
+    CommunityReply,
+    CommunityLike,
     FaqCategory,
     Faq,
     Review,

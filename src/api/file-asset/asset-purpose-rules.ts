@@ -284,6 +284,18 @@ export const ASSET_PURPOSE_RULES = {
     maxBytes: 10 * MEBIBYTE,
     visibility: 'private',
   },
+  community_group_image: {
+    kinds: IMAGE_ONLY,
+    maxBytes: 2 * MEBIBYTE,
+    visibility: 'public',
+  },
+  // Files shared in community threads; private so a request-only group's
+  // files reach only its members (signed links).
+  community_attachment: {
+    blocked: UNSAFE_FILES,
+    maxBytes: 20 * MEBIBYTE,
+    visibility: 'private',
+  },
 } satisfies Record<string, AssetPurposeRule>;
 
 export type AssetPurpose = keyof typeof ASSET_PURPOSE_RULES;

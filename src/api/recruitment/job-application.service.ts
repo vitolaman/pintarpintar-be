@@ -85,7 +85,7 @@ interface ApplicantRow {
   name: string;
   email: string;
   phone: string;
-  linkedin_url: string;
+  linkedin_url: string | null;
   note: string | null;
   avatar_object_key: string | null;
   headline: string | null;
@@ -148,7 +148,7 @@ export class JobApplicationService {
             name: input.name,
             email: input.email,
             phone: input.phone,
-            linkedinUrl: input.linkedin_url,
+            linkedinUrl: input.linkedin_url ?? null,
             cvAssetId: input.cv_asset_id,
             note: input.note ?? null,
             status: 'review',

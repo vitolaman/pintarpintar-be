@@ -49,6 +49,8 @@ describe('job application DTOs', () => {
   it.each([
     [{}, []],
     [{ linkedin_url: 'javascript:alert(1)' }, ['linkedin_url']],
+    [{ linkedin_url: 'linkedin' }, ['linkedin_url']],
+    [{ linkedin_url: 'https://x.co/' + 'a'.repeat(500) }, ['linkedin_url']],
     [{ email: 'budi' }, ['email']],
     [{ cv_asset_id: 'cv' }, ['cv_asset_id']],
     [{ name: null }, ['name']],
@@ -80,6 +82,15 @@ describe('job application DTOs', () => {
     expect(dto.note).toBeNull();
     expect(await validate(dto)).toEqual([]);
   });
+
+  it.each([[''], ['   '], [null], [undefined]])(
+    'accepts an application without LinkedIn given %j',
+    async (linkedin_url) => {
+      const dto = plainToInstance(ApplyJobDto, { ...applyInput, linkedin_url });
+      expect(await validate(dto)).toEqual([]);
+      expect(dto.linkedin_url ?? null).toBeNull();
+    },
+  );
 
   it.each([[''], ['   '], [null]])('rejects a phone of %j', async (phone) => {
     expect(await errorFields(ApplyJobDto, { ...applyInput, phone })).toEqual([
@@ -207,6 +218,16 @@ describe('JobApplicationService', () => {
     await expect(
       service.apply(applicantId, jobId, applyInput),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('stores an application without LinkedIn as null', async () => {
+    await service
+      .apply(applicantId, jobId, { ...applyInput, linkedin_url: undefined })
+      .catch(() => undefined);
+    expect(manager.create).toHaveBeenCalledWith(
+      JobApplication,
+      expect.objectContaining({ linkedinUrl: null }),
+    );
   });
 
   it('rejects applying to the merchant own vacancy', async () => {

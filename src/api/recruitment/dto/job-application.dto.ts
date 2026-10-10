@@ -48,9 +48,14 @@ export class ApplyJobDto {
   })
   phone: string;
 
-  @RequiredText({ max: 500, example: 'https://linkedin.com/in/budi' })
+  @ClearableText({
+    max: 500,
+    example: 'https://linkedin.com/in/budi',
+    description:
+      'Optional; an http or https URL when sent. Blank or null means none.',
+  })
   @IsUrl(WEB_URL)
-  linkedin_url: string;
+  linkedin_url?: string | null;
 
   @ApiProperty({
     format: 'uuid',
@@ -172,7 +177,8 @@ export class ApplicantResponseDto extends ApplicationProgressFields {
   @ApiProperty() name: string;
   @ApiProperty() email: string;
   @ApiProperty({ description: 'WhatsApp' }) phone: string;
-  @ApiProperty() linkedin_url: string;
+  @ApiPropertyOptional({ nullable: true, description: 'Null when not given' })
+  linkedin_url: string | null;
   @ApiPropertyOptional({ nullable: true }) note: string | null;
   @ApiPropertyOptional({ nullable: true }) avatar_url: string | null;
   @ApiPropertyOptional({

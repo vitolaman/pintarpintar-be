@@ -21,8 +21,13 @@ export class JobApplication extends BaseEntity {
   @Column({ type: 'varchar', length: 32 })
   phone: string;
 
-  @Column({ name: 'linkedin_url', type: 'varchar', length: 500 })
-  linkedinUrl: string;
+  @Column({
+    name: 'linkedin_url',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
+  linkedinUrl: string | null;
 
   @Column({ name: 'cv_asset_id', type: 'uuid' })
   cvAssetId: string;

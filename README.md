@@ -390,7 +390,7 @@ Merchants publish teaching vacancies; any logged-in user except the vacancy's me
 - `GET /api/v1/merchant/job-postings/:id`
 - `PATCH /api/v1/merchant/job-postings/:id` — `class_id: null` unlinks the class; `location` and `salary` are cleared with `null` or `""`; closed vacancies cannot be edited
 - `POST /api/v1/merchant/job-postings/:id/close` — permanent; applications are kept
-- `POST /api/v1/job-postings/:jobId/apply` — name, email, WhatsApp, LinkedIn, `cv_asset_id` (an uploaded PDF/DOC/DOCX up to 10 MB, or the applicant's mentor CV), optional note; 409 on a second application
+- `POST /api/v1/job-postings/:jobId/apply` — name, email, WhatsApp, optional LinkedIn (`linkedin_url`, an http or https URL when sent; `null` in responses when not given), `cv_asset_id` (an uploaded PDF/DOC/DOCX up to 10 MB, or the applicant's mentor CV), optional note; 409 on a second application
 - `GET /api/v1/job-applications` — Progress Lamaran; `status` filter, paginated; counts per status
 - `GET /api/v1/merchant/job-applications` — filter by `job_id`, `status`, `search`; counts per status; `mentor_id` when the applicant is a mentor
 - `GET /api/v1/merchant/job-applications/:id/cv` — signed CV link (10 minutes)

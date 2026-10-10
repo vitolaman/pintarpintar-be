@@ -112,6 +112,13 @@ export interface WithdrawalOutcomeEmail {
   requested_at: string;
 }
 
+export interface ProExpiryEmail {
+  owner_name: string;
+  store_name: string;
+  // YYYY-MM-DD in Asia/Jakarta: the date the merchant is told Pro ends.
+  end_date: string;
+}
+
 export interface MerchantNewApplicantEmail {
   owner_name: string;
   store_name: string;
@@ -210,6 +217,9 @@ export interface EmailPayloads {
   withdrawal_succeeded: WithdrawalOutcomeEmail;
   withdrawal_failed: WithdrawalOutcomeEmail;
   merchant_new_applicant: MerchantNewApplicantEmail;
+  pro_expiring: ProExpiryEmail;
+  pro_not_renewed: ProExpiryEmail;
+  pro_ended: ProExpiryEmail;
   payout_account_changed: PayoutAccountChangedEmail;
   password_changed: PasswordChangedEmail;
   password_reset: PasswordResetEmail;

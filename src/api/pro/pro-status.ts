@@ -5,6 +5,31 @@ export interface ProStatus {
   isPro: boolean;
   /** End of the Pro time that continues from now without a gap. */
   proUntil: Date | null;
+  /** After the Pro time ends its benefits continue until `graceUntil`. */
+  inGrace: boolean;
+  graceUntil: Date | null;
+}
+
+// Pro benefits continue after the Pro time ends until 00.00 WIB of the
+// seventh Asia/Jakarta date after the end, the date the merchant is told
+// Pro ends (owner decision 2026-10-10).
+export const PRO_GRACE_DAYS = 7;
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function proGraceEnd(proEnd: Date): Date {
+  const jakarta = new Date(proEnd.getTime() + JAKARTA_OFFSET_MS);
+  const midnight = Date.UTC(
+    jakarta.getUTCFullYear(),
+    jakarta.getUTCMonth(),
+    jakarta.getUTCDate() + PRO_GRACE_DAYS,
+  );
+  return new Date(midnight - JAKARTA_OFFSET_MS);
+}
+
+/** Whether the store has the Pro benefits now: Pro, or within the grace. */
+export function hasProBenefits(status: ProStatus): boolean {
+  return status.isPro || status.inGrace;
 }
 
 export interface ProPeriodGroups extends ProStatus {
@@ -57,10 +82,33 @@ export function groupProPeriods(
     )
     .sort((a, b) => byStart(b, a));
 
-  return { isPro: current !== null, proUntil, current, upcoming, history };
+  let graceUntil: Date | null = null;
+  if (!current) {
+    const ended = active.filter((period) => period.endsAt.getTime() <= time);
+    if (ended.length > 0) {
+      const lastEnd = Math.max(
+        ...ended.map((period) => period.endsAt.getTime()),
+      );
+      const end = proGraceEnd(new Date(lastEnd));
+      if (end.getTime() > time) graceUntil = end;
+    }
+  }
+
+  return {
+    isPro: current !== null,
+    proUntil,
+    inGrace: graceUntil !== null,
+    graceUntil,
+    current,
+    upcoming,
+    history,
+  };
 }
 
-/** Whether a merchant is Pro now; reads only periods that have not ended. */
+/**
+ * Whether a merchant is Pro or in its grace now; reads only periods that have
+ * not ended or ended recently enough to still give a grace.
+ */
 export async function merchantProStatus(
   manager: EntityManager,
   merchantId: string,
@@ -70,9 +118,12 @@ export async function merchantProStatus(
     where: {
       merchantId,
       status: 'active',
-      endsAt: MoreThan(now),
+      endsAt: MoreThan(new Date(now.getTime() - (PRO_GRACE_DAYS + 1) * DAY_MS)),
     },
   });
-  const { isPro, proUntil } = groupProPeriods(periods, now);
-  return { isPro, proUntil };
+  const { isPro, proUntil, inGrace, graceUntil } = groupProPeriods(
+    periods,
+    now,
+  );
+  return { isPro, proUntil, inGrace, graceUntil };
 }

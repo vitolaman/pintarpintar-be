@@ -661,11 +661,19 @@ export class MerchantService {
     };
   }
 
-  private async proFields(
-    merchantId: string,
-  ): Promise<{ is_pro: boolean; pro_until: Date | null }> {
+  private async proFields(merchantId: string): Promise<{
+    is_pro: boolean;
+    pro_until: Date | null;
+    in_grace: boolean;
+    grace_until: Date | null;
+  }> {
     const pro = await merchantProStatus(this.merchants.manager, merchantId);
-    return { is_pro: pro.isPro, pro_until: pro.proUntil };
+    return {
+      is_pro: pro.isPro,
+      pro_until: pro.proUntil,
+      in_grace: pro.inGrace,
+      grace_until: pro.graceUntil,
+    };
   }
 
   private sanitizeDescription(description: string): string {

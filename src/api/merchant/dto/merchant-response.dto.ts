@@ -80,6 +80,21 @@ export class MerchantResponseDto {
   })
   pro_until: Date | null;
 
+  @ApiProperty({
+    description:
+      'True after the Pro time ended while its benefits still apply (until grace_until); is_pro is false then',
+  })
+  in_grace: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    format: 'date-time',
+    description:
+      'When the Pro benefits stop after the Pro time ended: 00.00 WIB of the 7th day after the end; null outside the grace',
+  })
+  grace_until: Date | null;
+
   @ApiProperty()
   slug: string;
 

@@ -312,6 +312,8 @@ describe('MerchantService', () => {
       experience_years: null,
       is_pro: false,
       pro_until: null,
+      in_grace: false,
+      grace_until: null,
       avatar_url: 'https://cdn.example.com/merchants/logo.png',
       cover_url: null,
       skills: ['AutoCAD', 'SAP2000'],

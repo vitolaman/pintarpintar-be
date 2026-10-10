@@ -243,6 +243,8 @@ describe('ProfileService', () => {
         is_merchant: false,
         is_pro: false,
         pro_until: null,
+        in_grace: false,
+        grace_until: null,
         avatar_asset_id: null,
         phone: '+62 812-3456-7890',
         headline: null,

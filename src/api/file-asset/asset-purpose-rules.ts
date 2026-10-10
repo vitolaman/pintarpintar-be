@@ -11,7 +11,7 @@ import {
   MERCHANT_LEVEL_RULES,
 } from '../merchant-level/merchant-level-rules';
 import { assertWithinStorageQuota } from '../merchant-level/merchant-storage';
-import { merchantProStatus } from '../pro/pro-status';
+import { hasProBenefits, merchantProStatus } from '../pro/pro-status';
 
 const MEBIBYTE = 1024 * 1024;
 const GIBIBYTE = 1024 * MEBIBYTE;
@@ -558,6 +558,7 @@ async function ownerMerchant(
   if (!merchant) {
     throw new BadRequestException(FILE_NOT_AVAILABLE);
   }
-  const { isPro } = await merchantProStatus(manager, merchant.id);
+  // The grace after Pro ends keeps the Pro benefits.
+  const isPro = hasProBenefits(await merchantProStatus(manager, merchant.id));
   return { id: merchant.id, level: merchant.storageLevel, isPro };
 }

@@ -131,6 +131,8 @@ export const FRONTEND_PATHS = {
   balance: '/merchant/balance',
   merchantSettings: '/merchant/settings',
   merchantDashboard: '/merchant/dashboard',
+  // The frontend has no Pro page; its Pro upgrade entry is on the dashboard.
+  proUpgrade: '/merchant/dashboard',
   security: '/settings/security',
   login: '/login',
   resetPassword: '/reset-password',

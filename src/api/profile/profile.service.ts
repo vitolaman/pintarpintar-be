@@ -394,7 +394,7 @@ export class ProfileService {
     }
     const pro = row.merchant_id
       ? await merchantProStatus(this.dataSource.manager, row.merchant_id)
-      : { isPro: false, proUntil: null };
+      : { isPro: false, proUntil: null, inGrace: false, graceUntil: null };
 
     return {
       id: row.id,
@@ -411,6 +411,8 @@ export class ProfileService {
       merchant_id: row.merchant_id,
       is_pro: pro.isPro,
       pro_until: pro.proUntil,
+      in_grace: pro.inGrace,
+      grace_until: pro.graceUntil,
       member_since: row.member_since,
       expertise_list: splitSkills(row.mentor_expertise),
       onboarding: {

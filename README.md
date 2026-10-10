@@ -215,6 +215,8 @@ Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos,
 
 Pro is for merchants. Each store's Pro time is a list of periods (`merchant_pro_periods`); a store is Pro while an `active` period covers now, so Pro ends by itself at the end date. Plans (`pro_plans`: duration in months and price) are rows set by the platform team; none exist yet, and buying Pro is not implemented yet. While Pro, the store's content files have no per-file limit; the storage quota still applies, image caps stay, and files attached while Pro stay after it ends.
 
+After the Pro time ends without a following period, the Pro benefits continue until 00.00 WIB of the 7th Asia/Jakarta date after the end (the date the merchant is told Pro ends): `is_pro` is then false, `in_grace` true and `grace_until` that time. The Pro subscription and both profiles return `in_grace` and `grace_until`.
+
 - `GET /api/v1/pro-plans` — **public**; the offered plans (empty until plans exist)
 - `GET /api/v1/merchant/pro-subscription` — `is_pro`, `pro_until` (end of the Pro time continuing from now), the current period, upcoming periods and past or cancelled periods
 - `GET /api/v1/profile` and `GET /api/v1/merchant/profile` also return `is_pro` and `pro_until`
@@ -414,6 +416,7 @@ The backend emails users when these events happen. Every email has an HTML part 
 | Laporan mingguan | merchant | Mondays from 08.00 WIB (hourly until 23.00, once per store and week), for the Monday–Sunday that ended: net income and change vs the week before, transactions, buyers, top 3 items, new reviews and average, withdrawable balance (dashboard figures); unless `email_weekly_report` is off or the week had no sale and no review |
 | Hasil level, Peringatan, Produk dihapus | merchant | each monthly level evaluation, inactivity warning and removal |
 | Penarikan saldo diajukan | merchant | a withdrawal request |
+| Masa Pro berakhir / belum diperpanjang / telah berakhir | merchant | a daily job from 08.00 WIB: 7 days before the Pro time ends ("berakhir pada" the end date); on the end date and the next 6 dates ("belum diperpanjang dan akan berakhir pada" the end date plus 7 days); on that date ("telah berakhir", the benefits no longer apply); once per store and day, regardless of switches; a renewal stops the rest. Buttons: Perpanjang Pro, then Daftar Ulang Pro (to the merchant dashboard until the frontend has a Pro page) |
 | Penarikan saldo berhasil / gagal diproses | merchant | a job every 10 minutes finds withdrawals marked `success` or `failed` (they are completed by hand) and emails each outcome once; only withdrawals requested since 2026-10-05 and within the last 60 days; the failure email does not promise a refund to the balance |
 | Rekening pencairan diubah | merchant | a payout account is added, changed, deleted or made primary (masked number) |
 | Atur ulang kata sandi | user | a password reset request (link valid 60 minutes; the token is removed from the stored email once sent) |

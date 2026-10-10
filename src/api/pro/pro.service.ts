@@ -50,6 +50,8 @@ export class ProService {
       data: {
         is_pro: groups.isPro,
         pro_until: groups.proUntil,
+        in_grace: groups.inGrace,
+        grace_until: groups.graceUntil,
         current: groups.current && toPeriodResponse(groups.current),
         upcoming: groups.upcoming.map(toPeriodResponse),
         history: groups.history.map(toPeriodResponse),

@@ -11,7 +11,8 @@ export class ProSubscribeRequestDto {
   plan_id: string;
 
   @ApiPropertyOptional({
-    description: 'Optional coupon or discount code',
+    description:
+      'Optional discount code; accepted but not applied yet (the discount is 0)',
   })
   @IsOptional()
   @IsString()

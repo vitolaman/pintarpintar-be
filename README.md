@@ -185,7 +185,7 @@ Groups with threads, replies and likes. A group is `public` (anyone joins at onc
 - `GET /api/v1/orders/:id` — the buyer's order for the return page; the payment link is included only while the order can be paid; `payment_method` is the Duitku channel code and `payment_method_label` its name ("Gratis" for a free order, `null` while unpaid)
 - `POST /api/v1/orders/:id/cancel` — cancels a pending order within its window and releases its codes
 - `POST /api/v1/orders/:id/check-payment` — asks Duitku for the status of an unpaid order and applies a success like the callback (recovers a missed notification); 10 per minute per client address
-- `POST /api/v1/payments/duitku/callback` — **public**; Duitku's signed payment notification: marks the order paid, or a pending order `failed` on any other result; a bad signature, an unknown order or a wrong amount is 400
+- `POST /api/v1/payments/duitku/callback` — **public**; Duitku's signed payment notification for orders (`ORD-…`) and Pro transactions (`PRO-…`): marks the order or transaction paid, or a pending one `failed` on any other result; a bad signature, an unknown order or a wrong amount is 400
 
 An order is paid by the callback, by check-payment, or at checkout when its total is Rp0. Payment grants class enrolments and digital-product access (bundles expanded), removes the items from the cart, and credits each merchant's wallet with the item price minus its code discounts. Income becomes withdrawable on Duitku's settlement date (H+4, Asia/Jakarta, when none is reported, which is always the case after check-payment). Overdue unpaid orders are marked `expired` every minute; settlement runs every 30 minutes.
 
@@ -213,13 +213,16 @@ Per-file upload limit by level: 1, 5 or 10 GB for class materials, class videos,
 
 ### Pintar Pintar Pro
 
-Pro is for merchants. Each store's Pro time is a list of periods (`merchant_pro_periods`); a store is Pro while an `active` period covers now, so Pro ends by itself at the end date. Plans (`pro_plans`: duration in months and price) are rows set by the platform team; none exist yet, and buying Pro is not implemented yet. While Pro, the store's content files have no per-file limit; the storage quota still applies, image caps stay, and files attached while Pro stay after it ends.
+Pro is for merchants. Each store's Pro time is a list of periods (`merchant_pro_periods`); a store is Pro while an `active` period covers now, so Pro ends by itself at the end date. Plans (`pro_plans`: duration in months and price) are rows set by the platform team; none exist yet. A merchant buys a plan through Duitku (`pro_transactions`, numbered `PRO-YYYYMMDD-NNNN`); a paid transaction adds an `active` period starting at the payment time. While Pro, the store's content files have no per-file limit; the storage quota still applies, image caps stay, and files attached while Pro stay after it ends.
 
 After the Pro time ends without a following period, the Pro benefits continue until 00.00 WIB of the 7th Asia/Jakarta date after the end (the date the merchant is told Pro ends): `is_pro` is then false, `in_grace` true and `grace_until` that time. The Pro subscription and both profiles return `in_grace` and `grace_until`.
 
 - `GET /api/v1/pro-plans` — **public**; the offered plans (empty until plans exist)
 - `GET /api/v1/merchant/pro-subscription` — `is_pro`, `pro_until` (end of the Pro time continuing from now), the current period, upcoming periods and past or cancelled periods
 - `GET /api/v1/profile` and `GET /api/v1/merchant/profile` also return `is_pro` and `pro_until`
+- `POST /api/v1/pro-subscription/preview` — `{plan_id, code}`; the plan's name, duration, `base_price`, `discount_amount` and `total_amount`; 404 for a plan that is not offered; `code` is accepted but not applied yet (discount 0)
+- `POST /api/v1/pro-subscription` — merchants only (404 without a store); `{plan_id, code}`; creates a pending Pro transaction and its Duitku invoice (`payment_reference`, `payment_url`), payable for 60 minutes; a Rp0 total is paid at once; 502 when Duitku is unavailable, 503 when it is not configured; `code` is not applied yet
+- `POST /api/v1/pro-subscription/:id/cancel` — cancels the caller's own pending, unexpired Pro transaction; 404 otherwise
 
 ### Merchant dashboard
 

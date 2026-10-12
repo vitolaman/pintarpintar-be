@@ -3,7 +3,7 @@ import { applicationRejected } from './application-rejected.template';
 import { applicationSubmitted } from './application-submitted.template';
 import { certificateIssued } from './certificate-issued.template';
 import { interviewScheduled } from './interview-scheduled.template';
-import { FrontendPath, layout, RenderedEmail } from './layout';
+import { EmailUrls, FrontendPath, layout, RenderedEmail } from './layout';
 import {
   meetingCancelled,
   meetingCreated,
@@ -85,15 +85,15 @@ export function isEmailKind(kind: string): kind is EmailKind {
   return Object.prototype.hasOwnProperty.call(TEMPLATES, kind);
 }
 
-/** Renders a queued email; `frontendUrl` has no trailing slash. */
+/** Renders a queued email. */
 export function renderEmail<K extends EmailKind>(
   kind: K,
   payload: EmailPayloads[K],
-  frontendUrl: string,
+  urls: EmailUrls,
 ): RenderedEmail {
   const template = TEMPLATES[kind] as EmailTemplate<EmailPayloads[K]>;
-  const link = (path: FrontendPath) => `${frontendUrl}${path}`;
-  return layout(template(payload, link), frontendUrl);
+  const link = (path: FrontendPath) => `${urls.frontend}${path}`;
+  return layout(template(payload, link), urls);
 }
 
 export type { EmailKind, EmailPayloads } from './payloads';

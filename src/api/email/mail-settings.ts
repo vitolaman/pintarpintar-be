@@ -10,8 +10,11 @@ export const MAIL_VARIABLES = [
   'MAIL_SENDER',
 ] as const;
 
-/** Where email links and the logo point unless FRONTEND_URL overrides it. */
+/** Where email links point unless FRONTEND_URL overrides it. */
 export const DEFAULT_FRONTEND_URL = 'https://pintarpintar.id';
+
+/** This API's public address, for email images, unless API_PUBLIC_URL overrides it. */
+export const DEFAULT_API_PUBLIC_URL = 'https://api.pintarpintar.id';
 
 const SMTP_TIMEOUT_MS = 20_000;
 
@@ -23,7 +26,7 @@ const SMTP_TIMEOUT_MS = 20_000;
 @Injectable()
 export class MailSettings {
   private readonly logger = new Logger(MailSettings.name);
-  private warnedFrontendUrl = false;
+  private readonly warnedUrls = new Set<string>();
 
   constructor(private readonly config: ConfigService) {}
 
@@ -44,18 +47,12 @@ export class MailSettings {
    * never sends broken links.
    */
   get frontendUrl(): string {
-    const configured = this.config.get<string>('FRONTEND_URL')?.trim() ?? '';
-    if (!configured) return DEFAULT_FRONTEND_URL;
-    if (/^https?:\/\/[^\s/?#]+/i.test(configured) && isUrl(configured)) {
-      return configured.replace(/\/+$/, '');
-    }
-    if (!this.warnedFrontendUrl) {
-      this.logger.warn(
-        `FRONTEND_URL is not an http(s) URL; email links use ${DEFAULT_FRONTEND_URL}`,
-      );
-      this.warnedFrontendUrl = true;
-    }
-    return DEFAULT_FRONTEND_URL;
+    return this.publicUrl('FRONTEND_URL', DEFAULT_FRONTEND_URL);
+  }
+
+  /** API_PUBLIC_URL, checked like FRONTEND_URL. */
+  get apiPublicUrl(): string {
+    return this.publicUrl('API_PUBLIC_URL', DEFAULT_API_PUBLIC_URL);
   }
 
   /** nodemailer SMTP options; 465 is implicit TLS, others use STARTTLS. */
@@ -76,6 +73,19 @@ export class MailSettings {
       greetingTimeout: SMTP_TIMEOUT_MS,
       socketTimeout: SMTP_TIMEOUT_MS,
     };
+  }
+
+  private publicUrl(name: string, fallback: string): string {
+    const configured = this.config.get<string>(name)?.trim() ?? '';
+    if (!configured) return fallback;
+    if (/^https?:\/\/[^\s/?#]+/i.test(configured) && isUrl(configured)) {
+      return configured.replace(/\/+$/, '');
+    }
+    if (!this.warnedUrls.has(name)) {
+      this.logger.warn(`${name} is not an http(s) URL; emails use ${fallback}`);
+      this.warnedUrls.add(name);
+    }
+    return fallback;
   }
 
   private port(): number | null {

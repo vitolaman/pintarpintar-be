@@ -201,6 +201,13 @@ export class ClassDuplicationService {
         auto_issue: settings.auto_issue,
         min_attendance_percent: settings.min_attendance_percent,
         min_score: settings.min_score,
+        delivery_mode: settings.delivery_mode,
+        certificate_url: settings.certificate_url,
+        number_prefix: settings.number_prefix,
+        class_name: settings.class_name,
+        mentor_name: settings.mentor_name,
+        signature_asset_id: settings.signature_asset_id,
+        show_score: settings.show_score,
       }),
     );
   }

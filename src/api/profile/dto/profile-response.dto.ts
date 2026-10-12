@@ -213,6 +213,25 @@ export class CertificationItemResponseDto {
   })
   file_url: string | null;
 
+  @ApiProperty({
+    enum: ['template', 'link', 'file'],
+    description:
+      'How to open it: link = certificate_url, file = file_url, template = the class view certificate.template (GET /api/v1/learning/classes/{class_id})',
+  })
+  delivery: 'template' | 'link' | 'file';
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: "The merchant's link; only when delivery is link",
+  })
+  certificate_url: string | null;
+
+  @ApiProperty({
+    format: 'uuid',
+    description: 'For the QR code: GET /api/v1/certificates/verify/{code}',
+  })
+  verification_code: string;
+
   @ApiPropertyOptional({
     nullable: true,
     description: "The class's first assigned mentor",

@@ -39,4 +39,12 @@ export class Certificate extends AuditedBaseEntity {
 
   @Column({ name: 'asset_id', type: 'uuid', nullable: true })
   asset_id: string | null;
+
+  // Random, so the public QR lookup cannot be walked like the numbers.
+  @Column({
+    name: 'verification_code',
+    type: 'uuid',
+    default: () => 'uuid_generate_v4()',
+  })
+  verification_code: string;
 }

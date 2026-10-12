@@ -345,6 +345,40 @@ describe('application CV purpose', () => {
   });
 });
 
+describe('certificate signature purpose', () => {
+  it.each([
+    ['sign.png', 'image/png', 300 * 1024],
+    ['sign.jpg', 'image/jpeg', MB],
+    ['sign.webp', 'image/webp', 300 * 1024],
+  ])('accepts %s', (filename, mimeType, sizeBytes) => {
+    expect(() =>
+      assertFileFitsPurpose('certificate_signature', {
+        filename,
+        mimeType,
+        sizeBytes,
+      }),
+    ).not.toThrow();
+  });
+
+  it.each([
+    ['sign.png', 'image/png', 2 * MB],
+    ['sign.pdf', 'application/pdf', 300 * 1024],
+    ['sign.gif', 'image/gif', 300 * 1024],
+  ])('rejects %s', (filename, mimeType, sizeBytes) => {
+    expect(() =>
+      assertFileFitsPurpose('certificate_signature', {
+        filename,
+        mimeType,
+        sizeBytes,
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('is private', () => {
+    expect(purposeVisibility('certificate_signature')).toBe('private');
+  });
+});
+
 describe('assertOwnedAsset', () => {
   const asset = {
     id: 'asset-id',

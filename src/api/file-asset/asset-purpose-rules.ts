@@ -277,6 +277,14 @@ export const ASSET_PURPOSE_RULES = {
     maxBytes: 10 * MEBIBYTE,
     visibility: 'private',
   },
+  // Private so the signature reaches only certificate holders and the
+  // class's staff, through short-lived links.
+  certificate_signature: {
+    kinds: IMAGE_ONLY,
+    extensions: ['png', 'jpg', 'jpeg', 'webp'],
+    maxBytes: 1 * MEBIBYTE,
+    visibility: 'private',
+  },
   // The CV of a job application; a registered mentor CV also qualifies.
   application_cv: {
     kinds: ['document'],

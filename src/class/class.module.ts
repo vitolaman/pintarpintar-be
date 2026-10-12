@@ -12,6 +12,8 @@ import { ClassCertificateService } from './class-certificate.service';
 import { ClassController } from './class.controller';
 import { ClassDuplicationService } from './class-duplication.service';
 import { ClassFaqController } from './class-faq.controller';
+import { CertificateVerificationController } from './certificate-verification.controller';
+import { CertificateVerificationService } from './certificate-verification.service';
 import { ClassFaqService } from './class-faq.service';
 import { Class } from './entities/class.entity';
 import { Chapter } from './entities/chapter.entity';
@@ -55,7 +57,11 @@ import { ClassFaq } from './entities/class-faq.entity';
       ClassFaq,
     ]),
   ],
-  controllers: [ClassController, ClassFaqController],
+  controllers: [
+    ClassController,
+    ClassFaqController,
+    CertificateVerificationController,
+  ],
   providers: [
     ClassService,
     ClassAccessService,
@@ -66,6 +72,7 @@ import { ClassFaq } from './entities/class-faq.entity';
     ClassGradingService,
     ClassAttendanceService,
     ClassCertificateService,
+    CertificateVerificationService,
     ClassFaqService,
     ClassDuplicationService,
   ],

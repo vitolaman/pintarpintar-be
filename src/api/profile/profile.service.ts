@@ -3,6 +3,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { CertificateStatus } from '../../class/entities/certificate.entity';
+import { certificateDelivery } from '../../class/certificate-template';
+import { CertificateDeliveryMode } from '../../class/certificate-settings';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { FileAsset } from './entities/file-asset.entity';
 import { assertOwnedAsset } from '../file-asset/asset-purpose-rules';
@@ -225,9 +227,14 @@ export class ProfileService {
               file.object_key AS file_object_key, file.original_filename AS file_name,
               graded.final_score,
               class.id AS class_id, class.title AS class_title, class.category AS class_category,
-              merchant.store_name AS issuer_name, lead_mentor.name AS mentor_name
+              merchant.store_name AS issuer_name, lead_mentor.name AS mentor_name,
+              certificate.verification_code,
+              COALESCE(settings.delivery_mode, 'template') AS delivery_mode,
+              settings.certificate_url
        FROM certificates certificate
        INNER JOIN classes class ON class.id = certificate.class_id
+       LEFT JOIN class_certificate_settings settings
+         ON settings.class_id = class.id AND settings.deleted_at IS NULL
        LEFT JOIN merchants merchant ON merchant.id = class.merchant_id
        LEFT JOIN file_assets file ON file.id = certificate.asset_id AND file.deleted_at IS NULL
        LEFT JOIN LATERAL (
@@ -456,6 +463,14 @@ export class ProfileService {
       row.final_score === null || row.final_score === undefined
         ? null
         : Number(row.final_score);
+    const fileUrl = row.file_object_key
+      ? await signedDownloadUrl(
+          this.storage,
+          row.file_object_key,
+          row.file_name ?? 'certificate',
+        )
+      : row.file_url;
+    const delivery = certificateDelivery(row.delivery_mode, Boolean(fileUrl));
     return {
       id: row.id,
       certificate_number: row.certificate_number,
@@ -463,13 +478,10 @@ export class ProfileService {
       class_id: row.class_id,
       class_title: row.class_title,
       issuer_name: row.issuer_name,
-      file_url: row.file_object_key
-        ? await signedDownloadUrl(
-            this.storage,
-            row.file_object_key,
-            row.file_name ?? 'certificate',
-          )
-        : row.file_url,
+      file_url: fileUrl,
+      delivery,
+      certificate_url: delivery === 'link' ? row.certificate_url : null,
+      verification_code: row.verification_code,
       mentor_name: row.mentor_name,
       // The class Bidang is the only per-class skill source.
       skills: row.class_category ? [row.class_category] : [],
@@ -526,4 +538,7 @@ interface CertificationRow {
   class_category: string | null;
   issuer_name: string | null;
   mentor_name: string | null;
+  verification_code: string;
+  delivery_mode: CertificateDeliveryMode;
+  certificate_url: string | null;
 }

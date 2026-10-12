@@ -6,9 +6,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import {
   ClassCertificateService,
-  DEFAULT_CERTIFICATE_SETTINGS,
   isEligible,
 } from './class-certificate.service';
+import { DEFAULT_CERTIFICATE_SETTINGS } from './certificate-settings';
 import { Certificate } from './entities/certificate.entity';
 import { LearnerMetrics } from './learner-metrics';
 

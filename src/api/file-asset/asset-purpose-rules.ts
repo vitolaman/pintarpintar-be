@@ -221,12 +221,12 @@ export const ASSET_PURPOSE_RULES = {
   },
   merchant_banner: {
     kinds: IMAGE_ONLY,
-    maxBytes: 4 * MEBIBYTE,
+    maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   merchant_landing_background: {
     kinds: IMAGE_ONLY,
-    maxBytes: 4 * MEBIBYTE,
+    maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   user_avatar: {
@@ -236,12 +236,12 @@ export const ASSET_PURPOSE_RULES = {
   },
   class_cover: {
     kinds: IMAGE_ONLY,
-    maxBytes: 4 * MEBIBYTE,
+    maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   product_cover: {
     kinds: IMAGE_ONLY,
-    maxBytes: 4 * MEBIBYTE,
+    maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   class_resource: {
@@ -282,7 +282,7 @@ export const ASSET_PURPOSE_RULES = {
   certificate_signature: {
     kinds: IMAGE_ONLY,
     extensions: ['png', 'jpg', 'jpeg', 'webp'],
-    maxBytes: 1 * MEBIBYTE,
+    maxBytes: 5 * MEBIBYTE,
     visibility: 'private',
   },
   // The CV of a job application; a registered mentor CV also qualifies.

@@ -5,7 +5,6 @@ import * as dotenv from 'dotenv';
 import * as dotenvExpand from 'dotenv-expand';
 import { User } from '~/api/user/entities/user.entity';
 import { FileAsset } from '~/api/profile/entities/file-asset.entity';
-import { IssuedCertificate } from '~/api/profile/entities/issued-certificate.entity';
 import { Product } from '~/api/profile/entities/product.entity';
 import { Category } from '~/api/digital-product/entities/category.entity';
 import { DigitalFile } from '~/api/digital-product/entities/digital-file.entity';
@@ -102,7 +101,6 @@ export const dataSourceOptions: DataSourceOptions = {
   database: process.env.DB_DATABASE,
   entities: [
     FileAsset,
-    IssuedCertificate,
     Merchant,
     MerchantWallet,
     MerchantPayout,

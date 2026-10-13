@@ -129,6 +129,53 @@ describe('HomeService', () => {
     );
   });
 
+  it('leaves inactive merchants and deleted learners out of statistics and testimonials', async () => {
+    const products = {
+      query: jest.fn((sql: string) =>
+        Promise.resolve(
+          sql.includes('AS active_students')
+            ? [
+                {
+                  active_students: '0',
+                  learning_products: '0',
+                  digital_products: '0',
+                  platform_rating: '0',
+                },
+              ]
+            : [],
+        ),
+      ),
+    };
+    const service = new HomeService(
+      products as unknown as Repository<Product>,
+      {} as CatalogService,
+    );
+
+    await service.getStatistics();
+    await service.getTestimonials(10);
+
+    const [statisticsSql, testimonialSql] = products.query.mock.calls.map(
+      ([sql]) => sql.replace(/\s+/g, ' '),
+    );
+    const activeMerchant =
+      "merchant.deleted_at IS NULL AND merchant.status = 'active'";
+    expect(statisticsSql).toContain(
+      'ON learner_user.id = learner.user_id AND learner_user.deleted_at IS NULL',
+    );
+    expect(statisticsSql).toContain(
+      `ON merchant.id = class.merchant_id AND ${activeMerchant}`,
+    );
+    expect(statisticsSql).toContain(
+      `ON merchant.id = product.merchant_id AND ${activeMerchant}`,
+    );
+    expect(statisticsSql).toContain(
+      'FROM reviews review WHERE review.deleted_at IS NULL ) AS platform_rating',
+    );
+    expect(testimonialSql).toContain(
+      `ON merchant.id = class.merchant_id AND ${activeMerchant}`,
+    );
+  });
+
   it('returns merchant and testimonial images as URLs only', async () => {
     process.env.ASSET_PUBLIC_BASE_URL = 'https://cdn.example.com';
     try {

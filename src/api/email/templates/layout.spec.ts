@@ -51,5 +51,28 @@ describe('email formatting', () => {
     expect(block.text).toBe(
       '- A & B (Produk Digital, Toko): Rp 1.000\nDiskon: -Rp 100\nTotal: Rp 900',
     );
+    expect(block.html).not.toContain('Biaya layanan');
+  });
+
+  it('shows the platform fee the buyer pays before the total', () => {
+    const block = itemTable(
+      [{ title: 'AutoCAD', type: 'kelas', amount: 200000 }],
+      {
+        discount: 20000,
+        platformFee: 4500,
+        totalLabel: 'Total dibayar',
+        total: 184500,
+      },
+    );
+    expect(block.html).toContain('Biaya layanan');
+    expect(block.html.indexOf('Biaya layanan')).toBeLessThan(
+      block.html.indexOf('Total dibayar'),
+    );
+    expect(block.text).toBe(
+      '- AutoCAD (Kelas Video): Rp 200.000\nDiskon: -Rp 20.000\nBiaya layanan: Rp 4.500\nTotal dibayar: Rp 184.500',
+    );
+    expect(itemTable([], { platformFee: 0 }).text).not.toContain(
+      'Biaya layanan',
+    );
   });
 });

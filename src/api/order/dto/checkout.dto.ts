@@ -21,6 +21,9 @@ import {
   codeRejectionReasons,
 } from '../checkout/checkout-pricing';
 
+const PLATFORM_FEE_DESCRIPTION =
+  'Biaya layanan: the 2.5% platform fees the buyer pays, for items whose merchant passes the fee on; 0 when every merchant absorbs it';
+
 export class CheckoutRequestDto {
   @ApiProperty({
     type: [CatalogItemRefDto],
@@ -129,7 +132,13 @@ export class CheckoutPreviewResponseDto {
   @ApiProperty({ example: 50000 })
   discount_amount: number;
 
-  @ApiProperty({ example: 548000, description: 'Amount to pay' })
+  @ApiProperty({ example: 0, description: PLATFORM_FEE_DESCRIPTION })
+  platform_fee_amount: number;
+
+  @ApiProperty({
+    example: 548000,
+    description: 'Amount to pay: subtotal − discount + platform fee',
+  })
   total_amount: number;
 
   @ApiProperty({
@@ -204,7 +213,13 @@ export class OrderDetailResponseDto {
   @ApiProperty({ example: 50000 })
   discount_amount: number;
 
-  @ApiProperty({ example: 548000, description: 'Amount to pay' })
+  @ApiProperty({ example: 0, description: PLATFORM_FEE_DESCRIPTION })
+  platform_fee_amount: number;
+
+  @ApiProperty({
+    example: 548000,
+    description: 'Amount to pay: subtotal − discount + platform fee',
+  })
   total_amount: number;
 
   @ApiProperty({

@@ -1,3 +1,5 @@
+import { merchantItemNetSql } from '~/common/pricing/platform-fee';
+
 export type SalesScope = 'merchant' | 'all';
 
 // An unpaid order past its expiry reads as expired before the sweep records it.
@@ -7,17 +9,20 @@ const SALE_STATUS_SQL = `CASE WHEN purchase.status = 'pending' AND purchase.expi
 // Every order item that references one of the merchant's digital products,
 // classes, or bundles ($1 = merchant id), or every merchant's items when
 // `scope` is 'all'. All figures derive from it; `amount` is the merchant's net
-// (price minus the item's code discount share). `condition` is applied inside
-// every branch, where the planner can use it.
+// (price minus the item's code discount share, minus the platform fee when
+// the merchant absorbs it). `condition` is applied inside every branch, where
+// the planner can use it.
 function merchantSalesSql(
   condition: string,
   scope: SalesScope = 'merchant',
 ): string {
   const owned = (alias: string) =>
     scope === 'merchant' ? `${alias}.merchant_id = $1 AND` : '';
+  const net = merchantItemNetSql('item');
   return `
-  SELECT item.id, item.order_id, item.price_at_purchase - item.discount_amount AS amount,
+  SELECT item.id, item.order_id, ${net} AS amount,
          item.price_at_purchase AS gross_amount,
+         item.platform_fee_amount, item.platform_fee_paid_by,
          ${SALE_STATUS_SQL} AS status, purchase.created_at, purchase.paid_at, purchase.user_id, purchase.coupon_id,
          purchase.expires_at, purchase.payment_url, purchase.payment_method,
          'digital' AS type, product.id AS item_id, product.title AS item_title,
@@ -29,8 +34,9 @@ function merchantSalesSql(
 
   UNION ALL
 
-  SELECT item.id, item.order_id, item.price_at_purchase - item.discount_amount,
+  SELECT item.id, item.order_id, ${net},
          item.price_at_purchase,
+         item.platform_fee_amount, item.platform_fee_paid_by,
          ${SALE_STATUS_SQL}, purchase.created_at, purchase.paid_at, purchase.user_id, purchase.coupon_id,
          purchase.expires_at, purchase.payment_url, purchase.payment_method,
          CASE WHEN class.type = 'live-bootcamp' THEN 'bootcamp' ELSE 'kelas' END,
@@ -42,8 +48,9 @@ function merchantSalesSql(
 
   UNION ALL
 
-  SELECT item.id, item.order_id, item.price_at_purchase - item.discount_amount,
+  SELECT item.id, item.order_id, ${net},
          item.price_at_purchase,
+         item.platform_fee_amount, item.platform_fee_paid_by,
          ${SALE_STATUS_SQL}, purchase.created_at, purchase.paid_at, purchase.user_id, purchase.coupon_id,
          purchase.expires_at, purchase.payment_url, purchase.payment_method,
          'bundle', bundle.id, bundle.title, bundle.merchant_id

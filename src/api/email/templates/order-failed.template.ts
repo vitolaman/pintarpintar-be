@@ -22,6 +22,7 @@ export const orderFailed: EmailTemplate<OrderClosedEmail> = (order, link) => {
         `Pembayaran pesanan ${number.text} belum berhasil diproses, pesanan telah dibatalkan.`,
       ),
       itemTable(order.items, {
+        platformFee: order.platform_fee_amount,
         totalLabel: 'Total pesanan',
         total: order.total_amount,
       }),

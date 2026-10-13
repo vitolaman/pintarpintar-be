@@ -48,12 +48,15 @@ import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 import { merchantProStatus } from '../pro/pro-status';
+import { merchantItemNetSql } from '~/common/pricing/platform-fee';
 
 // Income is the merchant's net from items in paid orders (price minus the
-// item's code discount share; digital products, classes, and bundles in
-// separate branches so each uses its index); withdrawals are payouts.
+// item's code discount share and any platform fee it absorbs; digital
+// products, classes, and bundles in separate branches so each uses its
+// index); withdrawals are payouts.
+const ITEM_NET = merchantItemNetSql('item');
 const BALANCE_HISTORY_SQL = `
-  SELECT item.id, 'income' AS type, item.price_at_purchase - item.discount_amount AS amount,
+  SELECT item.id, 'income' AS type, ${ITEM_NET} AS amount,
          'Penjualan ' || product.title AS description,
          purchase.created_at AS occurred_at, 'success' AS status
   FROM order_items item
@@ -64,7 +67,7 @@ const BALANCE_HISTORY_SQL = `
 
   UNION ALL
 
-  SELECT item.id, 'income', item.price_at_purchase - item.discount_amount,
+  SELECT item.id, 'income', ${ITEM_NET},
          'Penjualan ' || class.title,
          purchase.created_at, 'success'
   FROM order_items item
@@ -75,7 +78,7 @@ const BALANCE_HISTORY_SQL = `
 
   UNION ALL
 
-  SELECT item.id, 'income', item.price_at_purchase - item.discount_amount,
+  SELECT item.id, 'income', ${ITEM_NET},
          'Penjualan ' || bundle.title,
          purchase.created_at, 'success'
   FROM order_items item
@@ -302,6 +305,8 @@ export class MerchantService {
       }
 
       if (input.store_name !== undefined) merchant.storeName = input.store_name;
+      if (input.platform_fee_paid_by !== undefined)
+        merchant.platformFeePaidBy = input.platform_fee_paid_by;
       if (input.store_description !== undefined) {
         merchant.storeDescription =
           input.store_description === null
@@ -598,6 +603,7 @@ export class MerchantService {
         'merchant.store_description AS store_description',
         'merchant.status AS status',
         'merchant.storage_level AS storage_level',
+        'merchant.platform_fee_paid_by AS platform_fee_paid_by',
         'profile.slug AS slug',
         'user_profile.phone AS phone',
         'profile.tagline AS tagline',

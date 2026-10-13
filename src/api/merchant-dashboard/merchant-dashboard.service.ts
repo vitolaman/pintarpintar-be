@@ -373,6 +373,7 @@ export class MerchantDashboardService {
       `SELECT sale.id, sale.order_id, sale.created_at AS ordered_at,
               buyer.name AS buyer_name, profile.phone AS buyer_phone,
               sale.type, sale.item_id, sale.item_title, sale.amount, sale.gross_amount,
+              sale.platform_fee_amount, sale.platform_fee_paid_by,
               coupon.code AS coupon_code, sale.payment_method, sale.status
        ${salesFromSql(whereSql)}
        ORDER BY ${sortColumn} ${direction}, sale.id ${direction}
@@ -396,7 +397,8 @@ export class MerchantDashboardService {
         row.status === 'paid',
       ),
       coupon_code: row.coupon_code,
-      platform_fee: null,
+      platform_fee: Number(row.platform_fee_amount),
+      platform_fee_paid_by: row.platform_fee_paid_by,
       transaction_fee: null,
       net_amount: Number(row.amount),
       status: row.status,

@@ -96,6 +96,9 @@ describe('CheckoutQuoteService items', () => {
       ];
     }
     if (sql.includes('FROM enrollments enrollment')) return [];
+    if (sql.includes('platform_fee_paid_by FROM merchants')) {
+      return [{ id: 'merchant-id', platform_fee_paid_by: 'buyer' }];
+    }
     if (sql.includes('FROM (')) {
       return [
         {
@@ -141,6 +144,22 @@ describe('CheckoutQuoteService items', () => {
       { classId: null, productId, bundleId: null },
     ]);
     expect(result.pricing.subtotal).toBe(600000);
+  });
+
+  it("takes who pays the fee from the item's merchant", async () => {
+    const result = await quote([{ id: classId }, { id: productId }]);
+    expect(result.pricing.items).toMatchObject([
+      { platformFeePaidBy: 'buyer', platformFee: 12500 },
+      { platformFeePaidBy: 'buyer', platformFee: 2500 },
+    ]);
+    expect(result.pricing).toMatchObject({
+      platformFeeTotal: 15000,
+      total: 615000,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('platform_fee_paid_by FROM merchants'),
+      [['merchant-id']],
+    );
   });
 
   it('accepts kelas for a bootcamp and rejects another family by id', async () => {

@@ -31,6 +31,7 @@ export const orderPaid: EmailTemplate<OrderPaidEmail> = (order, link) => {
       ]),
       itemTable(order.items, {
         discount: order.discount_amount,
+        platformFee: order.platform_fee_amount,
         totalLabel: 'Total dibayar',
         total: order.total_amount,
       }),

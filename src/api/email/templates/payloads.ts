@@ -8,6 +8,9 @@ interface OrderEmail {
   buyer_name: string;
   items: EmailLine[];
   discount_amount: number;
+  // The platform fee the buyer pays (Biaya layanan); absent in emails
+  // queued before the fee.
+  platform_fee_amount?: number;
   total_amount: number;
 }
 

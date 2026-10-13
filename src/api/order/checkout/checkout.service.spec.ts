@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import { User } from '~/api/user/entities/user.entity';
 import { VoucherService } from '~/api/voucher/voucher.service';
 import { CheckoutQuote, CheckoutQuoteService } from './checkout-quote.service';
-import { CheckoutService } from './checkout.service';
+import { CheckoutService, invoiceLines } from './checkout.service';
 
 const userId = '10000000-0000-4000-8000-000000000001';
 const classId = '20000000-0000-4000-8000-000000000001';
@@ -21,11 +21,14 @@ const quoteResult = (override: Partial<CheckoutQuote> = {}): CheckoutQuote => ({
         merchantName: 'Toko',
         price: 500000,
         discountAmount: 0,
+        platformFee: 12500,
+        platformFeePaidBy: 'merchant',
       },
     ],
     codes: [],
     subtotal: 500000,
     discountTotal: 0,
+    platformFeeTotal: 0,
     total: 500000,
   },
   references: [{ classId, productId: null, bundleId: null }],
@@ -88,6 +91,7 @@ describe('CheckoutService', () => {
         image_url: 'https://cdn.example.com/uploads/cover.png',
       });
       expect(data.items[0]).not.toHaveProperty('image');
+      expect(data.platform_fee_amount).toBe(0);
       expect(data.total_amount).toBe(500000);
       expect(vouchers.checkoutVouchers).toHaveBeenCalledWith(userId, [
         'merchant-id',
@@ -124,5 +128,33 @@ describe('CheckoutService', () => {
       expect.anything(),
       { lockCodes: true },
     );
+  });
+});
+
+describe('invoiceLines', () => {
+  const pricing = quoteResult().pricing;
+  const priced = (price: number, discountAmount: number) => ({
+    ...pricing.items[0],
+    price,
+    discountAmount,
+  });
+
+  it('adds the buyer-paid fee as Biaya layanan, summing to the total', () => {
+    const lines = invoiceLines({
+      ...pricing,
+      items: [priced(200000, 20000), priced(50000, 50000)],
+      platformFeeTotal: 4500,
+      total: 184500,
+    });
+
+    expect(lines).toEqual([
+      { name: 'AutoCAD', price: 180000 },
+      { name: 'Biaya layanan', price: 4500 },
+    ]);
+    expect(lines.reduce((sum, line) => sum + line.price, 0)).toBe(184500);
+  });
+
+  it('has no fee line when every merchant absorbs the fee', () => {
+    expect(invoiceLines(pricing)).toEqual([{ name: 'AutoCAD', price: 500000 }]);
   });
 });

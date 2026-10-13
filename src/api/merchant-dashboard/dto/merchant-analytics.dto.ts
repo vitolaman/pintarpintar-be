@@ -136,7 +136,7 @@ export class DailySalesPointDto {
   transactions: number;
   @ApiProperty({
     description:
-      'Net revenue of those sales (price minus code-discount shares); 0 without sales',
+      'Net revenue of those sales (price minus code-discount shares and platform fees the merchant pays); 0 without sales',
   })
   revenue: number;
 }

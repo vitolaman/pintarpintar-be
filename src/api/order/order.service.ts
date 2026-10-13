@@ -109,6 +109,7 @@ export class OrderService {
     const payable = order.effectiveStatus === OrderStatus.PENDING;
     const total = Number(order.totalAmount);
     const discount = Number(order.discountAmount);
+    const platformFee = Number(order.platformFeeAmount);
     return {
       id: order.id,
       order_number: order.orderNumber,
@@ -132,8 +133,9 @@ export class OrderService {
         discount_amount: Number(item.discount_amount),
       })),
       codes,
-      subtotal: total + discount,
+      subtotal: total + discount - platformFee,
       discount_amount: discount,
+      platform_fee_amount: platformFee,
       total_amount: total,
       payment_reference: payable ? order.paymentGatewayRef : null,
       payment_url: payable ? order.paymentUrl : null,

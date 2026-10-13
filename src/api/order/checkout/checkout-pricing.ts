@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { CatalogItemType } from '~/common/catalog/catalog-item';
+import { PlatformFeePayer, platformFee } from '~/common/pricing/platform-fee';
 
 export type CodeDiscountType = 'percentage' | 'nominal';
 
@@ -12,6 +13,8 @@ export interface PricingItem {
   merchantName: string | null;
   // Current selling price in whole rupiah.
   price: number;
+  // The merchant's choice of who pays the platform fee.
+  platformFeePaidBy: PlatformFeePayer;
 }
 
 interface CodeRule {
@@ -66,6 +69,8 @@ export class CodeRejectedException extends BadRequestException {
 
 export interface PricedItem extends PricingItem {
   discountAmount: number;
+  // On the price after discounts, whoever pays it.
+  platformFee: number;
 }
 
 export interface AppliedCode {
@@ -82,6 +87,8 @@ export interface PricingResult {
   codes: AppliedCode[];
   subtotal: number;
   discountTotal: number;
+  // The fees of the items whose buyer pays them; part of `total`.
+  platformFeeTotal: number;
   total: number;
 }
 
@@ -90,7 +97,8 @@ export interface PricingResult {
  * eligible items: the discount code first, then the voucher on what remains.
  * Minimums use the eligible subtotal before any code. Amounts are whole
  * rupiah, rounded down, and each code's discount is spread over its items
- * so that the shares sum exactly to it.
+ * so that the shares sum exactly to it. Each item then carries its platform
+ * fee; the buyer pays the fees of the merchants that pass it on.
  */
 export function priceSelection(
   items: PricingItem[],
@@ -136,17 +144,25 @@ export function priceSelection(
     };
   });
 
+  const priced = items.map((item, index) => ({
+    ...item,
+    discountAmount: discounts[index],
+    platformFee: platformFee(item.price - discounts[index]),
+  }));
   const subtotal = sum(items.map((item) => item.price));
   const discountTotal = sum(discounts);
+  const platformFeeTotal = sum(
+    priced
+      .filter((item) => item.platformFeePaidBy === 'buyer')
+      .map((item) => item.platformFee),
+  );
   return {
-    items: items.map((item, index) => ({
-      ...item,
-      discountAmount: discounts[index],
-    })),
+    items: priced,
     codes,
     subtotal,
     discountTotal,
-    total: subtotal - discountTotal,
+    platformFeeTotal,
+    total: subtotal - discountTotal + platformFeeTotal,
   };
 }
 

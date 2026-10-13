@@ -7,12 +7,14 @@ import { OrderItem } from '~/api/order/entities/order-item.entity';
 import { Order } from '~/api/order/entities/order.entity';
 import { UserAccess } from '~/api/profile/entities/user-access.entity';
 import { Enrollment } from '~/class/entities/enrollment.entity';
+import { merchantItemNetSql } from '~/common/pricing/platform-fee';
 
 // Net income per merchant for the given orders: item price minus the item's
-// code discount share. The merchant comes from the item's typed reference.
+// code discount share and any platform fee the merchant absorbs. The merchant
+// comes from the item's typed reference.
 export const MERCHANT_NET_SQL = `
   SELECT COALESCE(class.merchant_id, product.merchant_id, bundle.merchant_id) AS merchant_id,
-         sum(item.price_at_purchase - item.discount_amount) AS net_amount
+         sum(${merchantItemNetSql('item')}) AS net_amount
   FROM order_items item
   LEFT JOIN classes class ON class.id = item.class_id
   LEFT JOIN products product ON product.id = item.product_id

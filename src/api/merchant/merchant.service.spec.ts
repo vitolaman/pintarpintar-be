@@ -437,6 +437,33 @@ describe('MerchantService', () => {
     expect(profile.slug).toBe('raka-wijaya');
   });
 
+  it('stores who pays the platform fee on the merchant', async () => {
+    const merchant = {
+      id: merchantId,
+      userId,
+      storeName: 'Raka Wijaya',
+      platformFeePaidBy: 'merchant',
+    } as Merchant;
+    manager.findOne.mockResolvedValue(merchant);
+    manager.findOneBy.mockResolvedValue({
+      merchantId,
+      slug: 'raka-wijaya',
+    } as MerchantProfile);
+    jest.spyOn(service, 'findMerchantProfile').mockResolvedValue({
+      data: { id: merchantId } as never,
+      responseMessage: 'Get merchant profile success',
+    });
+
+    await service.updateMerchantProfile(userId, {
+      platform_fee_paid_by: 'buyer',
+    });
+    expect(merchant.platformFeePaidBy).toBe('buyer');
+    expect(manager.save).toHaveBeenCalledWith(Merchant, merchant);
+
+    await service.updateMerchantProfile(userId, { tagline: 'Baru' });
+    expect(merchant.platformFeePaidBy).toBe('buyer');
+  });
+
   it('stores a canonical category and clears it when null is submitted', async () => {
     const merchant = {
       id: merchantId,
@@ -836,6 +863,28 @@ describe('UpdateMerchantProfileDto', () => {
       await errorFields({ public_email: 'not-an-email', website_url: 'x y' }),
     ).toEqual(['public_email', 'website_url']);
   });
+
+  it('accepts who pays the platform fee, case-insensitively', async () => {
+    for (const [sent, stored] of [
+      ['buyer', 'buyer'],
+      ['merchant', 'merchant'],
+      ['Buyer', 'buyer'],
+    ]) {
+      const dto = parse({ platform_fee_paid_by: sent });
+      expect(await validate(dto)).toHaveLength(0);
+      expect(dto.platform_fee_paid_by).toBe(stored);
+    }
+    expect(parse({}).platform_fee_paid_by).toBeUndefined();
+  });
+
+  it.each([null, '', 'platform', 1])(
+    'rejects platform_fee_paid_by %j',
+    async (platform_fee_paid_by) => {
+      expect(await errorFields({ platform_fee_paid_by })).toEqual([
+        'platform_fee_paid_by',
+      ]);
+    },
+  );
 
   it.each(['', '  ', null])(
     'rejects a store name of %j',

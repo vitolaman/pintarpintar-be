@@ -9,7 +9,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ClassAccessService } from './class-access.service';
 import { ClassAssignmentService } from './class-assignment.service';
-import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
+import { TUTOR_PERMISSION_FIXTURES } from './testing/tutor-permission-fixtures';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { Assignment, AssignmentType } from './entities/assignment.entity';
@@ -171,7 +171,7 @@ describe('ClassAssignmentService', () => {
     access = {
       is_owner: false,
       role: 'moderator',
-      permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+      permissions: TUTOR_PERMISSION_FIXTURES.moderator,
     };
 
     await expect(
@@ -186,7 +186,7 @@ describe('ClassAssignmentService', () => {
       {
         is_owner: false,
         role: 'assistant',
-        permissions: DEFAULT_TUTOR_PERMISSIONS.assistant,
+        permissions: TUTOR_PERMISSION_FIXTURES.assistant,
       },
       true,
     ],
@@ -195,7 +195,7 @@ describe('ClassAssignmentService', () => {
       {
         is_owner: false,
         role: 'moderator',
-        permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+        permissions: TUTOR_PERMISSION_FIXTURES.moderator,
       },
       false,
     ],
@@ -328,7 +328,7 @@ describe('ClassAssignmentService.updateAssignment', () => {
     access = {
       is_owner: false,
       role: 'assistant',
-      permissions: DEFAULT_TUTOR_PERMISSIONS.assistant,
+      permissions: TUTOR_PERMISSION_FIXTURES.assistant,
     };
 
     await expect(update({ title: 'Baru' })).rejects.toBeInstanceOf(
@@ -339,7 +339,7 @@ describe('ClassAssignmentService.updateAssignment', () => {
       is_owner: false,
       role: 'assistant',
       permissions: {
-        ...DEFAULT_TUTOR_PERMISSIONS.assistant,
+        ...TUTOR_PERMISSION_FIXTURES.assistant,
         tugas: { lihat: true, tambah: false, edit: true, delete: false },
       },
     };

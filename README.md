@@ -326,8 +326,8 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 
 Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` is `upcoming` until the start plus the duration (180 minutes when unset) has passed, then `completed`. A live bootcamp that has meetings cannot become a video class.
 - `GET /api/v1/classes/:classId/mentors` — tutors with name, email, avatar, role, and permissions
-- `POST /api/v1/classes/:classId/mentors` — owner only; invite an active mentor account by email with a role; the role preset applies when no matrix is sent (a sent matrix's missing entries are `false`); 409 when already assigned
-- `PATCH /api/v1/classes/:classId/mentors/:classMentorId` — owner only
+- `POST /api/v1/classes/:classId/mentors` — owner only; invite an active mentor account by email with a role; without a matrix every role gets `lihat` only in every area (a sent matrix's missing entries are `false`); the mentor is emailed "Kamu ditugaskan di kelas …"; 409 when already assigned
+- `PATCH /api/v1/classes/:classId/mentors/:classMentorId` — owner only; a role change without a matrix resets the permissions to `lihat` only
 - `DELETE /api/v1/classes/:classId/mentors/:classMentorId` — owner only; the tutor loses access immediately
 - `GET /api/v1/classes/:classId/students`
 - `GET /api/v1/classes/:classId/assignments` — any tutor of the class; submission counts; correct answers only for the owner and tutors with a `tugas` or `nilai` permission
@@ -435,6 +435,7 @@ The backend emails users when these events happen. Every email has an HTML part 
 | Kata sandi diubah | user | a password change or a reset |
 | Lamaran: terkirim, jadwal wawancara, diterima, belum diterima | applicant (the application's email) | apply, schedule or reschedule an interview, accept, reject |
 | Lamaran baru | the posting's merchant owner | a mentor applies, unless the owner turned `email_new_applicant` off; the applicant's name, the position and the time, without contact details |
+| Kamu ditugaskan di kelas … | the mentor | the class owner adds them as a tutor in Atur Tutor (not on acceptance, whose email names the class); class, store and role; once per assignment, regardless of switches |
 | Jadwal sesi baru / diubah / dibatalkan | enrolled learners | a bootcamp meeting is created; its date, time, duration or link changes; or it is deleted |
 | Sesi dimulai 1 jam lagi / Kamu mengajar 1 jam lagi | enrolled learners / the meeting's mentor | a job every 5 minutes, for bootcamp meetings starting in more than 10 and at most 60 minutes; once per recipient and start time (a moved meeting is reminded again); a user who is both gets the mentor email |
 | Tugas dinilai | learner | a submission is graded |

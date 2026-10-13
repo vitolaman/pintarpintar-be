@@ -42,18 +42,16 @@ function matrix(
   ) as PermissionMatrix;
 }
 
-const ALL_ACTIONS = [...CLASS_ACTIONS];
+// Every role starts with view access only; the owner grants more through
+// "Atur Hak Akses Tutor" (owner decision, 2026-10-13).
+const VIEW_ONLY = matrix(
+  Object.fromEntries(CLASS_AREAS.map((area) => [area, ['lihat']])),
+);
 
 export const DEFAULT_TUTOR_PERMISSIONS: Record<TutorRole, PermissionMatrix> = {
-  lead: matrix(
-    Object.fromEntries(CLASS_AREAS.map((area) => [area, ALL_ACTIONS])),
-  ),
-  assistant: matrix({
-    materi: ['lihat'],
-    tugas: ['lihat'],
-    nilai: ALL_ACTIONS,
-  }),
-  moderator: matrix({ materi: ['lihat'], meeting: ALL_ACTIONS }),
+  lead: VIEW_ONLY,
+  assistant: VIEW_ONLY,
+  moderator: VIEW_ONLY,
 };
 
 // Validates a client-supplied matrix; areas or actions left out are false.

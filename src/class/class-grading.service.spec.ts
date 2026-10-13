@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ClassAccessService } from './class-access.service';
 import { ClassGradingService } from './class-grading.service';
-import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
+import { TUTOR_PERMISSION_FIXTURES } from './testing/tutor-permission-fixtures';
 import { Submission } from './entities/submission.entity';
 import { SubmissionAnswer } from './entities/submission-answer.entity';
 
@@ -152,7 +152,7 @@ describe('ClassGradingService', () => {
     access = {
       is_owner: false,
       role: 'moderator',
-      permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+      permissions: TUTOR_PERMISSION_FIXTURES.moderator,
     };
 
     await expect(

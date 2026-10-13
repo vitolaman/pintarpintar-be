@@ -55,6 +55,7 @@ import {
   meetingScheduleChanged,
   queueMeetingEmails,
 } from '~/api/email/events/learning-emails';
+import { queueClassTutorAssignedEmail } from '~/api/email/events/class-tutor-emails';
 
 // A lead tutor may edit the class's presentation; pricing, type, and status
 // stay with the owner.
@@ -528,6 +529,7 @@ export class ClassService {
           created_by: userId,
         }),
       );
+      await queueClassTutorAssignedEmail(manager, link.id);
       const [data] = await this.loadTutors(manager, classId, {
         linkId: link.id,
       });

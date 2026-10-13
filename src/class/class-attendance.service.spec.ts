@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { ClassAccessService } from './class-access.service';
 import { ClassAttendanceService } from './class-attendance.service';
-import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
+import { TUTOR_PERMISSION_FIXTURES } from './testing/tutor-permission-fixtures';
 import { Attendance, AttendanceStatus } from './entities/attendance.entity';
 
 describe('ClassAttendanceService', () => {
@@ -163,7 +163,7 @@ describe('ClassAttendanceService', () => {
     access = {
       is_owner: false,
       role: 'moderator',
-      permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+      permissions: TUTOR_PERMISSION_FIXTURES.moderator,
     };
 
     await service.setStatus(
@@ -184,7 +184,7 @@ describe('ClassAttendanceService', () => {
     access = {
       is_owner: false,
       role: 'assistant',
-      permissions: DEFAULT_TUTOR_PERMISSIONS.assistant,
+      permissions: TUTOR_PERMISSION_FIXTURES.assistant,
     };
 
     await expect(

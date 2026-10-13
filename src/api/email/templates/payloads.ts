@@ -198,6 +198,13 @@ export interface ApplicationAcceptedEmail extends ApplicationEmail {
   class_title: string | null;
 }
 
+export interface ClassTutorAssignedEmail {
+  mentor_name: string;
+  class_title: string;
+  store_name: string;
+  role: 'lead' | 'assistant' | 'moderator';
+}
+
 export interface MeetingEmail {
   // The recipient's name: the learner, or the mentor in a mentor reminder.
   learner_name: string;
@@ -263,6 +270,7 @@ export interface EmailPayloads {
   meeting_mentor_reminder: MeetingEmail;
   submission_graded: SubmissionGradedEmail;
   certificate_issued: CertificateIssuedEmail;
+  class_tutor_assigned: ClassTutorAssignedEmail;
 }
 
 export type EmailKind = keyof EmailPayloads;

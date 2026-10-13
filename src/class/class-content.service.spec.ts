@@ -10,7 +10,7 @@ import { ClassAccessService } from './class-access.service';
 import { Class } from './entities/class.entity';
 import { Merchant } from '../api/merchant/entities/merchant.entity';
 import { ClassContentService } from './class-content.service';
-import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
+import { TUTOR_PERMISSION_FIXTURES } from './testing/tutor-permission-fixtures';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
 import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
@@ -92,7 +92,7 @@ describe('ClassContentService', () => {
     access = {
       is_owner: false,
       role: 'moderator',
-      permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+      permissions: TUTOR_PERMISSION_FIXTURES.moderator,
     };
 
     await expect(
@@ -571,7 +571,7 @@ describe('ClassContentService', () => {
       access = {
         is_owner: false,
         role: 'moderator',
-        permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+        permissions: TUTOR_PERMISSION_FIXTURES.moderator,
       };
       await expect(
         service.reorderChapters(userId, classId, { chapter_ids: chapterIds }),

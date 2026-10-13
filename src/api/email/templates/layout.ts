@@ -147,6 +147,7 @@ export const FRONTEND_PATHS = {
   applications: '/mentor/progress-lamaran',
   jobPosting: '/merchant/job-posting',
   mentorDashboard: '/mentor/dashboard',
+  mentorClasses: '/mentor/kelas',
   jobBoard: '/job-board',
   profile: '/profile',
   help: '/bantuan',

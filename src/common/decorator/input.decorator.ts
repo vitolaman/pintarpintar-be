@@ -18,6 +18,7 @@ import { OptionalNotNull } from './optional-not-null.decorator';
 // - optional text of a nullable column is cleared by "" or null;
 // - text the data model requires rejects "", whitespace and null;
 // - enum values match ignoring case and surrounding spaces;
+// - a form label is plain text: markup and control characters are removed;
 // - a blank optional number or query filter means "not sent".
 // Transforms leave values of the wrong type untouched so the validators
 // reject them with 400 instead of the transform throwing.
@@ -122,6 +123,57 @@ export const EnumInput = <T extends string>(
     ...(presence === 'nullable' || presence === 'filter' ? [IsOptional()] : []),
     ...(presence === 'optional' ? [OptionalNotNull()] : []),
     IsIn(values),
+  );
+
+type LabelOptions = {
+  // 'required': must be sent; 'optional': may be omitted, not null;
+  // 'nullable': may be omitted, and null or "" clears it.
+  presence?: 'required' | 'optional' | 'nullable';
+  max: number;
+  description?: string;
+  example?: string;
+};
+
+const HTML_TAG = /<[^>]*>/g;
+const ANGLE_BRACKET = /[<>]/g;
+const CONTROL_CHARACTER = /\p{Cc}/gu;
+
+/** Plain text of a label: tags, stray angle brackets and control characters removed. */
+function plainLabel(value: string): string {
+  return value
+    .replace(HTML_TAG, '')
+    .replace(ANGLE_BRACKET, '')
+    .replace(CONTROL_CHARACTER, '')
+    .trim();
+}
+
+/**
+ * The label of a form choice, stored as the form sends it while the forms
+ * still change (no fixed list). Markup is removed rather than rejected, so
+ * the label is safe wherever it is shown; the length is checked afterwards.
+ */
+export const FormLabel = ({
+  presence = 'required',
+  max,
+  ...doc
+}: LabelOptions) =>
+  applyDecorators(
+    (presence === 'required' ? ApiProperty : ApiPropertyOptional)({
+      type: String,
+      maxLength: max,
+      ...(presence === 'nullable' ? { nullable: true } : {}),
+      ...doc,
+    }),
+    Transform(({ value }) => {
+      if (typeof value !== 'string') return value;
+      const label = plainLabel(value);
+      return presence === 'nullable' ? label || null : label;
+    }),
+    ...(presence === 'nullable' ? [IsOptional()] : []),
+    ...(presence === 'optional' ? [OptionalNotNull()] : []),
+    IsString(),
+    IsNotEmpty(),
+    Length(1, max),
   );
 
 type NumberOptions = {

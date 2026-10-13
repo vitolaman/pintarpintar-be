@@ -11,18 +11,16 @@ import {
   Length,
   ValidateIf,
 } from 'class-validator';
-import { merchantCategoryLabels } from '~/common/constants/merchant-category';
 import {
   ClearableText,
-  EnumInput,
+  FormLabel,
   NumberInput,
   RequiredText,
 } from '~/common/decorator/input.decorator';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
 import {
-  MerchantBusinessType,
-  merchantBusinessTypes,
+  MERCHANT_FORM_LABEL_MAX_LENGTH,
   MerchantProductType,
   ProductTypesInput,
 } from '../merchant-onboarding';
@@ -51,19 +49,22 @@ export class UpdateMerchantProfileDto {
   @ClearableText({ max: 160, example: 'Belajar teknologi dari praktisi.' })
   tagline?: string | null;
 
-  @EnumInput(merchantCategoryLabels, {
+  @FormLabel({
     presence: 'nullable',
+    max: MERCHANT_FORM_LABEL_MAX_LENGTH,
     example: 'Teknik & Arsitektur',
+    description:
+      'Bidang Utama, as at registration; null or blank clears the category',
   })
   category_label?: string | null;
 
-  @EnumInput(merchantBusinessTypes, {
+  @FormLabel({
     presence: 'optional',
+    max: MERCHANT_FORM_LABEL_MAX_LENGTH,
     example: 'company',
-    description:
-      'Jenis Merchant from the registration form: individual, institution or company',
+    description: 'Jenis Merchant, as at registration; cannot be cleared',
   })
-  business_type?: MerchantBusinessType;
+  business_type?: string;
 
   @ProductTypesInput({ optional: true })
   product_types?: MerchantProductType[];

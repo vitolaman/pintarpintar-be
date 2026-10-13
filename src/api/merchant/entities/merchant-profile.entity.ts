@@ -5,10 +5,7 @@ export interface LandingLayout {
   item_order: Record<string, string[]>;
 }
 import { BaseEntity } from '~/common/entities/base-entity';
-import type {
-  MerchantBusinessType,
-  MerchantProductType,
-} from '../merchant-onboarding';
+import type { MerchantProductType } from '../merchant-onboarding';
 
 @Entity({ name: 'merchant_profiles' })
 export class MerchantProfile extends BaseEntity {
@@ -77,10 +74,10 @@ export class MerchantProfile extends BaseEntity {
   @Column({
     name: 'business_type',
     type: 'varchar',
-    length: 20,
+    length: 64,
     nullable: true,
   })
-  businessType: MerchantBusinessType | null;
+  businessType: string | null;
 
   @Column({ name: 'product_types', type: 'text', array: true, nullable: true })
   productTypes: MerchantProductType[] | null;

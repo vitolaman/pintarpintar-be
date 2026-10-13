@@ -4,6 +4,7 @@ import {
   canonicalValue,
   ClearableText,
   EnumInput,
+  FormLabel,
   NumberInput,
   QueryFilter,
   RequiredText,
@@ -46,6 +47,22 @@ class FilterDto {
   @EnumInput(levels, { presence: 'filter' })
   level?: string;
 }
+
+class LabelDto {
+  @FormLabel({ max: 10 })
+  kind: string;
+
+  @FormLabel({ presence: 'optional', max: 10 })
+  role?: string;
+
+  @FormLabel({ presence: 'nullable', max: 20 })
+  field?: string | null;
+}
+
+const parseLabels = (input: object) =>
+  plainToInstance(LabelDto, { kind: 'Kreator', ...input });
+const labelErrors = async (input: object) =>
+  (await validate(parseLabels(input))).map((error) => error.property);
 
 const parse = (input: object) =>
   plainToInstance(SampleDto, { title: 'Judul', ...input });
@@ -157,5 +174,47 @@ describe('input decorators', () => {
   it('keeps every enum distinct when case is ignored', () => {
     expect(canonicalValue(levels, 'mahir')).toBe('Mahir');
     expect(canonicalValue(['a', 'b'], 'C')).toBe('C');
+  });
+
+  it.each([
+    ['<b>Brand</b>', 'Brand'],
+    ['  Content Creator ', 'Content Creator'],
+    ['Brand > Kreator', 'Brand  Kreator'],
+    ['Tab\tdan\u0000', 'Tabdan'],
+  ])('cleans the label %j to %j', (input, expected) => {
+    expect(parseLabels({ kind: input }).kind).toBe(expected);
+  });
+
+  it('keeps an ampersand in a label', async () => {
+    const dto = parseLabels({ field: 'Desain & Kreatif' });
+    expect(dto.field).toBe('Desain & Kreatif');
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it('stores any label without a fixed list', async () => {
+    expect(await labelErrors({ kind: 'mahasiswa', role: 'ibu_rt' })).toEqual(
+      [],
+    );
+  });
+
+  it.each([
+    [{ kind: '' }, 'kind'],
+    [{ kind: '<b></b>' }, 'kind'],
+    [{ kind: 'x'.repeat(11) }, 'kind'],
+    [{ kind: 5 }, 'kind'],
+    [{ role: null }, 'role'],
+    [{ role: '   ' }, 'role'],
+    [{ field: 7 }, 'field'],
+  ])('rejects the label input %j', async (input, field) => {
+    expect(await labelErrors(input)).toEqual([field]);
+  });
+
+  it('clears a nullable label that is blank or empty after cleanup', async () => {
+    expect(parseLabels({ field: '  ' }).field).toBeNull();
+    expect(parseLabels({ field: '<i></i>' }).field).toBeNull();
+    expect(parseLabels({ field: null }).field).toBeNull();
+    expect(await labelErrors({ field: null })).toEqual([]);
+    expect(parseLabels({}).role).toBeUndefined();
+    expect(await labelErrors({})).toEqual([]);
   });
 });

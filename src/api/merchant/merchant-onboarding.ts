@@ -8,13 +8,11 @@ import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator'
 
 // Answers of the registration form (Lengkapi Profil Merchant).
 
-/** Jenis Merchant: Individu / Kreator, Lembaga Pendidikan, Perusahaan / Brand. */
-export const merchantBusinessTypes = [
-  'individual',
-  'institution',
-  'company',
-] as const;
-export type MerchantBusinessType = (typeof merchantBusinessTypes)[number];
+/**
+ * Jenis Merchant and Bidang Utama are the form's labels, stored as sent while
+ * the form still changes (owner, 2026-10-13); this is their length limit.
+ */
+export const MERCHANT_FORM_LABEL_MAX_LENGTH = 64;
 
 /** Produk yang Ingin Dijual: Kelas Video, Live Bootcamp, Produk Digital. */
 export const merchantProductTypes = contentItemTypes;

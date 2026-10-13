@@ -1,15 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { Equals, IsBoolean, IsOptional } from 'class-validator';
-import { merchantCategoryLabels } from '~/common/constants/merchant-category';
 import {
   ClearableText,
-  EnumInput,
+  FormLabel,
   RequiredText,
 } from '~/common/decorator/input.decorator';
 import {
-  MerchantBusinessType,
-  merchantBusinessTypes,
+  MERCHANT_FORM_LABEL_MAX_LENGTH,
   MerchantProductType,
   ProductTypesInput,
 } from '../merchant-onboarding';
@@ -21,6 +19,8 @@ export class RegisterMerchantDto {
   @RequiredText({
     max: 2_000,
     example: 'Kelas dan bootcamp teknik untuk profesional.',
+    description:
+      'Rich text; sanitized to bold, italic, underline, lists, alignment, and font sizes 10–32px',
   })
   store_description: string;
 
@@ -33,18 +33,20 @@ export class RegisterMerchantDto {
   @Equals(true, { message: 'terms_accepted must be true' })
   terms_accepted: boolean;
 
-  @EnumInput(merchantBusinessTypes, {
+  @FormLabel({
+    max: MERCHANT_FORM_LABEL_MAX_LENGTH,
     example: 'individual',
     description:
-      'Jenis Merchant: individual (Individu / Kreator), institution (Lembaga Pendidikan) or company (Perusahaan / Brand)',
+      "Jenis Merchant: the label of the form's choice, stored as sent (no fixed list); markup and control characters are removed",
   })
-  business_type: MerchantBusinessType;
+  business_type: string;
 
-  @EnumInput(merchantCategoryLabels, {
+  @FormLabel({
     presence: 'nullable',
+    max: MERCHANT_FORM_LABEL_MAX_LENGTH,
     example: 'Teknik & Arsitektur',
     description:
-      'Bidang Utama as a merchant category: Teknik & Arsitektur (Teknik & Engineering), Pemrograman & IT (Teknologi & Pemrograman), Desain & Kreatif, Bisnis & Manajemen; null or omitted for Lainnya (no category)',
+      "Bidang Utama: the label of the form's choice, stored as sent (no fixed list); null, blank or omitted for no category. Only Teknik & Arsitektur, Pemrograman & IT, Desain & Kreatif and Bisnis & Manajemen get a storefront category_slug",
   })
   category_label?: string | null;
 

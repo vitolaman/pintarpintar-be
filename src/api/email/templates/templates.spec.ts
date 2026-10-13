@@ -40,6 +40,14 @@ const meeting = {
   live_url: 'https://zoom.us/j/1',
 };
 
+const proPurchase = {
+  transaction_number: 'PRO-20261013-0001',
+  owner_name: 'Bambang',
+  plan_name: 'Pro 3 Bulan',
+  duration_months: 3,
+  total_amount: 297000,
+};
+
 // One sample per kind, each with a value that must appear in both parts.
 const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
   order_awaiting_payment: [
@@ -184,6 +192,24 @@ const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
     },
     'tidak berlaku lagi',
   ],
+  pro_awaiting_payment: [
+    {
+      ...proPurchase,
+      expires_at: '2026-10-13T04:00:00Z',
+      payment_url: 'https://pay.example/pro',
+    },
+    '13 Oktober 2026, 11.00 WIB',
+  ],
+  pro_paid: [
+    {
+      ...proPurchase,
+      paid_at: '2026-10-13T03:00:00Z',
+      payment_method: 'NQ',
+      pro_until: '2027-01-13',
+    },
+    '13 Januari 2027',
+  ],
+  pro_failed: [proPurchase, 'PRO-20261013-0001'],
   withdrawal_requested: [
     {
       owner_name: 'Sari',
@@ -362,6 +388,52 @@ describe('email templates', () => {
       expect(email.text).not.toMatch(/tambahan|sisa|lagi selama|Masa Pro/i);
       expect(email.html).toContain(`href="${FRONTEND}/merchant/dashboard"`);
     }
+  });
+
+  it('words the Pro purchase emails with the plan, amount and next step', () => {
+    const awaiting = renderEmail(
+      'pro_awaiting_payment',
+      SAMPLES.pro_awaiting_payment[0],
+      URLS,
+    );
+    expect(awaiting.text).toContain('Pro 3 Bulan (3 bulan)');
+    expect(awaiting.text).toContain('Rp 297.000');
+    expect(awaiting.html).toContain('href="https://pay.example/pro"');
+
+    const paid = renderEmail('pro_paid', SAMPLES.pro_paid[0], URLS);
+    expect(paid.subject).toBe('Pro Subscription kamu sudah aktif');
+    expect(paid.text).toContain('berlaku sampai 13 Januari 2027');
+    expect(paid.text).toContain('QRIS');
+    expect(paid.text).toContain('13 Oktober 2026, 10.00 WIB');
+    expect(paid.html).toContain(`href="${FRONTEND}/merchant/dashboard"`);
+
+    const free = renderEmail(
+      'pro_paid',
+      { ...SAMPLES.pro_paid[0], total_amount: 0, payment_method: null },
+      URLS,
+    );
+    expect(free.text).toContain('Gratis');
+
+    const failed = renderEmail('pro_failed', SAMPLES.pro_failed[0], URLS);
+    expect(failed.subject).toBe(
+      'Pembayaran Pro Subscription PRO-20261013-0001 gagal',
+    );
+    expect(failed.text).not.toContain('aktif dan berlaku');
+    expect(failed.html).toContain(`href="${FRONTEND}/merchant/dashboard"`);
+  });
+
+  it('escapes the plan name and owner name in the Pro emails', () => {
+    const email = renderEmail(
+      'pro_paid',
+      {
+        ...SAMPLES.pro_paid[0],
+        owner_name: '<b>Bambang</b>',
+        plan_name: 'Pro <script>',
+      },
+      URLS,
+    );
+    expect(email.html).not.toContain('<script>');
+    expect(email.html).not.toContain('<b>Bambang</b>');
   });
 
   it('shows merchant instructions only under items that have them', () => {

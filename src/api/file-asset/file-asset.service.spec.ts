@@ -223,11 +223,11 @@ describe('field rules by purpose', () => {
       MB,
     ],
     [
-      'a 5 MB product cover',
+      'a 6 MB product cover',
       'product_cover',
       'cover.webp',
       'image/webp',
-      5 * MB,
+      6 * MB,
     ],
   ])('rejects %s', (_name, purpose, filename, mimeType, sizeBytes) => {
     expect(() =>
@@ -361,7 +361,7 @@ describe('certificate signature purpose', () => {
   });
 
   it.each([
-    ['sign.png', 'image/png', 2 * MB],
+    ['sign.png', 'image/png', 6 * MB],
     ['sign.pdf', 'application/pdf', 300 * 1024],
     ['sign.gif', 'image/gif', 300 * 1024],
   ])('rejects %s', (filename, mimeType, sizeBytes) => {
@@ -582,7 +582,7 @@ describe('upload rule messages', () => {
 
   it('describes each field from its rule', () => {
     expect(assetFieldDescription('class_cover')).toBe(
-      'An asset_id from POST /api/v1/upload/complete: PNG, JPG, JPEG or WEBP, up to 4 MB.',
+      'An asset_id from POST /api/v1/upload/complete: PNG, JPG, JPEG or WEBP, up to 5 MB.',
     );
     expect(sizeLimitText('digital_file')).toBe(
       "the store's level limit (Basic 1 GB, Silver 5 GB, Gold 10 GB)",
@@ -620,11 +620,29 @@ describe('per-file limit by merchant level', () => {
     ).not.toThrow();
   });
 
+  it('accepts a 5 MB cover, banner and signature', () => {
+    for (const purpose of [
+      'product_cover',
+      'class_cover',
+      'merchant_banner',
+      'merchant_landing_background',
+      'certificate_signature',
+    ] as const) {
+      expect(() =>
+        assertFileFitsPurpose(purpose, {
+          filename: 'c.png',
+          mimeType: 'image/png',
+          sizeBytes: 5 * MB,
+        }),
+      ).not.toThrow();
+    }
+  });
+
   it('keeps fixed image caps whatever the level', () => {
     expect(() =>
       assertFileFitsPurpose(
         'product_cover',
-        { filename: 'c.png', mimeType: 'image/png', sizeBytes: 5 * MB },
+        { filename: 'c.png', mimeType: 'image/png', sizeBytes: 6 * MB },
         { level: MerchantStorageLevel.GOLD, maxBytes: 10 * GB },
       ),
     ).toThrow(BadRequestException);

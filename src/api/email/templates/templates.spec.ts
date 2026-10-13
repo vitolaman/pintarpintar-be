@@ -293,6 +293,15 @@ const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
     },
     'PP-CERT-2026-0042',
   ],
+  class_tutor_assigned: [
+    {
+      mentor_name: 'Rexi',
+      class_title: 'AutoCAD Dasar',
+      store_name: 'Studio Sipil',
+      role: 'assistant',
+    },
+    'Asisten Tutor',
+  ],
 };
 
 describe('email templates', () => {
@@ -434,6 +443,30 @@ describe('email templates', () => {
     );
     expect(email.html).not.toContain('<script>');
     expect(email.html).not.toContain('<b>Bambang</b>');
+  });
+
+  it('names the class, store and role in the tutor assignment email', () => {
+    const email = renderEmail(
+      'class_tutor_assigned',
+      SAMPLES.class_tutor_assigned[0],
+      URLS,
+    );
+    expect(email.subject).toBe('Kamu ditugaskan di kelas AutoCAD Dasar');
+    expect(email.text).toContain(
+      'Studio Sipil menambahkan kamu sebagai Asisten Tutor di kelas AutoCAD Dasar.',
+    );
+    expect(email.html).toContain(`href="${FRONTEND}/mentor/kelas"`);
+    const lead = renderEmail(
+      'class_tutor_assigned',
+      {
+        ...SAMPLES.class_tutor_assigned[0],
+        role: 'lead',
+        class_title: '<b>X</b>',
+      },
+      URLS,
+    );
+    expect(lead.text).toContain('Lead Tutor / Instruktur Utama');
+    expect(lead.html).not.toContain('<b>X</b>');
   });
 
   it('shows merchant instructions only under items that have them', () => {

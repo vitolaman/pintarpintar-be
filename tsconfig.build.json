@@ -5,6 +5,7 @@
     "test",
     "dist",
     "**/*spec.ts",
+    "src/**/testing/**",
     "src/api/admin/**",
     "src/api/cron-job/**",
     "src/api/leaderboard/**",

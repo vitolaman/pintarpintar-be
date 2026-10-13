@@ -13,7 +13,7 @@ import {
 } from './class-duplication.service';
 import { ClassFaqController } from './class-faq.controller';
 import { ClassFaqService } from './class-faq.service';
-import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
+import { TUTOR_PERMISSION_FIXTURES } from './testing/tutor-permission-fixtures';
 import {
   CreateClassFaqDto,
   DuplicateClassDto,
@@ -154,7 +154,7 @@ describe('ClassFaqService', () => {
     access = {
       is_owner: false,
       role: 'moderator',
-      permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+      permissions: TUTOR_PERMISSION_FIXTURES.moderator,
     };
     await expect(
       service.create(userId, classId, { question: 'Q?', answer: 'A.' }),
@@ -182,7 +182,7 @@ describe('ClassDuplicationService', () => {
       {
         is_owner: false,
         role: 'lead',
-        permissions: DEFAULT_TUTOR_PERMISSIONS.lead,
+        permissions: TUTOR_PERMISSION_FIXTURES.lead,
       },
     ]);
     const manager = { query, save: jest.fn() };

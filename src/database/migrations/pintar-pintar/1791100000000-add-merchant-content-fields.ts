@@ -1,8 +1,28 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import {
-  DEFAULT_TUTOR_PERMISSIONS,
-  TUTOR_ROLE_LABELS,
-} from '../../../class/class-permissions';
+import { TUTOR_ROLE_LABELS } from '../../../class/class-permissions';
+
+// The role presets as they were when this migration was written; later
+// preset changes must not change what it backfills.
+const ALL = { lihat: true, tambah: true, edit: true, delete: true };
+const NONE = { lihat: false, tambah: false, edit: false, delete: false };
+const VIEW = { ...NONE, lihat: true };
+const BACKFILLED_TUTOR_PERMISSIONS = {
+  lead: { materi: ALL, meeting: ALL, tugas: ALL, nilai: ALL, sertifikat: ALL },
+  assistant: {
+    materi: VIEW,
+    meeting: NONE,
+    tugas: VIEW,
+    nilai: ALL,
+    sertifikat: NONE,
+  },
+  moderator: {
+    materi: VIEW,
+    meeting: ALL,
+    tugas: NONE,
+    nilai: NONE,
+    sertifikat: NONE,
+  },
+};
 
 const ASSET_REFERENCES: Array<[table: string, column: string]> = [
   ['classes', 'cover_asset_id'],
@@ -94,7 +114,7 @@ export class AddMerchantContentFields1791100000000
       END $$
     `);
     for (const [role, permissions] of Object.entries(
-      DEFAULT_TUTOR_PERMISSIONS,
+      BACKFILLED_TUTOR_PERMISSIONS,
     )) {
       await queryRunner.query(
         `UPDATE class_mentors SET permissions = $2::jsonb

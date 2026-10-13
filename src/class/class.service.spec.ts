@@ -7,10 +7,16 @@ import {
 import { Repository } from 'typeorm';
 import { ClassAccessService } from './class-access.service';
 import { DEFAULT_TUTOR_PERMISSIONS } from './class-permissions';
+import { TUTOR_PERMISSION_FIXTURES } from './testing/tutor-permission-fixtures';
 import { ClassService } from './class.service';
 import { Class, ClassStatus, ClassType } from './entities/class.entity';
 import { ClassMentor } from './entities/class-mentor.entity';
 import { Meeting } from './entities/meeting.entity';
+import { queueClassTutorAssignedEmail } from '~/api/email/events/class-tutor-emails';
+
+jest.mock('~/api/email/events/class-tutor-emails', () => ({
+  queueClassTutorAssignedEmail: jest.fn(),
+}));
 
 const certificates = { issueEligible: jest.fn() };
 
@@ -37,7 +43,7 @@ describe('ClassService.inviteMentor', () => {
             email: 'mentor@example.com',
             avatar_object_key: null,
             role: 'lead',
-            permissions: DEFAULT_TUTOR_PERMISSIONS.lead,
+            permissions: TUTOR_PERMISSION_FIXTURES.lead,
           },
         ]),
       findOne: jest.fn().mockResolvedValue(null),
@@ -73,13 +79,18 @@ describe('ClassService.inviteMentor', () => {
         mentor_id: mentorId,
         role: 'lead',
         permissions: expect.objectContaining({
-          materi: { lihat: true, tambah: true, edit: true, delete: true },
+          materi: { lihat: true, tambah: false, edit: false, delete: false },
+          nilai: { lihat: true, tambah: false, edit: false, delete: false },
         }),
       }),
     );
     expect(manager.query.mock.calls[0][0]).toContain('FOR UPDATE OF class');
     expect(manager.query.mock.calls[0][1]).toEqual([classId, ownerId]);
     expect(manager.query.mock.calls[1][1]).toEqual(['Mentor@Example.com']);
+    expect(queueClassTutorAssignedEmail).toHaveBeenCalledWith(
+      manager,
+      'link-id',
+    );
   });
 
   it('hides classes of other merchants behind 404', async () => {
@@ -196,7 +207,7 @@ describe('ClassService access control', () => {
       {
         is_owner: false,
         role: 'moderator',
-        permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+        permissions: TUTOR_PERMISSION_FIXTURES.moderator,
       },
     ]);
 
@@ -357,7 +368,7 @@ describe('ClassService.updateClass', () => {
   const lead = {
     is_owner: false,
     role: 'lead',
-    permissions: DEFAULT_TUTOR_PERMISSIONS.lead,
+    permissions: TUTOR_PERMISSION_FIXTURES.lead,
   };
 
   beforeEach(() => {
@@ -484,7 +495,7 @@ describe('ClassService.updateClass', () => {
     accessAs({
       is_owner: false,
       role,
-      permissions: DEFAULT_TUTOR_PERMISSIONS[role as 'assistant'],
+      permissions: TUTOR_PERMISSION_FIXTURES[role as 'assistant'],
     });
 
     await expect(
@@ -586,7 +597,7 @@ describe('ClassService tutor management', () => {
       id: linkId,
       class_id: classId,
       role: 'moderator',
-      permissions: DEFAULT_TUTOR_PERMISSIONS.moderator,
+      permissions: TUTOR_PERMISSION_FIXTURES.moderator,
     };
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('AS is_owner')) return access ? [access] : [];
@@ -652,7 +663,7 @@ describe('ClassService tutor management', () => {
     access = {
       is_owner: false,
       role: 'lead',
-      permissions: DEFAULT_TUTOR_PERMISSIONS.lead,
+      permissions: TUTOR_PERMISSION_FIXTURES.lead,
     };
     await expect(
       service.revokeClassMentor(userId, classId, linkId),
@@ -829,7 +840,7 @@ describe('ClassService meetings', () => {
             {
               is_owner: false,
               role: 'assistant',
-              permissions: DEFAULT_TUTOR_PERMISSIONS.assistant,
+              permissions: TUTOR_PERMISSION_FIXTURES.assistant,
             },
           ]
         : [],

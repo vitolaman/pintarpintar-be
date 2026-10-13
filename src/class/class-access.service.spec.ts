@@ -10,6 +10,7 @@ import {
   DEFAULT_TUTOR_PERMISSIONS,
   parsePermissionMatrix,
 } from './class-permissions';
+import { TUTOR_PERMISSION_FIXTURES } from './testing/tutor-permission-fixtures';
 
 describe('ClassAccessService', () => {
   const userId = '10000000-0000-4000-8000-000000000001';
@@ -75,7 +76,7 @@ describe('ClassAccessService', () => {
       {
         is_owner: false,
         role: 'lead',
-        permissions: DEFAULT_TUTOR_PERMISSIONS.lead,
+        permissions: TUTOR_PERMISSION_FIXTURES.lead,
       },
     ]);
 
@@ -96,12 +97,17 @@ describe('ClassAccessService', () => {
 });
 
 describe('permission matrix', () => {
-  it('defaults lead to everything and moderator to meetings', () => {
-    expect(DEFAULT_TUTOR_PERMISSIONS.lead.sertifikat.delete).toBe(true);
-    expect(DEFAULT_TUTOR_PERMISSIONS.moderator.meeting.edit).toBe(true);
-    expect(DEFAULT_TUTOR_PERMISSIONS.moderator.materi.tambah).toBe(false);
-    expect(DEFAULT_TUTOR_PERMISSIONS.assistant.nilai.edit).toBe(true);
-    expect(DEFAULT_TUTOR_PERMISSIONS.assistant.tugas.tambah).toBe(false);
+  it('defaults every role to view-only access', () => {
+    for (const role of ['lead', 'assistant', 'moderator'] as const) {
+      for (const area of CLASS_AREAS) {
+        expect(DEFAULT_TUTOR_PERMISSIONS[role][area]).toEqual({
+          lihat: true,
+          tambah: false,
+          edit: false,
+          delete: false,
+        });
+      }
+    }
   });
 
   it.each([

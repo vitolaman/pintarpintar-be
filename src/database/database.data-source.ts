@@ -59,6 +59,7 @@ import { Review } from '~/api/review/entities/review.entity';
 import { ReviewHelpfulVote } from '~/api/review/entities/review-helpful-vote.entity';
 import { ReviewReply } from '~/api/review/entities/review-reply.entity';
 import { ProPlan } from '~/api/pro/entities/pro-plan.entity';
+import { ProTransaction } from '~/api/pro/entities/pro-transaction.entity';
 import { MerchantProPeriod } from '~/api/pro/entities/merchant-pro-period.entity';
 import { JobApplication } from '~/api/recruitment/entities/job-application.entity';
 import { JobPosting } from '~/api/recruitment/entities/job-posting.entity';
@@ -161,6 +162,7 @@ export const dataSourceOptions: DataSourceOptions = {
     ReviewHelpfulVote,
     ReviewReply,
     ProPlan,
+    ProTransaction,
     MerchantProPeriod,
   ],
   // Pintar Pintar starts from its own ERD baseline. Legacy template migrations

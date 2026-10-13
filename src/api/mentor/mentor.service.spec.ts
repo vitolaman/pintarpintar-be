@@ -269,6 +269,51 @@ describe('MentorService', () => {
     });
   });
 
+  describe('document list', () => {
+    const slot = (kind: string, assetId: string | null) => ({
+      kind,
+      asset_id: assetId,
+      filename: `${kind}.pdf`,
+      mime_type: 'application/pdf',
+      size_bytes: '100',
+      uploaded_at: new Date('2026-10-13T00:00:00.000Z'),
+      storage_provider: 's3',
+      object_key: `uploads/${kind}.pdf`,
+    });
+
+    it('falls back to the accepted application CV without a mentor profile', async () => {
+      (dataSource.query as jest.Mock).mockResolvedValue([
+        slot('cv', 'application-cv-id'),
+        slot('skill_certificate', null),
+      ]);
+
+      const response = await service.findDocuments(userId);
+
+      expect(response.data).toEqual([
+        expect.objectContaining({ kind: 'cv', asset_id: 'application-cv-id' }),
+      ]);
+      const [sql] = (dataSource.query as jest.Mock).mock.calls[0];
+      expect(sql).toContain('LEFT JOIN mentor_profiles profile');
+      expect(sql).toContain("application.status = 'accepted'");
+      expect(sql).toContain('WHERE profile.id IS NULL');
+    });
+
+    it('is an empty list for a mentor without any document', async () => {
+      (dataSource.query as jest.Mock).mockResolvedValue([
+        slot('cv', null),
+        slot('skill_certificate', null),
+      ]);
+      expect((await service.findDocuments(userId)).data).toEqual([]);
+    });
+
+    it('is 404 for a user who is not a mentor', async () => {
+      (dataSource.query as jest.Mock).mockResolvedValue([]);
+      await expect(service.findDocuments(userId)).rejects.toThrow(
+        'Mentor not found',
+      );
+    });
+  });
+
   it('gives no download URL for documents stored before S3 storage', async () => {
     (dataSource.query as jest.Mock).mockResolvedValue([
       {

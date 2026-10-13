@@ -385,7 +385,7 @@ Every route that needs a login requires an active enrollment or product access a
 - `GET /api/v1/mentor/dashboard` — stats, upcoming sessions, recent learner messages, class progress
 - `GET /api/v1/mentor/classes` — assigned classes (Kelas-kelas) with `cover_url`, filterable by type and search
 - `GET /api/v1/mentor/teaching-history` — teaching history (Kelas Mentor on the profile)
-- `GET /api/v1/mentor/documents` — CV and skill certificate with download URLs that expire after 10 minutes
+- `GET /api/v1/mentor/documents` — CV and skill certificate with download URLs that expire after 10 minutes; a mentor accepted through a job application before registering gets the CV of that application and no certificate (404 only for users who are not mentors)
 - `PATCH /api/v1/mentor/documents` — `cv_asset_id` and/or `skill_certificate_asset_id`; the previous files are kept
 
 ### Karir (job board and mentor recruitment)

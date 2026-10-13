@@ -160,10 +160,14 @@ export class MentorService {
     }));
   }
 
+  // A mentor created by accepting a job application has no mentor profile
+  // until it registers; its CV is then the one of its latest accepted
+  // application (owner, 2026-10-13). One row per document slot of a mentor,
+  // none for a user who is not a mentor.
   async findDocuments(userId: string) {
-    const rows: Array<{
+    const slots: Array<{
       kind: 'cv' | 'skill_certificate';
-      asset_id: string;
+      asset_id: string | null;
       filename: string;
       mime_type: string;
       size_bytes: string;
@@ -176,18 +180,27 @@ export class MentorService {
               asset.size_bytes, asset.created_at AS uploaded_at,
               asset.storage_provider, asset.object_key
        FROM mentors mentor
-       INNER JOIN mentor_profiles profile
+       LEFT JOIN mentor_profiles profile
          ON profile.mentor_id = mentor.id AND profile.deleted_at IS NULL
+       LEFT JOIN LATERAL (
+         SELECT application.cv_asset_id
+         FROM job_applications application
+         WHERE profile.id IS NULL AND application.applicant_user_id = mentor.user_id
+           AND application.status = 'accepted' AND application.deleted_at IS NULL
+         ORDER BY application.decided_at DESC NULLS LAST, application.created_at DESC
+         LIMIT 1
+       ) accepted ON true
        CROSS JOIN LATERAL (VALUES
-         ('cv', profile.cv_asset_id),
+         ('cv', COALESCE(profile.cv_asset_id, accepted.cv_asset_id)),
          ('skill_certificate', profile.skill_certificate_asset_id)
        ) AS document(kind, asset_id)
-       INNER JOIN file_assets asset ON asset.id = document.asset_id
+       LEFT JOIN file_assets asset ON asset.id = document.asset_id
        WHERE mentor.user_id = $1 AND mentor.deleted_at IS NULL
        ORDER BY document.kind`,
       [userId],
     );
-    if (rows.length === 0) throw new NotFoundException('Mentor not found');
+    if (slots.length === 0) throw new NotFoundException('Mentor not found');
+    const rows = slots.filter((slot) => slot.asset_id !== null);
 
     const data: MentorDocumentResponseDto[] = await Promise.all(
       rows.map(async (row) => ({

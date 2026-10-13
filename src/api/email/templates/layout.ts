@@ -148,6 +148,7 @@ export const FRONTEND_PATHS = {
   jobPosting: '/merchant/job-posting',
   mentorDashboard: '/mentor/dashboard',
   mentorClasses: '/mentor/kelas',
+  mentorDiscussions: '/mentor/diskusi',
   jobBoard: '/job-board',
   profile: '/profile',
   help: '/bantuan',

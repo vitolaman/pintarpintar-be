@@ -2,6 +2,7 @@ import { applicationAccepted } from './application-accepted.template';
 import { applicationRejected } from './application-rejected.template';
 import { applicationSubmitted } from './application-submitted.template';
 import { certificateIssued } from './certificate-issued.template';
+import { classAnnouncement } from './class-announcement.template';
 import { classTutorAssigned } from './class-tutor-assigned.template';
 import { interviewScheduled } from './interview-scheduled.template';
 import { EmailUrls, FrontendPath, layout, RenderedEmail } from './layout';
@@ -79,6 +80,7 @@ const TEMPLATES: { [K in EmailKind]: EmailTemplate<EmailPayloads[K]> } = {
   submission_graded: submissionGraded,
   certificate_issued: certificateIssued,
   class_tutor_assigned: classTutorAssigned,
+  class_announcement: classAnnouncement,
 };
 
 export const emailKinds = Object.keys(TEMPLATES) as EmailKind[];

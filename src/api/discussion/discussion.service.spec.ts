@@ -5,6 +5,11 @@ import { DataSource } from 'typeorm';
 import { ThreadBadge } from '../../class/entities/discussion-thread.entity';
 import { CreateCommentDto, CreateThreadDto } from './dto/discussion.dto';
 import { DiscussionService } from './discussion.service';
+import { queueClassAnnouncementEmails } from '~/api/email/events/class-announcement-emails';
+
+jest.mock('~/api/email/events/class-announcement-emails', () => ({
+  queueClassAnnouncementEmails: jest.fn(),
+}));
 
 describe('DiscussionService', () => {
   const userId = '10000000-0000-4000-8000-000000000001';
@@ -84,6 +89,23 @@ describe('DiscussionService', () => {
       expect.anything(),
       expect.objectContaining({ badge: ThreadBadge.TANYA_JAWAB }),
     );
+  });
+
+  it('queues the announcement emails only for a Pengumuman', async () => {
+    manager.query.mockResolvedValue([{ role: 'mentor' }]);
+    (queueClassAnnouncementEmails as jest.Mock).mockClear();
+
+    await service.createThread(userId, threadInput);
+    expect(queueClassAnnouncementEmails).toHaveBeenCalledWith(
+      manager,
+      'new-id',
+    );
+
+    (queueClassAnnouncementEmails as jest.Mock).mockClear();
+    for (const badge of [ThreadBadge.DISKUSI, ThreadBadge.TANYA_JAWAB]) {
+      await service.createThread(userId, { ...threadInput, badge });
+    }
+    expect(queueClassAnnouncementEmails).not.toHaveBeenCalled();
   });
 
   it('forbids an enrolled learner from starting a thread', async () => {

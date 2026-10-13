@@ -20,6 +20,7 @@ import {
   ThreadListQueryDto,
 } from './dto/discussion.dto';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
+import { queueClassAnnouncementEmails } from '~/api/email/events/class-announcement-emails';
 
 // The caller's role in the class: the merchant owner and active assigned
 // mentors run the discussion; enrolled learners take part in it.
@@ -125,6 +126,9 @@ export class DiscussionService {
           badge: input.badge ?? ThreadBadge.TANYA_JAWAB,
         }),
       );
+      if (thread.badge === ThreadBadge.PENGUMUMAN) {
+        await queueClassAnnouncementEmails(manager, thread.id);
+      }
       return thread.id;
     });
 

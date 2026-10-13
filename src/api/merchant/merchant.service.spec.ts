@@ -177,6 +177,41 @@ describe('MerchantService', () => {
     );
   });
 
+  it('sanitizes the registration description like a profile edit', async () => {
+    const user = { id: userId, name: 'Raka Wijaya', isMerchant: false } as User;
+    manager.findOne.mockImplementation((target) =>
+      target === User ? Promise.resolve(user) : Promise.resolve(null),
+    );
+    manager.findOneBy.mockResolvedValue(null);
+    jest.spyOn(service, 'findMerchantProfile').mockResolvedValue({
+      data: { id: merchantId } as never,
+      responseMessage: 'Get merchant profile success',
+    });
+
+    await service.register(userId, {
+      ...registrationInput,
+      store_description:
+        '<p>Kelas <b>AutoCAD</b></p><script>alert(1)</script><img src=x onerror=alert(1)>',
+    });
+
+    expect(manager.save).toHaveBeenCalledWith(
+      Merchant,
+      expect.objectContaining({
+        storeDescription: '<p>Kelas <b>AutoCAD</b></p>',
+      }),
+    );
+  });
+
+  it('rejects a registration description with no text left after sanitizing', async () => {
+    await expect(
+      service.register(userId, {
+        ...registrationInput,
+        store_description: '<script>alert(1)</script>',
+      }),
+    ).rejects.toThrow('store_description must contain text');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
   it('returns only the authenticated merchant wallet amounts', async () => {
     merchants.findOneBy.mockResolvedValue({
       id: merchantId,
@@ -590,6 +625,42 @@ describe('MerchantService', () => {
     );
   });
 
+  it.each([
+    ['Desain & Kreatif', 'desain-kreatif'],
+    ['Bahasa & Komunikasi', null],
+    [null, null],
+  ])(
+    'gives category %j the storefront slug %j',
+    async (categoryLabel, categorySlug) => {
+      query.mockResolvedValueOnce([
+        {
+          id: merchantId,
+          store_name: 'Akademi Teknik Raka',
+          store_description: null,
+          slug: 'akademi-teknik-raka',
+          category_label: categoryLabel,
+          owner_user_id: userId,
+          landing_layout: null,
+          skills: [],
+          total_students: '0',
+          published_class_count: '0',
+          published_digital_product_count: '0',
+          average_rating: '0',
+          review_count: '0',
+        },
+      ]);
+
+      const storefront = await service.findPublicStorefront(
+        'akademi-teknik-raka',
+      );
+
+      expect(storefront.data).toMatchObject({
+        category_label: categoryLabel,
+        category_slug: categorySlug,
+      });
+    },
+  );
+
   it('resolves the storefront by id and flags the signed-in owner', async () => {
     query.mockResolvedValueOnce([
       {
@@ -678,24 +749,25 @@ describe('UpdateMerchantProfileDto category_label', () => {
     expect(errors).toHaveLength(0);
   });
 
-  it('rejects a category label outside the canonical list', async () => {
-    const errors = await validate(build('Kuliner & Jasa'));
-    expect(errors.some((error) => error.property === 'category_label')).toBe(
-      true,
-    );
+  it('accepts a category label outside the four categories as sent', async () => {
+    const dto = build('  Kuliner & Jasa ');
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.category_label).toBe('Kuliner & Jasa');
   });
 
-  it('matches a category label ignoring case and spaces', async () => {
-    const dto = build('  teknik & ARSITEKTUR ');
-    expect(await validate(dto)).toHaveLength(0);
-    expect(dto.category_label).toBe('Teknik & Arsitektur');
+  it('rejects a category label over 64 characters', async () => {
+    const errors = await validate(build('x'.repeat(65)));
+    expect(errors.map((error) => error.property)).toEqual(['category_label']);
   });
 
-  it.each([null, '', '  '])('clears the category with %j', async (value) => {
-    const dto = build(value);
-    expect(await validate(dto)).toHaveLength(0);
-    expect(dto.category_label).toBeNull();
-  });
+  it.each([null, '', '  ', '<i></i>'])(
+    'clears the category with %j',
+    async (value) => {
+      const dto = build(value);
+      expect(await validate(dto)).toHaveLength(0);
+      expect(dto.category_label).toBeNull();
+    },
+  );
 });
 
 describe('UpdateMerchantProfileDto', () => {
@@ -740,7 +812,7 @@ describe('UpdateMerchantProfileDto', () => {
     const dto = parse({ business_type: 'Company', product_types: ['digital'] });
     expect(await validate(dto)).toHaveLength(0);
     expect(dto).toMatchObject({
-      business_type: 'company',
+      business_type: 'Company',
       product_types: ['digital'],
     });
     expect(
@@ -814,13 +886,18 @@ describe('RegisterMerchantDto', () => {
     ['terms not accepted', { terms_accepted: false }, 'terms_accepted'],
     ['terms as a string', { terms_accepted: 'yes' }, 'terms_accepted'],
     [
-      'an unknown merchant type',
-      { business_type: 'koperasi' },
+      'a merchant type over 64 characters',
+      { business_type: 'x'.repeat(65) },
       'business_type',
     ],
     [
-      'a free-text category',
-      { category_label: 'Teknik & Engineering' },
+      'a merchant type that is only markup',
+      { business_type: '<b></b>' },
+      'business_type',
+    ],
+    [
+      'a category over 64 characters',
+      { category_label: 'x'.repeat(65) },
       'category_label',
     ],
     ['no product type', { product_types: [] }, 'product_types'],
@@ -889,6 +966,19 @@ describe('RegisterMerchantDto', () => {
     ],
   ])('rejects the answer %j', async (input, field) => {
     expect(await errorFields(input)).toEqual([field]);
+  });
+
+  it('stores the form labels as sent, without markup', async () => {
+    const dto = plainToInstance(RegisterMerchantDto, {
+      ...valid,
+      business_type: ' content_creator ',
+      category_label: '<b>Bahasa & Komunikasi</b>',
+    });
+    expect(await validate(dto)).toEqual([]);
+    expect(dto).toMatchObject({
+      business_type: 'content_creator',
+      category_label: 'Bahasa & Komunikasi',
+    });
   });
 
   it('takes Lainnya as no category', async () => {

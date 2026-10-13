@@ -10,10 +10,6 @@ export const merchantCategories: MerchantCategoryOption[] = [
   { label: 'Bisnis & Manajemen', slug: 'bisnis-manajemen' },
 ];
 
-export const merchantCategoryLabels: string[] = merchantCategories.map(
-  (category) => category.label,
-);
-
 export const merchantCategorySlugs: string[] = merchantCategories.map(
   (category) => category.slug,
 );

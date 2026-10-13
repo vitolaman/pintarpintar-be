@@ -118,6 +118,7 @@ export class MerchantService {
   ) {}
 
   async register(userId: string, input: RegisterMerchantDto) {
+    const storeDescription = this.sanitizeDescription(input.store_description);
     await this.dataSource.transaction(async (manager) => {
       const user = await manager.findOne(User, {
         where: { id: userId },
@@ -134,7 +135,7 @@ export class MerchantService {
       const merchant = manager.create(Merchant, {
         userId,
         storeName: input.store_name,
-        storeDescription: input.store_description,
+        storeDescription,
         storageLevel: MerchantStorageLevel.BASIC,
         status: 'active',
       });

@@ -1,8 +1,6 @@
 import { MerchantLevelSummaryDto } from '../../merchant-level/dto/merchant-level.dto';
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import {
-  MerchantBusinessType,
-  merchantBusinessTypes,
   MerchantProductType,
   merchantProductTypes,
 } from '../merchant-onboarding';
@@ -153,12 +151,12 @@ export class MerchantResponseDto {
   terms_accepted_at: Date | null;
 
   @ApiProperty({
-    enum: merchantBusinessTypes,
+    type: String,
     nullable: true,
     description:
-      'Jenis Merchant from the registration form; null for stores registered before the form asked for it',
+      'Jenis Merchant label from the registration form; null for stores registered before the form asked for it',
   })
-  business_type: MerchantBusinessType | null;
+  business_type: string | null;
 
   @ApiProperty({
     type: [String],

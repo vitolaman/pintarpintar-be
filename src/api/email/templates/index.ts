@@ -27,6 +27,11 @@ import { orderPaid } from './order-paid.template';
 import type { EmailKind, EmailPayloads } from './payloads';
 import { passwordChanged } from './password-changed.template';
 import { proEnded, proExpiring, proNotRenewed } from './pro-expiry.template';
+import {
+  proAwaitingPayment,
+  proFailed,
+  proPaid,
+} from './pro-subscription.template';
 import { passwordReset } from './password-reset.template';
 import { payoutAccountChanged } from './payout-account-changed.template';
 import { submissionGraded } from './submission-graded.template';
@@ -55,6 +60,9 @@ const TEMPLATES: { [K in EmailKind]: EmailTemplate<EmailPayloads[K]> } = {
   pro_expiring: proExpiring,
   pro_not_renewed: proNotRenewed,
   pro_ended: proEnded,
+  pro_awaiting_payment: proAwaitingPayment,
+  pro_paid: proPaid,
+  pro_failed: proFailed,
   payout_account_changed: payoutAccountChanged,
   password_changed: passwordChanged,
   password_reset: passwordReset,

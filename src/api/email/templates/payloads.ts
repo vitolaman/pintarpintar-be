@@ -115,6 +115,29 @@ export interface WithdrawalOutcomeEmail {
   requested_at: string;
 }
 
+// A Pro subscription purchase, as snapshotted on the transaction.
+interface ProSubscriptionEmail {
+  transaction_number: string;
+  owner_name: string;
+  plan_name: string;
+  duration_months: number;
+  total_amount: number;
+}
+
+export interface ProAwaitingPaymentEmail extends ProSubscriptionEmail {
+  expires_at: string;
+  payment_url: string;
+}
+
+export interface ProPaidEmail extends ProSubscriptionEmail {
+  paid_at: string;
+  payment_method: string | null;
+  // YYYY-MM-DD in Asia/Jakarta: the end of the period this payment created.
+  pro_until: string;
+}
+
+export type ProFailedEmail = ProSubscriptionEmail;
+
 export interface ProExpiryEmail {
   owner_name: string;
   store_name: string;
@@ -223,6 +246,9 @@ export interface EmailPayloads {
   pro_expiring: ProExpiryEmail;
   pro_not_renewed: ProExpiryEmail;
   pro_ended: ProExpiryEmail;
+  pro_awaiting_payment: ProAwaitingPaymentEmail;
+  pro_paid: ProPaidEmail;
+  pro_failed: ProFailedEmail;
   payout_account_changed: PayoutAccountChangedEmail;
   password_changed: PasswordChangedEmail;
   password_reset: PasswordResetEmail;

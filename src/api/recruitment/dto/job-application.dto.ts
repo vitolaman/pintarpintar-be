@@ -12,6 +12,7 @@ import {
 import {
   ClearableText,
   EnumInput,
+  PhoneInput,
   QueryFilter,
   RequiredText,
 } from '~/common/decorator/input.decorator';
@@ -41,11 +42,7 @@ export class ApplyJobDto {
   @IsEmail()
   email: string;
 
-  @RequiredText({
-    max: 32,
-    example: '+62 812-3456-7890',
-    description: 'WhatsApp',
-  })
+  @PhoneInput({ description: 'WhatsApp' })
   phone: string;
 
   @ClearableText({

@@ -35,7 +35,7 @@ const mentorId = '70000000-0000-4000-8000-000000000001';
 const applyInput: ApplyJobDto = {
   name: 'Budi',
   email: 'budi@example.com',
-  phone: '+62 812',
+  phone: '+62 812-3456-7890',
   linkedin_url: 'https://linkedin.com/in/budi',
   cv_asset_id: cvId,
 };

@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsUUID } from 'class-validator';
 import {
   ClearableText,
+  PhoneInput,
   RequiredText,
 } from '~/common/decorator/input.decorator';
 import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
@@ -10,7 +11,7 @@ export class UpdateProfileDto {
   @RequiredText({ max: 120, optional: true, example: 'Budi Santoso' })
   name?: string;
 
-  @ClearableText({ max: 32, example: '+62 812-3456-7890' })
+  @PhoneInput({ presence: 'nullable' })
   phone?: string | null;
 
   @ClearableText({ max: 160, example: 'Belajar skill teknik praktis' })

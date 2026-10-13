@@ -380,6 +380,26 @@ describe('email templates', () => {
     expect(email.html).toContain(`href="${FRONTEND}/portal-saya"`);
   });
 
+  it('shows the buyer-paid platform fee on the receipt and the payment request', () => {
+    const [paid] = SAMPLES.order_paid;
+    const [awaiting] = SAMPLES.order_awaiting_payment;
+    for (const [kind, payload] of [
+      ['order_paid', paid],
+      ['order_awaiting_payment', awaiting],
+    ] as const) {
+      const email = renderEmail(
+        kind,
+        { ...payload, platform_fee_amount: 4325, total_amount: 177325 },
+        URLS,
+      );
+      expect(email.text).toContain('Biaya layanan: Rp 4.325');
+      expect(email.text).toContain('Rp 177.325');
+    }
+    expect(renderEmail('order_paid', paid, URLS).text).not.toContain(
+      'Biaya layanan',
+    );
+  });
+
   it('leaves the instruction section out when no item has instructions', () => {
     const [payload] = SAMPLES.order_paid;
     const email = renderEmail(

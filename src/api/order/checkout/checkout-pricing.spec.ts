@@ -14,6 +14,7 @@ const item = (
   merchantId: string,
   price: number,
   type: PricingItem['type'] = 'kelas',
+  platformFeePaidBy: PricingItem['platformFeePaidBy'] = 'merchant',
 ): PricingItem => ({
   type,
   id,
@@ -22,6 +23,7 @@ const item = (
   merchantId,
   merchantName: `Merchant ${merchantId}`,
   price,
+  platformFeePaidBy,
 });
 
 const voucher = (override: Partial<VoucherRule> = {}): VoucherRule => ({
@@ -50,6 +52,78 @@ const discountCode = (
   minimumPurchase: null,
   targets: null,
   ...override,
+});
+
+describe('priceSelection platform fee', () => {
+  it('charges 2.5% after codes and adds it to the total when the buyer pays', () => {
+    const result = priceSelection(
+      [item('a1', 'A', 200000, 'kelas', 'buyer')],
+      [voucher({ discountType: 'nominal', value: 20000 })],
+    );
+
+    expect(result.items[0]).toMatchObject({
+      discountAmount: 20000,
+      platformFee: 4500,
+      platformFeePaidBy: 'buyer',
+    });
+    expect(result).toMatchObject({
+      subtotal: 200000,
+      discountTotal: 20000,
+      platformFeeTotal: 4500,
+      total: 184500,
+    });
+  });
+
+  it('keeps the fee out of the total when the merchant absorbs it', () => {
+    const result = priceSelection(
+      [item('a1', 'A', 200000)],
+      [voucher({ discountType: 'nominal', value: 20000 })],
+    );
+
+    expect(result.items[0].platformFee).toBe(4500);
+    expect(result).toMatchObject({ platformFeeTotal: 0, total: 180000 });
+  });
+
+  it('adds only the fees of merchants that pass it on', () => {
+    const result = priceSelection(
+      [
+        item('a1', 'A', 100000, 'kelas', 'buyer'),
+        item('b1', 'B', 50000, 'digital', 'merchant'),
+      ],
+      [],
+    );
+
+    expect(result.items.map((priced) => priced.platformFee)).toEqual([
+      2500, 1250,
+    ]);
+    expect(result).toMatchObject({ platformFeeTotal: 2500, total: 152500 });
+  });
+
+  it.each([
+    [99999, 2500],
+    [9990, 250],
+    [9800, 245],
+    [20, 1],
+    [19, 0],
+    [0, 0],
+  ])('rounds the fee of %d to the nearest rupiah (%d)', (price, expected) => {
+    const result = priceSelection(
+      [item('a1', 'A', price, 'bundle', 'buyer')],
+      [],
+    );
+    expect(result.items[0].platformFee).toBe(expected);
+    expect(result.total).toBe(price + expected);
+  });
+
+  it('charges no fee on an item discounted to zero', () => {
+    const result = priceSelection(
+      [item('a1', 'A', 50000, 'kelas', 'buyer')],
+      [voucher({ discountType: 'percentage', value: 100 })],
+    );
+
+    expect(result.items[0].platformFee).toBe(0);
+    expect(result.total).toBe(0);
+  });
 });
 
 describe('priceSelection', () => {

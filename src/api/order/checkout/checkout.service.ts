@@ -88,12 +88,7 @@ export class CheckoutService {
             .join(', ')}`,
           email: user.email,
           customerName: user.name,
-          items: pricing.items
-            .map((item) => ({
-              name: item.title,
-              price: item.price - item.discountAmount,
-            }))
-            .filter((item) => item.price > 0),
+          items: invoiceLines(pricing),
         });
         await this.dataSource.manager.update(
           Order,
@@ -186,6 +181,7 @@ export class CheckoutService {
         discountCodeId: quote.discountCode?.id ?? null,
         totalAmount: String(pricing.total),
         discountAmount: String(pricing.discountTotal),
+        platformFeeAmount: String(pricing.platformFeeTotal),
         status: OrderStatus.PENDING,
         expiresAt: () => `now() + interval '${PAYMENT_EXPIRY_MINUTES} minutes'`,
       })
@@ -199,6 +195,8 @@ export class CheckoutService {
         ...quote.references[index],
         priceAtPurchase: String(item.price),
         discountAmount: String(item.discountAmount),
+        platformFeeAmount: String(item.platformFee),
+        platformFeePaidBy: item.platformFeePaidBy,
       })),
     );
 
@@ -266,6 +264,20 @@ async function assertNotAwaitingPayment(
   }
 }
 
+// Duitku's item details must sum to the payment amount: each item at its
+// price after discounts, then the platform fee the buyer pays.
+export function invoiceLines(
+  pricing: PricingResult,
+): Array<{ name: string; price: number }> {
+  return [
+    ...pricing.items.map((item) => ({
+      name: item.title,
+      price: item.price - item.discountAmount,
+    })),
+    { name: 'Biaya layanan', price: pricing.platformFeeTotal },
+  ].filter((line) => line.price > 0);
+}
+
 // `ORD-YYYYMMDD-NNNN` on the Asia/Jakarta date. The per-day lock is held
 // until the checkout commits, so numbers are sequential and never reused.
 async function nextOrderNumber(manager: EntityManager): Promise<string> {
@@ -312,6 +324,7 @@ function toPreview(
     })),
     subtotal: pricing.subtotal,
     discount_amount: pricing.discountTotal,
+    platform_fee_amount: pricing.platformFeeTotal,
     total_amount: pricing.total,
   };
 }

@@ -362,6 +362,8 @@ describe('MerchantDashboardService', () => {
           item_title: 'AutoCAD 3D',
           amount: '359100',
           gross_amount: '399000',
+          platform_fee_amount: '8978',
+          platform_fee_paid_by: 'buyer',
           coupon_code: 'HEMAT10',
           payment_method: 'BC',
           status: 'paid',
@@ -395,9 +397,13 @@ describe('MerchantDashboardService', () => {
       net_amount: 359100,
       payment_method: 'BC',
       payment_method_label: 'BCA Virtual Account',
-      platform_fee: null,
+      platform_fee: 8978,
+      platform_fee_paid_by: 'buyer',
       transaction_fee: null,
     });
+    expect(pageSql).toContain(
+      "CASE WHEN item.platform_fee_paid_by = 'merchant' THEN item.platform_fee_amount ELSE 0 END",
+    );
     expect(result.meta).toEqual({
       page: 1,
       limit: 10,

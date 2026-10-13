@@ -195,10 +195,18 @@ export function infoRows(rows: Array<[label: string, value: string]>): Block {
   };
 }
 
-/** Items with their amounts, and an optional discount and total. */
+/**
+ * Items with their amounts, and an optional discount, platform fee (Biaya
+ * layanan, shown when above 0) and total.
+ */
 export function itemTable(
   lines: EmailLine[],
-  totals: { discount?: number; totalLabel?: string; total?: number } = {},
+  totals: {
+    discount?: number;
+    platformFee?: number;
+    totalLabel?: string;
+    total?: number;
+  } = {},
 ): Block {
   const rows = lines
     .map((line) => {
@@ -209,17 +217,23 @@ export function itemTable(
   const discountRow = totals.discount
     ? `<tr><td style="padding:10px 0 0;font:14px/1.4 ${FONT};color:${MUTED};">Diskon</td><td style="padding:10px 0 0;font:14px/1.4 ${FONT};color:${MUTED};text-align:right;white-space:nowrap;">−${rupiah(totals.discount)}</td></tr>`
     : '';
+  const platformFeeRow = totals.platformFee
+    ? `<tr><td style="padding:10px 0 0;font:14px/1.4 ${FONT};color:${MUTED};">Biaya layanan</td><td style="padding:10px 0 0;font:14px/1.4 ${FONT};color:${MUTED};text-align:right;white-space:nowrap;">${rupiah(totals.platformFee)}</td></tr>`
+    : '';
   const totalRow = !totals.totalLabel
     ? ''
     : `<tr><td style="padding:10px 0 0;font:bold 15px/1.4 ${FONT};color:${NAVY};">${escapeHtml(totals.totalLabel)}</td><td style="padding:10px 0 0;font:bold 16px/1.4 ${FONT};color:${NAVY};text-align:right;white-space:nowrap;">${rupiah(totals.total ?? 0)}</td></tr>`;
   return {
-    html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border-collapse:collapse;">${rows}${discountRow}${totalRow}</table>`,
+    html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border-collapse:collapse;">${rows}${discountRow}${platformFeeRow}${totalRow}</table>`,
     text: [
       ...lines.map(
         (line) =>
           `- ${line.title} (${ITEM_TYPE_LABELS[line.type]}${line.merchant ? `, ${line.merchant}` : ''}): ${rupiah(line.amount)}`,
       ),
       ...(totals.discount ? [`Diskon: -${rupiah(totals.discount)}`] : []),
+      ...(totals.platformFee
+        ? [`Biaya layanan: ${rupiah(totals.platformFee)}`]
+        : []),
       ...(totals.totalLabel
         ? [`${totals.totalLabel}: ${rupiah(totals.total ?? 0)}`]
         : []),

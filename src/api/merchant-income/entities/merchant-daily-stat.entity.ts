@@ -11,7 +11,8 @@ export class MerchantDailyStat extends BaseEntity {
   @Column({ name: 'stat_date', type: 'date' })
   statDate: string;
 
-  // Net revenue (item price minus the item's discount), IDR.
+  // Net revenue (item price minus the item's discount and any platform fee
+  // the merchant pays), IDR.
   @Column({ name: 'daily_revenue', type: 'numeric', default: 0 })
   dailyRevenue: string;
 

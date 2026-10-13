@@ -13,12 +13,17 @@ import {
 } from 'class-validator';
 import {
   ClearableText,
+  EnumInput,
   FormLabel,
   NumberInput,
   RequiredText,
 } from '~/common/decorator/input.decorator';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 import { assetFieldDescription } from '~/api/file-asset/asset-purpose-rules';
+import {
+  PlatformFeePayer,
+  platformFeePayers,
+} from '~/common/pricing/platform-fee';
 import {
   MERCHANT_FORM_LABEL_MAX_LENGTH,
   MerchantProductType,
@@ -68,6 +73,14 @@ export class UpdateMerchantProfileDto {
 
   @ProductTypesInput({ optional: true })
   product_types?: MerchantProductType[];
+
+  @EnumInput(platformFeePayers, {
+    presence: 'optional',
+    example: 'buyer',
+    description:
+      'Who pays the 2.5% platform fee of new checkouts: `merchant` (deducted from the merchant\'s net) or `buyer` (added to the buyer\'s total as "Biaya layanan"); orders already created keep theirs',
+  })
+  platform_fee_paid_by?: PlatformFeePayer;
 
   @ClearableText({ max: 120, example: 'Bandung' })
   city?: string | null;

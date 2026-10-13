@@ -21,6 +21,7 @@ export const orderExpired: EmailTemplate<OrderClosedEmail> = (order, link) => {
         `Batas waktu pembayaran pesanan ${number.text} telah habis. Pesanan dibatalkan secara otomatis. Tidak ada dana yang terpotong.`,
       ),
       itemTable(order.items, {
+        platformFee: order.platform_fee_amount,
         totalLabel: 'Total pesanan',
         total: order.total_amount,
       }),

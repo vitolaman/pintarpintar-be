@@ -1,12 +1,14 @@
 import { EntityManager } from 'typeorm';
 import { EmailToQueue, guardEmailQueue, queueEmails } from '../email-queue';
 import type { EmailLine, ItemType } from '../templates/layout';
+import { merchantItemNetSql } from '~/common/pricing/platform-fee';
 
 interface OrderRow {
   id: string;
   order_number: string;
   total_amount: string;
   discount_amount: string;
+  platform_fee_amount: string;
   payment_url: string | null;
   payment_method: string | null;
   settlement_date: string | null;
@@ -23,6 +25,8 @@ interface OrderLineRow {
   instructions: string | null;
   price: string;
   discount: string;
+  // The merchant's net from the item.
+  net: string;
   merchant_id: string | null;
   store_name: string | null;
   owner_id: string | null;
@@ -42,7 +46,7 @@ async function loadOrder(
   orderId: string,
 ): Promise<OrderEmailData | null> {
   const [order]: OrderRow[] = await manager.query(
-    `SELECT o.id, o.order_number, o.total_amount, o.discount_amount, o.payment_url,
+    `SELECT o.id, o.order_number, o.total_amount, o.discount_amount, o.platform_fee_amount, o.payment_url,
             o.payment_method, o.settlement_date::text AS settlement_date,
             o.expires_at AT TIME ZONE 'UTC' AS expires_at,
             o.paid_at AT TIME ZONE 'UTC' AS paid_at,
@@ -62,6 +66,7 @@ async function loadOrder(
             NULLIF(btrim(COALESCE(bundle.post_purchase_instructions,
               product.post_purchase_instructions, class.post_purchase_instructions)), '') AS instructions,
             item.price_at_purchase AS price, item.discount_amount AS discount,
+            ${merchantItemNetSql('item')} AS net,
             merchant.id AS merchant_id, merchant.store_name,
             owner.id AS owner_id, owner.name AS owner_name, owner.email AS owner_email,
             COALESCE(preference.email_new_sale, true) AS email_new_sale
@@ -96,6 +101,7 @@ function orderSummary({ order, lines }: OrderEmailData) {
     buyer_name: order.buyer_name,
     items: buyerLines(lines),
     discount_amount: Number(order.discount_amount),
+    platform_fee_amount: Number(order.platform_fee_amount),
     total_amount: Number(order.total_amount),
   };
 }
@@ -168,7 +174,7 @@ export async function queueOrderPaidEmails(
       const items: EmailLine[] = merchantLines.map((line) => ({
         title: line.title,
         type: line.type,
-        amount: Number(line.price) - Number(line.discount),
+        amount: Number(line.net),
       }));
       emails.push({
         kind: 'merchant_new_sale',

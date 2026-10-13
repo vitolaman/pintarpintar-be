@@ -4,6 +4,10 @@ import {
   MerchantProductType,
   merchantProductTypes,
 } from '../merchant-onboarding';
+import {
+  PlatformFeePayer,
+  platformFeePayers,
+} from '~/common/pricing/platform-fee';
 
 export class MerchantLandingResponseDto {
   @ApiPropertyOptional({
@@ -59,6 +63,13 @@ export class MerchantResponseDto {
 
   @ApiProperty({ enum: ['basic', 'silver', 'gold'] })
   storage_level: string;
+
+  @ApiProperty({
+    enum: platformFeePayers,
+    description:
+      "Who pays the 2.5% platform fee: `merchant` (default; deducted from the net) or `buyer` (added to the buyer's total)",
+  })
+  platform_fee_paid_by: PlatformFeePayer;
 
   @ApiProperty({ type: MerchantLevelSummaryDto })
   level: MerchantLevelSummaryDto;

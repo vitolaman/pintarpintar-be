@@ -13,6 +13,7 @@ describe('OrderService', () => {
     status: OrderStatus.PENDING,
     totalAmount: '299000',
     discountAmount: '0',
+    platformFeeAmount: '0',
   };
   let builder: Record<string, jest.Mock>;
   let query: jest.Mock;
@@ -177,6 +178,30 @@ describe('OrderService', () => {
       process.env.ASSET_PUBLIC_BASE_URL = baseUrl;
       if (baseUrl === undefined) delete process.env.ASSET_PUBLIC_BASE_URL;
     }
+  });
+
+  it('reports the buyer-paid fee and a subtotal before it', async () => {
+    builder.getRawAndEntities.mockResolvedValueOnce({
+      entities: [
+        {
+          ...order,
+          totalAmount: '184500',
+          discountAmount: '20000',
+          platformFeeAmount: '4500',
+        },
+      ],
+      raw: [{ purchase_id: 'order-1', effective_status: 'paid' }],
+    });
+    query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+    const detail = await service.findDetail('user-id', 'order-1');
+
+    expect(detail).toMatchObject({
+      subtotal: 200000,
+      discount_amount: 20000,
+      platform_fee_amount: 4500,
+      total_amount: 184500,
+    });
   });
 
   it('names the payment channel of a paid order and none of an unpaid one', async () => {

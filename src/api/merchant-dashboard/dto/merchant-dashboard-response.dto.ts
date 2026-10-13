@@ -1,6 +1,10 @@
 import { MerchantLevelSummaryDto } from '../../merchant-level/dto/merchant-level.dto';
 import { ApiProperty } from '@nestjs/swagger';
 import { saleStatuses, saleTypes } from './merchant-dashboard-query.dto';
+import {
+  PlatformFeePayer,
+  platformFeePayers,
+} from '~/common/pricing/platform-fee';
 
 export class PeriodMetricDto {
   @ApiProperty({ example: 1000000 })
@@ -94,7 +98,8 @@ export class UnpaidTransactionDto {
 
   @ApiProperty({
     example: 299000,
-    description: "The item's net price (price minus its code-discount share)",
+    description:
+      "The item's net price (price minus its code-discount share and any platform fee the merchant pays)",
   })
   price: number;
 
@@ -147,7 +152,7 @@ export class MerchantDashboardResponseDto {
   @ApiProperty({
     type: PeriodMetricDto,
     description:
-      "Net revenue (price minus code-discount shares) of the merchant's items in orders paid in the period",
+      "Net revenue (price minus code-discount shares and platform fees the merchant pays) of the merchant's items in orders paid in the period",
   })
   revenue: PeriodMetricDto;
 
@@ -254,15 +259,31 @@ export class SaleResponseDto {
   @ApiProperty({ nullable: true })
   coupon_code: string | null;
 
-  @ApiProperty({ nullable: true, description: 'Fees are not implemented yet' })
-  platform_fee: number | null;
+  @ApiProperty({
+    example: 6728,
+    description:
+      'The 2.5% platform fee on the price after code discounts, whoever pays it; 0 for orders from before the fee',
+  })
+  platform_fee: number;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({
+    enum: platformFeePayers,
+    nullable: true,
+    description:
+      "Who paid the platform fee: `merchant` (deducted from the net) or `buyer` (added to the buyer's total); null for orders from before the fee",
+  })
+  platform_fee_paid_by: PlatformFeePayer | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Always null: the buyer pays the Duitku fee',
+  })
   transaction_fee: number | null;
 
   @ApiProperty({
-    example: 269100,
-    description: "The merchant's income: the amount minus its code discounts",
+    example: 262372,
+    description:
+      "The merchant's income: the amount minus its code discounts, minus the platform fee when the merchant pays it",
   })
   net_amount: number;
 
@@ -303,7 +324,7 @@ export class CustomerResponseDto {
   @ApiProperty({
     example: 524000,
     description:
-      'Net amount of their paid items (price minus code-discount shares)',
+      'Net amount of their paid items (price minus code-discount shares and platform fees the merchant pays)',
   })
   total_spent: number;
 

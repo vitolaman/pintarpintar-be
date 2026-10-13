@@ -34,12 +34,14 @@ import { ProductCategory } from './entities/product-category.entity';
 import { applyCoverInput, findCovers } from '../item-cover/item-covers';
 import { ItemCoverDto } from '../item-cover/dto/item-cover.dto';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
+import { merchantItemNetSql } from '~/common/pricing/platform-fee';
 
 const PRICE_FIELDS = { list: 'original_price', discount: 'discount_price' };
 
 // Details, sales figures, and the single file for the given product ids.
 // Downloads count learners with access; revenue is the net of paid order
-// items (price minus code discount shares).
+// items (price minus code discount shares and any platform fee the merchant
+// absorbs).
 const PRODUCT_DETAILS_SQL = `
   SELECT product.id, product.title, product.description, product.cover_asset_id,
          cover.object_key AS cover_object_key,
@@ -72,7 +74,7 @@ const PRODUCT_DETAILS_SQL = `
     FROM reviews WHERE product_id = product.id AND deleted_at IS NULL
   ) review ON true
   LEFT JOIN LATERAL (
-    SELECT COALESCE(sum(item.price_at_purchase - item.discount_amount), 0) AS revenue
+    SELECT COALESCE(sum(${merchantItemNetSql('item')}), 0) AS revenue
     FROM order_items item
     INNER JOIN orders purchase
       ON purchase.id = item.order_id AND purchase.deleted_at IS NULL AND purchase.status = 'paid'

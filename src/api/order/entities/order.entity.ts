@@ -24,12 +24,17 @@ export class Order extends BaseEntity {
   @Column({ name: 'discount_code_id', type: 'uuid', nullable: true })
   discountCodeId: string | null;
 
-  // The amount to pay, after code discounts.
+  // The amount to pay: after code discounts, plus the platform fee its
+  // buyer pays.
   @Column({ name: 'total_amount', type: 'numeric' })
   totalAmount: string;
 
   @Column({ name: 'discount_amount', type: 'numeric' })
   discountAmount: string;
+
+  // The sum of the platform fees of the items whose buyer pays them.
+  @Column({ name: 'platform_fee_amount', type: 'numeric', default: 0 })
+  platformFeeAmount: string;
 
   // Constrained by `chk_orders_status` to the `OrderStatus` values.
   @Column({ type: 'varchar' })

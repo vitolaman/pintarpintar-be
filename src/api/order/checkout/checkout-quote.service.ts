@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { DiscountCodeType } from '~/api/discount/entities/discount-code.entity';
+import { PlatformFeePayer } from '~/common/pricing/platform-fee';
 import {
   CatalogItemColumns,
   findOwnedItemIds,
@@ -140,6 +141,9 @@ export class CheckoutQuoteService {
       loadCatalogItems(manager, references),
       findOwnedItemIds(manager, userId, references),
     ]);
+    const feePayers = await loadFeePayers(manager, [
+      ...new Set([...details.values()].map((item) => item.merchant_id)),
+    ]);
 
     return request.items.map((ref) => {
       const item = details.get(ref.id);
@@ -157,6 +161,7 @@ export class CheckoutQuoteService {
         merchantId: item.merchant_id,
         merchantName: item.merchant_name,
         price: item.price,
+        platformFeePaidBy: feePayers.get(item.merchant_id),
       };
     });
   }
@@ -372,4 +377,19 @@ function recordRejection(
 
 function numberOrNull(value: string | null): number | null {
   return value === null ? null : Number(value);
+}
+
+// Who pays the platform fee, per merchant, as set when the quote is made;
+// checkout stores it on each item so later changes leave the order alone.
+async function loadFeePayers(
+  manager: EntityManager,
+  merchantIds: string[],
+): Promise<Map<string, PlatformFeePayer>> {
+  if (merchantIds.length === 0) return new Map();
+  const rows: Array<{ id: string; platform_fee_paid_by: PlatformFeePayer }> =
+    await manager.query(
+      'SELECT id, platform_fee_paid_by FROM merchants WHERE id = ANY($1::uuid[])',
+      [merchantIds],
+    );
+  return new Map(rows.map((row) => [row.id, row.platform_fee_paid_by]));
 }

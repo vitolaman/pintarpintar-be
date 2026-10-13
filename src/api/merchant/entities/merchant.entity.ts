@@ -1,5 +1,9 @@
 import { Column, Entity } from 'typeorm';
 import { BaseEntity } from '~/common/entities/base-entity';
+import {
+  DEFAULT_PLATFORM_FEE_PAYER,
+  PlatformFeePayer,
+} from '~/common/pricing/platform-fee';
 
 export enum MerchantStorageLevel {
   BASIC = 'basic',
@@ -38,6 +42,16 @@ export class Merchant extends BaseEntity {
     default: () => 'now()',
   })
   levelTrackedFrom: Date;
+
+  // Who pays the platform fee of this merchant's sales; constrained by
+  // `chk_merchants_platform_fee_paid_by`.
+  @Column({
+    name: 'platform_fee_paid_by',
+    type: 'varchar',
+    length: 8,
+    default: DEFAULT_PLATFORM_FEE_PAYER,
+  })
+  platformFeePaidBy: PlatformFeePayer;
 
   @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
   deletedBy: string | null;

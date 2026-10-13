@@ -34,7 +34,7 @@ export class BalanceHistoryItemResponseDto {
   @ApiProperty({
     example: 299000,
     description:
-      "Income: the item's net (price minus its code-discount share); withdraw: the requested amount",
+      "Income: the item's net (price minus its code-discount share and any platform fee the merchant pays); withdraw: the requested amount",
   })
   amount: number;
 

@@ -29,6 +29,7 @@ export const orderAwaitingPayment: EmailTemplate<OrderAwaitingPaymentEmail> = (
       ]),
       itemTable(order.items, {
         discount: order.discount_amount,
+        platformFee: order.platform_fee_amount,
         totalLabel: 'Total pembayaran',
         total: order.total_amount,
       }),

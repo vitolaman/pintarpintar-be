@@ -216,7 +216,7 @@ const IMAGE_ONLY: FileKind[] = ['image'];
 export const ASSET_PURPOSE_RULES = {
   merchant_logo: {
     kinds: IMAGE_ONLY,
-    maxBytes: 2 * MEBIBYTE,
+    maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   merchant_banner: {
@@ -231,7 +231,7 @@ export const ASSET_PURPOSE_RULES = {
   },
   user_avatar: {
     kinds: IMAGE_ONLY,
-    maxBytes: 2 * MEBIBYTE,
+    maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   class_cover: {
@@ -294,7 +294,7 @@ export const ASSET_PURPOSE_RULES = {
   },
   community_group_image: {
     kinds: IMAGE_ONLY,
-    maxBytes: 2 * MEBIBYTE,
+    maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   // Files shared in community threads; private so a request-only group's

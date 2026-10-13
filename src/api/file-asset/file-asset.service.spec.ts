@@ -191,7 +191,7 @@ describe('field rules by purpose', () => {
   });
 
   it.each([
-    ['an oversize logo', 'merchant_logo', 'logo.png', 'image/png', 3 * MB],
+    ['an oversize logo', 'merchant_logo', 'logo.png', 'image/png', 6 * MB],
     ['a PDF banner', 'merchant_banner', 'b.pdf', 'application/pdf', 1000],
     ['an avatar without a type', 'user_avatar', 'me.png', undefined, 1000],
     [
@@ -457,7 +457,11 @@ describe('assertOwnedAsset', () => {
     ['null owner', { ...asset, uploadedByUserId: null }, 'merchant_banner'],
     ['private', { ...asset, visibility: 'private' }, 'merchant_banner'],
     ['inactive', { ...asset, status: 'deleted' }, 'merchant_banner'],
-    ['too large for a logo', asset, 'merchant_logo'],
+    [
+      'too large for a logo',
+      { ...asset, sizeBytes: String(6 * MB) },
+      'merchant_logo',
+    ],
     ['missing', null, 'merchant_logo'],
   ])('rejects %s', async (_name, value, purpose) => {
     await expect(
@@ -551,9 +555,12 @@ describe('upload rule messages', () => {
   });
 
   it('states a fixed size limit without the internal field key', () => {
-    expect(() => assertFileFitsPurpose('user_avatar', image(3 * MB))).toThrow(
-      new BadRequestException('The file must be 2 MB or smaller'),
+    expect(() => assertFileFitsPurpose('user_avatar', image(6 * MB))).toThrow(
+      new BadRequestException('The file must be 5 MB or smaller'),
     );
+    expect(() =>
+      assertFileFitsPurpose('user_avatar', image(5 * MB)),
+    ).not.toThrow();
   });
 
   it('lists the allowed file types', () => {

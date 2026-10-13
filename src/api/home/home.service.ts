@@ -76,6 +76,10 @@ export class HomeService {
     };
   }
 
+  // The item counts match the public catalog, so items of an inactive or
+  // deleted merchant are left out. Learners count while their account exists,
+  // including buyers of such a merchant, who keep access. The rating keeps
+  // every review, like the review lists.
   private async getStatisticsProjection(): Promise<HomeStatisticsResponseDto> {
     const [row] = (await this.products.query(`
       SELECT
@@ -87,15 +91,23 @@ export class HomeService {
             SELECT user_id FROM user_access
             WHERE deleted_at IS NULL AND (expires_at IS NULL OR expires_at > now())
           ) learner
+          INNER JOIN users learner_user
+            ON learner_user.id = learner.user_id AND learner_user.deleted_at IS NULL
         ) AS active_students,
         (
-          SELECT COUNT(*)::integer FROM classes
-          WHERE status = 'published' AND deleted_at IS NULL
+          SELECT COUNT(*)::integer FROM classes class
+          INNER JOIN merchants merchant
+            ON merchant.id = class.merchant_id
+            AND merchant.deleted_at IS NULL AND merchant.status = 'active'
+          WHERE class.status = 'published' AND class.deleted_at IS NULL
         ) AS learning_products,
         (
-          SELECT COUNT(*)::integer FROM products
-          WHERE deleted_at IS NULL AND is_published = true
-            AND publication_status = 'published'
+          SELECT COUNT(*)::integer FROM products product
+          INNER JOIN merchants merchant
+            ON merchant.id = product.merchant_id
+            AND merchant.deleted_at IS NULL AND merchant.status = 'active'
+          WHERE product.deleted_at IS NULL AND product.is_published = true
+            AND product.publication_status = 'published'
         ) AS digital_products,
         (
           SELECT COALESCE(ROUND(AVG(review.rating)::numeric, 1), 0)
@@ -173,7 +185,8 @@ export class HomeService {
     }));
   }
 
-  // Testimonials are well-rated class reviews with a written comment. Like
+  // Testimonials are well-rated class reviews with a written comment, on
+  // classes of active merchants, since the card links to the class page. Like
   // every review list, they keep reviews of deleted accounts.
   private async getTestimonialCards(
     limit: number,
@@ -193,6 +206,9 @@ export class HomeService {
         INNER JOIN users reviewer ON reviewer.id = review.user_id
         INNER JOIN classes class
           ON class.id = review.class_id AND class.deleted_at IS NULL
+        INNER JOIN merchants merchant
+          ON merchant.id = class.merchant_id
+          AND merchant.deleted_at IS NULL AND merchant.status = 'active'
         LEFT JOIN user_profiles reviewer_profile
           ON reviewer_profile.user_id = reviewer.id
           AND reviewer_profile.deleted_at IS NULL

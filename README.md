@@ -79,12 +79,12 @@ The catalog keeps accepting `kelas-live` in `type` (the "Kelas Live" filter); it
 
 The collections take `limit` (default 10, at most 50) and return the newest first.
 
-- `GET /api/v1/home/statistics` — **public**; active learners (enrolled, or with unexpired digital-product access), published classes and digital products, platform rating (average of every review)
+- `GET /api/v1/home/statistics` — **public**; active learners (enrolled, or with unexpired digital-product access; deleted accounts are not counted), published classes and digital products of active merchants (the catalog's count), platform rating (average of every review)
 - `GET /api/v1/home/bootcamps` — **public**; with `in_wishlist`
 - `GET /api/v1/home/video-classes` — **public**; with `in_wishlist`
 - `GET /api/v1/home/digital-products` — **public**; with `in_wishlist`
 - `GET /api/v1/home/merchants` — **public**; active merchants, each with its latest published digital product (`best_product_*`)
-- `GET /api/v1/home/testimonials` — **public**; reviews of 4 or 5 stars with a comment on published classes; reviews of deleted accounts stay, as in every review list
+- `GET /api/v1/home/testimonials` — **public**; reviews of 4 or 5 stars with a comment on published classes of active merchants; reviews of deleted accounts stay, as in every review list
 
 ### Catalog (Kelas, Bootcamp, Produk Digital)
 

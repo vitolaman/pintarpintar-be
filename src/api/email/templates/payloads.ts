@@ -205,6 +205,17 @@ export interface ClassTutorAssignedEmail {
   role: 'lead' | 'assistant' | 'moderator';
 }
 
+export interface ClassAnnouncementEmail {
+  recipient_name: string;
+  // Decides the button: the learner portal, the mentor pages or the store.
+  audience: 'learner' | 'tutor' | 'merchant';
+  class_title: string;
+  author_name: string;
+  title: string;
+  // The start of the announcement text, at most 300 characters.
+  excerpt: string;
+}
+
 export interface MeetingEmail {
   // The recipient's name: the learner, or the mentor in a mentor reminder.
   learner_name: string;
@@ -271,6 +282,7 @@ export interface EmailPayloads {
   submission_graded: SubmissionGradedEmail;
   certificate_issued: CertificateIssuedEmail;
   class_tutor_assigned: ClassTutorAssignedEmail;
+  class_announcement: ClassAnnouncementEmail;
 }
 
 export type EmailKind = keyof EmailPayloads;

@@ -293,6 +293,17 @@ const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
     },
     'PP-CERT-2026-0042',
   ],
+  class_announcement: [
+    {
+      recipient_name: 'Ayu',
+      audience: 'learner',
+      class_title: 'AutoCAD Dasar',
+      author_name: 'Studio Sipil',
+      title: 'Jadwal ujian akhir',
+      excerpt: 'Ujian akhir dimulai Senin pukul 19.00 WIB.',
+    },
+    'Jadwal ujian akhir',
+  ],
   class_tutor_assigned: [
     {
       mentor_name: 'Rexi',
@@ -443,6 +454,28 @@ describe('email templates', () => {
     );
     expect(email.html).not.toContain('<script>');
     expect(email.html).not.toContain('<b>Bambang</b>');
+  });
+
+  it('sends each announcement reader to their own page', () => {
+    const [payload] = SAMPLES.class_announcement;
+    const learner = renderEmail('class_announcement', payload, URLS);
+    expect(learner.subject).toBe('Pengumuman baru di kelas AutoCAD Dasar');
+    expect(learner.text).toContain(
+      'Studio Sipil membuat pengumuman baru di kelas AutoCAD Dasar.',
+    );
+    expect(learner.text).toContain('Ujian akhir dimulai Senin');
+    expect(learner.html).toContain(`href="${FRONTEND}/portal-saya"`);
+    expect(
+      renderEmail('class_announcement', { ...payload, audience: 'tutor' }, URLS)
+        .html,
+    ).toContain(`href="${FRONTEND}/mentor/diskusi"`);
+    expect(
+      renderEmail(
+        'class_announcement',
+        { ...payload, audience: 'merchant', title: '<script>x</script>' },
+        URLS,
+      ).html,
+    ).not.toContain('<script>x</script>');
   });
 
   it('names the class, store and role in the tutor assignment email', () => {

@@ -196,8 +196,7 @@ export const dataSourceOptions: DataSourceOptions = {
     ProTransaction,
     MerchantProPeriod,
   ],
-  // Pintar Pintar starts from its own ERD baseline. Legacy template migrations
-  // remain in `migrations/` as reference only and must never run on this database.
+  // Pintar Pintar starts from its own ERD baseline; only its own migrations run.
   migrations: [`${__dirname}/migrations/pintar-pintar/*.{js,ts}`],
   // Schema changes are delivered only through recorded project migrations.
   // Runtime synchronization reshaped the shared schema and must stay disabled.

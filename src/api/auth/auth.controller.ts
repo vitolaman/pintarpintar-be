@@ -16,7 +16,10 @@ import {
   DefaultResponse,
   MessageResponse,
 } from '~/common/decorator/response.decorator';
-import { ClientAddressThrottlerGuard } from '~/common/guard/client-address-throttler.guard';
+import {
+  ClientAddressThrottlerGuard,
+  SignInAccountThrottlerGuard,
+} from '~/common/guard/client-address-throttler.guard';
 import { AuthService } from './auth.service';
 import { AuthTokenWithUserDto } from './dto/auth-token-with-user.dto';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
@@ -42,8 +45,11 @@ export class AuthController {
   ) {}
 
   @Post('sign-up')
+  @UseGuards(ClientAddressThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 600_000 } })
   @ApiOperation({
     summary: 'User sign up',
+    description: '20 requests per 10 minutes per client address.',
   })
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(AuthTokenWithUserDto, 'Account Created!', HttpStatus.OK, [
@@ -54,9 +60,14 @@ export class AuthController {
     return this.authService.signUp(body);
   }
 
+  // Two limits: per address, and per address and email (password guessing).
   @Post('sign-in')
+  @UseGuards(ClientAddressThrottlerGuard, SignInAccountThrottlerGuard)
+  @Throttle({ default: { limit: 100, ttl: 600_000 } })
   @ApiOperation({
     summary: 'Sign in with email and password',
+    description:
+      '10 requests per 10 minutes for one email from one client address, and 100 per 10 minutes per client address.',
   })
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(AuthTokenWithUserDto, 'Login Success', HttpStatus.OK, [

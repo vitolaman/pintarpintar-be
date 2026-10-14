@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { hash } from 'bcryptjs';
+import { hashPassword } from '~/common/security/password';
 import { createHash, randomBytes } from 'node:crypto';
 import { DataSource, IsNull } from 'typeorm';
 import {
@@ -101,7 +101,7 @@ export class PasswordResetService {
         where: { id: token.user_id },
         lock: { mode: 'pessimistic_write' },
       });
-      user.passwordHash = await hash(input.new_password, 10);
+      user.passwordHash = await hashPassword(input.new_password);
       // Every issued sign-in token carries the old version and stops working.
       user.tokenVersion += 1;
       await manager.save(User, user);

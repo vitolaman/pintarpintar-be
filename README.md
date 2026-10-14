@@ -67,8 +67,8 @@ The catalog keeps accepting `kelas-live` in `type` (the "Kelas Live" filter); it
 
 ### Authentication and user
 
-- `POST /api/v1/auth/sign-up` — **public**; 200 with `data: {token, user}` (`user` as in `GET /api/v1/users/me`); 409 when the email is registered
-- `POST /api/v1/auth/sign-in` — **public**; `data: {token, user}`; a wrong email or password is 403
+- `POST /api/v1/auth/sign-up` — **public**; 200 with `data: {token, user}` (`user` as in `GET /api/v1/users/me`); 409 when the email is registered; 20 per 10 minutes per client address (429 beyond)
+- `POST /api/v1/auth/sign-in` — **public**; `data: {token, user}`; a wrong email or password is 403; 10 per 10 minutes for one email from one client address and 100 per 10 minutes per address (429 beyond). Passwords are hashed with bcrypt (cost 10) off the main thread; hashes from before keep working
 - `PATCH /api/v1/auth/password` — current password required (a wrong one is 400); the new one has at least 8 characters with a digit and differs from the current one; other devices are signed out; `data.token` replaces this device's token
 - `POST /api/v1/auth/end-other-sessions` — signs out every other device; `data.token` replaces this device's token
 - `POST /api/v1/auth/password-reset` — **public**; `email`; always 200 `{data: null, responseMessage: "If the email is registered, a reset link has been sent"}`, so it reveals no accounts. An active account gets the "Atur ulang kata sandi" email with a single-use link to `<frontend>/reset-password?token=…`, valid for 60 minutes; at most one email a minute and five an hour per account; 5 requests per 10 minutes per client address (429)

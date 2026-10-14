@@ -1,5 +1,6 @@
 import './tracing';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { WinstonModule, utilities as WinstonNestUtilities } from 'nest-winston';
@@ -10,7 +11,7 @@ import { CustomHttpExceptionFilter } from './common/filters/exception-error.filt
 import { documentErrorResponses } from './common/swagger/error-responses';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     cors: true,
     logger: WinstonModule.createLogger({
       transports: [
@@ -27,6 +28,8 @@ async function bootstrap() {
       ],
     }),
   });
+  // Answers do not name the framework (X-Powered-By: Express by default).
+  app.disable('x-powered-by');
 
   app.useGlobalPipes(
     new ValidationPipe({

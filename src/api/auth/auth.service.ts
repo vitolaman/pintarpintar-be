@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { compare, hash } from 'bcryptjs';
+import { hashPassword, verifyPassword } from '~/common/security/password';
 import { DataSource, EntityManager } from 'typeorm';
 import { ResponseDto } from '~/common/dto/response.dto-default';
 import { Profile } from '../profile/entities/profile.entity';
@@ -57,7 +57,7 @@ export class AuthService {
   ): Promise<ResponseDto<AuthTokenWithUserDto>> {
     const user = await this.userService.findForAuthentication(body.email);
 
-    if (!user || !(await compare(body.password, user.passwordHash))) {
+    if (!user || !(await verifyPassword(body.password, user.passwordHash))) {
       throw new ForbiddenException('invalid username or password');
     }
 
@@ -89,15 +89,15 @@ export class AuthService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!user) throw new UnauthorizedException();
-      if (!(await compare(input.current_password, user.passwordHash))) {
+      if (!(await verifyPassword(input.current_password, user.passwordHash))) {
         throw new BadRequestException('Current password is incorrect');
       }
-      if (await compare(input.new_password, user.passwordHash)) {
+      if (await verifyPassword(input.new_password, user.passwordHash)) {
         throw new BadRequestException(
           'New password must differ from the current password',
         );
       }
-      user.passwordHash = await hash(input.new_password, 10);
+      user.passwordHash = await hashPassword(input.new_password);
       user.tokenVersion += 1;
       await manager.save(User, user);
       await queuePasswordChangedEmail(manager, user);

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { hash } from 'bcryptjs';
+import { hashPassword } from '~/common/security/password';
 import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { CreateUserBodyDto } from './dto/create-user.req.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -36,7 +36,7 @@ export class UserService {
         this.users.create({
           name,
           email,
-          passwordHash: await hash(input.password, 10),
+          passwordHash: await hashPassword(input.password),
         }),
       );
     } catch (error) {
@@ -66,7 +66,7 @@ export class UserService {
         manager.create(User, {
           name,
           email,
-          passwordHash: await hash(input.password, 10),
+          passwordHash: await hashPassword(input.password),
           isMentor: options.isMentor ?? false,
         }),
       );

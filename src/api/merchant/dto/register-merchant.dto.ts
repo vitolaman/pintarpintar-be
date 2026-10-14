@@ -4,6 +4,7 @@ import { Equals, IsBoolean, IsOptional } from 'class-validator';
 import {
   ClearableText,
   FormLabel,
+  PhoneInput,
   RequiredText,
 } from '~/common/decorator/input.decorator';
 import {
@@ -57,9 +58,7 @@ export class RegisterMerchantDto {
   })
   city: string;
 
-  @RequiredText({
-    max: 32,
-    example: '0812 3456 7890',
+  @PhoneInput({
     description:
       'Nomor WhatsApp Bisnis, the public store contact (shown on the storefront and editable in the profile settings)',
   })

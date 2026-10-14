@@ -2,11 +2,12 @@ import { IsUrl } from 'class-validator';
 import {
   ClearableText,
   NumberInput,
+  PhoneInput,
   RequiredText,
 } from '~/common/decorator/input.decorator';
 
 export class MentorRegistrationDto {
-  @RequiredText({ max: 32, example: '+62 812-3456-7890' })
+  @PhoneInput()
   phone: string;
 
   @ClearableText({ max: 160, example: 'Praktisi Data Science' })

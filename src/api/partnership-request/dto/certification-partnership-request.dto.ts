@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail } from 'class-validator';
 import {
   ClearableText,
+  PhoneInput,
   RequiredText,
 } from '~/common/decorator/input.decorator';
 
@@ -23,7 +24,7 @@ export class CreateCertificationPartnershipRequestDto {
   @IsEmail()
   email: string;
 
-  @RequiredText({ max: 32, example: '0812 3456 7890', description: 'No. Telp' })
+  @PhoneInput({ description: 'No. Telp' })
   phone: string;
 }
 

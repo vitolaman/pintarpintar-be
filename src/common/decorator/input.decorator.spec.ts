@@ -6,6 +6,7 @@ import {
   EnumInput,
   FormLabel,
   NumberInput,
+  PhoneInput,
   QueryFilter,
   RequiredText,
 } from './input.decorator';
@@ -216,5 +217,61 @@ describe('input decorators', () => {
     expect(await labelErrors({ field: null })).toEqual([]);
     expect(parseLabels({}).role).toBeUndefined();
     expect(await labelErrors({})).toEqual([]);
+  });
+});
+
+class PhoneDto {
+  @PhoneInput()
+  phone: string;
+
+  @PhoneInput({ presence: 'nullable' })
+  contact?: string | null;
+
+  @PhoneInput({ presence: 'optional' })
+  backup?: string;
+}
+
+describe('PhoneInput', () => {
+  const parse = (input: object) => plainToInstance(PhoneDto, input);
+  const errors = async (input: object) =>
+    (await validate(parse(input))).map((error) => error.property);
+
+  it('stores every common format as digits with the country code', async () => {
+    const dto = parse({
+      phone: '0812-3456-7890',
+      contact: '+62 0812 3456 7890',
+      backup: '+65 9123 4567',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto).toMatchObject({
+      phone: '6281234567890',
+      contact: '6281234567890',
+      backup: '6591234567',
+    });
+  });
+
+  it.each(['12345', '0812abc', '', '   ', null, 812])(
+    'rejects a required phone of %j',
+    async (phone) => {
+      expect(await errors({ phone })).toEqual(['phone']);
+    },
+  );
+
+  it('clears a nullable phone with "" or null and rejects null for an optional one', async () => {
+    expect(parse({ phone: '0812 3456 7890', contact: '' }).contact).toBeNull();
+    expect(await errors({ phone: '0812 3456 7890', contact: null })).toEqual(
+      [],
+    );
+    expect(await errors({ phone: '0812 3456 7890', backup: null })).toEqual([
+      'backup',
+    ]);
+    expect(await errors({ phone: '0812 3456 7890' })).toEqual([]);
+  });
+
+  it('names the rule in the message', async () => {
+    const [error] = await validate(parse({ phone: '123' }));
+    expect(Object.values(error.constraints ?? {})).toContain(
+      'phone must be a phone number of 8 to 15 digits',
+    );
   });
 });

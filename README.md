@@ -38,6 +38,8 @@ Request fields follow the same rules everywhere. An optional text field is clear
 
 Naming is the same everywhere: fields are snake_case (the envelope keys `responseMessage` and `statusCode`, and the S3 upload and Duitku callback bodies, are the documented exceptions), and an item kind is always `kelas` (video class), `bootcamp`, `digital` or `bundle`. Prices are `price`, `original_price`, `discount_price`, `discount_amount` and `discount_percent`; discounts and vouchers share `minimum_purchase`, `starts_at`, `ends_at`, `usage_limit` and `used_count`. Lists search with `search` and order with `sort_by` and `sort_order` (`asc`/`desc`). A request body or query field the endpoint does not define — a typo or an old name — is a 400 naming it, also on a route that takes no query parameters (the Duitku callback ignores the extra fields Duitku sends).
 
+Phone numbers are stored and returned as digits with the country code, ready for `https://wa.me/<number>`: any common format is accepted (`0812-3456-7890`, `+62 812 3456 7890`, `812…`, `+62 0812…` all become `6281234567890`; `+65 9123 4567` becomes `6591234567`), and anything that is not 8–15 digits is a 400. This applies to the profile, merchant, mentor, job application and partnership phone fields.
+
 The 2026-10-03 renames (one coordinated frontend release):
 
 | Where                                                                    | Before                                                                                             | Now                                                                                                                                                                                   |

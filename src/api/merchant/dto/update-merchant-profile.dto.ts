@@ -16,6 +16,7 @@ import {
   EnumInput,
   FormLabel,
   NumberInput,
+  PhoneInput,
   RequiredText,
 } from '~/common/decorator/input.decorator';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
@@ -48,7 +49,7 @@ export class UpdateMerchantProfileDto {
   })
   store_description?: string | null;
 
-  @ClearableText({ max: 32, example: '+62 812-3456-7890' })
+  @PhoneInput({ presence: 'nullable' })
   phone?: string | null;
 
   @ClearableText({ max: 160, example: 'Belajar teknologi dari praktisi.' })
@@ -89,7 +90,7 @@ export class UpdateMerchantProfileDto {
   @IsEmail()
   public_email?: string | null;
 
-  @ClearableText({ max: 32, example: '+62 812-3456-7890' })
+  @PhoneInput({ presence: 'nullable' })
   public_phone?: string | null;
 
   @ClearableText({ max: 2_048, example: 'https://akademi.example' })

@@ -548,6 +548,7 @@ Every variable the running application uses is listed in `.env.example` (Compose
 - `PAYOUT_ACCOUNT_ENCRYPTION_KEY`: never change or remove it once used.
 - `JWT_EXPIRES`: token lifetime (default `30d`).
 - `NODE_ENV`: `production` limits the database log to failures, slow statements (over 400 ms), warnings and migrations, without parameter values (see Observability); it is also the traces' environment name. The Docker image sets it.
+- `DB_POOL_MAX` (optional): database connections per instance, a whole number from 1 to 90 (default 20); an invalid value stops the startup. A heavy page runs several queries at once, so a small pool queues requests under load.
 - The `OTEL_*` tracing settings. Tracing is on by default and exports to `http://localhost:4318/v1/traces`; set `OTEL_ENABLED=false` (or `OTEL_SDK_DISABLED=true`) to turn it off.
 - `ENV_FILE`, which selects the env file (default `.env`).
 - The five email settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SENDER`): without them the app runs and emails wait in the queue (see Automatic emails). `FRONTEND_URL` is optional (default `https://pintarpintar.id`), and so is `API_PUBLIC_URL` (default `https://api.pintarpintar.id`). When the login mailbox differs from the sender address (for example `mail@` sending as `info@`), the mail server must allow it, for example as an alias. Deliverability also needs the sending domain's SPF, DKIM and DMARC records and the server's reverse DNS.

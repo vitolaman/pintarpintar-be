@@ -92,12 +92,31 @@ const PRODUCTION_LOGGING: LoggerOptions = [
 ];
 const SLOW_QUERY_MS = 400;
 
+// Connections per instance. A heavy page runs several queries at once, so the
+// driver default of 10 queued requests under load (live benchmark,
+// 2026-10-14); the database allows 100.
+const DEFAULT_POOL_SIZE = 20;
+const MAX_POOL_SIZE = 90;
+
+/** The pool size from DB_POOL_MAX; an invalid value stops the app at startup. */
+export function poolSize(value: string | undefined): number {
+  if (value === undefined || value.trim() === '') return DEFAULT_POOL_SIZE;
+  const size = Number(value);
+  if (!Number.isInteger(size) || size < 1 || size > MAX_POOL_SIZE) {
+    throw new Error(
+      `DB_POOL_MAX must be a whole number from 1 to ${MAX_POOL_SIZE}`,
+    );
+  }
+  return size;
+}
+
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
   host: process.env.DB_HOST,
   port: +process.env.DB_PORT,
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
+  extra: { max: poolSize(process.env.DB_POOL_MAX) },
   database: process.env.DB_DATABASE,
   entities: [
     FileAsset,

@@ -3,6 +3,22 @@ import { IsBoolean } from 'class-validator';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
 
 export class UpdateNotificationPreferencesDto {
+  @ApiPropertyOptional({
+    default: true,
+    description: 'Announcements received as the class owner.',
+  })
+  @OptionalNotNull()
+  @IsBoolean()
+  email_merchant_announcement?: boolean;
+
+  @ApiPropertyOptional({
+    default: true,
+    description: 'Settlement-ready and withdrawal-success emails.',
+  })
+  @OptionalNotNull()
+  @IsBoolean()
+  email_cashflow_success?: boolean;
+
   @ApiPropertyOptional()
   @OptionalNotNull()
   @IsBoolean()

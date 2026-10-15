@@ -12,6 +12,10 @@ import {
 import { EmailOutbox } from './entities/email-outbox.entity';
 import { MailSettings } from './mail-settings';
 import {
+  emailPreferenceKey,
+  enabledEmailRecipients,
+} from './email-preference-policy';
+import {
   isEmailKind,
   renderEmail,
   SENSITIVE_PAYLOAD_FIELDS,
@@ -168,13 +172,14 @@ export class EmailSenderService {
 
   private async send(
     email: EmailOutbox,
-  ): Promise<'sent' | 'retried' | 'failed'> {
+  ): Promise<'sent' | 'retried' | 'failed' | 'discarded'> {
     const attempts = email.attempts + 1;
     let rendered: ReturnType<typeof renderEmail>;
     try {
       if (!isEmailKind(email.kind)) {
         throw new Error(`unknown email kind ${email.kind}`);
       }
+      emailPreferenceKey({ kind: email.kind, payload: email.payload });
       rendered = renderEmail(email.kind, email.payload as never, {
         frontend: this.settings.frontendUrl,
         api: this.settings.apiPublicUrl,
@@ -189,6 +194,18 @@ export class EmailSenderService {
         `Email ${email.id} (${email.kind}) cannot be rendered: ${describeFailure(error)}`,
       );
       return 'failed';
+    }
+
+    const [enabled] = await enabledEmailRecipients(this.dataSource.manager, [
+      {
+        kind: email.kind,
+        userId: email.recipientUserId,
+        payload: email.payload,
+      },
+    ]);
+    if (!enabled) {
+      await this.record(email, { status: 'discarded', lastError: null });
+      return 'discarded';
     }
 
     try {
@@ -243,7 +260,10 @@ export class EmailSenderService {
     const fields = isEmailKind(email.kind)
       ? SENSITIVE_PAYLOAD_FIELDS[email.kind]
       : undefined;
-    const final = changes.status === 'sent' || changes.status === 'failed';
+    const final =
+      changes.status === 'sent' ||
+      changes.status === 'failed' ||
+      changes.status === 'discarded';
     await this.dataSource.manager.update(
       EmailOutbox,
       { id: email.id },

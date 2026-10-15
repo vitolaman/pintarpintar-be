@@ -3,6 +3,7 @@ import { EntityManager } from 'typeorm';
 import { describeFailure } from './email-delivery-rules';
 import { EmailOutbox } from './entities/email-outbox.entity';
 import type { EmailKind, EmailPayloads } from './templates';
+import { enabledEmailRecipients } from './email-preference-policy';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // An email not sent within this time is dropped instead of arriving late.
@@ -28,18 +29,29 @@ export type EmailToQueue = {
 export async function queueEmails(
   manager: EntityManager,
   emails: EmailToQueue[],
+  options: { recordSuppressed?: boolean } = {},
 ): Promise<void> {
   const now = Date.now();
-  const rows = emails
-    .filter((email) => email.to?.trim())
-    .map((email) => ({
-      kind: email.kind,
-      recipientEmail: email.to.trim(),
-      recipientUserId: email.userId ?? null,
-      dedupeKey: email.dedupeKey,
-      payload: email.payload as unknown as Record<string, unknown>,
-      expiresAt: email.expiresAt ?? new Date(now + DEFAULT_EMAIL_LIFETIME_MS),
-    }));
+  const candidates = emails.filter((email) => email.to?.trim());
+  const enabled = await enabledEmailRecipients(manager, candidates);
+  const rows = candidates.flatMap((email, index) =>
+    enabled[index] || options.recordSuppressed
+      ? [
+          {
+            kind: email.kind,
+            recipientEmail: email.to.trim(),
+            recipientUserId: email.userId ?? null,
+            dedupeKey: email.dedupeKey,
+            payload: email.payload as unknown as Record<string, unknown>,
+            expiresAt:
+              email.expiresAt ?? new Date(now + DEFAULT_EMAIL_LIFETIME_MS),
+            status: enabled[index]
+              ? ('pending' as const)
+              : ('discarded' as const),
+          },
+        ]
+      : [],
+  );
   for (let start = 0; start < rows.length; start += INSERT_BATCH_SIZE) {
     await manager
       .createQueryBuilder()

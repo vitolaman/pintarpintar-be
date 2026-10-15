@@ -13,7 +13,6 @@ interface ApplicationRow {
   owner_id: string | null;
   owner_name: string | null;
   owner_email: string | null;
-  email_new_applicant: boolean;
 }
 
 export type ApplicationEvent =
@@ -48,14 +47,12 @@ export async function queueApplicationEmail(
               application.name AS applicant_name, application.email AS applicant_email,
               job.title AS job_title, merchant.store_name, class.title AS class_title,
               application.created_at AT TIME ZONE 'UTC' AS applied_at,
-              owner.id AS owner_id, owner.name AS owner_name, owner.email AS owner_email,
-              COALESCE(preference.email_new_applicant, true) AS email_new_applicant
+              owner.id AS owner_id, owner.name AS owner_name, owner.email AS owner_email
        FROM job_applications application
        INNER JOIN job_postings job ON job.id = application.job_posting_id
        INNER JOIN merchants merchant ON merchant.id = job.merchant_id
        LEFT JOIN classes class ON class.id = job.class_id AND class.deleted_at IS NULL
        LEFT JOIN users owner ON owner.id = merchant.user_id AND owner.deleted_at IS NULL
-       LEFT JOIN user_notification_preferences preference ON preference.user_id = owner.id
        WHERE application.id = $1`,
         [applicationId],
       );
@@ -80,7 +77,7 @@ export async function queueApplicationEmail(
             dedupeKey: `${key}:submitted`,
             payload: base,
           };
-          if (row.owner_email && row.email_new_applicant) {
+          if (row.owner_email) {
             merchantEmails.push({
               kind: 'merchant_new_applicant',
               to: row.owner_email,

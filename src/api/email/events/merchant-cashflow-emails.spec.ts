@@ -183,7 +183,11 @@ describe('queueApplicationEmail on a new application', () => {
   });
 
   it('emails only the applicant when the owner turned applicant emails off', async () => {
-    const { manager: em, queued } = manager(() => [application(false)]);
+    const { manager: em, queued } = manager((sql) =>
+      sql.includes('FROM user_notification_preferences')
+        ? [{ user_id: 'owner-1', email_new_applicant: false }]
+        : [application(false)],
+    );
 
     await queueApplicationEmail(em, 'a1', { type: 'submitted' });
 

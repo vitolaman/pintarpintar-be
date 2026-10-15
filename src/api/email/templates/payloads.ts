@@ -38,6 +38,11 @@ export interface MerchantNewSaleEmail {
   settlement_date: string | null;
 }
 
+export interface MerchantRegisteredEmail {
+  owner_name: string;
+  store_name: string;
+}
+
 export type MerchantLevel = 'basic' | 'silver' | 'gold';
 
 export interface MerchantLevelResultEmail {
@@ -252,6 +257,7 @@ export interface EmailPayloads {
   order_expired: OrderClosedEmail;
   order_failed: OrderClosedEmail;
   merchant_new_sale: MerchantNewSaleEmail;
+  merchant_registered: MerchantRegisteredEmail;
   merchant_weekly_report: MerchantWeeklyReportEmail;
   merchant_level_result: MerchantLevelResultEmail;
   merchant_inactivity_warning: MerchantInactivityWarningEmail;

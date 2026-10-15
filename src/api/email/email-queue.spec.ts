@@ -67,6 +67,7 @@ describe('queueEmails', () => {
     };
     const manager = {
       createQueryBuilder: jest.fn(() => builder),
+      query: jest.fn().mockResolvedValue([]),
     } as unknown as EntityManager;
     return { manager, builder };
   }
@@ -107,5 +108,63 @@ describe('queueEmails', () => {
     expect(builder.values.mock.calls.map(([rows]) => rows.length)).toEqual([
       500, 500, 1,
     ]);
+  });
+
+  it('suppresses disabled mapped emails without changing mandatory ones', async () => {
+    const { manager, builder } = insertManager();
+    (manager.query as jest.Mock).mockResolvedValue([
+      { user_id: 'account-1', email_application_submitted: false },
+    ]);
+    await queueEmails(manager, [
+      {
+        kind: 'application_submitted',
+        to: 'contact@example.test',
+        userId: 'account-1',
+        dedupeKey: 'application:1',
+        payload: {
+          applicant_name: 'A',
+          job_title: 'Mentor',
+          store_name: 'Store',
+        },
+      },
+      email(1),
+    ]);
+    expect(builder.values.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ kind: 'password_changed', status: 'pending' }),
+    ]);
+  });
+
+  it('records a terminal suppressed outcome when required by a polling detector', async () => {
+    const { manager, builder } = insertManager();
+    (manager.query as jest.Mock).mockResolvedValue([
+      { user_id: 'account-1', email_cashflow_success: false },
+    ]);
+    await queueEmails(
+      manager,
+      [
+        {
+          kind: 'withdrawal_succeeded',
+          to: 'owner@example.test',
+          userId: 'account-1',
+          dedupeKey: 'payout:1:success',
+          payload: {
+            owner_name: 'A',
+            store_name: 'Store',
+            amount: 100000,
+            fee_amount: 5000,
+            destination: 'Bank •••• 0001',
+            requested_at: new Date().toISOString(),
+          },
+        },
+      ],
+      { recordSuppressed: true },
+    );
+    expect(builder.values.mock.calls[0][0]).toEqual([
+      expect.objectContaining({
+        dedupeKey: 'payout:1:success',
+        status: 'discarded',
+      }),
+    ]);
+    expect(builder.orIgnore).toHaveBeenCalled();
   });
 });

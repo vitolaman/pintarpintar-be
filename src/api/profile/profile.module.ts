@@ -9,6 +9,7 @@ import { StudentProgress } from './entities/student-progress.entity';
 import { UserAccess } from './entities/user-access.entity';
 import { User } from '../user/entities/user.entity';
 import { MentorModule } from '../mentor/mentor.module';
+import { NotificationPreferencesModule } from '../notification-preferences/notification-preferences.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { MentorModule } from '../mentor/mentor.module';
       UserAccess,
     ]),
     MentorModule,
+    NotificationPreferencesModule,
   ],
   controllers: [ProfileController],
   providers: [ProfileService],

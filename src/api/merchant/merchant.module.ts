@@ -12,9 +12,9 @@ import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { MerchantWithdrawalJobsService } from './merchant-withdrawal-jobs.service';
 import { MerchantWithdrawalService } from './merchant-withdrawal.service';
 import { MerchantPayoutAccount } from '../payout-account/entities/merchant-payout-account.entity';
-import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
 import { ClassModule } from '../../class/class.module';
 import { MerchantLevelModule } from '../merchant-level/merchant-level.module';
+import { NotificationPreferencesModule } from '../notification-preferences/notification-preferences.module';
 
 @Module({
   imports: [
@@ -27,10 +27,10 @@ import { MerchantLevelModule } from '../merchant-level/merchant-level.module';
       MerchantProfile,
       Profile,
       User,
-      UserNotificationPreferences,
     ]),
     ClassModule,
     MerchantLevelModule,
+    NotificationPreferencesModule,
   ],
   controllers: [MerchantController],
   providers: [

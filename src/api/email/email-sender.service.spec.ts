@@ -32,6 +32,7 @@ describe('EmailSenderService', () => {
     findBy: jest.Mock;
   };
   let recorded: jest.Mock;
+  let preferenceQuery: jest.Mock;
   let sendMail: jest.Mock;
   let missing: string[];
   let service: EmailSenderService;
@@ -55,11 +56,12 @@ describe('EmailSenderService', () => {
       findBy: jest.fn(),
     };
     recorded = jest.fn();
+    preferenceQuery = jest.fn().mockResolvedValue([]);
     sendMail = jest.fn();
     missing = [];
     const dataSource = {
       transaction: jest.fn((work) => work(claimManager)),
-      manager: { update: recorded },
+      manager: { update: recorded, query: preferenceQuery },
     } as unknown as DataSource;
     const settings = {
       missing: () => missing,
@@ -116,6 +118,100 @@ describe('EmailSenderService', () => {
       { id: 'email-1' },
       expect.objectContaining({ status: 'sent', attempts: 1, lastError: null }),
     );
+  });
+
+  it.each([0, 2])(
+    'discards an opted-out email before SMTP, with %s previous attempts',
+    async (attempts) => {
+      claim([
+        queued({
+          kind: 'application_submitted',
+          attempts,
+          payload: {
+            applicant_name: 'Ayu',
+            job_title: 'Mentor',
+            store_name: 'Store',
+          },
+        }),
+      ]);
+      preferenceQuery.mockResolvedValue([
+        { user_id: 'user-1', email_application_submitted: false },
+      ]);
+      expect(await service.sendBatch()).toEqual({
+        sent: 0,
+        retried: 0,
+        failed: 0,
+        discarded: 1,
+      });
+      expect(sendMail).not.toHaveBeenCalled();
+      expect(recorded).toHaveBeenCalledWith(
+        EmailOutbox,
+        { id: 'email-1' },
+        { status: 'discarded', lastError: null },
+      );
+    },
+  );
+
+  it('does not submit or mark mail sent if current preferences cannot be read', async () => {
+    claim([queued({ kind: 'application_submitted' })]);
+    preferenceQuery.mockRejectedValue(new Error('unavailable'));
+    await expect(service.sendBatch()).rejects.toThrow('unavailable');
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(recorded).not.toHaveBeenCalled();
+    // The existing claim lease makes this row eligible again after recovery.
+    expect(claimManager.update).toHaveBeenCalledWith(
+      EmailOutbox,
+      expect.anything(),
+      expect.objectContaining({ status: 'sending' }),
+    );
+  });
+
+  it('fails a malformed announcement instead of repeatedly aborting the entire batch', async () => {
+    claim([
+      queued({ kind: 'class_announcement', payload: { audience: 'invalid' } }),
+      queued({ id: 'valid-security-notice' }),
+    ]);
+    jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
+    const result = await service.sendBatch();
+    expect(result).toEqual({ sent: 1, failed: 1, retried: 0, discarded: 0 });
+    expect(preferenceQuery).not.toHaveBeenCalled();
+    expect(recorded).toHaveBeenCalledWith(
+      EmailOutbox,
+      { id: 'email-1' },
+      expect.objectContaining({
+        status: 'failed',
+        attempts: 1,
+        lastError: 'render: Invalid announcement email audience',
+      }),
+    );
+    expect(sendMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('rechecks before each SMTP submission rather than caching an earlier batch choice', async () => {
+    const payload = {
+      applicant_name: 'Ayu',
+      job_title: 'Mentor',
+      store_name: 'Store',
+    };
+    claim([
+      queued({ id: 'one', kind: 'application_submitted', payload }),
+      queued({ id: 'two', kind: 'application_submitted', payload }),
+    ]);
+    preferenceQuery
+      .mockResolvedValueOnce([
+        { user_id: 'user-1', email_application_submitted: true },
+      ])
+      .mockResolvedValueOnce([
+        { user_id: 'user-1', email_application_submitted: false },
+      ]);
+    expect(await service.sendBatch()).toEqual({
+      sent: 1,
+      retried: 0,
+      failed: 0,
+      discarded: 1,
+    });
+    expect(preferenceQuery).toHaveBeenCalledTimes(2);
+    expect(sendMail).toHaveBeenCalledTimes(1);
   });
 
   it('sends the claimed emails in their due order', async () => {

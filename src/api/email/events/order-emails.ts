@@ -32,7 +32,6 @@ interface OrderLineRow {
   owner_id: string | null;
   owner_name: string | null;
   owner_email: string | null;
-  email_new_sale: boolean;
 }
 
 interface OrderEmailData {
@@ -68,8 +67,7 @@ async function loadOrder(
             item.price_at_purchase AS price, item.discount_amount AS discount,
             ${merchantItemNetSql('item')} AS net,
             merchant.id AS merchant_id, merchant.store_name,
-            owner.id AS owner_id, owner.name AS owner_name, owner.email AS owner_email,
-            COALESCE(preference.email_new_sale, true) AS email_new_sale
+            owner.id AS owner_id, owner.name AS owner_name, owner.email AS owner_email
      FROM order_items item
      LEFT JOIN bundles bundle ON bundle.id = item.bundle_id
      LEFT JOIN products product ON product.id = item.product_id
@@ -77,7 +75,6 @@ async function loadOrder(
      LEFT JOIN merchants merchant
        ON merchant.id = COALESCE(bundle.merchant_id, product.merchant_id, class.merchant_id)
      LEFT JOIN users owner ON owner.id = merchant.user_id AND owner.deleted_at IS NULL
-     LEFT JOIN user_notification_preferences preference ON preference.user_id = owner.id
      WHERE item.order_id = $1 AND item.deleted_at IS NULL
      ORDER BY item.created_at, item.id`,
     [orderId],
@@ -161,7 +158,7 @@ export async function queueOrderPaidEmails(
 
     const merchants = new Map<string, OrderLineRow[]>();
     for (const line of lines) {
-      if (!line.merchant_id || !line.owner_email || !line.email_new_sale) {
+      if (!line.merchant_id || !line.owner_email) {
         continue;
       }
       merchants.set(line.merchant_id, [

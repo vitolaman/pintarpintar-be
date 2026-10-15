@@ -64,6 +64,10 @@ const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
   ],
   order_expired: [order, 'ORD-20261005-0012'],
   order_failed: [order, 'ORD-20261005-0012'],
+  merchant_registered: [
+    { owner_name: 'Bambang', store_name: 'Studio Sipil' },
+    'Studio Sipil',
+  ],
   merchant_new_sale: [
     {
       order_number: 'ORD-20261005-0012',

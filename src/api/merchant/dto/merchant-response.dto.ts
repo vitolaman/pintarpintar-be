@@ -249,6 +249,18 @@ export class MerchantResponseDto {
 }
 
 export class NotificationPreferencesResponseDto {
+  @ApiProperty({
+    default: true,
+    description: 'Announcements received as the class owner.',
+  })
+  email_merchant_announcement: boolean;
+
+  @ApiProperty({
+    default: true,
+    description: 'Settlement-ready and withdrawal-success emails.',
+  })
+  email_cashflow_success: boolean;
+
   @ApiProperty()
   email_new_sale: boolean;
 

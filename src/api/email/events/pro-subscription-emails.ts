@@ -1,8 +1,8 @@
 import { EntityManager } from 'typeorm';
 import { guardEmailQueue, queueEmails } from '../email-queue';
 
-// Payment emails for a Pro subscription purchase. Like order emails they go
-// out regardless of notification switches, once per transaction and kind.
+// Payment emails for a Pro purchase, deduplicated by transaction and kind.
+// The common queue policy makes only the success confirmation optional.
 
 interface ProTransactionRow {
   id: string;

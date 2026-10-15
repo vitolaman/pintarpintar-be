@@ -12,6 +12,9 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { NotificationPreferencesService } from '../notification-preferences/notification-preferences.service';
+import { EmailPreferencesResponseDto } from '../notification-preferences/dto/email-preferences-response.dto';
+import { UpdateEmailPreferencesDto } from '../notification-preferences/dto/update-email-preferences.dto';
 import {
   ArrayResponse,
   DefaultResponse,
@@ -35,7 +38,38 @@ const USER_NOT_FOUND = new NotFoundException('User not found');
 @ApiBearerAuth()
 @ApiTags('Profile')
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly notificationPreferences: NotificationPreferencesService,
+  ) {}
+
+  @Get('profile/notification-preferences')
+  @DefaultResponse(
+    EmailPreferencesResponseDto,
+    'Get email notification preferences success',
+    HttpStatus.OK,
+    [USER_NOT_FOUND],
+  )
+  findNotificationPreferences(@Req() req: { user: { id: string } }) {
+    return this.notificationPreferences.findEmailPreferences(req.user.id);
+  }
+
+  @Patch('profile/notification-preferences')
+  @DefaultResponse(
+    EmailPreferencesResponseDto,
+    'Update email notification preferences success',
+    HttpStatus.OK,
+    [BadRequestException, USER_NOT_FOUND],
+  )
+  updateNotificationPreferences(
+    @Req() req: { user: { id: string } },
+    @Body() input: UpdateEmailPreferencesDto,
+  ) {
+    return this.notificationPreferences.updateEmailPreferences(
+      req.user.id,
+      input,
+    );
+  }
 
   @Get('profile')
   @DefaultResponse(ProfileResponseDto, 'Get profile success', HttpStatus.OK, [

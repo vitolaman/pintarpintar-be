@@ -11,7 +11,7 @@ import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 import { MerchantProfile } from './entities/merchant-profile.entity';
 import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
-import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
+import { NotificationPreferencesService } from '../notification-preferences/notification-preferences.service';
 import { MerchantService } from './merchant.service';
 
 const LEVEL = {
@@ -34,7 +34,7 @@ describe('MerchantService', () => {
   let dataSource: Pick<DataSource, 'transaction' | 'query' | 'manager'>;
   let merchants: { findOneBy: jest.Mock; manager?: { find: jest.Mock } };
   let wallets: { findOneBy: jest.Mock; query: jest.Mock };
-  let preferences: { findOneBy: jest.Mock };
+  let preferences: { find: jest.Mock; update: jest.Mock; ensureRow: jest.Mock };
   let levelSummary: { findSummary: jest.Mock };
   let service: MerchantService;
 
@@ -60,6 +60,7 @@ describe('MerchantService', () => {
       findOneBy: jest.fn(),
       query: jest.fn().mockResolvedValue([]),
       save: jest.fn().mockImplementation(async (_target, value) => value),
+      transaction: jest.fn((work) => work(manager)),
     };
     dataSource = {
       transaction: jest.fn((callback) => callback(manager)),
@@ -71,13 +72,13 @@ describe('MerchantService', () => {
       manager: { find: jest.fn().mockResolvedValue([]) },
     } as typeof merchants;
     wallets = { findOneBy: jest.fn(), query: jest.fn() };
-    preferences = { findOneBy: jest.fn() };
+    preferences = { find: jest.fn(), update: jest.fn(), ensureRow: jest.fn() };
     levelSummary = { findSummary: jest.fn().mockResolvedValue(LEVEL) };
     service = new MerchantService(
       dataSource as DataSource,
       merchants as unknown as Repository<Merchant>,
       wallets as unknown as Repository<MerchantWallet>,
-      preferences as unknown as Repository<UserNotificationPreferences>,
+      preferences as unknown as NotificationPreferencesService,
       levelSummary as unknown as MerchantLevelService,
     );
   });
@@ -741,12 +742,14 @@ describe('MerchantService', () => {
 
   it('returns safe default notification preferences for a merchant without a row', async () => {
     merchants.findOneBy.mockResolvedValue({ id: merchantId } as Merchant);
-    preferences.findOneBy.mockResolvedValue(null);
+    preferences.find.mockResolvedValue(null);
 
     await expect(service.findNotificationPreferences(userId)).resolves.toEqual({
       data: {
         email_new_sale: true,
         email_new_applicant: true,
+        email_merchant_announcement: true,
+        email_cashflow_success: true,
         email_new_review: true,
         email_weekly_report: true,
         whatsapp_new_order: true,
@@ -764,6 +767,38 @@ describe('MerchantService', () => {
     await expect(
       service.findNotificationPreferences(userId),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('returns the saved partial-update snapshot without fetching it again', async () => {
+    manager.findOne.mockResolvedValue({ id: merchantId, userId });
+    preferences.update.mockResolvedValue({
+      emailNewSale: false,
+      emailCashflowSuccess: false,
+      emailWeeklyReport: false,
+    });
+    const result = await service.updateNotificationPreferences(userId, {
+      email_new_sale: false,
+    });
+    expect(preferences.update).toHaveBeenCalledWith(manager, userId, {
+      email_new_sale: false,
+    });
+    expect(result).toMatchObject({
+      data: {
+        email_new_sale: false,
+        email_cashflow_success: false,
+        email_weekly_report: false,
+      },
+      responseMessage: 'Update notification preferences success',
+    });
+    expect(preferences.find).not.toHaveBeenCalled();
+  });
+
+  it('does not update settings without an owned merchant', async () => {
+    manager.findOne.mockResolvedValue(null);
+    await expect(
+      service.updateNotificationPreferences(userId, { email_new_sale: false }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(preferences.update).not.toHaveBeenCalled();
   });
 });
 

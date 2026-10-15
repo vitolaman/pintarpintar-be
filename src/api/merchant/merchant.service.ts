@@ -46,6 +46,12 @@ import { Merchant, MerchantStorageLevel } from './entities/merchant.entity';
 import { MerchantLevelService } from '../merchant-level/merchant-level.service';
 import { MerchantWallet } from './entities/merchant-wallet.entity';
 import { UserNotificationPreferences } from './entities/user-notification-preferences.entity';
+import { NotificationPreferencesService } from '../notification-preferences/notification-preferences.service';
+import {
+  MERCHANT_PREFERENCE_FIELDS,
+  preferenceValues,
+} from '../notification-preferences/preference-fields';
+import { guardEmailQueue, queueEmail } from '../email/email-queue';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 import { merchantProStatus } from '../pro/pro-status';
 import { merchantItemNetSql } from '~/common/pricing/platform-fee';
@@ -115,8 +121,7 @@ export class MerchantService {
     private readonly merchants: Repository<Merchant>,
     @InjectRepository(MerchantWallet)
     private readonly wallets: Repository<MerchantWallet>,
-    @InjectRepository(UserNotificationPreferences)
-    private readonly notificationPreferences: Repository<UserNotificationPreferences>,
+    private readonly notificationPreferences: NotificationPreferencesService,
     private readonly merchantLevels: MerchantLevelService,
   ) {}
 
@@ -187,18 +192,19 @@ export class MerchantService {
         }),
       );
 
-      const preferences = await manager.findOneBy(UserNotificationPreferences, {
-        userId,
-      });
-      if (!preferences) {
-        await manager.save(
-          UserNotificationPreferences,
-          manager.create(UserNotificationPreferences, { userId }),
-        );
-      }
+      await this.notificationPreferences.ensureRow(manager, userId);
 
       user.isMerchant = true;
       await manager.save(User, user);
+      await guardEmailQueue(manager, 'merchant registration', (emailManager) =>
+        queueEmail(emailManager, {
+          kind: 'merchant_registered',
+          to: user.email,
+          userId,
+          dedupeKey: `merchant:${merchant.id}:registered`,
+          payload: { owner_name: user.name, store_name: merchant.storeName },
+        }),
+      );
     });
 
     return this.findMerchantProfile(userId).then((response) => ({
@@ -494,9 +500,7 @@ export class MerchantService {
 
   async findNotificationPreferences(userId: string) {
     await this.assertMerchantOwner(userId);
-    const preferences = await this.notificationPreferences.findOneBy({
-      userId,
-    });
+    const preferences = await this.notificationPreferences.find(userId);
     return {
       data: this.toNotificationPreferences(preferences),
       responseMessage: 'Get notification preferences success',
@@ -507,46 +511,15 @@ export class MerchantService {
     userId: string,
     input: UpdateNotificationPreferencesDto,
   ) {
-    await this.dataSource.transaction(async (manager) => {
+    const preferences = await this.dataSource.transaction(async (manager) => {
       await this.findOwnedMerchant(manager, userId, true);
-      let preferences = await manager.findOneBy(UserNotificationPreferences, {
-        userId,
-      });
-      if (!preferences) {
-        preferences = manager.create(UserNotificationPreferences, { userId });
-      }
-
-      if (input.email_new_sale !== undefined) {
-        preferences.emailNewSale = input.email_new_sale;
-      }
-      if (input.email_new_applicant !== undefined) {
-        preferences.emailNewApplicant = input.email_new_applicant;
-      }
-      if (input.email_new_review !== undefined) {
-        preferences.emailNewReview = input.email_new_review;
-      }
-      if (input.email_weekly_report !== undefined) {
-        preferences.emailWeeklyReport = input.email_weekly_report;
-      }
-      if (input.whatsapp_new_order !== undefined) {
-        preferences.whatsappNewOrder = input.whatsapp_new_order;
-      }
-      if (input.whatsapp_payout_approved !== undefined) {
-        preferences.whatsappPayoutApproved = input.whatsapp_payout_approved;
-      }
-      if (input.whatsapp_student_chat !== undefined) {
-        preferences.whatsappStudentChat = input.whatsapp_student_chat;
-      }
-      if (input.promotion_broadcast !== undefined) {
-        preferences.promotionBroadcast = input.promotion_broadcast;
-      }
-      await manager.save(UserNotificationPreferences, preferences);
+      return this.notificationPreferences.update(manager, userId, input);
     });
 
-    return this.findNotificationPreferences(userId).then((response) => ({
-      ...response,
+    return {
+      data: this.toNotificationPreferences(preferences),
       responseMessage: 'Update notification preferences success',
-    }));
+    };
   }
 
   private async ensureMerchantProfile(userId: string): Promise<void> {
@@ -884,16 +857,7 @@ export class MerchantService {
   private toNotificationPreferences(
     preferences: UserNotificationPreferences | null,
   ): NotificationPreferencesResponseDto {
-    return {
-      email_new_sale: preferences?.emailNewSale ?? true,
-      email_new_applicant: preferences?.emailNewApplicant ?? true,
-      email_new_review: preferences?.emailNewReview ?? true,
-      email_weekly_report: preferences?.emailWeeklyReport ?? true,
-      whatsapp_new_order: preferences?.whatsappNewOrder ?? true,
-      whatsapp_payout_approved: preferences?.whatsappPayoutApproved ?? true,
-      whatsapp_student_chat: preferences?.whatsappStudentChat ?? false,
-      promotion_broadcast: preferences?.promotionBroadcast ?? true,
-    };
+    return preferenceValues(MERCHANT_PREFERENCE_FIELDS, preferences);
   }
 }
 

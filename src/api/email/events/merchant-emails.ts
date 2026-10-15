@@ -283,6 +283,6 @@ export async function queueWithdrawalOutcomeEmails(
       },
     });
   }
-  await queueEmails(manager, emails);
+  await queueEmails(manager, emails, { recordSuppressed: true });
   return emails.length;
 }

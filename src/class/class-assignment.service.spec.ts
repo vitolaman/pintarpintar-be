@@ -9,6 +9,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ClassAccessService } from './class-access.service';
 import { ClassAssignmentService } from './class-assignment.service';
+import * as assetRules from '../api/file-asset/asset-purpose-rules';
 import { TUTOR_PERMISSION_FIXTURES } from './testing/tutor-permission-fixtures';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
@@ -17,8 +18,10 @@ import {
   AssignmentQuestion,
   QuestionType,
 } from './entities/assignment-question.entity';
+import { AssignmentResource } from './entities/assignment-resource.entity';
 
 const FUTURE = '2099-01-01T23:59:00+07:00';
+const FILE_ID = '70000000-0000-4000-8000-0000000000ff';
 
 function quiz(questions: object[]): CreateAssignmentDto {
   return {
@@ -75,6 +78,8 @@ describe('ClassAssignmentService', () => {
         entity === Assignment ? { ...value, id: assignmentId } : value,
       ),
       update: jest.fn(),
+      delete: jest.fn(),
+      insert: jest.fn(),
     };
     const dataSource = {
       manager,
@@ -85,7 +90,12 @@ describe('ClassAssignmentService', () => {
       dataSource as never,
       new ClassAccessService(dataSource as never),
       { issueEligible } as never,
-      new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
+      new ConfigService({
+        AWS_S3_BUCKET_NAME: 'bucket',
+        AWS_REGION: 'us-east-1',
+        AWS_ACCESS_KEY_ID: 'test',
+        AWS_SECRET_ACCESS_KEY: 'test',
+      }),
     );
   });
 
@@ -167,6 +177,92 @@ describe('ClassAssignmentService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  describe('resource files', () => {
+    const files = [
+      '70000000-0000-4000-8000-00000000000a',
+      '70000000-0000-4000-8000-00000000000b',
+      '70000000-0000-4000-8000-00000000000c',
+    ];
+    const fileAssignment = (resources: object): CreateAssignmentDto =>
+      ({
+        title: 'Tugas',
+        due: FUTURE,
+        type: AssignmentType.FILE_UPLOAD,
+        ...resources,
+      }) as CreateAssignmentDto;
+    let owned: jest.SpyInstance;
+
+    beforeEach(() => {
+      owned = jest
+        .spyOn(assetRules, 'assertOwnedAsset')
+        .mockResolvedValue({} as never);
+    });
+    afterEach(() => owned.mockRestore());
+
+    // The frontend sends the list and repeats its first id.
+    it('stores every file in order, the first also as resource_asset_id', async () => {
+      await service.createAssignment(
+        userId,
+        classId,
+        fileAssignment({
+          resource_asset_ids: files,
+          resource_asset_id: files[0],
+        }),
+      );
+
+      expect(owned.mock.calls.map((call) => call[2])).toEqual(files);
+      expect(manager.create).toHaveBeenCalledWith(
+        Assignment,
+        expect.objectContaining({ resource_asset_id: files[0] }),
+      );
+      expect(manager.insert).toHaveBeenCalledWith(
+        AssignmentResource,
+        files.map((assetId, position) => ({
+          assignmentId,
+          assetId,
+          position,
+        })),
+      );
+    });
+
+    it('keeps the single-file form', async () => {
+      await service.createAssignment(
+        userId,
+        classId,
+        fileAssignment({ resource_asset_id: files[1] }),
+      );
+
+      expect(manager.insert).toHaveBeenCalledWith(AssignmentResource, [
+        { assignmentId, assetId: files[1], position: 0 },
+      ]);
+    });
+
+    it('accepts an empty list next to no single file', async () => {
+      await service.createAssignment(
+        userId,
+        classId,
+        fileAssignment({ resource_asset_ids: [] }),
+      );
+
+      expect(owned).not.toHaveBeenCalled();
+      expect(manager.insert).not.toHaveBeenCalled();
+    });
+
+    it('rejects a single file that is not the first of the list', async () => {
+      await expect(
+        service.createAssignment(
+          userId,
+          classId,
+          fileAssignment({
+            resource_asset_ids: files,
+            resource_asset_id: files[1],
+          }),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+  });
+
   it('forbids a moderator from creating assignments', async () => {
     access = {
       is_owner: false,
@@ -240,12 +336,14 @@ describe('ClassAssignmentService.updateAssignment', () => {
   let submitted: boolean;
   let stored: Record<string, unknown> | null;
   let storedQuestions: Record<string, unknown>[];
+  let storedResources: string[];
   let manager: Record<string, jest.Mock>;
   let service: ClassAssignmentService;
 
   beforeEach(() => {
     access = { is_owner: true };
     submitted = false;
+    storedResources = [resourceId];
     stored = {
       id: assignmentId,
       class_id: classId,
@@ -264,6 +362,15 @@ describe('ClassAssignmentService.updateAssignment', () => {
         if (sql.includes('LIMIT 1') && sql.includes('FROM submissions')) {
           return submitted ? [{ '?column?': 1 }] : [];
         }
+        if (sql.includes('assignment_resources')) {
+          return storedResources.map((id) => ({
+            assignment_id: assignmentId,
+            id,
+            object_key: `uploads/${id}.pdf`,
+            original_filename: `${id}.pdf`,
+            size_bytes: '100',
+          }));
+        }
         return [];
       }),
       findOne: jest.fn(async () => (stored ? { ...stored } : null)),
@@ -272,6 +379,8 @@ describe('ClassAssignmentService.updateAssignment', () => {
       create: jest.fn((_entity, value) => value),
       save: jest.fn(async (_entity, value) => value),
       update: jest.fn(),
+      delete: jest.fn(),
+      insert: jest.fn(),
     };
     const dataSource = {
       manager,
@@ -282,7 +391,12 @@ describe('ClassAssignmentService.updateAssignment', () => {
       dataSource as never,
       new ClassAccessService(dataSource as never),
       { issueEligible } as never,
-      new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
+      new ConfigService({
+        AWS_S3_BUCKET_NAME: 'bucket',
+        AWS_REGION: 'us-east-1',
+        AWS_ACCESS_KEY_ID: 'test',
+        AWS_SECRET_ACCESS_KEY: 'test',
+      }),
     );
   });
 
@@ -467,6 +581,59 @@ describe('ClassAssignmentService.updateAssignment', () => {
       resource_asset_id: null,
     });
   });
+
+  it('replaces every file with the sent list, checking only new uploads', async () => {
+    const added = '70000000-0000-4000-8000-000000000003';
+    const owned = jest
+      .spyOn(assetRules, 'assertOwnedAsset')
+      .mockResolvedValue({} as never);
+
+    await update({ resource_asset_ids: [added, resourceId] });
+
+    expect(owned.mock.calls.map((call) => call[2])).toEqual([added]);
+    expect(manager.delete).toHaveBeenCalledWith(AssignmentResource, {
+      assignmentId,
+    });
+    expect(manager.insert).toHaveBeenCalledWith(AssignmentResource, [
+      { assignmentId, assetId: added, position: 0 },
+      { assignmentId, assetId: resourceId, position: 1 },
+    ]);
+    expect(savedAssignment()).toMatchObject({ resource_asset_id: added });
+    owned.mockRestore();
+  });
+
+  it('removes every file with an empty list', async () => {
+    await update({ resource_asset_ids: [] });
+
+    expect(manager.delete).toHaveBeenCalledWith(AssignmentResource, {
+      assignmentId,
+    });
+    expect(manager.insert).not.toHaveBeenCalled();
+    expect(savedAssignment()).toMatchObject({ resource_asset_id: null });
+  });
+
+  it('leaves the files alone when neither field is sent', async () => {
+    await update({ title: 'Baru' });
+
+    expect(manager.delete).not.toHaveBeenCalled();
+    expect(savedAssignment()).toMatchObject({ resource_asset_id: resourceId });
+  });
+
+  it('returns every file and the first as resource', async () => {
+    const second = '70000000-0000-4000-8000-000000000004';
+    storedResources = [resourceId, second];
+
+    const { data } = await update({ title: 'Baru' });
+
+    expect(data.resources.map((file) => file.asset_id)).toEqual([
+      resourceId,
+      second,
+    ]);
+    expect(data.resource).toEqual(data.resources[0]);
+    expect(data.resources[0].download_url).toContain(
+      `uploads/${resourceId}.pdf`,
+    );
+  });
 });
 
 describe('UpdateAssignmentDto inputs', () => {
@@ -486,6 +653,20 @@ describe('UpdateAssignmentDto inputs', () => {
     [{ type: 'file' }, ['type']],
     [{ questions: null }, ['questions']],
     [{ resource_asset_id: 'not-a-uuid' }, ['resource_asset_id']],
+    [{ resource_asset_ids: [] }, []],
+    [{ resource_asset_ids: null }, ['resource_asset_ids']],
+    [{ resource_asset_ids: ['not-a-uuid'] }, ['resource_asset_ids']],
+    [{ resource_asset_ids: [FILE_ID, FILE_ID] }, ['resource_asset_ids']],
+    [
+      {
+        resource_asset_ids: Array.from(
+          { length: 11 },
+          (_, index) =>
+            `70000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        ),
+      },
+      ['resource_asset_ids'],
+    ],
     [{ questions: [{ ...choice, options: ['A'] }] }, ['questions']],
   ])('%j fails on %j', async (input, fields) => {
     expect(await errorFields(input)).toEqual(fields);

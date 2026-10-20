@@ -35,6 +35,7 @@ describe('EmailSenderService', () => {
   let preferenceQuery: jest.Mock;
   let sendMail: jest.Mock;
   let missing: string[];
+  let deliverTestAddresses: boolean;
   let service: EmailSenderService;
 
   function claim(emails: EmailOutbox[], discarded = 0) {
@@ -59,6 +60,8 @@ describe('EmailSenderService', () => {
     preferenceQuery = jest.fn().mockResolvedValue([]);
     sendMail = jest.fn();
     missing = [];
+    // These tests use @example.test addresses, as a local mail sink does.
+    deliverTestAddresses = true;
     const dataSource = {
       transaction: jest.fn((work) => work(claimManager)),
       manager: { update: recorded, query: preferenceQuery },
@@ -67,6 +70,9 @@ describe('EmailSenderService', () => {
       missing: () => missing,
       sender: 'Pintar Pintar <info@example.test>',
       frontendUrl: 'https://pintarpintar.id',
+      get deliverTestAddresses() {
+        return deliverTestAddresses;
+      },
     } as unknown as MailSettings;
     service = new EmailSenderService(
       dataSource,
@@ -347,5 +353,41 @@ describe('EmailSenderService', () => {
     expect((await service.sendBatch()).failed).toBe(1);
     expect(sendMail).not.toHaveBeenCalled();
     expect(recorded.mock.calls[0][2].lastError).toContain('unknown email kind');
+  });
+
+  describe('test addresses', () => {
+    beforeEach(() => {
+      deliverTestAddresses = false;
+    });
+
+    it.each(['bench-1@example.com', 'Tester@Demo.PintarPintar.id'])(
+      'discards mail to %s without sending it',
+      async (address) => {
+        claim([queued({ recipientEmail: address })]);
+
+        const result = await service.sendBatch();
+
+        expect(result).toEqual({
+          sent: 0,
+          retried: 0,
+          failed: 0,
+          discarded: 1,
+        });
+        expect(sendMail).not.toHaveBeenCalled();
+        expect(recorded.mock.calls[0][2]).toMatchObject({
+          status: 'discarded',
+          lastError: 'Test address: not delivered',
+        });
+      },
+    );
+
+    it('still sends to a deliverable domain', async () => {
+      claim([queued({ recipientEmail: 'ayu@gmail.com' })]);
+
+      expect((await service.sendBatch()).sent).toBe(1);
+      expect(sendMail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: 'ayu@gmail.com' }),
+      );
+    });
   });
 });

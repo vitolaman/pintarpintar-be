@@ -25,6 +25,11 @@ const MERCHANT_CONTENT_ASSETS_SQL = `
   WHERE class.merchant_id = $1 AND assignment.deleted_at IS NULL
     AND assignment.resource_asset_id IS NOT NULL
   UNION
+  SELECT resource.asset_id FROM assignment_resources resource
+  INNER JOIN assignments assignment ON assignment.id = resource.assignment_id AND assignment.deleted_at IS NULL
+  INNER JOIN classes class ON class.id = assignment.class_id AND class.deleted_at IS NULL
+  WHERE class.merchant_id = $1 AND resource.deleted_at IS NULL
+  UNION
   SELECT file.asset_id FROM digital_files file
   INNER JOIN products product ON product.id = file.product_id AND product.deleted_at IS NULL
   WHERE product.merchant_id = $1 AND file.deleted_at IS NULL AND file.asset_id IS NOT NULL

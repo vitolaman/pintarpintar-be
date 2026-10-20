@@ -68,7 +68,7 @@ describe('CreateBundleDto', () => {
     [{ title: '' }],
     [{ status: 'active' }],
     [{ status: null }],
-    [{ description: '  ' }],
+    [{ description: 'x'.repeat(5001) }],
   ])('rejects %j', async (override) => {
     expect(await errorsFor(override)).not.toHaveLength(0);
   });
@@ -135,17 +135,34 @@ describe('CreateBundleDto', () => {
   });
 
   it.each(['', '  ', null])(
-    'rejects a title or description of %j on update',
+    'rejects a title of %j on update',
     async (value) => {
       const errors = await validate(
-        plainToInstance(UpdateBundleDto, { title: value, description: value }),
+        plainToInstance(UpdateBundleDto, { title: value }),
       );
-      expect(errors.map((error) => error.property)).toEqual([
-        'title',
-        'description',
-      ]);
+      expect(errors.map((error) => error.property)).toEqual(['title']);
     },
   );
+
+  // The frontend labels the description optional and sends "" when blank.
+  it.each([CreateBundleDto, UpdateBundleDto])(
+    '%p clears the description with "", blank or null',
+    async (target: new () => { description?: string | null }) => {
+      for (const value of ['', '  ', null]) {
+        const base = target === CreateBundleDto ? valid : {};
+        const dto = plainToInstance(target, { ...base, description: value });
+        expect(await validate(dto)).toEqual([]);
+        expect(dto.description).toBeNull();
+      }
+    },
+  );
+
+  it('accepts a bundle without a description', async () => {
+    const { title, price, items } = valid;
+    const dto = plainToInstance(CreateBundleDto, { title, price, items });
+    expect(await validate(dto)).toEqual([]);
+    expect(dto.description).toBeUndefined();
+  });
 });
 
 describe('bundle list queries', () => {
@@ -233,6 +250,15 @@ describe('BundleService', () => {
       query: dataSourceQuery,
       transaction: jest.fn((callback) => callback(manager)),
     } as unknown as DataSource);
+  });
+
+  it('stores a bundle without a description as null', async () => {
+    await service.create('user-id', input({ description: undefined }));
+
+    expect(manager.create).toHaveBeenCalledWith(
+      Bundle,
+      expect.objectContaining({ description: null }),
+    );
   });
 
   it('creates a bundle with ordered items and derived values', async () => {

@@ -22,6 +22,7 @@ import { Video } from './entities/video.entity';
 import { Meeting } from './entities/meeting.entity';
 import { Assignment } from './entities/assignment.entity';
 import { AssignmentQuestion } from './entities/assignment-question.entity';
+import { AssignmentResource } from './entities/assignment-resource.entity';
 import { Submission } from './entities/submission.entity';
 import { SubmissionAnswer } from './entities/submission-answer.entity';
 import { Attendance } from './entities/attendance.entity';
@@ -44,6 +45,7 @@ import { ClassFaq } from './entities/class-faq.entity';
       Meeting,
       Assignment,
       AssignmentQuestion,
+      AssignmentResource,
       Submission,
       SubmissionAnswer,
       Attendance,

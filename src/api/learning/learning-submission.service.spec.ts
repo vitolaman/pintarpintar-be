@@ -180,7 +180,7 @@ describe('LearningSubmissionService timing', () => {
     };
     const learningAssignment = {
       findLearnerAssignment: jest.fn(async () => assignment),
-      toAssignment: jest.fn(async () => ({})),
+      describe: jest.fn(async () => ({})),
     };
     issueEligible = jest.fn();
     service = new LearningSubmissionService(

@@ -39,8 +39,17 @@ export class LearnerAssignmentDto {
   @ApiProperty() question_count: number;
   @ApiProperty({ description: 'Sum of question weights' })
   total_weight: number;
-  @ApiPropertyOptional({ type: LearnerResourceDto, nullable: true })
+  @ApiPropertyOptional({
+    type: LearnerResourceDto,
+    nullable: true,
+    description: 'The first of resources',
+  })
   resource: LearnerResourceDto | null;
+  @ApiProperty({
+    type: [LearnerResourceDto],
+    description: 'Every resource file, in order',
+  })
+  resources: LearnerResourceDto[];
   @ApiPropertyOptional({ type: LearnerSubmissionDto, nullable: true })
   my_submission: LearnerSubmissionDto | null;
 }

@@ -1,6 +1,7 @@
 import {
   describeFailure,
   isPermanentFailure,
+  isUndeliverableTestAddress,
   MAX_ATTEMPTS,
   nextAttemptDelay,
 } from './email-delivery-rules';
@@ -60,5 +61,37 @@ describe('email retry rules', () => {
       'EENVELOPE 550 RCPT TO: 550 5.1.1 No such user',
     );
     expect(describeFailure(new Error('x'.repeat(900)))).toHaveLength(500);
+  });
+});
+
+describe('isUndeliverableTestAddress', () => {
+  it.each([
+    'a@example.com',
+    'a@example.net',
+    'a@example.org',
+    'a@mail.example.com',
+    'a@EXAMPLE.COM',
+    'a@shop.example',
+    'a@example.test',
+    'a@school.invalid',
+    'a@localhost',
+    'a@dev.localhost',
+    'a@demo.pintarpintar.id',
+    'a@Demo.PintarPintar.ID',
+    ' a@example.com. ',
+  ])('treats %s as a test address', (address) => {
+    expect(isUndeliverableTestAddress(address)).toBe(true);
+  });
+
+  it.each([
+    'a@gmail.com',
+    'a@pintarpintar.id',
+    'a@notexample.com',
+    'a@example.com.au',
+    'a@testing.co',
+    'a@contest',
+    '',
+  ])('delivers to %j', (address) => {
+    expect(isUndeliverableTestAddress(address)).toBe(false);
   });
 });

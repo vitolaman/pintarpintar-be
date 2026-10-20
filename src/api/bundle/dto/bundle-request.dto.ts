@@ -42,11 +42,11 @@ export class CreateBundleDto {
   @RequiredText({ max: 160, example: 'Paket AutoCAD & Template RAB' })
   title: string;
 
-  @RequiredText({
+  @ClearableText({
     max: 5000,
     example: 'Kelas AutoCAD lengkap plus template RAB siap pakai.',
   })
-  description: string;
+  description?: string | null;
 
   @ApiPropertyOptional({
     format: 'uuid',

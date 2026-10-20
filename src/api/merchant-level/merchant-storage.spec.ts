@@ -99,4 +99,13 @@ describe('assertWithinStorageQuota', () => {
     await assertWithinStorageQuota(manager, basic, { id: 'b', sizeBytes: 1 });
     expect(query.mock.calls[3][1][2]).toEqual([]);
   });
+
+  it('counts every resource file of live assignments', async () => {
+    const { manager, query } = transaction(0);
+
+    await assertWithinStorageQuota(manager, basic, { id: 'a', sizeBytes: 1 });
+
+    const usage = query.mock.calls.find(([sql]) => sql.includes('used_bytes'));
+    expect(usage?.[0]).toContain('FROM assignment_resources resource');
+  });
 });

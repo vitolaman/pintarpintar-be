@@ -1,9 +1,12 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as learningEmails from '../api/email/events/learning-emails';
+import * as assetRules from '../api/file-asset/asset-purpose-rules';
 import {
   ClassCertificateService,
   isEligible,
@@ -168,9 +171,11 @@ describe('ClassCertificateService manual operations', () => {
   let learnerRows: unknown[];
   let certificates: unknown[];
   let manager: Record<string, jest.Mock>;
+  let requireAction: jest.Mock;
   let service: ClassCertificateService;
 
   beforeEach(() => {
+    requireAction = jest.fn();
     learnerRows = [
       {
         user_id: learnerId,
@@ -203,7 +208,7 @@ describe('ClassCertificateService manual operations', () => {
         manager,
         transaction: jest.fn((callback) => callback(manager)),
       } as never,
-      { requireAction: jest.fn() } as never,
+      { requireAction } as never,
       new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
     );
   });
@@ -253,9 +258,80 @@ describe('ClassCertificateService manual operations', () => {
     );
   });
 
-  it('needs an issued certificate to attach a file', async () => {
-    await expect(
-      service.attachFile('tutor-id', classId, learnerId, 'asset-id'),
-    ).rejects.toBeInstanceOf(NotFoundException);
+  describe('attaching a file', () => {
+    let owned: jest.SpyInstance;
+    const attach = () =>
+      service.attachFile('tutor-id', classId, learnerId, 'asset-id');
+    const savedCertificate = () =>
+      manager.save.mock.calls.find(([entity]) => entity === Certificate)?.[1];
+
+    let issuedEmail: jest.SpyInstance;
+
+    beforeEach(() => {
+      owned = jest
+        .spyOn(assetRules, 'assertOwnedAsset')
+        .mockResolvedValue({} as never);
+      issuedEmail = jest
+        .spyOn(learningEmails, 'queueCertificateIssuedEmail')
+        .mockResolvedValue();
+    });
+    afterEach(() => {
+      owned.mockRestore();
+      issuedEmail.mockRestore();
+    });
+
+    it('replaces the file of an issued certificate', async () => {
+      certificates = [{ id: 'certificate-id', user_id: learnerId }];
+
+      await attach();
+
+      expect(manager.update).toHaveBeenCalledWith(
+        Certificate,
+        { id: 'certificate-id' },
+        { asset_id: 'asset-id', updated_by: 'tutor-id' },
+      );
+      expect(savedCertificate()).toBeUndefined();
+      expect(requireAction.mock.calls.map((call) => call[3])).toEqual(['edit']);
+    });
+
+    // The frontend shows "Unggah File" for learners without a certificate.
+    it('issues an eligible learner a certificate with the file', async () => {
+      const { responseMessage } = await attach();
+
+      expect(requireAction.mock.calls.map((call) => call[3])).toEqual([
+        'edit',
+        'tambah',
+      ]);
+      expect(owned).toHaveBeenCalledWith(
+        manager,
+        'tutor-id',
+        'asset-id',
+        'certificate_file',
+      );
+      expect(savedCertificate()).toMatchObject({
+        user_id: learnerId,
+        asset_id: 'asset-id',
+        created_by: 'tutor-id',
+      });
+      expect(responseMessage).toBe('Issue certificate with file success');
+      expect(issuedEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses an ineligible learner before touching the upload', async () => {
+      learnerRows = [{ ...(learnerRows[0] as object), progress: 50 }];
+
+      await expect(attach()).rejects.toBeInstanceOf(BadRequestException);
+      expect(owned).not.toHaveBeenCalled();
+      expect(savedCertificate()).toBeUndefined();
+    });
+
+    it('needs the issue permission to issue', async () => {
+      requireAction.mockImplementation(async (_u, _c, _area, action) => {
+        if (action === 'tambah') throw new ForbiddenException();
+      });
+
+      await expect(attach()).rejects.toBeInstanceOf(ForbiddenException);
+      expect(savedCertificate()).toBeUndefined();
+    });
   });
 });

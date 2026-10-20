@@ -49,3 +49,35 @@ export function nextAttemptDelay(attempts: number): number | null {
   if (attempts >= MAX_ATTEMPTS) return null;
   return RETRY_DELAYS_MS[attempts - 1] ?? null;
 }
+
+// Domains that cannot receive mail: the reserved example domains and the
+// testers' accounts (demo.pintarpintar.id has no mail server). Mail to them
+// would only bounce and hurt the sender's reputation.
+const UNDELIVERABLE_DOMAINS = [
+  'example.com',
+  'example.net',
+  'example.org',
+  'demo.pintarpintar.id',
+];
+// Reserved top-level names (RFC 2606 and RFC 6761).
+const UNDELIVERABLE_TOP_LEVEL_NAMES = [
+  'example',
+  'test',
+  'invalid',
+  'localhost',
+];
+
+export const TEST_ADDRESS_NOT_DELIVERED = 'Test address: not delivered';
+
+export function isUndeliverableTestAddress(address: string): boolean {
+  const domain = address.trim().toLowerCase().split('@').pop() ?? '';
+  const name = domain.replace(/\.$/, '');
+  if (!name) return false;
+  const topLevel = name.slice(name.lastIndexOf('.') + 1);
+  return (
+    UNDELIVERABLE_TOP_LEVEL_NAMES.includes(topLevel) ||
+    UNDELIVERABLE_DOMAINS.some(
+      (blocked) => name === blocked || name.endsWith(`.${blocked}`),
+    )
+  );
+}

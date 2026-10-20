@@ -130,23 +130,29 @@ export class PublicMentorResponseDto {
   @ApiPropertyOptional({ nullable: true })
   bio: string | null;
 
-  @ApiProperty()
-  expertise: string;
+  // The fields below come from the mentor registration and are null until
+  // the mentor completes it.
+  @ApiProperty({ type: String, nullable: true })
+  expertise: string | null;
 
-  @ApiProperty({ type: [String], example: ['AutoCAD', 'SAP2000'] })
+  @ApiProperty({
+    type: [String],
+    example: ['AutoCAD', 'SAP2000'],
+    description: 'Empty until the mentor completes the registration',
+  })
   expertise_list: string[];
 
-  @ApiProperty()
-  experience_years: number;
+  @ApiProperty({ type: Number, nullable: true })
+  experience_years: number | null;
 
-  @ApiProperty()
-  education: string;
+  @ApiProperty({ type: String, nullable: true })
+  education: string | null;
 
   @ApiPropertyOptional({ nullable: true })
   portfolio_url: string | null;
 
-  @ApiProperty()
-  linkedin_url: string;
+  @ApiProperty({ type: String, nullable: true })
+  linkedin_url: string | null;
 }
 
 export class MentorDocumentResponseDto {

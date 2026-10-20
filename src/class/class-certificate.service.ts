@@ -224,20 +224,43 @@ export class ClassCertificateService {
         manager,
       );
       const state = await this.lockLearnerState(manager, classId, learnerId);
-      if (!state.certificate) {
-        throw new NotFoundException('Certificate not found');
+      if (state.certificate) {
+        await assertOwnedAsset(manager, userId, assetId, 'certificate_file');
+        await manager.update(
+          Certificate,
+          { id: state.certificate.id },
+          { asset_id: assetId, updated_by: userId },
+        );
+        return this.learnerResponse(
+          manager,
+          classId,
+          learnerId,
+          'Attach certificate file success',
+        );
+      }
+
+      // Uploading a file for a learner without a certificate issues it with
+      // that file, which takes the same permission and eligibility as a
+      // manual issue.
+      await this.classAccess.requireAction(
+        userId,
+        classId,
+        'sertifikat',
+        'tambah',
+        manager,
+      );
+      if (!state.eligible) {
+        throw new BadRequestException(
+          'The learner does not meet the certificate requirements yet',
+        );
       }
       await assertOwnedAsset(manager, userId, assetId, 'certificate_file');
-      await manager.update(
-        Certificate,
-        { id: state.certificate.id },
-        { asset_id: assetId, updated_by: userId },
-      );
+      await this.issue(manager, classId, learnerId, userId, undefined, assetId);
       return this.learnerResponse(
         manager,
         classId,
         learnerId,
-        'Attach certificate file success',
+        'Issue certificate with file success',
       );
     });
   }
@@ -578,6 +601,7 @@ export class ClassCertificateService {
     learnerId: string,
     issuedBy?: string,
     settings?: CertificateSettings,
+    assetId?: string,
   ): Promise<Certificate> {
     const effective = settings ?? (await this.loadSettings(manager, classId));
     const [{ year, today }] = await manager.query(
@@ -595,6 +619,7 @@ export class ClassCertificateService {
         status: CertificateStatus.ISSUED,
         certNo,
         issueDate: today,
+        asset_id: assetId ?? null,
         created_by: issuedBy ?? null,
       }),
     );

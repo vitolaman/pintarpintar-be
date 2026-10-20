@@ -75,7 +75,7 @@ The catalog keeps accepting `kelas-live` in `type` (the "Kelas Live" filter); it
 - `POST /api/v1/auth/password-reset/confirm` — **public**; `token` (from the link) and `new_password` (at least 8 characters with a digit); 200 `{data: null, responseMessage: "Password reset"}` signs the account out everywhere, makes every reset link of the account unusable and emails the "Kata sandi diubah" notice; an unknown, malformed, expired or used token is 400 "This reset link is invalid or has expired"; 10 requests per 10 minutes per client address (429). Frontend flow: `/reset-password` without `token` asks for the email and calls the first route; with `token` it asks for the new password and calls this one, then sends the user to `/login`
 - `GET /api/v1/users/me` — `{data, responseMessage}` like every other route
 - `PATCH /api/v1/users/me` — `name` only (up to 120 characters); returns the same user object as `GET`
-- `DELETE /api/v1/users/me` — returns the account as it was; its tokens stop working; frees the email for a new sign-up and deactivates the user's merchant (buyers keep access)
+- `DELETE /api/v1/users/me` — returns the account as it was; its tokens stop working; frees the email for a new sign-up and deactivates the user's merchant (buyers keep access) and mentor record
 
 ### Beranda (home)
 
@@ -317,7 +317,7 @@ Each item has up to 5 ordered covers; the first is the main cover, returned as `
 ### Merchant bundles
 
 - `GET /api/v1/merchant/bundles/eligible-items`
-- `POST /api/v1/merchant/bundles` — 2–20 distinct items, each `{id}` (`type` optional); `price` above 0 and below the items' total; a bundle without `status` starts `unpublished`, and `published` or `unlisted` needs every item available
+- `POST /api/v1/merchant/bundles` — 2–20 distinct items, each `{id}` (`type` optional); `price` above 0 and below the items' total; `description` is optional (`""` or `null` clears it, returned as `null`); a bundle without `status` starts `unpublished`, and `published` or `unlisted` needs every item available
 - `GET /api/v1/merchant/bundles`
 - `GET /api/v1/merchant/bundles/:id`
 - `PATCH /api/v1/merchant/bundles/:id`
@@ -341,7 +341,7 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `GET /api/v1/classes/:classId`
 - `PATCH /api/v1/classes/:classId` — details, prices, covers, post-purchase instructions; a lead tutor may change everything except `type`, `status` and prices; other tutors get 403
 - `DELETE /api/v1/classes/:classId` — owner only (tutors get 403, others 404); soft-deletes an unused class: it leaves the owner's and tutors' lists, the catalog and new purchases, and cart or wishlist items read as unavailable. 409 while a learner is enrolled (archive it instead), while an unexpired unpaid order contains it, or while a published or unlisted bundle contains it
-- `POST /api/v1/classes/:classId/duplicate` — owner only; `{type}`; a draft "(Salinan)" copy with details, prices, covers, syllabus, assignments (with their questions and original due dates), certificate settings, and FAQ (no learners, reviews, discussions, submissions, certificates, tutors, or meetings)
+- `POST /api/v1/classes/:classId/duplicate` — owner only; `{type}`; a draft "(Salinan)" copy with details, prices, covers, syllabus, assignments (with their questions, attached files and original due dates), certificate settings, and FAQ (no learners, reviews, discussions, submissions, certificates, tutors, or meetings)
 - `GET /api/v1/classes/:classId/faqs`, `POST /api/v1/classes/:classId/faqs` — `materi` permission; question up to 300, answer up to 3000 characters; at most 50 per class
 - `PATCH /api/v1/classes/:classId/faqs/:faqId`, `DELETE /api/v1/classes/:classId/faqs/:faqId`
 - `GET /api/v1/classes/:classId/chapters` — `materi.lihat`; chapters with `videos` and `files` (resources) in order; uploaded files carry signed download links. Without `limit` it returns every chapter (the bab reorder needs them all); with `limit` it paginates
@@ -369,8 +369,8 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 - `DELETE /api/v1/classes/:classId/mentors/:classMentorId` — owner only; the tutor loses access immediately
 - `GET /api/v1/classes/:classId/students`
 - `GET /api/v1/classes/:classId/assignments` — any tutor of the class; submission counts; correct answers only for the owner and tutors with a `tugas` or `nilai` permission
-- `POST /api/v1/classes/:classId/assignments` — `tugas.tambah`; future `due`, `file_upload` or `quiz` (1–100 `multiple_choice` or `essay` questions, 2–4 options per multiple-choice question), an optional attached file
-- `PATCH /api/v1/classes/:classId/assignments/:assignmentId` — `tugas.edit`; any field of the create body; submissions are kept, and once there are submissions the type and the quiz questions cannot change (409)
+- `POST /api/v1/classes/:classId/assignments` — `tugas.tambah`; future `due`, `file_upload` or `quiz` (1–100 `multiple_choice` or `essay` questions, 2–4 options per multiple-choice question), up to 10 ordered attached files as `resource_asset_ids` (or one as `resource_asset_id`; sent together, `resource_asset_id` must be the first id). Assignment lists, for tutors and learners, return `resources` (every file in order) and `resource` (the first)
+- `PATCH /api/v1/classes/:classId/assignments/:assignmentId` — `tugas.edit`; any field of the create body; `resource_asset_ids` or `resource_asset_id` replaces all attached files (`[]` or `null` removes them); submissions are kept, and once there are submissions the type and the quiz questions cannot change (409)
 - `DELETE /api/v1/classes/:classId/assignments/:assignmentId` — `tugas.delete`; its scores leave the averages, and automatic certificates are re-evaluated
 - `GET /api/v1/classes/:classId/assignments/:assignmentId/submissions` — `nilai.lihat`; latest submission per learner with file link and answers
 - `PATCH /api/v1/classes/:classId/submissions/:submissionId/grade` — `nilai.edit`; a file `score` 0–100, or quiz `essay_scores` up to each question's weight (the quiz score appears once every essay is scored); `feedback`
@@ -382,7 +382,7 @@ Meeting responses include `duration_minutes` and `mentor {id, name}`. `status` i
 - `PATCH /api/v1/classes/:classId/certificate-settings` — `sertifikat.edit`; `auto_issue`, `min_attendance_percent`, `min_score` (0–100); `delivery_mode` (`template` = the Pintar Pintar certificate, `link` = the merchant's own link, which needs `certificate_url`, an http(s) link); template fields `number_prefix` (up to 20 letters, digits, `.`, `/`, `-`; not `PP-CERT…`), `class_name` and `mentor_name` (up to 150, shown on the certificate only), `signature_asset_id` (PNG/JPG/WebP, 5 MB, private) and `show_score`. Omitted fields are kept; `null` or `""` clears one. Saving in automatic mode issues every eligible learner's certificate
 - `GET /api/v1/classes/:classId/certificates` — `sertifikat.lihat`; status `issued`, `pending` (eligible, not issued) or `ineligible` per learner, with `graded_assignments` and `assignment_count`. Eligible means 100% progress, the minimum attendance once meetings have started, and a graded submission for every assignment with an average at least the minimum score; an issued certificate stays when an assignment is added later
 - `POST /api/v1/classes/:classId/certificates/:userId/issue` — `sertifikat.tambah`; eligible learners only (400 otherwise, 409 when already issued); numbers `PREFIX-NNNN` counted per class and prefix when the class has a `number_prefix`, otherwise `PP-CERT-YYYY-NNNN` (Asia/Jakarta year); numbers are unique per class and never reused, and a prefix change applies to new certificates only
-- `PUT /api/v1/classes/:classId/certificates/:userId/file` — `sertifikat.edit`; an uploaded PDF, PNG or JPG
+- `PUT /api/v1/classes/:classId/certificates/:userId/file` — `sertifikat.edit`; an uploaded PDF, PNG or JPG; for an eligible learner without a certificate it also issues the certificate with that file (also needs `sertifikat.tambah`; 400 for an ineligible learner)
 - `DELETE /api/v1/classes/:classId/certificates/:userId` — `sertifikat.delete`; withdraws the certificate
 - `GET /api/v1/certificates/verify/:code` — **public**, for the certificate's QR code (30 lookups a minute per client); an issued certificate's number, date, learner name, class name, store name and logo, mentor name, and the final score when the class shows it; never email, user id or signature; 404 for an unknown or withdrawn certificate
 
@@ -416,7 +416,7 @@ Every route that needs a login requires an active enrollment or product access a
 ### Mentor
 
 - `POST /api/v1/mentor/register` — the mentor fields plus `cv_asset_id` (PDF, DOC or DOCX, 10 MB) and `skill_certificate_asset_id` (PDF, PNG or JPG, 10 MB), two different uploads of the caller; a new mentor signs up as a user first; also completes the mentor record of an accepted job applicant
-- `GET /api/v1/mentors/:id` — **public**; `:id` is the mentor id (`mentor_id`); only active mentors with a completed registration
+- `GET /api/v1/mentors/:id` — **public**; `:id` is the mentor id (`mentor_id`); every active mentor of a live account; a mentor who has not completed the registration (such as an accepted job applicant) has `null` registration fields and an empty `expertise_list`
 - `GET /api/v1/mentor/profile` — also for a mentor hired through a job posting before the registration: `registration_complete` is false and the professional fields and documents are null until `POST /api/v1/mentor/register` completes the record
 - `PATCH /api/v1/mentor/profile` — 404 until the registration is complete
 - `GET /api/v1/mentor/assignments` — merchant, product, and class tutor assignments (with role and permissions)
@@ -487,6 +487,7 @@ How sending works:
 - A background job sends due emails every 30 seconds. A temporary SMTP failure (connection, login, 4xx) is retried after 1, 5, 15, 60 and 360 minutes; a permanent rejection (5xx for the recipient or message) or a sixth failure marks it `failed`.
 - Each email expires 3 days after it was queued; an awaiting-payment email at its payment deadline and a meeting email when the meeting starts. Expired emails are `discarded`, not sent late. Sent, failed and discarded rows are deleted after 90 days.
 - Until `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` and `MAIL_SENDER` are all set, nothing is sent and the app logs one warning naming the missing variables; emails keep waiting until they expire.
+- Mail to domains that cannot receive it is `discarded` with "Test address: not delivered" instead of sent: `example.com`, `example.net`, `example.org` and their subdomains, anything under `.example`, `.test`, `.invalid` or `.localhost`, and the testers' `demo.pintarpintar.id`. Such mail would only bounce. `MAIL_DELIVER_TEST_ADDRESSES=true` sends it anyway, for a local mail sink only.
 - Links point to `https://pintarpintar.id`; `FRONTEND_URL` overrides that for another environment. The header logo is a transparent white PNG the API serves at `https://api.pintarpintar.id/email-assets/logo-white.png` (from `src/api/email/assets`), so a mail app that recolours the header in dark mode shows no box around it; `API_PUBLIC_URL` overrides that address. A URL setting that is not an http(s) URL is ignored with one warning. Emails ask for the light colour scheme, which Apple Mail respects; the Gmail app may still darken them.
 - Templates live in `src/api/email/templates/`, one file per email; the wording can change there without touching the logic.
 - The SQL log never shows the parameters of statements on `email_outbox` or `password_reset_tokens` (`[redacted]`), so queued payloads and reset tokens stay out of the logs.

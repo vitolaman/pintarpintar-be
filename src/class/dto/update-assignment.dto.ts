@@ -16,6 +16,7 @@ import {
   RequiredText,
 } from '~/common/decorator/input.decorator';
 import { OptionalNotNull } from '~/common/decorator/optional-not-null.decorator';
+import { ResourceAssetIds } from '../assignment-resources';
 import { AssignmentType } from '../entities/assignment.entity';
 import { MAX_DESCRIPTION_LENGTH } from './content-validation';
 import { CreateQuestionDto } from './create-assignment.dto';
@@ -48,13 +49,16 @@ export class UpdateAssignmentDto {
     nullable: true,
     description: assetFieldDescription(
       'assignment_resource',
-      'null removes the resource.',
+      'Replaces all resource files with this one; null removes them.',
     ),
   })
   @ValidateIf((_, value) => value !== null)
   @IsUUID()
   @IsOptional()
   resource_asset_id?: string | null;
+
+  @ResourceAssetIds()
+  resource_asset_ids?: string[];
 
   @ApiPropertyOptional({
     type: [CreateQuestionDto],

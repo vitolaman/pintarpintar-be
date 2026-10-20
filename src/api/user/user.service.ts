@@ -13,8 +13,10 @@ import { User } from './entities/user.entity';
 import { Mentor } from '../mentor/entities/mentor.entity';
 import { Merchant } from '../merchant/entities/merchant.entity';
 
-// Public store, catalog and voucher queries show active merchants only.
+// Public store, catalog and voucher queries show active merchants only, and
+// tutor, roster and public mentor queries active mentors only.
 const MERCHANT_INACTIVE = 'inactive';
+const MENTOR_INACTIVE = 'inactive';
 
 @Injectable()
 export class UserService {
@@ -128,8 +130,9 @@ export class UserService {
   }
 
   // The account is soft-deleted, which frees its email for a new sign-up
-  // (emails are unique among active users only), and its merchant goes
-  // inactive so the store and its items leave public pages. Buyers' access
+  // (emails are unique among active users only), its merchant goes inactive
+  // so the store and its items leave public pages, and its mentor record goes
+  // inactive so it no longer tutors or appears as a mentor. Buyers' access
   // rows are left untouched.
   // The response is the account as it was, read before the soft delete hides it.
   async deleteCurrentUser(id: string): Promise<UserResponseDto> {
@@ -144,6 +147,7 @@ export class UserService {
         { userId: id },
         { status: MERCHANT_INACTIVE },
       );
+      await manager.update(Mentor, { userId: id }, { status: MENTOR_INACTIVE });
     });
 
     return deleted;

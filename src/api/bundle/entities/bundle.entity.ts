@@ -13,8 +13,8 @@ export class Bundle extends BaseEntity {
   @Column({ type: 'varchar', length: 160 })
   title: string;
 
-  @Column({ type: 'text' })
-  description: string;
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
 
   @Column({ name: 'cover_asset_id', type: 'uuid', nullable: true })
   coverAssetId: string | null;

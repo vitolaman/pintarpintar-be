@@ -37,8 +37,8 @@ export class BundleResponseDto {
   @ApiProperty()
   title: string;
 
-  @ApiProperty()
-  description: string;
+  @ApiProperty({ type: String, nullable: true })
+  description: string | null;
 
   @ApiProperty({
     nullable: true,

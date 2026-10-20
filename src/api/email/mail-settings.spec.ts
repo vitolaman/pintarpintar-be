@@ -109,4 +109,18 @@ describe('MailSettings', () => {
       settings({ ...COMPLETE, MAIL_PORT: '465' }).smtpTransport(),
     ).toMatchObject({ port: 465, secure: true, requireTLS: false });
   });
+
+  it.each([
+    [undefined, false],
+    ['', false],
+    ['false', false],
+    ['1', false],
+    ['true', true],
+    [' TRUE ', true],
+  ])('reads MAIL_DELIVER_TEST_ADDRESSES=%j as %p', (value, expected) => {
+    expect(
+      settings({ ...COMPLETE, MAIL_DELIVER_TEST_ADDRESSES: value })
+        .deliverTestAddresses,
+    ).toBe(expected);
+  });
 });

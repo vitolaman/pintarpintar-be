@@ -5,8 +5,10 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, In } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import {
+  TEST_ADDRESS_NOT_DELIVERED,
   describeFailure,
   isPermanentFailure,
+  isUndeliverableTestAddress,
   nextAttemptDelay,
 } from './email-delivery-rules';
 import { EmailOutbox } from './entities/email-outbox.entity';
@@ -173,6 +175,17 @@ export class EmailSenderService {
   private async send(
     email: EmailOutbox,
   ): Promise<'sent' | 'retried' | 'failed' | 'discarded'> {
+    if (
+      isUndeliverableTestAddress(email.recipientEmail) &&
+      !this.settings.deliverTestAddresses
+    ) {
+      await this.record(email, {
+        status: 'discarded',
+        lastError: TEST_ADDRESS_NOT_DELIVERED,
+      });
+      return 'discarded';
+    }
+
     const attempts = email.attempts + 1;
     let rendered: ReturnType<typeof renderEmail>;
     try {

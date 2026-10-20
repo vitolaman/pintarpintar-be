@@ -182,8 +182,17 @@ export class AssignmentResponseDto {
   @ApiPropertyOptional({ nullable: true }) description: string | null;
   @ApiProperty() due: Date;
   @ApiProperty() type: string;
-  @ApiPropertyOptional({ type: AssignmentResourceResponseDto, nullable: true })
+  @ApiPropertyOptional({
+    type: AssignmentResourceResponseDto,
+    nullable: true,
+    description: 'The first of resources',
+  })
   resource: AssignmentResourceResponseDto | null;
+  @ApiProperty({
+    type: [AssignmentResourceResponseDto],
+    description: 'Every resource file, in order',
+  })
+  resources: AssignmentResourceResponseDto[];
   @ApiProperty({ description: 'Distinct learners who submitted' })
   submission_count: number;
   @ApiProperty({ type: [AssignmentQuestionResponseDto] })

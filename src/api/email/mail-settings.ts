@@ -42,6 +42,19 @@ export class MailSettings {
   }
 
   /**
+   * MAIL_DELIVER_TEST_ADDRESSES=true sends mail to test domains too, for a
+   * local mail sink; unset, such mail is discarded.
+   */
+  get deliverTestAddresses(): boolean {
+    return (
+      this.config
+        .get<string>('MAIL_DELIVER_TEST_ADDRESSES')
+        ?.trim()
+        .toLowerCase() === 'true'
+    );
+  }
+
+  /**
    * FRONTEND_URL when it is an absolute http(s) URL, otherwise the default.
    * A value that is set but unusable is logged once (name only), so a typo
    * never sends broken links.

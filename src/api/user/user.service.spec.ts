@@ -7,6 +7,7 @@ import { compare } from 'bcryptjs';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Repository } from 'typeorm';
+import { Mentor } from '../mentor/entities/mentor.entity';
 import { Merchant } from '../merchant/entities/merchant.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateCurrentUserBodyDto } from './dto/update-current-user.req.dto';
@@ -201,6 +202,11 @@ describe('UserService', () => {
     expect(manager.softDelete).toHaveBeenCalledWith(User, { id: user.id });
     expect(manager.update).toHaveBeenCalledWith(
       Merchant,
+      { userId: user.id },
+      { status: 'inactive' },
+    );
+    expect(manager.update).toHaveBeenCalledWith(
+      Mentor,
       { userId: user.id },
       { status: 'inactive' },
     );

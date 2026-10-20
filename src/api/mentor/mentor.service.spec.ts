@@ -500,6 +500,92 @@ describe('MentorService own profile', () => {
   });
 });
 
+describe('MentorService public profile', () => {
+  let builder: Record<string, jest.Mock>;
+  let service: MentorService;
+
+  beforeEach(() => {
+    builder = {};
+    for (const method of [
+      'innerJoin',
+      'leftJoin',
+      'select',
+      'where',
+      'andWhere',
+    ]) {
+      builder[method] = jest.fn(() => builder);
+    }
+    builder.getRawOne = jest.fn();
+    service = new MentorService(
+      {} as DataSource,
+      { createQueryBuilder: () => builder } as unknown as Repository<Mentor>,
+      new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
+    );
+  });
+
+  it('shows an active mentor hired before registration, with empty profile fields', async () => {
+    builder.getRawOne.mockResolvedValue({
+      id: 'mentor-1',
+      status: 'active',
+      name: 'Budi',
+      headline: 'Drafter',
+      bio: null,
+      expertise: null,
+      experience_years: null,
+      education: null,
+      portfolio_url: null,
+      linkedin_url: null,
+    });
+
+    const { data } = await service.findPublicMentor('mentor-1');
+
+    expect(data).toMatchObject({
+      name: 'Budi',
+      headline: 'Drafter',
+      expertise: null,
+      expertise_list: [],
+      experience_years: null,
+      linkedin_url: null,
+    });
+    expect(builder.innerJoin).toHaveBeenCalledWith(
+      User,
+      'user',
+      'user.id = mentor.user_id AND user.deleted_at IS NULL',
+    );
+    expect(builder.leftJoin).toHaveBeenCalledWith(
+      MentorProfile,
+      'mentor_profile',
+      expect.stringContaining('mentor_profile.mentor_id = mentor.id'),
+    );
+    expect(builder.andWhere).toHaveBeenCalledWith('mentor.status = :status', {
+      status: 'active',
+    });
+  });
+
+  it('reads a registered mentor with numbers and the expertise list', async () => {
+    builder.getRawOne.mockResolvedValue({
+      expertise: 'BIM, Revit',
+      experience_years: '5',
+    });
+
+    const { data } = await service.findPublicMentor('mentor-1');
+
+    expect(data).toMatchObject({
+      expertise_list: ['BIM', 'Revit'],
+      experience_years: 5,
+    });
+  });
+
+  // The query keeps only active, non-deleted mentors of live accounts.
+  it('answers 404 to an inactive or deleted mentor', async () => {
+    builder.getRawOne.mockResolvedValue(undefined);
+
+    await expect(service.findPublicMentor('mentor-1')).rejects.toThrow(
+      'Mentor not found',
+    );
+  });
+});
+
 describe('mentor request DTOs', () => {
   const registration = {
     phone: '+62 812-3456-7890',

@@ -197,7 +197,7 @@ export class LearningSubmissionService {
       assignmentId,
     );
     return {
-      data: await this.learningAssignment.toAssignment(row),
+      data: await this.learningAssignment.describe(manager, row),
       responseMessage,
     };
   }

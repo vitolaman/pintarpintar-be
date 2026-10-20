@@ -35,6 +35,7 @@ import { Video } from '~/class/entities/video.entity';
 import { Meeting } from '~/class/entities/meeting.entity';
 import { Assignment } from '~/class/entities/assignment.entity';
 import { AssignmentQuestion } from '~/class/entities/assignment-question.entity';
+import { AssignmentResource } from '~/class/entities/assignment-resource.entity';
 import { Submission } from '~/class/entities/submission.entity';
 import { SubmissionAnswer } from '~/class/entities/submission-answer.entity';
 import { Attendance } from '~/class/entities/attendance.entity';
@@ -151,6 +152,7 @@ export const dataSourceOptions: DataSourceOptions = {
     Meeting,
     Assignment,
     AssignmentQuestion,
+    AssignmentResource,
     Submission,
     SubmissionAnswer,
     Attendance,

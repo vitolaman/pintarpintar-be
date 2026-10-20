@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In } from 'typeorm';
+import { copyAssignmentResources } from './assignment-resources';
 import { ClassAccessService } from './class-access.service';
 import { ClassService } from './class.service';
 import { Assignment } from './entities/assignment.entity';
@@ -167,6 +168,7 @@ export class ClassDuplicationService {
     const assignmentIds = new Map(
       assignments.map((assignment, index) => [assignment.id, copies[index].id]),
     );
+    await copyAssignmentResources(manager, assignmentIds);
     const questions = await manager.find(AssignmentQuestion, {
       where: { assignment_id: In([...assignmentIds.keys()]) },
     });

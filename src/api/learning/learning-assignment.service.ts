@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { LearnerAccessService } from '../../class/learner-access.service';
+import {
+  ResourceAsset,
+  loadAssignmentResources,
+} from '../../class/assignment-resources';
 import { loadLearnerMetrics } from '../../class/learner-metrics';
 import {
   ObjectStorage,
@@ -23,9 +27,7 @@ interface AssignmentRow {
   description: string | null;
   type: string;
   due: Date | null;
-  resource_name: string | null;
-  resource_size: string | null;
-  resource_object_key: string | null;
+  resource_asset_id: string | null;
   question_count: number;
   total_weight: number;
   submission_id: string | null;
@@ -40,9 +42,7 @@ interface AssignmentRow {
 // Answer keys are never selected here.
 const ASSIGNMENTS_SQL = `
   SELECT assignment.id, assignment.class_id, assignment.title, assignment.description,
-         assignment.type, assignment.due,
-         resource.original_filename AS resource_name, resource.size_bytes AS resource_size,
-         resource.object_key AS resource_object_key,
+         assignment.type, assignment.due, assignment.resource_asset_id,
          (SELECT count(*)::integer FROM assignment_questions question
           WHERE question.assignment_id = assignment.id AND question.deleted_at IS NULL) AS question_count,
          (SELECT COALESCE(sum(question.score_weight), 0)::integer FROM assignment_questions question
@@ -51,8 +51,6 @@ const ASSIGNMENTS_SQL = `
          submission.is_late, submission."fileName" AS file_name, submission.total_score,
          submission.feedback
   FROM assignments assignment
-  LEFT JOIN file_assets resource
-    ON resource.id = assignment.resource_asset_id AND resource.deleted_at IS NULL
   LEFT JOIN submissions submission
     ON submission.assignment_id = assignment.id AND submission.user_id = $2
     AND submission.deleted_at IS NULL
@@ -78,8 +76,14 @@ export class LearningAssignmentService {
        ORDER BY assignment.due NULLS LAST, assignment.created_at, assignment.id`,
       [classId, userId],
     );
+    const resources = await loadAssignmentResources(
+      this.dataSource.manager,
+      rows,
+    );
     return {
-      data: await Promise.all(rows.map((row) => this.toAssignment(row))),
+      data: await Promise.all(
+        rows.map((row) => this.toAssignment(row, resources.get(row.id))),
+      ),
       responseMessage: 'Get learning assignments success',
     };
   }
@@ -131,7 +135,7 @@ export class LearningAssignmentService {
       [assignmentId],
     );
     const data: LearnerQuizDto = {
-      ...(await this.toAssignment(row)),
+      ...(await this.describe(manager, row)),
       questions,
     };
     return { data, responseMessage: 'Get quiz success' };
@@ -153,7 +157,30 @@ export class LearningAssignmentService {
     return row;
   }
 
-  async toAssignment(row: AssignmentRow): Promise<LearnerAssignmentDto> {
+  /** One assignment with its resource files, read through `manager`. */
+  async describe(
+    manager: EntityManager,
+    row: AssignmentRow,
+  ): Promise<LearnerAssignmentDto> {
+    const resources = await loadAssignmentResources(manager, [row]);
+    return this.toAssignment(row, resources.get(row.id));
+  }
+
+  private async toAssignment(
+    row: AssignmentRow,
+    resources: ResourceAsset[] = [],
+  ): Promise<LearnerAssignmentDto> {
+    const files = await Promise.all(
+      resources.map(async (asset) => ({
+        name: asset.original_filename,
+        size: Number(asset.size_bytes),
+        download_url: await signedDownloadUrl(
+          this.storage,
+          asset.object_key,
+          asset.original_filename,
+        ),
+      })),
+    );
     return {
       id: row.id,
       class_id: row.class_id,
@@ -164,17 +191,8 @@ export class LearningAssignmentService {
       is_past_due: row.due !== null && new Date(row.due).getTime() < Date.now(),
       question_count: row.question_count,
       total_weight: row.total_weight,
-      resource: row.resource_object_key
-        ? {
-            name: row.resource_name,
-            size: Number(row.resource_size),
-            download_url: await signedDownloadUrl(
-              this.storage,
-              row.resource_object_key,
-              row.resource_name,
-            ),
-          }
-        : null,
+      resource: files[0] ?? null,
+      resources: files,
       my_submission: toSubmission(row),
     };
   }

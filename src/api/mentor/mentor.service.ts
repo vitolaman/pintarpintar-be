@@ -265,6 +265,8 @@ export class MentorService {
     return { data, responseMessage: 'Get mentor assignments success' };
   }
 
+  // A mentor created by accepting a job application has no mentor profile
+  // until it completes the registration; it is public all the same.
   async findPublicMentor(id: string) {
     const row = await this.mentors
       .createQueryBuilder('mentor')
@@ -273,7 +275,7 @@ export class MentorService {
         'user',
         'user.id = mentor.user_id AND user.deleted_at IS NULL',
       )
-      .innerJoin(
+      .leftJoin(
         MentorProfile,
         'mentor_profile',
         'mentor_profile.mentor_id = mentor.id AND mentor_profile.deleted_at IS NULL',
@@ -298,12 +300,15 @@ export class MentorService {
       .where('mentor.id = :id', { id })
       .andWhere('mentor.deleted_at IS NULL')
       .andWhere('mentor.status = :status', { status: 'active' })
-      .getRawOne<PublicMentorResponseDto & { experience_years: string }>();
+      .getRawOne<
+        PublicMentorResponseDto & { experience_years: string | null }
+      >();
     if (!row) throw new NotFoundException('Mentor not found');
     return {
       data: {
         ...row,
-        experience_years: Number(row.experience_years),
+        experience_years:
+          row.experience_years === null ? null : Number(row.experience_years),
         expertise_list: splitSkills(row.expertise),
       },
       responseMessage: 'Get mentor success',

@@ -76,7 +76,7 @@ interface BundleRow {
   merchant_id: string;
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   cover_asset_id: string | null;
   cover_object_key: string | null;
   bundle_price: string;
@@ -117,7 +117,7 @@ export class BundleService {
         manager.create(Bundle, {
           merchantId: merchant.id,
           title: input.title,
-          description: input.description,
+          description: input.description ?? null,
           bundlePrice: String(input.price),
           postPurchaseInstructions: input.post_purchase_instructions ?? null,
           status,

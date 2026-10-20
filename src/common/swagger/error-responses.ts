@@ -24,6 +24,7 @@ type OperationObject = {
   operationId?: string;
   parameters?: unknown[];
   requestBody?: unknown;
+  security?: unknown[];
   responses: Record<string, { description?: string; content?: any }>;
 };
 
@@ -127,7 +128,7 @@ function errorContent(status: string, description: string, existing?: any) {
 // references ErrorResponseDto, every request can fail validation (400, if
 // only for an unknown query parameter), protected routes can reject the token
 // (401), rate-limited routes can refuse (429), and anything can fail
-// unexpectedly (500).
+// unexpectedly (500). Public routes carry no security requirement.
 export function documentErrorResponses(
   app: INestApplication,
   document: OpenAPIObject,
@@ -145,7 +146,10 @@ export function documentErrorResponses(
         description: hasInput ? GENERIC_ERRORS['400'] : UNKNOWN_QUERY_ERROR,
       };
       const required = ['500'];
-      if (!publicIds.has(operation.operationId ?? '')) {
+      if (publicIds.has(operation.operationId ?? '')) {
+        // A controller-level @ApiBearerAuth() also marks its public routes.
+        delete operation.security;
+      } else {
         required.push('401');
       }
       if (throttledIds.has(operation.operationId ?? '')) {

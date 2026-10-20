@@ -16,6 +16,11 @@ import { signedDownloadUrl } from '../common/storage/signed-download-url';
 import { ClassAccess, ClassAccessService } from './class-access.service';
 import { ClassCertificateService } from './class-certificate.service';
 import { CLASS_ACTIONS } from './class-permissions';
+import {
+  loadAssignmentResources,
+  requestedResourceIds,
+  writeAssignmentResources,
+} from './assignment-resources';
 import { AssignmentResponseDto } from './dto/class-response.dto';
 import {
   CreateAssignmentDto,
@@ -48,6 +53,7 @@ export class ClassAssignmentService {
     dto: CreateAssignmentDto,
   ) {
     const questions = dto.questions ?? [];
+    const resourceIds = requestedResourceIds(dto) ?? [];
     assertDueInFuture(dto.due);
     assertQuestionContent(dto.type, questions);
 
@@ -59,13 +65,15 @@ export class ClassAssignmentService {
         'tambah',
         manager,
       );
-      if (dto.resource_asset_id) {
+      for (const assetId of resourceIds) {
         await assertOwnedAsset(
           manager,
           userId,
-          dto.resource_asset_id,
+          assetId,
           'assignment_resource',
-          { classId },
+          {
+            classId,
+          },
         );
       }
 
@@ -77,10 +85,11 @@ export class ClassAssignmentService {
           description: dto.description,
           type: dto.type,
           due: new Date(dto.due),
-          resource_asset_id: dto.resource_asset_id ?? null,
+          resource_asset_id: resourceIds[0] ?? null,
           created_by: userId,
         }),
       );
+      await writeAssignmentResources(manager, assignment.id, resourceIds);
       await saveQuestions(manager, assignment.id, questions, userId);
 
       const [data] = await this.toResponses(manager, [assignment], access);
@@ -98,6 +107,7 @@ export class ClassAssignmentService {
     dto: UpdateAssignmentDto,
   ) {
     if (dto.due !== undefined) assertDueInFuture(dto.due);
+    const resourceIds = requestedResourceIds(dto);
 
     return this.dataSource.transaction(async (manager) => {
       const access = await this.classAccess.requireAction(
@@ -144,17 +154,23 @@ export class ClassAssignmentService {
         );
       }
 
-      if (
-        dto.resource_asset_id &&
-        dto.resource_asset_id !== assignment.resource_asset_id
-      ) {
-        await assertOwnedAsset(
-          manager,
-          userId,
-          dto.resource_asset_id,
-          'assignment_resource',
-          { classId },
+      if (resourceIds !== undefined) {
+        // Files already on the assignment may come from another tutor; only
+        // new ones must be the caller's own uploads.
+        const current = new Set(
+          (await loadAssignmentResources(manager, [assignment]))
+            .get(assignment.id)
+            ?.map((asset) => asset.id) ?? [],
         );
+        for (const assetId of resourceIds.filter((id) => !current.has(id))) {
+          await assertOwnedAsset(
+            manager,
+            userId,
+            assetId,
+            'assignment_resource',
+            { classId },
+          );
+        }
       }
 
       if (dto.title !== undefined) assignment.title = dto.title;
@@ -162,8 +178,12 @@ export class ClassAssignmentService {
         assignment.description = dto.description;
       }
       if (dto.due !== undefined) assignment.due = new Date(dto.due);
-      if (dto.resource_asset_id !== undefined) {
-        assignment.resource_asset_id = dto.resource_asset_id;
+      if (resourceIds !== undefined) {
+        assignment.resource_asset_id = await writeAssignmentResources(
+          manager,
+          assignmentId,
+          resourceIds,
+        );
       }
       assignment.type = type;
       assignment.updated_by = userId;
@@ -252,19 +272,6 @@ export class ClassAssignmentService {
     if (submitted.length > 0) throw new ConflictException(message);
   }
 
-  private async loadResourceAssets(
-    manager: EntityManager,
-    assetIds: string[],
-  ): Promise<ResourceAsset[]> {
-    if (assetIds.length === 0) return [];
-    return manager.query(
-      `SELECT id, object_key, original_filename, size_bytes
-       FROM file_assets
-       WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
-      [assetIds],
-    );
-  }
-
   private async toResponses(
     manager: EntityManager,
     assignments: Assignment[],
@@ -272,9 +279,6 @@ export class ClassAssignmentService {
   ): Promise<AssignmentResponseDto[]> {
     if (assignments.length === 0) return [];
     const ids = assignments.map((assignment) => assignment.id);
-    const resourceIds = assignments
-      .map((assignment) => assignment.resource_asset_id)
-      .filter((id): id is string => Boolean(id));
 
     const [questions, submissionCounts, resources] = await Promise.all([
       manager.find(AssignmentQuestion, {
@@ -288,19 +292,27 @@ export class ClassAssignmentService {
          GROUP BY assignment_id`,
         [ids],
       ) as Promise<{ assignment_id: string; count: number }[]>,
-      this.loadResourceAssets(manager, resourceIds),
+      loadAssignmentResources(manager, assignments),
     ]);
     const countByAssignment = new Map(
       submissionCounts.map((row) => [row.assignment_id, row.count]),
     );
-    const resourceById = new Map(resources.map((asset) => [asset.id, asset]));
     const showAnswers = canSeeAnswers(access);
 
     return Promise.all(
       assignments.map(async (assignment) => {
-        const resource = assignment.resource_asset_id
-          ? resourceById.get(assignment.resource_asset_id)
-          : undefined;
+        const files = await Promise.all(
+          (resources.get(assignment.id) ?? []).map(async (asset) => ({
+            asset_id: asset.id,
+            name: asset.original_filename,
+            size: Number(asset.size_bytes),
+            download_url: await signedDownloadUrl(
+              this.storage,
+              asset.object_key,
+              asset.original_filename,
+            ),
+          })),
+        );
         return {
           id: assignment.id,
           class_id: assignment.class_id,
@@ -308,18 +320,8 @@ export class ClassAssignmentService {
           description: assignment.description,
           due: assignment.due,
           type: assignment.type,
-          resource: resource
-            ? {
-                asset_id: resource.id,
-                name: resource.original_filename,
-                size: Number(resource.size_bytes),
-                download_url: await signedDownloadUrl(
-                  this.storage,
-                  resource.object_key,
-                  resource.original_filename,
-                ),
-              }
-            : null,
+          resource: files[0] ?? null,
+          resources: files,
           submission_count: countByAssignment.get(assignment.id) ?? 0,
           questions: questions
             .filter((question) => question.assignment_id === assignment.id)
@@ -339,13 +341,6 @@ export class ClassAssignmentService {
     );
   }
 }
-
-type ResourceAsset = {
-  id: string;
-  object_key: string;
-  original_filename: string;
-  size_bytes: string;
-};
 
 function canSeeAnswers(access: ClassAccess): boolean {
   if (access.kind === 'owner') return true;

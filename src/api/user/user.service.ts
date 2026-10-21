@@ -105,6 +105,7 @@ export class UserService {
         'user.email AS email',
         'user.isMentor AS is_mentor',
         'user.isMerchant AS is_merchant',
+        'user.passwordHash IS NOT NULL AS has_password',
         'user.created_at AS created_at',
         'user.updated_at AS updated_at',
         'mentor.id AS mentor_id',

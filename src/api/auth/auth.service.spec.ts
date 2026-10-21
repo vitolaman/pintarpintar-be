@@ -7,7 +7,8 @@ import { DataSource, EntityManager } from 'typeorm';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
-import { AuthService } from './auth.service';
+import { AuthService, NO_PASSWORD_YET } from './auth.service';
+import { GoogleSignInBodyDto } from './dto/google-sign-in.req.dto';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 
@@ -45,6 +46,7 @@ describe('AuthService', () => {
     email: 'john@example.com',
     is_mentor: false,
     is_merchant: false,
+    has_password: true,
     mentor_id: null,
     merchant_id: null,
     created_at: new Date('2026-10-01T00:00:00.000Z'),
@@ -148,6 +150,18 @@ describe('AuthService', () => {
     ).rejects.toThrow('invalid username or password');
   });
 
+  it('gives the same credential error to an account without a password', async () => {
+    userService.findForAuthentication.mockResolvedValue({
+      ...user,
+      passwordHash: null,
+    });
+
+    await expect(
+      service.signIn({ email: 'john@example.com', password: 'password1' }),
+    ).rejects.toThrow(new ForbiddenException('invalid username or password'));
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
+  });
+
   it('signs in with the user current token version', async () => {
     user.passwordHash = await hash('password1', 10);
     userService.findForAuthentication.mockResolvedValue({
@@ -219,6 +233,18 @@ describe('AuthService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(entityManager.save).not.toHaveBeenCalled();
     });
+
+    it('points an account without a password to password reset', async () => {
+      entityManager.findOne.mockResolvedValue({ ...user, passwordHash: null });
+
+      await expect(
+        service.changePassword(user.id, {
+          current_password: 'anything1',
+          new_password: 'password2',
+        }),
+      ).rejects.toThrow(new BadRequestException(NO_PASSWORD_YET));
+      expect(entityManager.save).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -233,6 +259,21 @@ describe('auth request DTOs', () => {
     const errors = await validate(plainToInstance(target, value));
     return errors.map((error) => error.property);
   }
+
+  it('takes the Google ID token as sent', async () => {
+    const dto = plainToInstance(GoogleSignInBodyDto, { id_token: ' a.b.c ' });
+    expect(dto.id_token).toBe(' a.b.c ');
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each([[undefined], [''], [123], ['x'.repeat(4097)]])(
+    'rejects a Google ID token of %j',
+    async (idToken) => {
+      expect(
+        await errorFields(GoogleSignInBodyDto, { id_token: idToken }),
+      ).toEqual(['id_token']);
+    },
+  );
 
   it('trims the name and email but never the password', async () => {
     const dto = plainToInstance(SignUpBodyDto, {

@@ -191,7 +191,7 @@ const ANGLE_BRACKET = /[<>]/g;
 const CONTROL_CHARACTER = /\p{Cc}/gu;
 
 /** Plain text of a label: tags, stray angle brackets and control characters removed. */
-function plainLabel(value: string): string {
+export function plainLabel(value: string): string {
   return value
     .replace(HTML_TAG, '')
     .replace(ANGLE_BRACKET, '')

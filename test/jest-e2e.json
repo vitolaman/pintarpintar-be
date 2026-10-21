@@ -16,6 +16,6 @@
     ]
   },
   "transformIgnorePatterns": [
-    "/node_modules/(?!(sanitize-html/node_modules/)?(htmlparser2|domhandler|domutils|dom-serializer|domelementtype|entities)/)"
+    "/node_modules/(?!(sanitize-html/node_modules/)?(htmlparser2|domhandler|domutils|dom-serializer|domelementtype|entities|jose)/)"
   ]
 }

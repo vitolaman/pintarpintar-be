@@ -25,8 +25,21 @@ export class User extends BaseEntity {
 
   @ApiHideProperty()
   @Exclude()
-  @Column({ name: 'password_hash' })
-  passwordHash: string;
+  // Null for an account created through Google that has not set a password.
+  @Column({ name: 'password_hash', type: 'varchar', nullable: true })
+  passwordHash: string | null;
+
+  // The linked Firebase user (Google sign-in); unique among active users
+  // (uq_users_firebase_uid_active).
+  @ApiHideProperty()
+  @Exclude()
+  @Column({
+    name: 'firebase_uid',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+  })
+  firebaseUid: string | null;
 
   @ApiHideProperty()
   @Column({ name: 'deleted_by', type: 'uuid', nullable: true })

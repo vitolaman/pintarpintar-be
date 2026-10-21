@@ -18,6 +18,9 @@ import { SignInResDto } from './dto/sign-in.res.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 import { queuePasswordChangedEmail } from '~/api/email/events/account-emails';
 
+export const NO_PASSWORD_YET =
+  'This account has no password yet; use password reset to add one';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -57,7 +60,11 @@ export class AuthService {
   ): Promise<ResponseDto<AuthTokenWithUserDto>> {
     const user = await this.userService.findForAuthentication(body.email);
 
-    if (!user || !(await verifyPassword(body.password, user.passwordHash))) {
+    // An account created through Google has no password yet.
+    if (
+      !user?.passwordHash ||
+      !(await verifyPassword(body.password, user.passwordHash))
+    ) {
       throw new ForbiddenException('invalid username or password');
     }
 
@@ -89,6 +96,9 @@ export class AuthService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!user) throw new UnauthorizedException();
+      if (!user.passwordHash) {
+        throw new BadRequestException(NO_PASSWORD_YET);
+      }
       if (!(await verifyPassword(input.current_password, user.passwordHash))) {
         throw new BadRequestException('Current password is incorrect');
       }
@@ -133,7 +143,7 @@ export class AuthService {
     });
   }
 
-  private async createSignedInResponse(
+  async createSignedInResponse(
     responseMessage: string,
     userId: string,
     tokenVersion: number,

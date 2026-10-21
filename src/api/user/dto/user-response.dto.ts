@@ -16,6 +16,12 @@ export class UserResponseDto {
   @ApiProperty()
   is_merchant: boolean;
 
+  @ApiProperty({
+    description:
+      'False for an account created through Google that has not set a password; it can add one through password reset.',
+  })
+  has_password: boolean;
+
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   mentor_id: string | null;
 

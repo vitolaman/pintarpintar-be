@@ -25,7 +25,8 @@
     "db:local:up": "docker compose --env-file .env.local up -d postgres redis",
     "db:local:down": "docker compose --env-file .env.local down",
     "db:local:migrate": "cross-env ENV_FILE=.env.local node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d ./src/database/database.data-source.ts migration:run",
-    "db:local:status": "cross-env ENV_FILE=.env.local node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d ./src/database/database.data-source.ts migration:show"
+    "db:local:status": "cross-env ENV_FILE=.env.local node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d ./src/database/database.data-source.ts migration:show",
+    "master-password:hash": "node scripts/master-password-hash.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",

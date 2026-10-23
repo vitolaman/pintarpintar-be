@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import { plainToInstance } from 'class-transformer';
@@ -9,6 +13,7 @@ import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { AuthService, NO_PASSWORD_YET } from './auth.service';
 import { GoogleSignInBodyDto } from './dto/google-sign-in.req.dto';
+import { MasterPassword } from './master-password';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 
@@ -25,6 +30,7 @@ describe('AuthService', () => {
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
   let dataSource: jest.Mocked<Pick<DataSource, 'transaction'>>;
+  let masterPassword: jest.Mocked<Pick<MasterPassword, 'matches'>>;
   let entityManager: {
     create: jest.Mock;
     save: jest.Mock;
@@ -70,6 +76,9 @@ describe('AuthService', () => {
     dataSource = {
       transaction: jest.fn(),
     };
+    masterPassword = {
+      matches: jest.fn().mockResolvedValue(false),
+    };
     (dataSource.transaction as jest.Mock).mockImplementation(
       async (runInTransaction: (manager: EntityManager) => Promise<unknown>) =>
         runInTransaction(entityManager as unknown as EntityManager),
@@ -78,6 +87,7 @@ describe('AuthService', () => {
       jwtService as unknown as JwtService,
       userService as unknown as UserService,
       dataSource as unknown as DataSource,
+      masterPassword as unknown as MasterPassword,
     );
   });
 
@@ -173,6 +183,97 @@ describe('AuthService', () => {
     await service.signIn({ email: 'john@example.com', password: 'password1' });
 
     expect(jwtService.signAsync).toHaveBeenCalledWith({ id: user.id, tv: 3 });
+  });
+
+  describe('master password', () => {
+    let warn: jest.SpyInstance;
+
+    beforeEach(() => {
+      warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      jwtService.signAsync.mockResolvedValue('signed-token');
+    });
+
+    afterEach(() => warn.mockRestore());
+
+    it('signs in to the account for 1 hour and logs only the user id', async () => {
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: await hash('own-password1', 10),
+        tokenVersion: 2,
+      } as User);
+      masterPassword.matches.mockResolvedValue(true);
+
+      await expect(
+        service.signIn({ email: 'john@example.com', password: 'master-pass1' }),
+      ).resolves.toEqual({
+        responseMessage: 'Login Success',
+        data: { token: 'signed-token', user: currentUser },
+      });
+      expect(masterPassword.matches).toHaveBeenCalledWith('master-pass1');
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        { id: user.id, tv: 2 },
+        { expiresIn: '1h' },
+      );
+      expect(warn).toHaveBeenCalledTimes(1);
+      const line = String(warn.mock.calls[0][0]);
+      expect(line).toBe(`Master password sign-in for user ${user.id}`);
+      expect(line).not.toContain('john@example.com');
+      expect(line).not.toContain('master-pass1');
+    });
+
+    it('opens an account without a password', async () => {
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: null,
+      });
+      masterPassword.matches.mockResolvedValue(true);
+
+      await expect(
+        service.signIn({ email: 'john@example.com', password: 'master-pass1' }),
+      ).resolves.toMatchObject({ data: { token: 'signed-token' } });
+    });
+
+    it('keeps the normal session when the own password matches', async () => {
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: await hash('own-password1', 10),
+      });
+      masterPassword.matches.mockResolvedValue(true);
+
+      await service.signIn({
+        email: 'john@example.com',
+        password: 'own-password1',
+      });
+
+      expect(masterPassword.matches).not.toHaveBeenCalled();
+      expect(jwtService.signAsync).toHaveBeenCalledWith({ id: user.id, tv: 0 });
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('gives an unknown or deleted account the generic error', async () => {
+      userService.findForAuthentication.mockResolvedValue(null);
+      masterPassword.matches.mockResolvedValue(true);
+
+      await expect(
+        service.signIn({ email: 'john@example.com', password: 'master-pass1' }),
+      ).rejects.toThrow(new ForbiddenException('invalid username or password'));
+      expect(masterPassword.matches).not.toHaveBeenCalled();
+      expect(jwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('gives a password matching neither the generic error', async () => {
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: await hash('own-password1', 10),
+      });
+
+      await expect(
+        service.signIn({ email: 'john@example.com', password: 'wrong-pass1' }),
+      ).rejects.toThrow(new ForbiddenException('invalid username or password'));
+      expect(masterPassword.matches).toHaveBeenCalledWith('wrong-pass1');
+      expect(jwtService.signAsync).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+    });
   });
 
   it('ends other sessions by raising the version and returning a new token', async () => {

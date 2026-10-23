@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -17,16 +18,23 @@ import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignInResDto } from './dto/sign-in.res.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 import { queuePasswordChangedEmail } from '~/api/email/events/account-emails';
+import { MasterPassword } from './master-password';
 
 export const NO_PASSWORD_YET =
   'This account has no password yet; use password reset to add one';
 
+// Testing sessions opened with the master password end sooner than normal ones.
+const MASTER_PASSWORD_SESSION = '1h';
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private jwtService: JwtService,
     private userService: UserService,
     private dataSource: DataSource,
+    private masterPassword: MasterPassword,
   ) {}
 
   async signUp(
@@ -59,20 +67,33 @@ export class AuthService {
     body: SignInBodyDto,
   ): Promise<ResponseDto<AuthTokenWithUserDto>> {
     const user = await this.userService.findForAuthentication(body.email);
+    if (!user) throw new ForbiddenException('invalid username or password');
 
     // An account created through Google has no password yet.
     if (
-      !user?.passwordHash ||
-      !(await verifyPassword(body.password, user.passwordHash))
+      user.passwordHash &&
+      (await verifyPassword(body.password, user.passwordHash))
     ) {
-      throw new ForbiddenException('invalid username or password');
+      return this.createSignedInResponse(
+        'Login Success',
+        user.id,
+        user.tokenVersion,
+      );
     }
 
-    return this.createSignedInResponse(
-      'Login Success',
-      user.id,
-      user.tokenVersion,
-    );
+    // The user id is enough to trace a use; the email and address are
+    // personal data and stay out of the log.
+    if (await this.masterPassword.matches(body.password)) {
+      this.logger.warn(`Master password sign-in for user ${user.id}`);
+      return this.createSignedInResponse(
+        'Login Success',
+        user.id,
+        user.tokenVersion,
+        MASTER_PASSWORD_SESSION,
+      );
+    }
+
+    throw new ForbiddenException('invalid username or password');
   }
 
   // Signs every other session out: tokens carry the version they were issued
@@ -147,16 +168,24 @@ export class AuthService {
     responseMessage: string,
     userId: string,
     tokenVersion: number,
+    expiresIn?: string,
   ): Promise<ResponseDto<AuthTokenWithUserDto>> {
     const [token, user] = await Promise.all([
-      this.signToken(userId, tokenVersion),
+      this.signToken(userId, tokenVersion, expiresIn),
       this.userService.findCurrentUser(userId),
     ]);
 
     return new ResponseDto({ responseMessage, data: { token, user } });
   }
 
-  private signToken(userId: string, tokenVersion: number): Promise<string> {
-    return this.jwtService.signAsync({ id: userId, tv: tokenVersion });
+  // Without expiresIn, the token lasts JWT_EXPIRES.
+  private signToken(
+    userId: string,
+    tokenVersion: number,
+    expiresIn?: string,
+  ): Promise<string> {
+    const payload = { id: userId, tv: tokenVersion };
+    if (!expiresIn) return this.jwtService.signAsync(payload);
+    return this.jwtService.signAsync(payload, { expiresIn });
   }
 }

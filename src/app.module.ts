@@ -18,7 +18,6 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { EMAIL_ASSETS_PATH } from './api/email/email-assets';
 import { join } from 'path';
 import jwtConfig from './config/jwt.config';
-import adminJwtConfig from './config/admin-jwt.config';
 import redisConfig from './config/redis.config';
 import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 import { dataSourceOptions } from './database/database.data-source';
@@ -76,7 +75,7 @@ import { EmailModule } from './api/email/email.module';
       isGlobal: true,
       cache: true,
       envFilePath: process.env.ENV_FILE || '.env',
-      load: [redisConfig, jwtConfig, twitterRapidapiConfig, adminJwtConfig],
+      load: [redisConfig, jwtConfig, twitterRapidapiConfig],
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     TypeOrmModule.forFeature([User]),

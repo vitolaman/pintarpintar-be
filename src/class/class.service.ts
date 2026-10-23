@@ -29,7 +29,6 @@ import {
   CLASS_IN_ACTIVE_BUNDLE,
   CLASS_IN_PENDING_ORDER,
 } from './class-route-errors';
-import { ClassCertificateService } from './class-certificate.service';
 import { ClassListQueryDto } from './dto/class-list-query.dto';
 import {
   ClassResponseDto,
@@ -119,7 +118,6 @@ export class ClassService {
     @InjectRepository(Enrollment)
     private readonly enrollmentRepo: Repository<Enrollment>,
     private readonly classAccess: ClassAccessService,
-    private readonly certificates: ClassCertificateService,
   ) {}
 
   async createClass(userId: string, merchantId: string, dto: CreateClassDto) {
@@ -446,7 +444,6 @@ export class ClassService {
         { deleted_at: new Date(), deleted_by: userId },
       );
       await queueMeetingEmails(manager, 'cancelled', cancelled, 'cancelled');
-      await this.certificates.issueEligible(manager, classId);
     });
   }
 

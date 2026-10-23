@@ -41,7 +41,6 @@ const choice = {
 };
 
 describe('ClassAssignmentService', () => {
-  let issueEligible: jest.Mock;
   const userId = '10000000-0000-4000-8000-000000000001';
   const classId = '30000000-0000-4000-8000-000000000001';
   const assignmentId = '60000000-0000-4000-8000-000000000001';
@@ -85,11 +84,9 @@ describe('ClassAssignmentService', () => {
       manager,
       transaction: jest.fn((callback) => callback(manager)),
     };
-    issueEligible = jest.fn();
     service = new ClassAssignmentService(
       dataSource as never,
       new ClassAccessService(dataSource as never),
-      { issueEligible } as never,
       new ConfigService({
         AWS_S3_BUCKET_NAME: 'bucket',
         AWS_REGION: 'us-east-1',
@@ -309,7 +306,6 @@ describe('ClassAssignmentService', () => {
 
     await service.deleteAssignment(userId, classId, assignmentId);
 
-    expect(issueEligible).toHaveBeenCalledWith(manager, classId);
     expect(manager.update.mock.calls.map(([entity]) => entity)).toEqual([
       AssignmentQuestion,
       Assignment,
@@ -327,7 +323,6 @@ describe('ClassAssignmentService', () => {
 });
 
 describe('ClassAssignmentService.updateAssignment', () => {
-  let issueEligible: jest.Mock;
   const userId = '10000000-0000-4000-8000-000000000001';
   const classId = '30000000-0000-4000-8000-000000000001';
   const assignmentId = '60000000-0000-4000-8000-000000000001';
@@ -386,11 +381,9 @@ describe('ClassAssignmentService.updateAssignment', () => {
       manager,
       transaction: jest.fn((callback) => callback(manager)),
     };
-    issueEligible = jest.fn();
     service = new ClassAssignmentService(
       dataSource as never,
       new ClassAccessService(dataSource as never),
-      { issueEligible } as never,
       new ConfigService({
         AWS_S3_BUCKET_NAME: 'bucket',
         AWS_REGION: 'us-east-1',

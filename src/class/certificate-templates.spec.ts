@@ -194,7 +194,6 @@ describe('ClassCertificateService templates and links', () => {
   ): LearnerCertificateState => ({
     user_id: learnerId,
     status: 'issued',
-    eligible: true,
     metrics: {
       user_id: learnerId,
       progress: 100,
@@ -317,8 +316,7 @@ describe('ClassCertificateService templates and links', () => {
     };
     const pending: LearnerCertificateState = {
       ...issuedState({}),
-      status: 'ineligible',
-      eligible: false,
+      status: 'pending',
       certificate: null,
     };
 

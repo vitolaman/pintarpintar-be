@@ -18,7 +18,6 @@ describe('ClassAttendanceService', () => {
   let enrolled: boolean;
   let manager: Record<string, jest.Mock>;
   let learnerAccess: { requireEnrollment: jest.Mock };
-  let certificates: { issueEligible: jest.Mock };
   let service: ClassAttendanceService;
 
   beforeEach(() => {
@@ -59,12 +58,10 @@ describe('ClassAttendanceService', () => {
       transaction: jest.fn((callback) => callback(manager)),
     };
     learnerAccess = { requireEnrollment: jest.fn() };
-    certificates = { issueEligible: jest.fn() };
     service = new ClassAttendanceService(
       dataSource as never,
       new ClassAccessService(dataSource as never),
       learnerAccess as never,
-      certificates as never,
     );
   });
 
@@ -81,9 +78,6 @@ describe('ClassAttendanceService', () => {
       checkInTime: '19:05:00',
       notes: 'Materi jelas',
     });
-    expect(certificates.issueEligible).toHaveBeenCalledWith(manager, classId, [
-      userId,
-    ]);
   });
 
   it('keeps the first check-in time and replaces the feedback', async () => {
@@ -175,9 +169,6 @@ describe('ClassAttendanceService', () => {
     );
 
     expect(saved()).toMatchObject({ user_id: 'learner-id', status: 'izin' });
-    expect(certificates.issueEligible).toHaveBeenCalledWith(manager, classId, [
-      'learner-id',
-    ]);
   });
 
   it('forbids tutors without meeting permission', async () => {

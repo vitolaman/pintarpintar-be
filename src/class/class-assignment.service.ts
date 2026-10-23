@@ -14,7 +14,6 @@ import {
 } from '../common/storage/object-storage';
 import { signedDownloadUrl } from '../common/storage/signed-download-url';
 import { ClassAccess, ClassAccessService } from './class-access.service';
-import { ClassCertificateService } from './class-certificate.service';
 import { CLASS_ACTIONS } from './class-permissions';
 import {
   loadAssignmentResources,
@@ -41,7 +40,6 @@ export class ClassAssignmentService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly classAccess: ClassAccessService,
-    private readonly certificates: ClassCertificateService,
     configService: ConfigService,
   ) {
     this.storage = createObjectStorage(configService);
@@ -252,9 +250,6 @@ export class ClassAssignmentService {
         deletion,
       );
       await manager.update(Assignment, { id: assignmentId }, deletion);
-      // The deleted assignment may have been a learner's last unmet
-      // requirement.
-      await this.certificates.issueEligible(manager, classId);
     });
   }
 

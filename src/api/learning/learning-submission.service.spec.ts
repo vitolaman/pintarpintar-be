@@ -149,7 +149,6 @@ describe('LearningSubmissionService timing', () => {
   let assignment: Record<string, unknown>;
   let existing: Record<string, unknown> | null;
   let service: LearningSubmissionService;
-  let issueEligible: jest.Mock;
 
   beforeEach(() => {
     assignment = {
@@ -182,11 +181,9 @@ describe('LearningSubmissionService timing', () => {
       findLearnerAssignment: jest.fn(async () => assignment),
       describe: jest.fn(async () => ({})),
     };
-    issueEligible = jest.fn();
     service = new LearningSubmissionService(
       { transaction: jest.fn((callback) => callback(manager)) } as never,
       learningAssignment as never,
-      { issueEligible } as never,
     );
   });
 
@@ -310,7 +307,7 @@ describe('LearningSubmissionService timing', () => {
     expect(manager.insert.mock.calls[0][1]).toHaveLength(2);
   });
 
-  it('checks certificates when a multiple-choice quiz is graded on submission', async () => {
+  it('grades a multiple-choice quiz on submission', async () => {
     assignment.type = 'quiz';
     manager.query.mockImplementation(async (sql: string) =>
       sql.includes('FROM assignment_questions') ? [mc('q1', 'LINE', 100)] : [],
@@ -318,10 +315,10 @@ describe('LearningSubmissionService timing', () => {
 
     await service.submitQuiz(userId, assignmentId, answers([['q1', 'LINE']]));
 
-    expect(issueEligible).toHaveBeenCalledWith(manager, 'class-id', [userId]);
+    expect(savedSubmission()).toMatchObject({ total_score: 100 });
   });
 
-  it('leaves certificates alone while essay answers wait for a tutor', async () => {
+  it('leaves the score empty while essay answers wait for a tutor', async () => {
     assignment.type = 'quiz';
     manager.query.mockImplementation(async (sql: string) =>
       sql.includes('FROM assignment_questions')
@@ -339,14 +336,5 @@ describe('LearningSubmissionService timing', () => {
     );
 
     expect(savedSubmission()).toMatchObject({ total_score: null });
-    expect(issueEligible).not.toHaveBeenCalled();
-  });
-
-  it('leaves certificates alone for a file submission, which needs grading', async () => {
-    await service.submitFile(userId, assignmentId, {
-      file_asset_id: 'asset-id',
-    });
-
-    expect(issueEligible).not.toHaveBeenCalled();
   });
 });

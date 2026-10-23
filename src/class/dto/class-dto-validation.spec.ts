@@ -336,6 +336,14 @@ describe('class DTO validation', () => {
       [UpdateClassMentorDto, { role: null }, ['role']],
       [SetAttendanceStatusDto, { status: 'absen' }, ['status']],
       [UpdateCertificateSettingsDto, { min_score: null }, ['min_score']],
+      // Deprecated (no effect) but still validated while the frontend sends it.
+      [UpdateCertificateSettingsDto, { min_score: 120 }, ['min_score']],
+      [
+        UpdateCertificateSettingsDto,
+        { min_attendance_percent: -1 },
+        ['min_attendance_percent'],
+      ],
+      [UpdateCertificateSettingsDto, { auto_issue: 'yes' }, ['auto_issue']],
       [GradeSubmissionDto, { score: '101' }, ['score']],
     ])('rejects %p %j', async (target, input, fields) => {
       expect(await errorFields(target as never, input)).toEqual(fields);

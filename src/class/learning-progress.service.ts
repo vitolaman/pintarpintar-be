@@ -3,7 +3,6 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { Enrollment } from './entities/enrollment.entity';
 import { VideoCompletion } from './entities/video-completion.entity';
-import { ClassCertificateService } from './class-certificate.service';
 import { LearnerAccessService } from './learner-access.service';
 
 export interface NextVideo {
@@ -44,7 +43,6 @@ export class LearningProgressService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly learnerAccess: LearnerAccessService,
-    private readonly certificates: ClassCertificateService,
   ) {}
 
   // Completing a video twice is harmless: the completion is unique per
@@ -71,7 +69,6 @@ export class LearningProgressService {
         .orIgnore()
         .execute();
       await this.recompute(manager, classId, userId);
-      await this.certificates.issueEligible(manager, classId, [userId]);
 
       return {
         data: await this.findProgress(manager, classId, userId),
@@ -83,7 +80,6 @@ export class LearningProgressService {
   // Keeps stored progress true when videos are added or removed.
   async recomputeClass(manager: EntityManager, classId: string): Promise<void> {
     await this.recompute(manager, classId);
-    await this.certificates.issueEligible(manager, classId);
   }
 
   async findProgress(

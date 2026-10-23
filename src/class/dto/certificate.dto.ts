@@ -21,16 +21,22 @@ import { CERTIFICATE_DELIVERY_MODES } from '../certificate-settings';
 
 const DELIVERY_VALUES = ['template', 'link', 'file'] as const;
 
+const DEPRECATED_RULE =
+  'Deprecated: saved and returned, no effect (certificates have no requirements; the merchant issues them)';
+
 export class UpdateCertificateSettingsDto {
-  @ApiPropertyOptional({ description: 'Issue automatically on eligibility' })
+  // Still accepted while the frontend sends them (owner decision 2026-10-23).
+  @ApiPropertyOptional({ deprecated: true, description: DEPRECATED_RULE })
   @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   auto_issue?: boolean;
 
   @NumberInput({ presence: 'optional', integer: true, min: 0, max: 100 })
+  @ApiPropertyOptional({ deprecated: true, description: DEPRECATED_RULE })
   min_attendance_percent?: number;
 
   @NumberInput({ presence: 'optional', integer: true, min: 0, max: 100 })
+  @ApiPropertyOptional({ deprecated: true, description: DEPRECATED_RULE })
   min_score?: number;
 
   @EnumInput(CERTIFICATE_DELIVERY_MODES, {
@@ -96,11 +102,18 @@ export class UpdateCertificateSettingsDto {
   show_score?: boolean;
 }
 
-// The issuing rules, as learners see them.
+// The former issuing rules, still saved and returned with no effect.
 export class CertificateRulesDto {
-  @ApiProperty({ default: false }) auto_issue: boolean;
-  @ApiProperty({ default: 80 }) min_attendance_percent: number;
-  @ApiProperty({ default: 75 }) min_score: number;
+  @ApiProperty({
+    default: false,
+    deprecated: true,
+    description: DEPRECATED_RULE,
+  })
+  auto_issue: boolean;
+  @ApiProperty({ default: 80, deprecated: true, description: DEPRECATED_RULE })
+  min_attendance_percent: number;
+  @ApiProperty({ default: 75, deprecated: true, description: DEPRECATED_RULE })
+  min_score: number;
 }
 
 export class CertificateSettingsDto extends CertificateRulesDto {
@@ -175,8 +188,9 @@ export class AttachCertificateFileDto {
 
 export class CertificateViewDto {
   @ApiProperty({
-    enum: ['issued', 'pending', 'ineligible'],
-    description: 'pending = Menunggu Verifikasi, ineligible = Belum Syarat',
+    enum: ['issued', 'pending'],
+    description:
+      'issued = sent; pending = not sent yet: the owner or a tutor with sertifikat.tambah can send it at any time',
   })
   status: string;
   @ApiPropertyOptional({ nullable: true, example: 'PP-CERT-2026-0001' })
@@ -203,6 +217,7 @@ export class CertificateViewDto {
   certificate_url: string | null;
   @ApiPropertyOptional({ type: CertificateTemplateDto, nullable: true })
   template: CertificateTemplateDto | null;
+  // Shown so the merchant can decide; they do not gate issuing.
   @ApiProperty() progress: number;
   @ApiPropertyOptional({ nullable: true }) attendance_percent: number | null;
   @ApiPropertyOptional({ nullable: true }) average_score: number | null;
@@ -212,11 +227,14 @@ export class CertificateViewDto {
   })
   graded_assignments: number;
   @ApiProperty({
-    description:
-      'Assignments of the class; a certificate needs every one graded',
+    description: 'Assignments of the class',
   })
   assignment_count: number;
-  @ApiProperty({ type: CertificateRulesDto })
+  @ApiProperty({
+    type: CertificateRulesDto,
+    deprecated: true,
+    description: DEPRECATED_RULE,
+  })
   requirements: CertificateRulesDto;
 }
 

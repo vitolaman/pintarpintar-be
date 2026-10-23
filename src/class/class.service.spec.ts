@@ -18,8 +18,6 @@ jest.mock('~/api/email/events/class-tutor-emails', () => ({
   queueClassTutorAssignedEmail: jest.fn(),
 }));
 
-const certificates = { issueEligible: jest.fn() };
-
 describe('ClassService.inviteMentor', () => {
   const ownerId = '10000000-0000-4000-8000-000000000001';
   const classId = '30000000-0000-4000-8000-000000000001';
@@ -55,14 +53,7 @@ describe('ClassService.inviteMentor', () => {
     } as unknown as Repository<ClassMentor>;
     const unused = {} as never;
 
-    service = new ClassService(
-      unused,
-      unused,
-      classMentors,
-      unused,
-      unused,
-      unused,
-    );
+    service = new ClassService(unused, unused, classMentors, unused, unused);
   });
 
   it('assigns an active mentor found by email to the owner class', async () => {
@@ -187,7 +178,6 @@ describe('ClassService access control', () => {
       unused,
       enrollments as never,
       new ClassAccessService({ manager: { query } } as never),
-      certificates as never,
     );
   });
 
@@ -402,7 +392,6 @@ describe('ClassService.updateClass', () => {
       unused,
       unused,
       new ClassAccessService({ manager: { query } } as never),
-      certificates as never,
     );
   });
 
@@ -618,7 +607,6 @@ describe('ClassService tutor management', () => {
       unused,
       unused,
       new ClassAccessService({ manager: { query } } as never),
-      certificates as never,
     );
   });
 
@@ -748,7 +736,6 @@ describe('ClassService meetings', () => {
       unused,
       unused,
       new ClassAccessService({ manager: { query } } as never),
-      certificates as never,
     );
   });
 
@@ -818,9 +805,8 @@ describe('ClassService meetings', () => {
     ).toBe(false);
   });
 
-  it('soft-deletes a meeting and re-evaluates automatic certificates', async () => {
+  it('soft-deletes a meeting', async () => {
     manager.update = jest.fn();
-    certificates.issueEligible.mockClear();
 
     await service.deleteMeeting(userId, classId, meetingId);
 
@@ -829,7 +815,6 @@ describe('ClassService meetings', () => {
       { id: meetingId },
       { deleted_at: expect.any(Date), deleted_by: userId },
     );
-    expect(certificates.issueEligible).toHaveBeenCalledWith(manager, classId);
   });
 
   it('needs the meeting.delete permission', async () => {
@@ -899,7 +884,6 @@ describe('ClassService.deleteClass', () => {
       unused,
       unused,
       access as unknown as ClassAccessService,
-      unused,
     );
   });
 

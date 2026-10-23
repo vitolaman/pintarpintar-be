@@ -34,44 +34,18 @@ import {
   loadCertificateClassContext,
 } from './certificate-template';
 
-export type LearnerCertificateStatus = 'issued' | 'pending' | 'ineligible';
+// Pending: the merchant has not sent a certificate yet (owner decision
+// 2026-10-23: certificates have no requirements).
+export type LearnerCertificateStatus = 'issued' | 'pending';
 
 export interface LearnerCertificateState {
   user_id: string;
   status: LearnerCertificateStatus;
-  eligible: boolean;
+  // Shown so the merchant can decide; they no longer gate issuing.
   metrics: LearnerMetrics;
   // The class's non-deleted assignments; each needs a graded submission.
   assignment_count: number;
   certificate: Certificate | null;
-}
-
-// Eligible = progress 100%, attendance at least the minimum when the class has
-// started meetings, and, when the class has assignments, a graded submission
-// for every one of them with an average at least the minimum score (user
-// decision 2026-10-06: there are no optional assignments). Only issued certificates are stored; pending and
-// ineligible are computed.
-export function isEligible(
-  metrics: LearnerMetrics,
-  settings: CertificateRules,
-  assignmentCount: number,
-): boolean {
-  if (metrics.progress < 100) return false;
-  if (
-    metrics.started_meetings > 0 &&
-    (metrics.attendance_percent ?? 0) < settings.min_attendance_percent
-  ) {
-    return false;
-  }
-  if (
-    assignmentCount > 0 &&
-    (metrics.graded_assignments < assignmentCount ||
-      metrics.average_score === null ||
-      metrics.average_score < settings.min_score)
-  ) {
-    return false;
-  }
-  return true;
 }
 
 export interface CertificateTemplateView {
@@ -165,7 +139,6 @@ export class ClassCertificateService {
             manager,
             classId,
             learners.map((learner) => learner.user_id),
-            settings,
           );
     const views = await this.toViews(manager, classId, states, settings);
     return {
@@ -180,7 +153,8 @@ export class ClassCertificateService {
     };
   }
 
-  // Manual issuing: only an eligible learner without a certificate.
+  // Any enrolled learner without a certificate, whatever their progress,
+  // attendance or grades: issuing is the merchant's decision.
   async issueManually(userId: string, classId: string, learnerId: string) {
     return this.dataSource.transaction(async (manager) => {
       await this.classAccess.requireAction(
@@ -193,11 +167,6 @@ export class ClassCertificateService {
       const state = await this.lockLearnerState(manager, classId, learnerId);
       if (state.certificate) {
         throw new ConflictException('The certificate is already issued');
-      }
-      if (!state.eligible) {
-        throw new BadRequestException(
-          'The learner does not meet the certificate requirements yet',
-        );
       }
       await this.issue(manager, classId, learnerId, userId);
       return this.learnerResponse(
@@ -240,8 +209,7 @@ export class ClassCertificateService {
       }
 
       // Uploading a file for a learner without a certificate issues it with
-      // that file, which takes the same permission and eligibility as a
-      // manual issue.
+      // that file, which takes the same permission as a manual issue.
       await this.classAccess.requireAction(
         userId,
         classId,
@@ -249,11 +217,6 @@ export class ClassCertificateService {
         'tambah',
         manager,
       );
-      if (!state.eligible) {
-        throw new BadRequestException(
-          'The learner does not meet the certificate requirements yet',
-        );
-      }
       await assertOwnedAsset(manager, userId, assetId, 'certificate_file');
       await this.issue(manager, classId, learnerId, userId, undefined, assetId);
       return this.learnerResponse(
@@ -319,14 +282,14 @@ export class ClassCertificateService {
     userId: string,
   ): Promise<CertificateView | null> {
     const settings = await this.loadSettings(manager, classId);
-    const [state] = await this.loadStates(manager, classId, [userId], settings);
+    const [state] = await this.loadStates(manager, classId, [userId]);
     if (!state) return null;
     const [view] = await this.toViews(manager, classId, [state], settings);
     return view;
   }
 
   // Delivery details exist only for issued certificates, so a link or the
-  // template data never reaches a learner before the requirements are met.
+  // template data never reaches a learner before the certificate is sent.
   async toViews(
     manager: EntityManager,
     classId: string,
@@ -534,7 +497,6 @@ export class ClassCertificateService {
         { class_id: classId, ...next },
         ['class_id'],
       );
-      await this.issueEligible(manager, classId, undefined, userId);
       return {
         data: await this.settingsView(manager, classId, next),
         responseMessage: 'Update certificate settings success',
@@ -542,33 +504,11 @@ export class ClassCertificateService {
     });
   }
 
-  // Called in the same transaction as any change that can make learners
-  // eligible (video completion or video changes, grading, an auto-scored
-  // quiz, attendance, a deleted meeting or assignment, settings). Issues
-  // nothing in manual mode.
-  async issueEligible(
-    manager: EntityManager,
-    classId: string,
-    userIds?: string[],
-    issuedBy?: string,
-  ): Promise<void> {
-    const settings = await this.loadSettings(manager, classId);
-    if (!settings.auto_issue) return;
-    const states = await this.loadStates(manager, classId, userIds, settings);
-    for (const state of states) {
-      if (state.eligible && !state.certificate) {
-        await this.issue(manager, classId, state.user_id, issuedBy, settings);
-      }
-    }
-  }
-
   async loadStates(
     manager: EntityManager,
     classId: string,
     userIds?: string[],
-    settings?: CertificateSettings,
   ): Promise<LearnerCertificateState[]> {
-    const effective = settings ?? (await this.loadSettings(manager, classId));
     const [metrics, [{ assignments }], certificates] = await Promise.all([
       loadLearnerMetrics(manager, classId, userIds),
       manager.query(
@@ -581,14 +521,12 @@ export class ClassCertificateService {
     return metrics.map((metric) => {
       const certificate =
         certificates.find((row) => row.user_id === metric.user_id) ?? null;
-      const eligible = isEligible(metric, effective, assignments);
       return {
         user_id: metric.user_id,
-        eligible,
         metrics: metric,
         assignment_count: assignments,
         certificate,
-        status: certificate ? 'issued' : eligible ? 'pending' : 'ineligible',
+        status: certificate ? 'issued' : 'pending',
       };
     });
   }

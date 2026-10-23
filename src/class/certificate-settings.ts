@@ -4,7 +4,8 @@ export const CERTIFICATE_DELIVERY_MODES = ['template', 'link'] as const;
 export type CertificateDeliveryMode =
   (typeof CERTIFICATE_DELIVERY_MODES)[number];
 
-// The issuing rules; learners see these as their certificate requirements.
+// The former issuing rules: still saved and returned, with no effect
+// (owner decision 2026-10-23: the merchant decides).
 export interface CertificateRules {
   auto_issue: boolean;
   min_attendance_percent: number;

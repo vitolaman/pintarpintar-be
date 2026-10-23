@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -514,7 +513,7 @@ export class ClassController {
     );
   }
 
-  // Without a certificate, an eligible learner is issued one with the file.
+  // A learner without a certificate is issued one with the file.
   @Put(':classId/certificates/:userId/file')
   @DefaultResponse(
     CertificateViewDto,
@@ -523,9 +522,6 @@ export class ClassController {
     [
       tutorLacks('sertifikat', 'edit'),
       tutorLacks('sertifikat', 'tambah'),
-      new BadRequestException(
-        'The learner does not meet the certificate requirements yet',
-      ),
       CLASS_NOT_FOUND,
       LEARNER_NOT_FOUND,
     ],

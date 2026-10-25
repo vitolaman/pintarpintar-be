@@ -1,5 +1,11 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { execFileSync } from 'child_process';
+import * as dotenv from 'dotenv';
+import * as dotenvExpand from 'dotenv-expand';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { hashPassword } from '~/common/security/password';
 import { MasterPassword } from './master-password';
 
@@ -53,6 +59,10 @@ describe('MasterPassword', () => {
     ['the password itself', () => 'master-pass1'],
     ['a hash cut by $ interpolation', () => '$2b$10'],
     ['a hash with a character missing', () => hash.slice(0, -1)],
+    [
+      'base64url of something else',
+      () => Buffer.from('not a hash').toString('base64url'),
+    ],
   ])('turns itself off for %s and logs an error', async (_case, valueOf) => {
     const value = valueOf();
     const master = withSetting(value);
@@ -63,6 +73,66 @@ describe('MasterPassword', () => {
     expect(String(error.mock.calls[0][0])).not.toContain(value);
     expect(warn).not.toHaveBeenCalled();
     expect(log).not.toHaveBeenCalled();
+  });
+
+  it('accepts the hash base64url-encoded, as the script writes it', async () => {
+    const master = withSetting(Buffer.from(hash).toString('base64url'));
+
+    await expect(master.matches('master-pass1')).resolves.toBe(true);
+    await expect(master.matches('master-pass2')).resolves.toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  // The application loads .env through dotenv-expand before ConfigModule
+  // (src/database/database.data-source.ts), which empties a plain hash.
+  describe('through the .env loading of the application', () => {
+    let dir: string;
+    const loadEnvLine = (line: string) => {
+      const path = join(dir, '.env');
+      writeFileSync(path, `${line}\n`);
+      delete process.env.MASTER_PASSWORD_HASH;
+      dotenvExpand.expand(dotenv.config({ path }));
+      return new MasterPassword({
+        get: (key: string) => process.env[key],
+      } as unknown as ConfigService);
+    };
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'master-password-'));
+    });
+
+    afterEach(() => {
+      delete process.env.MASTER_PASSWORD_HASH;
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('keeps the line printed by npm run master-password:hash', async () => {
+      const line = execFileSync(
+        process.execPath,
+        ['scripts/master-password-hash.cjs'],
+        { input: 'master-pass-123\n' },
+      )
+        .toString()
+        .trim();
+      expect(line).toMatch(/^MASTER_PASSWORD_HASH=[A-Za-z0-9_-]+$/);
+
+      const master = loadEnvLine(line);
+
+      await expect(master.matches('master-pass-123')).resolves.toBe(true);
+      await expect(master.matches('master-pass-124')).resolves.toBe(false);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    // Expansion drops each `$` and the letters and digits after it, so what is
+    // left is empty or a fragment, depending on the hash.
+    it('loses a plain hash, even single-quoted, to $ expansion', async () => {
+      const master = loadEnvLine(`MASTER_PASSWORD_HASH='${hash}'`);
+
+      expect(process.env.MASTER_PASSWORD_HASH).not.toContain('$');
+      await expect(master.matches('master-pass1')).resolves.toBe(false);
+      expect(warn).not.toHaveBeenCalled();
+    });
   });
 
   it('matches the configured password and warns at startup', async () => {

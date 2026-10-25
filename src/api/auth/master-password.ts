@@ -25,10 +25,17 @@ export class MasterPassword {
     return verifyPassword(password, this.hash);
   }
 
-  // An invalid value must not stop the API, so it only turns the feature off.
+  // Every state logs one startup line, so the log shows whether a deployed
+  // image has the setting. An invalid value must not stop the API, so it only
+  // turns the feature off.
   private readHash(value: string | undefined): string | null {
     const hash = value?.trim();
-    if (!hash) return null;
+    if (!hash) {
+      this.logger.log(
+        'MASTER_PASSWORD_HASH is not set: master password sign-in is off',
+      );
+      return null;
+    }
     if (!BCRYPT_HASH.test(hash)) {
       this.logger.error(
         'MASTER_PASSWORD_HASH is not a bcrypt hash: master password sign-in is off',

@@ -4,6 +4,7 @@ import { hashPassword } from '~/common/security/password';
 import { MasterPassword } from './master-password';
 
 describe('MasterPassword', () => {
+  let log: jest.SpyInstance;
   let warn: jest.SpyInstance;
   let error: jest.SpyInstance;
   let hash: string;
@@ -18,22 +19,32 @@ describe('MasterPassword', () => {
   });
 
   beforeEach(() => {
+    log = jest.spyOn(Logger.prototype, 'log').mockImplementation();
     warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
   });
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('matches nothing and logs nothing when unset', async () => {
+  it('matches nothing and logs that it is off when unset', async () => {
     const master = withSetting(undefined);
 
     await expect(master.matches('master-pass1')).resolves.toBe(false);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith(
+      'MASTER_PASSWORD_HASH is not set: master password sign-in is off',
+    );
     expect(warn).not.toHaveBeenCalled();
     expect(error).not.toHaveBeenCalled();
   });
 
+  // .env.example ships the setting blank, which means off.
   it('treats a blank value as unset', async () => {
     await expect(withSetting('  ').matches('')).resolves.toBe(false);
+    expect(log).toHaveBeenCalledWith(
+      'MASTER_PASSWORD_HASH is not set: master password sign-in is off',
+    );
+    expect(warn).not.toHaveBeenCalled();
     expect(error).not.toHaveBeenCalled();
   });
 
@@ -51,6 +62,7 @@ describe('MasterPassword', () => {
     expect(error).toHaveBeenCalledTimes(1);
     expect(String(error.mock.calls[0][0])).not.toContain(value);
     expect(warn).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
   });
 
   it('matches the configured password and warns at startup', async () => {
@@ -58,6 +70,7 @@ describe('MasterPassword', () => {
 
     await expect(master.matches('master-pass1')).resolves.toBe(true);
     await expect(master.matches('master-pass2')).resolves.toBe(false);
+    expect(log).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain(
       'remove it before production',

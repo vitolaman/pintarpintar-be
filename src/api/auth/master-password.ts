@@ -10,6 +10,11 @@ const BCRYPT_HASH = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
  * testing only. MASTER_PASSWORD_HASH holds its bcrypt hash, never the password
  * (`npm run master-password:hash`); unset or invalid, it matches nothing.
  * It must be removed before production.
+ *
+ * The script writes the hash base64url-encoded: a plain bcrypt hash is full of
+ * `$`, which dotenv-expand (src/database/database.data-source.ts), Docker
+ * Compose and Portainer read as variables, so `.env` would arrive empty. A
+ * plain hash is still accepted where nothing expands it.
  */
 @Injectable()
 export class MasterPassword {
@@ -36,7 +41,8 @@ export class MasterPassword {
       );
       return null;
     }
-    if (!BCRYPT_HASH.test(hash)) {
+    const bcryptHash = BCRYPT_HASH.test(hash) ? hash : decodeBase64Url(hash);
+    if (!bcryptHash || !BCRYPT_HASH.test(bcryptHash)) {
       this.logger.error(
         'MASTER_PASSWORD_HASH is not a bcrypt hash: master password sign-in is off',
       );
@@ -45,6 +51,11 @@ export class MasterPassword {
     this.logger.warn(
       'MASTER_PASSWORD_HASH is set: master password sign-in is on, for testing only; remove it before production',
     );
-    return hash;
+    return bcryptHash;
   }
+}
+
+function decodeBase64Url(value: string): string | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
+  return Buffer.from(value, 'base64url').toString('utf8');
 }

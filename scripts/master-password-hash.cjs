@@ -63,9 +63,10 @@ async function main() {
     throw new Error(`Use at least ${MIN_LENGTH} characters`);
   }
   const passwordHash = await hash(password, COST);
-  // dotenv strips the single quotes; they stop tools that expand $ (such as
-  // Docker Compose) from changing the hash.
-  process.stdout.write(`MASTER_PASSWORD_HASH='${passwordHash}'\n`);
+  // base64url keeps $ out of .env: dotenv-expand (run on .env at startup),
+  // Docker Compose and Portainer would read the hash's $ signs as variables.
+  const encoded = Buffer.from(passwordHash, 'utf8').toString('base64url');
+  process.stdout.write(`MASTER_PASSWORD_HASH=${encoded}\n`);
 }
 
 main().catch((error) => {

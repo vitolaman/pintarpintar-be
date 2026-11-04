@@ -78,6 +78,11 @@ describe('ClassContentService', () => {
     );
   });
 
+  const addVideos = (...videos: Record<string, unknown>[]) =>
+    service.createVideos(userId, classId, chapterId, {
+      videos,
+    } as unknown as CreateVideosDto);
+
   it('appends a new chapter after the last one', async () => {
     maxOrder = 2;
 
@@ -109,18 +114,12 @@ describe('ClassContentService', () => {
     manager.findOne.mockResolvedValue(null);
 
     await expect(
-      service.createVideo(userId, classId, chapterId, {
-        title: 'Intro',
-        youtube_url: 'https://youtu.be/x',
-      }),
+      addVideos({ title: 'Intro', youtube_url: 'https://youtu.be/x' }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('recomputes learner progress when videos change', async () => {
-    await service.createVideo(userId, classId, chapterId, {
-      title: 'Intro',
-      youtube_url: 'https://youtu.be/x',
-    });
+    await addVideos({ title: 'Intro', youtube_url: 'https://youtu.be/x' });
     await service.deleteChapter(userId, classId, chapterId);
     manager.findOne.mockImplementation(async (entity) =>
       entity === Chapter
@@ -148,17 +147,19 @@ describe('ClassContentService', () => {
   it('places a new video last in the chapter', async () => {
     maxOrder = 4;
 
-    const response = await service.createVideo(userId, classId, chapterId, {
+    const {
+      data: [video],
+    } = await addVideos({
       title: 'Intro',
       youtube_url: 'https://www.youtube.com/embed/abc',
     });
 
-    expect(response.data).toMatchObject({
+    expect(video).toMatchObject({
       order: 5,
       chapter_id: chapterId,
       youtube_url: 'https://www.youtube.com/embed/abc',
     });
-    expect(response.data).not.toHaveProperty('youtubeUrl');
+    expect(video).not.toHaveProperty('youtubeUrl');
   });
 
   it('soft-deletes a chapter together with its videos and resources', async () => {
@@ -364,15 +365,14 @@ describe('ClassContentService', () => {
         }
         return asset;
       });
-    const create = (body: Record<string, unknown>) =>
-      service.createVideo(userId, classId, chapterId, {
-        title: 'Materi',
-        ...body,
-      } as CreateVideoDto);
+    const create = async (body: Record<string, unknown>) => {
+      const response = await addVideos({ title: 'Materi', ...body });
+      return { data: response.data[0] };
+    };
 
     it('stores an uploaded file video without a URL', async () => {
       owned(upload());
-      const response = await create({ source: 'file', asset_id: assetId });
+      const response = await create({ asset_id: assetId });
       expect(response.data).toMatchObject({
         source: 'file',
         asset_id: assetId,
@@ -380,16 +380,7 @@ describe('ClassContentService', () => {
       });
     });
 
-    it('infers a file video from an asset_id alone', async () => {
-      owned(upload());
-      const response = await create({ asset_id: assetId });
-      expect(response.data).toMatchObject({
-        source: 'file',
-        asset_id: assetId,
-      });
-    });
-
-    it('defaults to a link video for the current frontend', async () => {
+    it('makes a link video from a youtube_url', async () => {
       const response = await create({
         youtube_url: 'https://www.youtube.com/embed/abc',
       });
@@ -398,22 +389,15 @@ describe('ClassContentService', () => {
 
     it.each([
       [
-        'a file video with a URL',
-        { source: 'file', asset_id: assetId, youtube_url: 'https://x.test/v' },
-        'not youtube_url',
-      ],
-      [
         'both a URL and an upload',
         { youtube_url: 'https://x.test/v', asset_id: assetId },
-        'not both',
+        'Video "Materi": Send either youtube_url or asset_id, not both',
       ],
       [
-        'an explicit link video with an upload',
-        { source: 'link', asset_id: assetId },
-        'not asset_id',
+        'a video with neither field',
+        {},
+        'Video "Materi": A video needs youtube_url (a link) or asset_id (an uploaded file)',
       ],
-      ['a file video without an upload', { source: 'file' }, 'needs asset_id'],
-      ['a link video without a URL', {}, 'needs youtube_url'],
     ])('rejects %s', async (_name, body, message) => {
       owned(upload());
       await expect(create(body)).rejects.toThrow(message);
@@ -424,23 +408,23 @@ describe('ClassContentService', () => {
       owned(
         upload({ originalFilename: 'modul.pdf', mimeType: 'application/pdf' }),
       );
-      await expect(
-        create({ source: 'file', asset_id: assetId }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(create({ asset_id: assetId })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
 
     it("rejects a video over the merchant level's per-file limit", async () => {
       owned(upload({ sizeBytes: String(2 * 1024 * 1024 * 1024) }));
-      await expect(
-        create({ source: 'file', asset_id: assetId }),
-      ).rejects.toThrow('1 GB or smaller on the Basic merchant level');
+      await expect(create({ asset_id: assetId })).rejects.toThrow(
+        '1 GB or smaller on the Basic merchant level',
+      );
     });
 
     describe('in a batch', () => {
       const batch = (videos: Record<string, unknown>[]) =>
         service.createVideos(userId, classId, chapterId, {
           videos,
-        } as CreateVideosDto);
+        } as unknown as CreateVideosDto);
 
       it('stores link and file videos after the last item, in the order sent', async () => {
         maxOrder = 4;
@@ -449,7 +433,7 @@ describe('ClassContentService', () => {
         const response = await batch([
           { title: 'Pembuka', youtube_url: 'https://www.youtube.com/embed/a' },
           { title: 'Bagian 1', asset_id: assetId },
-          { title: 'Bagian 2', source: 'file', asset_id: assetId },
+          { title: 'Bagian 2', asset_id: assetId },
         ]);
 
         expect(
@@ -481,7 +465,7 @@ describe('ClassContentService', () => {
             { title: 'Bagian 2', asset_id: assetId },
           ]),
         ).rejects.toThrow(
-          'Video "Tanpa sumber": A link video needs youtube_url',
+          'Video "Tanpa sumber": A video needs youtube_url (a link) or asset_id (an uploaded file)',
         );
         expect(manager.save).not.toHaveBeenCalled();
         expect(progress.recomputeClass).not.toHaveBeenCalled();
@@ -510,12 +494,6 @@ describe('ClassContentService', () => {
         ).rejects.toBeInstanceOf(ForbiddenException);
         expect(manager.save).not.toHaveBeenCalled();
       });
-
-      it('keeps the single-video messages without a title', async () => {
-        await expect(create({})).rejects.toThrow(
-          /^A link video needs youtube_url$/,
-        );
-      });
     });
 
     it('switches a link video to a file and keeps a title-only edit simple', async () => {
@@ -541,18 +519,26 @@ describe('ClassContentService', () => {
         classId,
         chapterId,
         'video-id',
-        { source: 'file', asset_id: assetId },
+        { asset_id: assetId },
       );
       expect(switched.data).toMatchObject({
         source: 'file',
         asset_id: assetId,
         youtube_url: null,
       });
-      await expect(
-        service.updateVideo(userId, classId, chapterId, 'video-id', {
-          source: 'link',
-        }),
-      ).rejects.toThrow('needs youtube_url');
+      Object.assign(video, switched.data, { youtubeUrl: null });
+      const back = await service.updateVideo(
+        userId,
+        classId,
+        chapterId,
+        'video-id',
+        { youtube_url: 'https://www.youtube.com/embed/b' },
+      );
+      expect(back.data).toMatchObject({
+        source: 'link',
+        youtube_url: 'https://www.youtube.com/embed/b',
+        asset_id: null,
+      });
     });
   });
 
@@ -752,8 +738,6 @@ describe('video and resource inputs', () => {
   it.each([
     [UpdateVideoDto, { title: '' }, ['title']],
     [UpdateVideoDto, { title: null }, ['title']],
-    [UpdateVideoDto, { youtube_url: null }, ['youtube_url']],
-    [UpdateVideoDto, { youtube_url: '' }, ['youtube_url']],
     [CreateVideoDto, { title: '  ' }, ['title']],
     [UpdateResourceDto, { name: '  ' }, ['name']],
     [UpdateResourceDto, { url: null }, ['url']],

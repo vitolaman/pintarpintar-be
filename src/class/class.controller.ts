@@ -15,19 +15,11 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiExtraModels,
-  ApiOperation,
-  ApiTags,
-  getSchemaPath,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ArrayResponse,
   DefaultResponse,
   EmptyResponse,
-  OneOrListResponse,
   PaginatedObjectResponse,
   PaginatedResponse,
 } from '../common/decorator/response.decorator';
@@ -63,12 +55,7 @@ import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { UpdateChapterDto } from './dto/update-chapter.dto';
-import {
-  CreateVideoDto,
-  CreateVideosDto,
-  UpdateVideoDto,
-} from './dto/video.dto';
-import { CreateVideoBodyPipe } from './create-video-body.pipe';
+import { CreateVideosDto, UpdateVideoDto } from './dto/video.dto';
 import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
 import { ReorderChapterItemsDto } from './dto/reorder-chapter-items.dto';
 import { ReorderChaptersDto } from './dto/reorder-chapters.dto';
@@ -263,44 +250,72 @@ export class ClassController {
 
   @Post(':classId/chapters/:chapterId/videos')
   @ApiOperation({
-    summary: 'Add one video, or up to 20 as `videos`',
+    summary: 'Add 1 to 20 videos as `videos`',
     description:
-      'One video answers `data` as that video; a `videos` list answers `data` as the list, stored after the last item in the order sent. If one video in the list is invalid, the 400 names its title and none is stored.',
+      'Stored after the last item in the order sent; `data` is the list, also for one video. Each video fills youtube_url (a link) or asset_id (an uploaded file). If one is invalid, the 400 names its title and none is stored.',
   })
-  @ApiExtraModels(CreateVideoDto, CreateVideosDto)
   @ApiBody({
-    schema: {
-      oneOf: [
-        { $ref: getSchemaPath(CreateVideoDto) },
-        { $ref: getSchemaPath(CreateVideosDto) },
-      ],
+    type: CreateVideosDto,
+    examples: {
+      link: {
+        summary: 'One link video',
+        value: {
+          videos: [
+            {
+              title: 'Pembuka',
+              youtube_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+            },
+          ],
+        },
+      },
+      file: {
+        summary: 'One uploaded video',
+        value: {
+          videos: [
+            {
+              title: 'Bagian 1',
+              asset_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+              duration: '12:30',
+            },
+          ],
+        },
+      },
+      several: {
+        summary: 'Links and uploads together',
+        value: {
+          videos: [
+            {
+              title: 'Pembuka',
+              youtube_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+            },
+            {
+              title: 'Bagian 1',
+              description: 'Dasar-dasar',
+              asset_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+              duration: '12:30',
+            },
+          ],
+        },
+      },
     },
   })
-  @OneOrListResponse(
+  @ArrayResponse(
     VideoResponseDto,
     'Create video success',
-    HttpStatus.CREATED,
     [tutorLacks('materi', 'tambah'), CLASS_NOT_FOUND, CHAPTER_NOT_FOUND],
+    HttpStatus.CREATED,
   )
-  createVideo(
+  createVideos(
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
     @Param('chapterId', ParseUUIDPipe) chapterId: string,
-    @Body(CreateVideoBodyPipe) body: CreateVideoDto | CreateVideosDto,
+    @Body() dto: CreateVideosDto,
   ) {
-    if (body instanceof CreateVideosDto) {
-      return this.classContentService.createVideos(
-        req.user.id,
-        classId,
-        chapterId,
-        body,
-      );
-    }
-    return this.classContentService.createVideo(
+    return this.classContentService.createVideos(
       req.user.id,
       classId,
       chapterId,
-      body,
+      dto,
     );
   }
 

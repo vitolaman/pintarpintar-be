@@ -152,29 +152,10 @@ export class ClassContentService {
     });
   }
 
-  async createVideo(
-    userId: string,
-    classId: string,
-    chapterId: string,
-    dto: CreateVideoDto,
-  ) {
-    return this.dataSource.transaction(async (manager) => {
-      const [video] = await this.insertVideos(
-        manager,
-        userId,
-        classId,
-        chapterId,
-        [dto],
-        { nameFailedVideo: false },
-      );
-      return {
-        data: toVideoResponse(video),
-        responseMessage: 'Create video success',
-      };
-    });
-  }
-
-  // All the videos are stored, or none: an invalid one rolls back the batch.
+  // Appends the videos after the chapter's last item, in the order given.
+  // All are stored, or none: an invalid one rolls back the batch. The
+  // storage quota counts the files accepted earlier in the transaction, so a
+  // batch cannot pass it one file at a time.
   async createVideos(
     userId: string,
     classId: string,
@@ -182,71 +163,43 @@ export class ClassContentService {
     dto: CreateVideosDto,
   ) {
     return this.dataSource.transaction(async (manager) => {
-      const videos = await this.insertVideos(
-        manager,
+      await this.classAccess.requireAction(
         userId,
         classId,
-        chapterId,
-        dto.videos,
-        { nameFailedVideo: true },
+        'materi',
+        'tambah',
+        manager,
       );
+      await this.lockChapter(manager, classId, chapterId);
+      let order = await this.nextPosition(manager, Video, {
+        chapter_id: chapterId,
+      });
+
+      const created: Video[] = [];
+      for (const input of dto.videos) {
+        const source = await withVideoTitle(
+          input.title,
+          resolveVideoSource(manager, userId, classId, null, input),
+        );
+        created.push(
+          manager.create(Video, {
+            chapter_id: chapterId,
+            title: input.title,
+            description: input.description,
+            ...source,
+            duration: input.duration,
+            order: order++,
+            created_by: userId,
+          }),
+        );
+      }
+      const saved = await manager.save(Video, created);
+      await this.learningProgress.recomputeClass(manager, classId);
       return {
-        data: videos.map(toVideoResponse),
+        data: saved.map(toVideoResponse),
         responseMessage: 'Create video success',
       };
     });
-  }
-
-  // Appends the videos after the chapter's last item, in the order given.
-  // The storage quota counts the files accepted earlier in the transaction,
-  // so a batch cannot pass it one file at a time.
-  private async insertVideos(
-    manager: EntityManager,
-    userId: string,
-    classId: string,
-    chapterId: string,
-    inputs: CreateVideoDto[],
-    { nameFailedVideo }: { nameFailedVideo: boolean },
-  ): Promise<Video[]> {
-    await this.classAccess.requireAction(
-      userId,
-      classId,
-      'materi',
-      'tambah',
-      manager,
-    );
-    await this.lockChapter(manager, classId, chapterId);
-    let order = await this.nextPosition(manager, Video, {
-      chapter_id: chapterId,
-    });
-
-    const created: Video[] = [];
-    for (const input of inputs) {
-      const resolving = resolveVideoSource(
-        manager,
-        userId,
-        classId,
-        null,
-        input,
-      );
-      const source = nameFailedVideo
-        ? await withVideoTitle(input.title, resolving)
-        : await resolving;
-      created.push(
-        manager.create(Video, {
-          chapter_id: chapterId,
-          title: input.title,
-          description: input.description,
-          ...source,
-          duration: input.duration,
-          order: order++,
-          created_by: userId,
-        }),
-      );
-    }
-    const saved = await manager.save(Video, created);
-    await this.learningProgress.recomputeClass(manager, classId);
-    return saved;
   }
 
   async updateVideo(
@@ -273,11 +226,7 @@ export class ClassContentService {
       );
       if (dto.title !== undefined) video.title = dto.title;
       if (dto.description !== undefined) video.description = dto.description;
-      if (
-        dto.source !== undefined ||
-        dto.youtube_url !== undefined ||
-        dto.asset_id !== undefined
-      ) {
+      if (dto.youtube_url !== undefined || dto.asset_id !== undefined) {
         Object.assign(
           video,
           await resolveVideoSource(manager, userId, classId, video, dto),
@@ -688,10 +637,7 @@ function toVideoResponse(video: Video): VideoResponseDto {
   };
 }
 
-type VideoSourceInput = Pick<
-  CreateVideoDto,
-  'source' | 'youtube_url' | 'asset_id'
->;
+type VideoSourceInput = Pick<CreateVideoDto, 'youtube_url' | 'asset_id'>;
 
 // A material's type follows its file, whatever type the client sent.
 function materialTypeOf(asset: FileAsset): ResourceType {
@@ -705,12 +651,13 @@ function materialTypeOf(asset: FileAsset): ResourceType {
   return ResourceType.FILE;
 }
 
-// Without an explicit source, the field sent decides: an upload makes a file
-// video and a link makes a link video; otherwise the video keeps its source.
+// The filled field decides: an upload makes a file video and a link makes a
+// link video. With neither, an update keeps the video's source and a create
+// has none, which resolveVideoSource rejects.
 function inferredVideoSource(
   input: VideoSourceInput,
   current: Video | null,
-): VideoSource {
+): VideoSource | null {
   const sentFile = input.asset_id !== undefined;
   const sentLink = input.youtube_url !== undefined;
   if (sentFile && sentLink) {
@@ -720,7 +667,7 @@ function inferredVideoSource(
   }
   if (sentFile) return 'file';
   if (sentLink) return 'link';
-  return current?.source ?? 'link';
+  return current?.source ?? null;
 }
 
 // In a batch, a rejected video is named by its title, as a rejected material
@@ -739,8 +686,8 @@ async function withVideoTitle<T>(title: string, work: Promise<T>): Promise<T> {
 /**
  * The video's source fields after a create or update: a link video has
  * a link and no asset, a file video has an owned class_video upload
- * (within the class merchant's per-file limit) and no URL. Fields not sent
- * keep the current video's values for the same source.
+ * (within the class merchant's per-file limit) and no URL. On an update,
+ * an empty field keeps the current video's value for the same source.
  */
 async function resolveVideoSource(
   manager: EntityManager,
@@ -749,29 +696,21 @@ async function resolveVideoSource(
   current: Video | null,
   input: VideoSourceInput,
 ): Promise<Pick<Video, 'source' | 'youtubeUrl' | 'asset_id'>> {
-  const source = input.source ?? inferredVideoSource(input, current);
+  const source = inferredVideoSource(input, current);
+  if (source === null) {
+    throw new BadRequestException(
+      'A video needs youtube_url (a link) or asset_id (an uploaded file)',
+    );
+  }
   if (source === 'link') {
-    if (input.asset_id !== undefined) {
-      throw new BadRequestException(
-        'A link video takes youtube_url, not asset_id',
-      );
-    }
-    const youtubeUrl =
-      input.youtube_url ??
-      (current?.source === 'link' ? current.youtubeUrl : undefined);
+    const youtubeUrl = input.youtube_url ?? current?.youtubeUrl;
     if (!youtubeUrl) {
       throw new BadRequestException('A link video needs youtube_url');
     }
     return { source, youtubeUrl, asset_id: null };
   }
 
-  if (input.youtube_url !== undefined) {
-    throw new BadRequestException(
-      'A file video takes asset_id, not youtube_url',
-    );
-  }
-  const assetId =
-    input.asset_id ?? (current?.source === 'file' ? current.asset_id : null);
+  const assetId = input.asset_id ?? current?.asset_id;
   if (!assetId) throw new BadRequestException('A file video needs asset_id');
   if (input.asset_id !== undefined) {
     await assertOwnedAsset(manager, userId, assetId, 'class_video', {

@@ -27,7 +27,11 @@ import { CreateChapterDto } from './dto/create-chapter.dto';
 import { ReorderChapterItemsDto } from './dto/reorder-chapter-items.dto';
 import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
 import { UpdateChapterDto } from './dto/update-chapter.dto';
-import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
+import {
+  CreateVideoDto,
+  CreateVideosDto,
+  UpdateVideoDto,
+} from './dto/video.dto';
 import { ReorderChaptersDto } from './dto/reorder-chapters.dto';
 import { FileAsset } from '../api/profile/entities/file-asset.entity';
 import { Chapter } from './entities/chapter.entity';
@@ -155,41 +159,94 @@ export class ClassContentService {
     dto: CreateVideoDto,
   ) {
     return this.dataSource.transaction(async (manager) => {
-      await this.classAccess.requireAction(
-        userId,
-        classId,
-        'materi',
-        'tambah',
-        manager,
-      );
-      await this.lockChapter(manager, classId, chapterId);
-      const source = await resolveVideoSource(
+      const [video] = await this.insertVideos(
         manager,
         userId,
         classId,
-        null,
-        dto,
+        chapterId,
+        [dto],
+        { nameFailedVideo: false },
       );
-      const video = await manager.save(
-        Video,
-        manager.create(Video, {
-          chapter_id: chapterId,
-          title: dto.title,
-          description: dto.description,
-          ...source,
-          duration: dto.duration,
-          order: await this.nextPosition(manager, Video, {
-            chapter_id: chapterId,
-          }),
-          created_by: userId,
-        }),
-      );
-      await this.learningProgress.recomputeClass(manager, classId);
       return {
         data: toVideoResponse(video),
         responseMessage: 'Create video success',
       };
     });
+  }
+
+  // All the videos are stored, or none: an invalid one rolls back the batch.
+  async createVideos(
+    userId: string,
+    classId: string,
+    chapterId: string,
+    dto: CreateVideosDto,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const videos = await this.insertVideos(
+        manager,
+        userId,
+        classId,
+        chapterId,
+        dto.videos,
+        { nameFailedVideo: true },
+      );
+      return {
+        data: videos.map(toVideoResponse),
+        responseMessage: 'Create video success',
+      };
+    });
+  }
+
+  // Appends the videos after the chapter's last item, in the order given.
+  // The storage quota counts the files accepted earlier in the transaction,
+  // so a batch cannot pass it one file at a time.
+  private async insertVideos(
+    manager: EntityManager,
+    userId: string,
+    classId: string,
+    chapterId: string,
+    inputs: CreateVideoDto[],
+    { nameFailedVideo }: { nameFailedVideo: boolean },
+  ): Promise<Video[]> {
+    await this.classAccess.requireAction(
+      userId,
+      classId,
+      'materi',
+      'tambah',
+      manager,
+    );
+    await this.lockChapter(manager, classId, chapterId);
+    let order = await this.nextPosition(manager, Video, {
+      chapter_id: chapterId,
+    });
+
+    const created: Video[] = [];
+    for (const input of inputs) {
+      const resolving = resolveVideoSource(
+        manager,
+        userId,
+        classId,
+        null,
+        input,
+      );
+      const source = nameFailedVideo
+        ? await withVideoTitle(input.title, resolving)
+        : await resolving;
+      created.push(
+        manager.create(Video, {
+          chapter_id: chapterId,
+          title: input.title,
+          description: input.description,
+          ...source,
+          duration: input.duration,
+          order: order++,
+          created_by: userId,
+        }),
+      );
+    }
+    const saved = await manager.save(Video, created);
+    await this.learningProgress.recomputeClass(manager, classId);
+    return saved;
   }
 
   async updateVideo(
@@ -664,6 +721,19 @@ function inferredVideoSource(
   if (sentFile) return 'file';
   if (sentLink) return 'link';
   return current?.source ?? 'link';
+}
+
+// In a batch, a rejected video is named by its title, as a rejected material
+// is named by its name, so the client knows which one to fix.
+async function withVideoTitle<T>(title: string, work: Promise<T>): Promise<T> {
+  try {
+    return await work;
+  } catch (error) {
+    if (error instanceof BadRequestException) {
+      throw new BadRequestException(`Video "${title}": ${error.message}`);
+    }
+    throw error;
+  }
 }
 
 /**

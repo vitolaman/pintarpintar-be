@@ -15,11 +15,19 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiExtraModels,
+  ApiOperation,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import {
   ArrayResponse,
   DefaultResponse,
   EmptyResponse,
+  OneOrListResponse,
   PaginatedObjectResponse,
   PaginatedResponse,
 } from '../common/decorator/response.decorator';
@@ -55,7 +63,12 @@ import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { InviteMentorDto } from './dto/invite-mentor.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { UpdateChapterDto } from './dto/update-chapter.dto';
-import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
+import {
+  CreateVideoDto,
+  CreateVideosDto,
+  UpdateVideoDto,
+} from './dto/video.dto';
+import { CreateVideoBodyPipe } from './create-video-body.pipe';
 import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
 import { ReorderChapterItemsDto } from './dto/reorder-chapter-items.dto';
 import { ReorderChaptersDto } from './dto/reorder-chapters.dto';
@@ -249,7 +262,21 @@ export class ClassController {
   }
 
   @Post(':classId/chapters/:chapterId/videos')
-  @DefaultResponse(
+  @ApiOperation({
+    summary: 'Add one video, or up to 20 as `videos`',
+    description:
+      'One video answers `data` as that video; a `videos` list answers `data` as the list, stored after the last item in the order sent. If one video in the list is invalid, the 400 names its title and none is stored.',
+  })
+  @ApiExtraModels(CreateVideoDto, CreateVideosDto)
+  @ApiBody({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(CreateVideoDto) },
+        { $ref: getSchemaPath(CreateVideosDto) },
+      ],
+    },
+  })
+  @OneOrListResponse(
     VideoResponseDto,
     'Create video success',
     HttpStatus.CREATED,
@@ -259,13 +286,21 @@ export class ClassController {
     @Req() req: AuthenticatedRequest,
     @Param('classId', ParseUUIDPipe) classId: string,
     @Param('chapterId', ParseUUIDPipe) chapterId: string,
-    @Body() dto: CreateVideoDto,
+    @Body(CreateVideoBodyPipe) body: CreateVideoDto | CreateVideosDto,
   ) {
+    if (body instanceof CreateVideosDto) {
+      return this.classContentService.createVideos(
+        req.user.id,
+        classId,
+        chapterId,
+        body,
+      );
+    }
     return this.classContentService.createVideo(
       req.user.id,
       classId,
       chapterId,
-      dto,
+      body,
     );
   }
 

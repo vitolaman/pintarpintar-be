@@ -579,6 +579,14 @@ Verify each migration locally on a database built only from migrations and on a 
 
 Every variable the running application uses is listed in `.env.example` (Compose also takes optional `LOCAL_JAEGER_*` ports).
 
+**Settings file in the image.** The `Dockerfile` copies the development settings file `.env.dev` (not `.env`) into the image and sets `ENV_FILE=.env.dev`, so create `.env.dev` in the build directory first. Git ignores every `.env.*` file except `.env.example`. Build for the server's platform:
+
+```bash
+$ docker buildx build --platform linux/amd64 -f Dockerfile -t <image>:<tag> . --load && docker push <image>:<tag>
+```
+
+The container must not set `ENV_FILE` to a file the image does not carry. Portainer keeps a container's environment, including values that came from an earlier image, when it redeploys with a new one; with a wrong `ENV_FILE` no settings load and the startup stops with "JWT_ADMIN_KEY must be set to sign and verify tokens".
+
 **Required:**
 
 - `DB_*`.
@@ -594,7 +602,7 @@ Every variable the running application uses is listed in `.env.example` (Compose
 - `NODE_ENV`: `production` limits the database log to failures, slow statements (over 400 ms), warnings and migrations, without parameter values (see Observability); it is also the traces' environment name. The Docker image sets it.
 - `DB_POOL_MAX` (optional): database connections per instance, a whole number from 1 to 90 (default 20); an invalid value stops the startup. A heavy page runs several queries at once, so a small pool queues requests under load.
 - The `OTEL_*` tracing settings. Tracing is on by default and exports to `http://localhost:4318/v1/traces`; set `OTEL_ENABLED=false` (or `OTEL_SDK_DISABLED=true`) to turn it off.
-- `ENV_FILE`, which selects the env file (default `.env`).
+- `ENV_FILE`, which selects the env file (default `.env`; the Docker image sets `.env.dev`).
 - The five email settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SENDER`): without them the app runs and emails wait in the queue (see Automatic emails). `FRONTEND_URL` is optional (default `https://pintarpintar.id`), and so is `API_PUBLIC_URL` (default `https://api.pintarpintar.id`). When the login mailbox differs from the sender address (for example `mail@` sending as `info@`), the mail server must allow it, for example as an alias. Deliverability also needs the sending domain's SPF, DKIM and DMARC records and the server's reverse DNS.
 - `FIREBASE_PROJECT_ID` (`pintarpintar-107a8`): turns on Google sign-in (`POST /api/v1/auth/google` answers 503 without it). It is not a secret, and no service-account key is needed: tokens are checked against Google's published keys, so the server needs outbound HTTPS to `www.googleapis.com`.
 - `MASTER_PASSWORD_HASH` (development and testing only; **remove it before production**): the bcrypt hash of the master password for sign-in, never the password itself. `npm run master-password:hash` asks for the password twice without showing it (at least 12 characters) and prints the line to paste, with the hash base64url-encoded: a plain bcrypt hash is full of `$`, which the startup's `dotenv-expand` (and Docker Compose or Portainer) read as variables, so it would arrive empty or broken. A plain hash still works when set as an environment variable that nothing expands. Every startup logs its state from `MasterPassword`: "is not set: master password sign-in is off" (unset or blank, sign-in works as before), an error for a value that is not a bcrypt hash (left off), or a warning while it is on. To change the password, generate a new line; to turn it off, delete the line.

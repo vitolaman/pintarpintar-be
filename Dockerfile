@@ -26,11 +26,13 @@ WORKDIR /code
 COPY --chown=node:node --from=build /code/package.json .
 COPY --chown=node:node --from=build /code/node_modules ./node_modules
 COPY --chown=node:node --from=build /code/dist ./dist
-COPY --chown=node:node .env .env
+COPY --chown=node:node .env.dev .env.dev
 
 # Switch to the node user
 USER node
 ENV NODE_ENV=production
+# The application loads the settings file that ENV_FILE names.
+ENV ENV_FILE=.env.dev
 # Timestamp columns without a time zone are written and read in the process
 # time zone, so the app must run in UTC like the database session.
 ENV TZ=UTC

@@ -9,6 +9,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ErrorResponseDto } from './common/dto/error-response.dto';
 import { CustomHttpExceptionFilter } from './common/filters/exception-error.filter';
 import { documentErrorResponses } from './common/swagger/error-responses';
+import { VALIDATION_OPTIONS } from './common/validation/validation-options';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -31,15 +32,7 @@ async function bootstrap() {
   // Answers do not name the framework (X-Powered-By: Express by default).
   app.disable('x-powered-by');
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      // An unknown field (a typo or an old name) is a 400 naming it, not
-      // silently ignored.
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
+  app.useGlobalPipes(new ValidationPipe(VALIDATION_OPTIONS));
   app.useGlobalFilters(
     new CustomHttpExceptionFilter({
       sanitizeDatabaseErrors: process.env.NODE_ENV === 'production',

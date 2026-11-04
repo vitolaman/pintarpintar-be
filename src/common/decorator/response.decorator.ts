@@ -55,6 +55,51 @@ export const DefaultResponse = <TModel extends Type<any>>(
   );
 };
 
+/**
+ * For a route that takes one item or a list: `data` is one object for a
+ * single-item body and an array for a list body.
+ */
+export const OneOrListResponse = <TModel extends Type<any>>(
+  model: TModel,
+  responseMessage: string,
+  status: HttpStatus,
+  exceptions: Array<any>,
+) => {
+  return applyDecorators(
+    ApiExtraModels(ResponseDto),
+    ApiExtraModels(model),
+    ApiException(() => [...exceptions, InternalServerErrorException], {
+      template: {
+        statusCode: '$status',
+        responseMessage: ['$description'],
+        error: '$error',
+      },
+    }),
+    ApiResponse({
+      status,
+      schema: {
+        allOf: [
+          { $ref: getSchemaPath(ResponseDto) },
+          {
+            properties: {
+              data: {
+                oneOf: [
+                  { $ref: getSchemaPath(model) },
+                  { type: 'array', items: { $ref: getSchemaPath(model) } },
+                ],
+              },
+              responseMessage: {
+                type: 'string',
+                example: responseMessage,
+              },
+            },
+          },
+        ],
+      },
+    }),
+  );
+};
+
 /** A 200 response that carries only a message, with `data: null`. */
 export const MessageResponse = (
   responseMessage: string,

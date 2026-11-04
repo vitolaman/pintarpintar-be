@@ -1,5 +1,15 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsUrl, IsUUID, ValidateIf } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsOptional,
+  IsUrl,
+  IsUUID,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator';
 import {
   ClearableText,
   EnumInput,
@@ -47,6 +57,24 @@ export class CreateVideoDto {
 
   @ClearableText({ max: 32, example: '12:30' })
   duration?: string | null;
+}
+
+export const MAX_VIDEOS_PER_REQUEST = 20;
+
+export class CreateVideosDto {
+  @ApiProperty({
+    type: [CreateVideoDto],
+    minItems: 1,
+    maxItems: MAX_VIDEOS_PER_REQUEST,
+    description:
+      'Several videos at once, each like the single-video body; stored together in this order after the last item, or none if one is invalid',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_VIDEOS_PER_REQUEST)
+  @ValidateNested({ each: true })
+  @Type(() => CreateVideoDto)
+  videos: CreateVideoDto[];
 }
 
 export class UpdateVideoDto {

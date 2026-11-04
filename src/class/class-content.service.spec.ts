@@ -13,7 +13,11 @@ import { ClassContentService } from './class-content.service';
 import { TUTOR_PERMISSION_FIXTURES } from './testing/tutor-permission-fixtures';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { AddResourcesDto, UpdateResourceDto } from './dto/resource.dto';
-import { CreateVideoDto, UpdateVideoDto } from './dto/video.dto';
+import {
+  CreateVideoDto,
+  CreateVideosDto,
+  UpdateVideoDto,
+} from './dto/video.dto';
 import { Chapter } from './entities/chapter.entity';
 import { FileResource } from './entities/file-resource.entity';
 import { Video } from './entities/video.entity';
@@ -430,6 +434,88 @@ describe('ClassContentService', () => {
       await expect(
         create({ source: 'file', asset_id: assetId }),
       ).rejects.toThrow('1 GB or smaller on the Basic merchant level');
+    });
+
+    describe('in a batch', () => {
+      const batch = (videos: Record<string, unknown>[]) =>
+        service.createVideos(userId, classId, chapterId, {
+          videos,
+        } as CreateVideosDto);
+
+      it('stores link and file videos after the last item, in the order sent', async () => {
+        maxOrder = 4;
+        owned(upload());
+
+        const response = await batch([
+          { title: 'Pembuka', youtube_url: 'https://www.youtube.com/embed/a' },
+          { title: 'Bagian 1', asset_id: assetId },
+          { title: 'Bagian 2', source: 'file', asset_id: assetId },
+        ]);
+
+        expect(
+          response.data.map(({ title, order, source }) => [
+            title,
+            order,
+            source,
+          ]),
+        ).toEqual([
+          ['Pembuka', 5, 'link'],
+          ['Bagian 1', 6, 'file'],
+          ['Bagian 2', 7, 'file'],
+        ]);
+        expect(response.responseMessage).toBe('Create video success');
+        expect(manager.save).toHaveBeenCalledTimes(1);
+        expect(progress.recomputeClass).toHaveBeenCalledTimes(1);
+      });
+
+      it('stores none and names the video when one is invalid', async () => {
+        owned(upload());
+
+        await expect(
+          batch([
+            {
+              title: 'Pembuka',
+              youtube_url: 'https://www.youtube.com/embed/a',
+            },
+            { title: 'Tanpa sumber' },
+            { title: 'Bagian 2', asset_id: assetId },
+          ]),
+        ).rejects.toThrow(
+          'Video "Tanpa sumber": A link video needs youtube_url',
+        );
+        expect(manager.save).not.toHaveBeenCalled();
+        expect(progress.recomputeClass).not.toHaveBeenCalled();
+      });
+
+      it('names the video whose upload breaks the per-file limit', async () => {
+        owned(upload({ sizeBytes: String(2 * 1024 * 1024 * 1024) }));
+
+        await expect(
+          batch([{ title: 'Terlalu besar', asset_id: assetId }]),
+        ).rejects.toThrow(
+          /^Video "Terlalu besar": .*1 GB or smaller on the Basic merchant level/,
+        );
+        expect(manager.save).not.toHaveBeenCalled();
+      });
+
+      it('refuses a tutor without permission to add materials', async () => {
+        access = {
+          is_owner: false,
+          role: 'moderator',
+          permissions: TUTOR_PERMISSION_FIXTURES.moderator,
+        };
+
+        await expect(
+          batch([{ title: 'Pembuka', youtube_url: 'https://youtu.be/a' }]),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(manager.save).not.toHaveBeenCalled();
+      });
+
+      it('keeps the single-video messages without a title', async () => {
+        await expect(create({})).rejects.toThrow(
+          /^A link video needs youtube_url$/,
+        );
+      });
     });
 
     it('switches a link video to a file and keeps a title-only edit simple', async () => {

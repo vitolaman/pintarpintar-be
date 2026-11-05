@@ -404,13 +404,15 @@ describe('ClassContentService', () => {
       expect(manager.save).not.toHaveBeenCalled();
     });
 
-    it('rejects an upload that is not a video', async () => {
+    it('accepts an upload of any type as a file video', async () => {
       owned(
         upload({ originalFilename: 'modul.pdf', mimeType: 'application/pdf' }),
       );
-      await expect(create({ asset_id: assetId })).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      const response = await create({ asset_id: assetId });
+      expect(response.data).toMatchObject({
+        source: 'file',
+        asset_id: assetId,
+      });
     });
 
     it("rejects a video over the merchant level's per-file limit", async () => {

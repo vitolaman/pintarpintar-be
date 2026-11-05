@@ -18,7 +18,6 @@ import {
   assertOwnedAsset,
   assetFieldDescription,
   purposeVisibility,
-  allowedTypesText,
   sizeLimitText,
 } from './asset-purpose-rules';
 
@@ -27,6 +26,7 @@ const KEY = `uploads/${USER_ID}/1790900000000-logo.png`;
 const MB = 1024 * 1024;
 const GB = 1024 * MB;
 const OWNER = { merchantId: 'merchant-id' };
+const OCTET = 'application/octet-stream';
 
 describe('originalFilename', () => {
   it('drops the upload timestamp prefix', () => {
@@ -192,36 +192,6 @@ describe('field rules by purpose', () => {
 
   it.each([
     ['an oversize logo', 'merchant_logo', 'logo.png', 'image/png', 6 * MB],
-    ['a PDF banner', 'merchant_banner', 'b.pdf', 'application/pdf', 1000],
-    ['an avatar without a type', 'user_avatar', 'me.png', undefined, 1000],
-    [
-      'a program as a class resource',
-      'class_resource',
-      'setup.exe',
-      'application/octet-stream',
-      MB,
-    ],
-    [
-      'an executable',
-      'digital_file',
-      'setup.exe',
-      'application/octet-stream',
-      MB,
-    ],
-    [
-      'a PDF claiming to be an image',
-      'digital_file',
-      'doc.pdf',
-      'image/png',
-      MB,
-    ],
-    [
-      'a cover sent as octet-stream',
-      'class_cover',
-      'cover.png',
-      'application/octet-stream',
-      MB,
-    ],
     [
       'a 6 MB product cover',
       'product_cover',
@@ -264,14 +234,9 @@ describe('learning file purposes', () => {
   });
 
   it.each([
-    ['submission_file', 'tool.exe', 'application/octet-stream', MB],
-    ['submission_file', 'jawaban.pdf', 'text/html', MB],
     ['submission_file', 'besar.pdf', 'application/pdf', 500 * MB + 1],
     ['submission_file', 'besar.rvt', 'application/octet-stream', 600 * MB],
-    ['submission_file', 'blob', 'application/pdf', MB],
-    ['certificate_file', 'sertifikat.webp', 'image/webp', MB],
     ['certificate_file', 'sertifikat.pdf', 'application/pdf', 11 * MB],
-    ['certificate_file', 'palsu.pdf', 'image/png', MB],
   ])('rejects %s %s', (purpose, filename, mimeType, sizeBytes) => {
     expect(() =>
       assertFileFitsPurpose(purpose as never, {
@@ -308,20 +273,18 @@ describe('application CV purpose', () => {
     ).not.toThrow();
   });
 
-  it.each([
-    ['cv.png', 'image/png', MB],
-    ['cv.pdf', 'application/pdf', 11 * MB],
-    ['cv.zip', 'application/zip', MB],
-    ['cv.txt', 'text/plain', MB],
-  ])('rejects %s', (filename, mimeType, sizeBytes) => {
-    expect(() =>
-      assertFileFitsPurpose('application_cv', {
-        filename,
-        mimeType,
-        sizeBytes,
-      }),
-    ).toThrow(BadRequestException);
-  });
+  it.each([['cv.pdf', 'application/pdf', 11 * MB]])(
+    'rejects %s',
+    (filename, mimeType, sizeBytes) => {
+      expect(() =>
+        assertFileFitsPurpose('application_cv', {
+          filename,
+          mimeType,
+          sizeBytes,
+        }),
+      ).toThrow(BadRequestException);
+    },
+  );
 
   it('accepts a registered mentor CV, which is a private PDF of the same user', async () => {
     const mentorCv = {
@@ -360,19 +323,18 @@ describe('certificate signature purpose', () => {
     ).not.toThrow();
   });
 
-  it.each([
-    ['sign.png', 'image/png', 6 * MB],
-    ['sign.pdf', 'application/pdf', 300 * 1024],
-    ['sign.gif', 'image/gif', 300 * 1024],
-  ])('rejects %s', (filename, mimeType, sizeBytes) => {
-    expect(() =>
-      assertFileFitsPurpose('certificate_signature', {
-        filename,
-        mimeType,
-        sizeBytes,
-      }),
-    ).toThrow(BadRequestException);
-  });
+  it.each([['sign.png', 'image/png', 6 * MB]])(
+    'rejects %s',
+    (filename, mimeType, sizeBytes) => {
+      expect(() =>
+        assertFileFitsPurpose('certificate_signature', {
+          filename,
+          mimeType,
+          sizeBytes,
+        }),
+      ).toThrow(BadRequestException);
+    },
+  );
 
   it('is private', () => {
     expect(purposeVisibility('certificate_signature')).toBe('private');
@@ -431,11 +393,6 @@ describe('assertOwnedAsset', () => {
   it.each([
     ['a class cover as a product file', asset, 'digital_file'],
     ['a private file as a product cover', privateFile, 'product_cover'],
-    [
-      'a script as a class resource',
-      { ...privateFile, originalFilename: 'jalankan.bat' },
-      'class_resource',
-    ],
   ])('rejects %s', async (_name, value, purpose) => {
     await expect(
       assertOwnedAsset(
@@ -487,9 +444,10 @@ describe('assertOwnedAsset claims a pending asset', () => {
     sizeBytes: String(MB),
   };
   // `stored` is what the row holds after the conditional update ran.
-  const claimingManager = (stored: string) => {
+  const claimingManager = (stored: string, sizeBytes = MB) => {
     const update = jest.fn();
-    const assetReads = [{ ...pending }, { ...pending, visibility: stored }];
+    const file = { ...pending, sizeBytes: String(sizeBytes) };
+    const assetReads = [file, { ...file, visibility: stored }];
     const findOneBy = jest.fn(async (entity) =>
       entity === Merchant
         ? { id: 'merchant-id', storageLevel: 'basic' }
@@ -539,10 +497,10 @@ describe('assertOwnedAsset claims a pending asset', () => {
   });
 
   it('leaves it pending when the file does not fit the field', async () => {
-    const { manager, update } = claimingManager('pending');
+    const { manager, update } = claimingManager('pending', 11 * MB);
     await expect(
       assertOwnedAsset(manager, USER_ID, 'asset-id', 'application_cv'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toThrow('The file must be 10 MB or smaller');
     expect(update).not.toHaveBeenCalled();
   });
 });
@@ -563,26 +521,9 @@ describe('upload rule messages', () => {
     ).not.toThrow();
   });
 
-  it('lists the allowed file types', () => {
-    expect(() =>
-      assertFileFitsPurpose('user_avatar', {
-        filename: 'cv.pdf',
-        mimeType: 'application/pdf',
-        sizeBytes: MB,
-      }),
-    ).toThrow('Allowed file types: PNG, JPG, JPEG or WEBP');
-    expect(() =>
-      assertFileFitsPurpose('class_video', {
-        filename: 'materi.pdf',
-        mimeType: 'application/pdf',
-        sizeBytes: MB,
-      }),
-    ).toThrow('Allowed file types: MP4, MOV or WEBM');
-  });
-
   it('describes each field from its rule', () => {
     expect(assetFieldDescription('class_cover')).toBe(
-      'An asset_id from POST /api/v1/upload/complete: PNG, JPG, JPEG or WEBP, up to 5 MB.',
+      'An asset_id from POST /api/v1/upload/complete: any file type, up to 5 MB.',
     );
     expect(sizeLimitText('digital_file')).toBe(
       "the store's level limit (Basic 1 GB, Silver 5 GB, Gold 10 GB)",
@@ -725,116 +666,69 @@ describe('per-file limit by merchant level', () => {
   });
 });
 
-describe('digital-product files: any type except unsafe ones', () => {
-  const file = (filename: string, mimeType = 'application/octet-stream') => ({
-    filename,
-    mimeType,
-    sizeBytes: 1024,
-  });
-
+// No field limits the file type (owner decision 2026-11-05); only sizes,
+// ownership and visibility are checked.
+describe('any file type in every field', () => {
   it.each([
-    ['a Revit model', 'gedung-hotel.rvt'],
-    ['a Revit family', 'pintu.RFA'],
-    ['an IFC model', 'struktur.ifc'],
-    ['a Navisworks model', 'koordinasi.nwd'],
-    ['a macro workbook', 'rab.xlsm'],
-    ['a 7z archive', 'paket.7z'],
-    ['an SVG icon pack', 'ikon.svg'],
-  ])('accepts %s', (_label, filename) => {
-    expect(() =>
-      assertFileFitsPurpose('digital_file', file(filename)),
-    ).not.toThrow();
-  });
-
-  it('keeps accepting known formats with their own type', () => {
-    expect(() =>
-      assertFileFitsPurpose(
-        'digital_file',
-        file('panduan.pdf', 'application/pdf'),
-      ),
-    ).not.toThrow();
-  });
-
-  it.each([
-    ['an uppercase program', 'setup.EXE', 'application/octet-stream'],
-    ['an installer', 'app.msi', 'application/octet-stream'],
-    ['a script', 'jalankan.bat', 'application/octet-stream'],
-    ['an Android app', 'aplikasi.apk', 'application/octet-stream'],
-    ['a web page', 'promo.html', 'text/html'],
-    ['a web page renamed to PDF', 'panduan.pdf', 'text/html'],
+    ['a PDF banner', 'merchant_banner', 'b.pdf', 'application/pdf'],
+    ['an avatar without a reported type', 'user_avatar', 'me.png', undefined],
+    ['a cover sent as octet-stream', 'class_cover', 'cover.png', OCTET],
+    ['a DWG cover', 'product_cover', 'denah.dwg', OCTET],
     [
-      'a program renamed to an unknown type',
-      'model.rvt',
-      'application/x-msdownload',
+      'a web page as a group image',
+      'community_group_image',
+      'p.html',
+      'text/html',
     ],
-  ])('refuses %s', (_label, filename, mimeType) => {
+    ['a program as a class material', 'class_resource', 'setup.exe', OCTET],
+    ['an uppercase program as a product', 'digital_file', 'setup.EXE', OCTET],
+    ['an Android app as a product', 'digital_file', 'aplikasi.apk', OCTET],
+    [
+      'a script as an assignment brief',
+      'assignment_resource',
+      'run.bat',
+      OCTET,
+    ],
+    ['a PDF reported as an image', 'digital_file', 'doc.pdf', 'image/png'],
+    ['a file without an extension', 'digital_file', 'README', OCTET],
+    [
+      'a web page as a submission',
+      'submission_file',
+      'jawaban.pdf',
+      'text/html',
+    ],
+    ['a submission named blob', 'submission_file', 'blob', 'application/pdf'],
+    ['a PDF as a class video', 'class_video', 'materi.pdf', 'application/pdf'],
+    ['a Revit model as a class video', 'class_video', 'gedung.rvt', OCTET],
+    ['a WEBP certificate', 'certificate_file', 'sertifikat.webp', 'image/webp'],
+    ['a PNG CV', 'application_cv', 'cv.png', 'image/png'],
+    ['a ZIP CV', 'application_cv', 'cv.zip', 'application/zip'],
+    ['a PDF signature', 'certificate_signature', 'sign.pdf', 'application/pdf'],
+    ['a GIF signature', 'certificate_signature', 'sign.gif', 'image/gif'],
+    [
+      'an installer as a community attachment',
+      'community_attachment',
+      'app.msi',
+      OCTET,
+    ],
+  ])('accepts %s', (_label, purpose, filename, mimeType) => {
     expect(() =>
-      assertFileFitsPurpose('digital_file', file(filename, mimeType)),
-    ).toThrow(
-      "Programs, scripts, installers and web pages aren't allowed (for example EXE, BAT, APK, HTML)",
-    );
-  });
-
-  it('refuses a file without an extension', () => {
-    expect(() => assertFileFitsPurpose('digital_file', file('README'))).toThrow(
-      'The file needs an extension, such as .pdf or .zip',
-    );
-  });
-
-  it('still refuses a known format whose type disagrees', () => {
-    expect(() =>
-      assertFileFitsPurpose('digital_file', file('doc.pdf', 'image/png')),
-    ).toThrow("The file's content does not match its .pdf extension");
-  });
-
-  it('leaves other fields on their lists', () => {
-    expect(() =>
-      assertFileFitsPurpose('class_video', file('gedung-hotel.rvt')),
-    ).toThrow(BadRequestException);
-  });
-
-  it('describes the field in plain words', () => {
-    expect(allowedTypesText('digital_file')).toBe(
-      'any file type except programs, scripts, installers and web pages (for example EXE, BAT, APK, HTML)',
-    );
-  });
-});
-
-describe('class materials and assignment attachments: any type except unsafe ones', () => {
-  const file = (filename: string, mimeType = 'application/octet-stream') => ({
-    filename,
-    mimeType,
-    sizeBytes: 5 * MB,
-  });
-
-  it.each([
-    ['class_resource', 'model.rvt'],
-    ['class_resource', 'struktur.ifc'],
-    ['class_resource', 'slide.pptx'],
-    ['assignment_resource', 'template.xlsx'],
-    ['assignment_resource', 'contoh.nwd'],
-  ])('accepts a %s %s', (purpose, filename) => {
-    expect(() =>
-      assertFileFitsPurpose(purpose as never, file(filename)),
+      assertFileFitsPurpose(purpose as never, {
+        filename,
+        mimeType,
+        sizeBytes: 1024,
+      }),
     ).not.toThrow();
   });
 
-  it.each([
-    ['class_resource', 'setup.exe', 'application/octet-stream'],
-    ['assignment_resource', 'tool.EXE', 'application/octet-stream'],
-    ['assignment_resource', 'soal.pdf', 'text/html'],
-  ])('refuses a %s %s', (purpose, filename, mimeType) => {
+  it('still applies the size limit to any type', () => {
     expect(() =>
-      assertFileFitsPurpose(purpose as never, file(filename, mimeType)),
-    ).toThrow(
-      "Programs, scripts, installers and web pages aren't allowed (for example EXE, BAT, APK, HTML)",
-    );
-  });
-
-  it('refuses a class material without an extension', () => {
-    expect(() =>
-      assertFileFitsPurpose('class_resource', file('README')),
-    ).toThrow('The file needs an extension, such as .pdf or .zip');
+      assertFileFitsPurpose('class_cover', {
+        filename: 'cover.exe',
+        mimeType: OCTET,
+        sizeBytes: 6 * MB,
+      }),
+    ).toThrow('The file must be 5 MB or smaller');
   });
 });
 

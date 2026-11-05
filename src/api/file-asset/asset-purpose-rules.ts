@@ -31,9 +31,10 @@ export type FileKind =
 
 type FileFormat = { kind: FileKind; mimeTypes: string[] };
 
-// Keyed by lower-case file extension. Browsers report many of the non-image
-// formats (DWG, RAR, PSD, …) as application/octet-stream, which is accepted
-// only together with a known non-image extension.
+// Keyed by lower-case file extension. It only labels files (a class
+// material's type); no field limits the file type (owner decision
+// 2026-11-05). Browsers report many non-image formats (DWG, RAR, PSD, …) as
+// application/octet-stream.
 const FILE_FORMATS: Record<string, FileFormat> = {
   png: { kind: 'image', mimeTypes: ['image/png'] },
   jpg: { kind: 'image', mimeTypes: ['image/jpeg'] },
@@ -103,204 +104,76 @@ type AssetVisibility = 'public' | 'private';
 // whether it becomes public or private.
 export const PENDING_VISIBILITY = 'pending';
 
-// Types a field refuses although it accepts any other file.
-type BlockedTypes = {
-  extensions: string[];
-  mimeTypes: string[];
-  // Shown to the user when a blocked file is attached.
-  message: string;
-  // Swagger and error text for what the field accepts.
-  description: string;
-};
-
+// Every field takes any file type; only the size and the visibility differ
+// (owner decision 2026-11-05: no file-type limits on any upload).
 type AssetPurposeRule = {
   // 'merchant_level': the owning merchant's per-file limit for its level.
   maxBytes: number | 'merchant_level';
   visibility: AssetVisibility;
-} & (
-  | {
-      kinds: FileKind[];
-      // Narrows the kinds to these extensions when set.
-      extensions?: string[];
-    }
-  | { blocked: BlockedTypes }
-);
-
-// Product files, class materials, assignment attachments and submissions may
-// be any file someone downloads, except programs, scripts, installers,
-// shortcuts and web pages, which could harm whoever opens them (user decisions
-// 2026-10-06: the variety of these files is too large for a list).
-const UNSAFE_FILES: BlockedTypes = {
-  extensions: [
-    // programs and libraries
-    'exe',
-    'msi',
-    'msix',
-    'com',
-    'scr',
-    'pif',
-    'cpl',
-    'dll',
-    'sys',
-    'drv',
-    // scripts
-    'bat',
-    'cmd',
-    'ps1',
-    'psm1',
-    'vbs',
-    'vbe',
-    'js',
-    'jse',
-    'mjs',
-    'wsf',
-    'wsh',
-    'hta',
-    'msc',
-    'sh',
-    'bash',
-    'zsh',
-    'csh',
-    'command',
-    'run',
-    'bin',
-    // shortcuts and system settings
-    'lnk',
-    'reg',
-    'inf',
-    // app packages and installers
-    'jar',
-    'apk',
-    'aab',
-    'xapk',
-    'ipa',
-    'app',
-    'dmg',
-    'pkg',
-    'deb',
-    'rpm',
-    'appimage',
-    // web pages
-    'html',
-    'htm',
-    'xhtml',
-    'mht',
-    'mhtml',
-  ],
-  mimeTypes: [
-    'application/x-msdownload',
-    'application/x-msdos-program',
-    'application/x-ms-installer',
-    'application/x-msi',
-    'application/x-dosexec',
-    'application/x-executable',
-    'application/x-mach-binary',
-    'application/x-sh',
-    'application/x-shellscript',
-    'application/x-bat',
-    'application/vnd.android.package-archive',
-    'application/java-archive',
-    'application/x-apple-diskimage',
-    'application/javascript',
-    'text/javascript',
-    'text/html',
-    'application/xhtml+xml',
-  ],
-  message:
-    "Programs, scripts, installers and web pages aren't allowed (for example EXE, BAT, APK, HTML)",
-  description:
-    'any file type except programs, scripts, installers and web pages (for example EXE, BAT, APK, HTML)',
 };
 
-const IMAGE_ONLY: FileKind[] = ['image'];
 export const ASSET_PURPOSE_RULES = {
   merchant_logo: {
-    kinds: IMAGE_ONLY,
     maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   merchant_banner: {
-    kinds: IMAGE_ONLY,
     maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   merchant_landing_background: {
-    kinds: IMAGE_ONLY,
     maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   user_avatar: {
-    kinds: IMAGE_ONLY,
     maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   class_cover: {
-    kinds: IMAGE_ONLY,
     maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   product_cover: {
-    kinds: IMAGE_ONLY,
     maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
   class_resource: {
-    blocked: UNSAFE_FILES,
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
   assignment_resource: {
-    blocked: UNSAFE_FILES,
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
   class_video: {
-    kinds: ['video'],
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
   digital_file: {
-    blocked: UNSAFE_FILES,
     maxBytes: 'merchant_level',
     visibility: 'private',
   },
-  // 500 MiB covers Revit models and zipped architecture or civil project
-  // folders (user decision 2026-10-06); submissions are not store storage.
   submission_file: {
-    blocked: UNSAFE_FILES,
     maxBytes: 500 * MEBIBYTE,
     visibility: 'private',
   },
   certificate_file: {
-    kinds: ['document', 'image'],
-    extensions: ['pdf', 'png', 'jpg', 'jpeg'],
     maxBytes: 10 * MEBIBYTE,
     visibility: 'private',
   },
-  // Private so the signature reaches only certificate holders and the
-  // class's staff, through short-lived links.
   certificate_signature: {
-    kinds: IMAGE_ONLY,
-    extensions: ['png', 'jpg', 'jpeg', 'webp'],
     maxBytes: 5 * MEBIBYTE,
     visibility: 'private',
   },
-  // The CV of a job application; a registered mentor CV also qualifies.
   application_cv: {
-    kinds: ['document'],
-    extensions: ['pdf', 'doc', 'docx'],
     maxBytes: 10 * MEBIBYTE,
     visibility: 'private',
   },
   community_group_image: {
-    kinds: IMAGE_ONLY,
     maxBytes: 5 * MEBIBYTE,
     visibility: 'public',
   },
-  // Files shared in community threads; private so a request-only group's
-  // files reach only its members (signed links).
   community_attachment: {
-    blocked: UNSAFE_FILES,
     maxBytes: 20 * MEBIBYTE,
     visibility: 'private',
   },
@@ -361,36 +234,8 @@ export type UploadLimit = {
   maxBytes: number;
 };
 
-function allowedExtensions(rule: {
-  kinds: FileKind[];
-  extensions?: string[];
-}): string[] {
-  return (
-    rule.extensions ??
-    Object.entries(FILE_FORMATS)
-      .filter(([, format]) => rule.kinds.includes(format.kind))
-      .map(([extension]) => extension)
-  );
-}
-
-function joinWithOr(items: string[]): string {
-  if (items.length <= 1) {
-    return items.join('');
-  }
-  return `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`;
-}
-
 function gigabytes(bytes: number): string {
   return `${bytes / GIBIBYTE} GB`;
-}
-
-/** The accepted file types of a field, for example "PNG, JPG, JPEG or WEBP". */
-export function allowedTypesText(purpose: AssetPurpose): string {
-  const rule: AssetPurposeRule = ASSET_PURPOSE_RULES[purpose];
-  if ('blocked' in rule) return rule.blocked.description;
-  return joinWithOr(
-    allowedExtensions(rule).map((extension) => extension.toUpperCase()),
-  );
 }
 
 /** The size limit of a field, for example "4 MB". */
@@ -410,7 +255,7 @@ export function assetFieldDescription(
   purpose: AssetPurpose,
   note?: string,
 ): string {
-  const rule = `An asset_id from POST /api/v1/upload/complete: ${allowedTypesText(purpose)}, up to ${sizeLimitText(purpose)}.`;
+  const rule = `An asset_id from POST /api/v1/upload/complete: any file type, up to ${sizeLimitText(purpose)}.`;
   return note ? `${rule} ${note}` : rule;
 }
 
@@ -425,37 +270,6 @@ export function assertFileFitsPurpose(
   merchantLimit?: UploadLimit,
 ): void {
   const rule: AssetPurposeRule = ASSET_PURPOSE_RULES[purpose];
-  const mimeType = (file.mimeType ?? '').toLowerCase();
-  const extension = fileExtension(file.filename);
-  const kind = resolveKind(extension, mimeType);
-
-  if ('blocked' in rule) {
-    if (!extension) {
-      throw new BadRequestException(
-        'The file needs an extension, such as .pdf or .zip',
-      );
-    }
-    if (
-      rule.blocked.extensions.includes(extension) ||
-      rule.blocked.mimeTypes.includes(mimeType)
-    ) {
-      throw new BadRequestException(rule.blocked.message);
-    }
-    // A known format must still match its reported type, as for listed fields.
-    if (FILE_FORMATS[extension] && !kind) {
-      throw new BadRequestException(
-        `The file's content does not match its .${extension} extension`,
-      );
-    }
-  } else {
-    const extensionAllowed =
-      !rule.extensions || rule.extensions.includes(extension);
-    if (!extensionAllowed || !kind || !rule.kinds.includes(kind)) {
-      throw new BadRequestException(
-        `Allowed file types: ${allowedTypesText(purpose)}`,
-      );
-    }
-  }
   if (rule.maxBytes === 'merchant_level') {
     const limit = merchantLimit ?? {
       level: null,

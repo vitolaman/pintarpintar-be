@@ -2,10 +2,7 @@ import { applyDecorators, BadRequestException } from '@nestjs/common';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayMaxSize, ArrayUnique, IsArray, IsUUID } from 'class-validator';
 import { EntityManager } from 'typeorm';
-import {
-  allowedTypesText,
-  sizeLimitText,
-} from '../api/file-asset/asset-purpose-rules';
+import { sizeLimitText } from '../api/file-asset/asset-purpose-rules';
 import { OptionalNotNull } from '../common/decorator/optional-not-null.decorator';
 import { AssignmentResource } from './entities/assignment-resource.entity';
 
@@ -30,7 +27,7 @@ export const ResourceAssetIds = () =>
       type: [String],
       format: 'uuid',
       maxItems: MAX_ASSIGNMENT_RESOURCES,
-      description: `Ordered asset_ids from POST /api/v1/upload/complete (${allowedTypesText('assignment_resource')}, up to ${sizeLimitText('assignment_resource')} each), at most ${MAX_ASSIGNMENT_RESOURCES}; replaces all resource files, and [] removes them. resource_asset_id may be sent too, empty or equal to the first id.`,
+      description: `Ordered asset_ids from POST /api/v1/upload/complete (any file type, up to ${sizeLimitText('assignment_resource')} each), at most ${MAX_ASSIGNMENT_RESOURCES}; replaces all resource files, and [] removes them. resource_asset_id may be sent too, empty or equal to the first id.`,
     }),
     OptionalNotNull(),
     IsArray(),

@@ -93,14 +93,14 @@ function itemRelationSql(classId: string, productId: string, userId: string) {
   `;
 }
 
-// A review shown in a list: not deleted, of a non-deleted class or a
-// published digital product. $1 = review id.
+// A review shown in a list: not deleted, of a non-deleted class or digital
+// product. Unpublished items keep their reviews, so their learners and buyers
+// can still read, vote on and answer them. $1 = review id.
 const VISIBLE_REVIEW_FROM = `
   FROM reviews review
   LEFT JOIN classes class ON class.id = review.class_id AND class.deleted_at IS NULL
   LEFT JOIN products product ON product.id = review.product_id
-    AND product.deleted_at IS NULL AND product.is_published = true
-    AND product.publication_status = 'published'
+    AND product.deleted_at IS NULL
   WHERE review.id = $1 AND review.deleted_at IS NULL
     AND (class.id IS NOT NULL OR product.id IS NOT NULL)
 `;
@@ -254,7 +254,9 @@ export class ReviewService {
     }
   }
 
-  // Reviews of a published digital product, newest first.
+  // Reviews of a non-deleted digital product, newest first. An unpublished
+  // product keeps its review list, like a class: its buyers still open it
+  // from Portal Saya.
   async findProductReviews(
     productId: string,
     query: ReviewListQueryDto,
@@ -263,8 +265,7 @@ export class ReviewService {
     const [summary] = await this.dataSource.query(
       `SELECT EXISTS (
                 SELECT 1 FROM products
-                WHERE id = $1 AND deleted_at IS NULL AND is_published = true
-                  AND publication_status = 'published') AS found,
+                WHERE id = $1 AND deleted_at IS NULL) AS found,
               COALESCE(round(avg(review.rating)::numeric, 1), 0) AS average,
               count(review.id)::integer AS total,
               (${itemRelationSql('NULL::uuid', '$1::uuid', '$2::uuid')}) IS NOT NULL AS viewer_can_reply

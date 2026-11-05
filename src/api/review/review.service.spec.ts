@@ -99,7 +99,7 @@ describe('ReviewService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('lists reviews of a published product only', async () => {
+    it('lists reviews of any non-deleted product, published or not', async () => {
       dataSource.query.mockResolvedValueOnce([
         { found: false, average: 0, total: 0 },
       ]);
@@ -107,9 +107,10 @@ describe('ReviewService', () => {
       await expect(
         service.findProductReviews(productId, { page: 1, limit: 10 }),
       ).rejects.toBeInstanceOf(NotFoundException);
-      expect(dataSource.query.mock.calls[0][0]).toContain(
-        "publication_status = 'published'",
-      );
+      const sql = dataSource.query.mock.calls[0][0];
+      expect(sql).toContain('deleted_at IS NULL');
+      expect(sql).not.toContain('is_published');
+      expect(sql).not.toContain('publication_status');
     });
   });
 
@@ -350,12 +351,11 @@ describe('ReviewService', () => {
       await expect(service.markHelpful(userId, reviewId)).rejects.toThrow(
         new NotFoundException('Review not found'),
       );
-      expect(dataSource.query.mock.calls[0][0]).toContain(
-        "product.publication_status = 'published'",
-      );
-      expect(dataSource.query.mock.calls[0][0]).toContain(
-        'class.deleted_at IS NULL',
-      );
+      const sql = dataSource.query.mock.calls[0][0];
+      expect(sql).toContain('product.deleted_at IS NULL');
+      expect(sql).toContain('class.deleted_at IS NULL');
+      // An unpublished product's reviews stay reachable, like a class's.
+      expect(sql).not.toContain('publication_status');
     });
 
     it("removes only the caller's mark", async () => {

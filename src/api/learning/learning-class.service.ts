@@ -19,7 +19,10 @@ import {
   ObjectStorage,
   createObjectStorage,
 } from '../../common/storage/object-storage';
-import { signedDownloadUrl } from '../../common/storage/signed-download-url';
+import {
+  signedDownloadUrl,
+  signedVideoUrl,
+} from '../../common/storage/signed-download-url';
 import { youtubeVideoId } from '../../common/util/youtube';
 import {
   LearningClassResponseDto,
@@ -156,7 +159,8 @@ export class LearningClassService {
     const files = await Promise.all(
       resources.map((resource) => this.toResource(resource)),
     );
-    // File videos play through a short-lived signed link, like resources.
+    // File videos play through a signed playback link (longer than a download
+    // link, see VIDEO_URL_TTL_SECONDS).
     const videoUrls = new Map<string, string>(
       await Promise.all(
         videos
@@ -164,7 +168,7 @@ export class LearningClassService {
           .map(
             async (video): Promise<[string, string]> => [
               video.id,
-              await signedDownloadUrl(
+              await signedVideoUrl(
                 this.storage,
                 video.file_object_key,
                 video.file_name ?? video.title,

@@ -98,7 +98,7 @@ export class VideoResponseDto {
     nullable: true,
     type: String,
     description:
-      'For a file video: a signed link that plays it, valid for 10 minutes (for previews in the editor); null for a link video or when the upload was deleted',
+      'For a file video: a signed link that plays it, valid for 6 hours (for previews in the editor; refetch the chapters for a new one after that); null for a link video or when the upload was deleted',
   })
   video_url: string | null;
   @ApiPropertyOptional({ nullable: true }) duration: string | null;

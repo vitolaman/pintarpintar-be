@@ -585,7 +585,7 @@ describe('ClassContentService', () => {
       });
     };
 
-    it('gives a file video a signed 10-minute link and a link video none', async () => {
+    it('gives a file video a signed 6-hour link and a link video none', async () => {
       listWith([
         {
           id: assetId,
@@ -598,7 +598,7 @@ describe('ClassContentService', () => {
       const [file, link] = response.data[0].videos;
 
       expect(file.video_url).toContain('uploads/u/1790-modul.mp4');
-      expect(file.video_url).toContain('X-Amz-Expires=600');
+      expect(file.video_url).toContain('X-Amz-Expires=21600');
       expect(link.video_url).toBeNull();
       expect(link.youtube_url).toBe('https://www.youtube.com/embed/abc');
     });

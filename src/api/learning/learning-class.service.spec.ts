@@ -42,6 +42,17 @@ describe('LearningClassService', () => {
             order: 0,
             is_completed: true,
           },
+          {
+            id: 'video-2',
+            chapter_id: 'chapter-1',
+            title: 'Rekaman',
+            source: 'file',
+            youtube_url: null,
+            file_object_key: 'uploads/1-rekaman.mp4',
+            file_name: 'rekaman.mp4',
+            order: 1,
+            is_completed: false,
+          },
         ];
       }
       if (sql.includes('FROM file_resources resource')) {
@@ -121,6 +132,9 @@ describe('LearningClassService', () => {
     expect(link.size).toBeNull();
     expect(file.url).toBeNull();
     expect(file.download_url).toContain('X-Amz-Expires=600');
+    // A video keeps playing for hours, so its link lasts 6 hours.
+    expect(chapter.videos[1].video_url).toContain('uploads/1-rekaman.mp4');
+    expect(chapter.videos[1].video_url).toContain('X-Amz-Expires=21600');
     expect(link).toMatchObject({
       url: 'https://example.com',
       download_url: null,

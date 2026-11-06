@@ -64,7 +64,8 @@ export class LearningVideoDto {
   @ApiProperty({ enum: ['link', 'file'] }) source: string;
   @ApiPropertyOptional({
     nullable: true,
-    description: 'File videos only: a signed link that expires',
+    description:
+      'File videos only: a signed link that plays it, valid for 6 hours; refetch the class for a new one after that',
   })
   video_url: string | null;
   @ApiProperty() order: number;

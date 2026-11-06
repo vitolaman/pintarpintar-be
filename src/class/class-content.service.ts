@@ -15,7 +15,10 @@ import {
   ObjectStorage,
   createObjectStorage,
 } from '../common/storage/object-storage';
-import { signedDownloadUrl } from '../common/storage/signed-download-url';
+import {
+  signedDownloadUrl,
+  signedVideoUrl,
+} from '../common/storage/signed-download-url';
 import { ClassAccessService } from './class-access.service';
 import { LearningProgressService } from './learning-progress.service';
 import {
@@ -570,8 +573,8 @@ export class ClassContentService {
     }));
   }
 
-  // File videos are private like uploaded materials; managers get a link that
-  // expires, the same kind the learning view gives learners, to preview them.
+  // File videos are private like uploaded materials; managers get a playback
+  // link like the one the learning view gives learners, to preview them.
   private async toVideoResponses(
     manager: EntityManager,
     videos: Video[],
@@ -602,7 +605,7 @@ export class ClassContentService {
         return {
           ...toVideoResponse(video),
           video_url: asset
-            ? await signedDownloadUrl(
+            ? await signedVideoUrl(
                 this.storage,
                 asset.object_key,
                 asset.original_filename,

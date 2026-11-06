@@ -196,7 +196,7 @@ export class ClassContentService {
       const saved = await manager.save(Video, created);
       await this.learningProgress.recomputeClass(manager, classId);
       return {
-        data: saved.map(toVideoResponse),
+        data: await this.toVideoResponses(manager, saved),
         responseMessage: 'Create video success',
       };
     });
@@ -236,7 +236,7 @@ export class ClassContentService {
       video.updated_by = userId;
       const saved = await manager.save(video);
       return {
-        data: toVideoResponse(saved),
+        data: (await this.toVideoResponses(manager, [saved]))[0],
         responseMessage: 'Update video success',
       };
     });
@@ -552,7 +552,10 @@ export class ClassContentService {
         order,
       }),
     ]);
-    const files = await this.toResourceResponses(manager, resources);
+    const [files, videoResponses] = await Promise.all([
+      this.toResourceResponses(manager, resources),
+      this.toVideoResponses(manager, videos),
+    ]);
 
     return chapters.map((chapter) => ({
       id: chapter.id,
@@ -560,13 +563,54 @@ export class ClassContentService {
       title: chapter.title,
       description: chapter.description,
       order: chapter.order,
-      videos: videos
-        .filter((video) => video.chapter_id === chapter.id)
-        .map(toVideoResponse),
+      videos: videoResponses.filter((video) => video.chapter_id === chapter.id),
       files: files.filter((file) => file.chapter_id === chapter.id),
       created_at: chapter.created_at,
       updated_at: chapter.updated_at,
     }));
+  }
+
+  // File videos are private like uploaded materials; managers get a link that
+  // expires, the same kind the learning view gives learners, to preview them.
+  private async toVideoResponses(
+    manager: EntityManager,
+    videos: Video[],
+  ): Promise<VideoResponseDto[]> {
+    const assetIds = videos
+      .filter((video) => video.source === 'file' && video.asset_id)
+      .map((video) => video.asset_id as string);
+    const assets: {
+      id: string;
+      object_key: string;
+      original_filename: string;
+    }[] =
+      assetIds.length === 0
+        ? []
+        : await manager.query(
+            `SELECT id, object_key, original_filename FROM file_assets
+             WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+            [assetIds],
+          );
+    const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+
+    return Promise.all(
+      videos.map(async (video) => {
+        const asset =
+          video.source === 'file' && video.asset_id
+            ? assetsById.get(video.asset_id)
+            : undefined;
+        return {
+          ...toVideoResponse(video),
+          video_url: asset
+            ? await signedDownloadUrl(
+                this.storage,
+                asset.object_key,
+                asset.original_filename,
+              )
+            : null,
+        };
+      }),
+    );
   }
 
   // Uploaded files are private; managers get a download link that expires.
@@ -621,7 +665,7 @@ export class ClassContentService {
   }
 }
 
-function toVideoResponse(video: Video): VideoResponseDto {
+function toVideoResponse(video: Video): Omit<VideoResponseDto, 'video_url'> {
   return {
     id: video.id,
     chapter_id: video.chapter_id,

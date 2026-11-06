@@ -345,7 +345,7 @@ The class owner has full access. Assigned tutors (`lead`, `assistant`, `moderato
 - `POST /api/v1/classes/:classId/duplicate` — owner only; `{type}`; a draft "(Salinan)" copy with details, prices, covers, syllabus, assignments (with their questions, attached files and original due dates), certificate settings, and FAQ (no learners, reviews, discussions, submissions, certificates, tutors, or meetings)
 - `GET /api/v1/classes/:classId/faqs`, `POST /api/v1/classes/:classId/faqs` — `materi` permission; question up to 300, answer up to 3000 characters; at most 50 per class
 - `PATCH /api/v1/classes/:classId/faqs/:faqId`, `DELETE /api/v1/classes/:classId/faqs/:faqId`
-- `GET /api/v1/classes/:classId/chapters` — `materi.lihat`; chapters with `videos` and `files` (resources) in order; uploaded files carry signed download links. Without `limit` it returns every chapter (the bab reorder needs them all); with `limit` it paginates
+- `GET /api/v1/classes/:classId/chapters` — `materi.lihat`; chapters with `videos` and `files` (resources) in order; uploaded files carry signed download links, and each file video a signed `video_url` (10 minutes) for previews in the merchant and mentor editors (`null` for a YouTube/link video). The learner view `GET /api/v1/learning/classes/:id` is only for enrolled learners and answers 404 to the merchant and tutors. Without `limit` it returns every chapter (the bab reorder needs them all); with `limit` it paginates
 - `POST /api/v1/classes/:classId/chapters` — a new bab goes last unless `order` is sent
 - `PATCH /api/v1/classes/:classId/chapters/:chapterId`
 - `DELETE /api/v1/classes/:classId/chapters/:chapterId` — also removes its videos and resources; progress is re-evaluated

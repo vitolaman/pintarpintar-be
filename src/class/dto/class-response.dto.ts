@@ -94,6 +94,13 @@ export class VideoResponseDto {
     description: 'Upload of a file video',
   })
   asset_id: string | null;
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'For a file video: a signed link that plays it, valid for 10 minutes (for previews in the editor); null for a link video or when the upload was deleted',
+  })
+  video_url: string | null;
   @ApiPropertyOptional({ nullable: true }) duration: string | null;
   @ApiProperty() order: number;
   @ApiProperty() created_at: Date;

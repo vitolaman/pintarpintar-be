@@ -74,7 +74,14 @@ describe('ClassContentService', () => {
       dataSource as never,
       new ClassAccessService(dataSource as never),
       progress as never,
-      new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
+      // Local fake credentials: signing a link needs keys but no network.
+      new ConfigService({
+        AWS_S3_BUCKET_NAME: 'bucket',
+        AWS_ACCESS_KEY_ID: 'test-key',
+        AWS_SECRET_ACCESS_KEY: 'test-secret',
+        AWS_REGION: 'auto',
+        AWS_S3_ENDPOINT: 'https://storage.test',
+      }),
     );
   });
 
@@ -541,6 +548,76 @@ describe('ClassContentService', () => {
         youtube_url: 'https://www.youtube.com/embed/b',
         asset_id: null,
       });
+    });
+  });
+
+  describe('video preview links for managers', () => {
+    const fileVideo = {
+      id: 'video-file',
+      chapter_id: chapterId,
+      title: 'Modul 01',
+      source: 'file',
+      youtubeUrl: null,
+      asset_id: assetId,
+      order: 0,
+    };
+    const linkVideo = {
+      id: 'video-link',
+      chapter_id: chapterId,
+      title: 'Pembuka',
+      source: 'link',
+      youtubeUrl: 'https://www.youtube.com/embed/abc',
+      asset_id: null,
+      order: 1,
+    };
+    const listWith = (assetRows: object[]) => {
+      manager.findAndCount = jest.fn(async () => [
+        [{ id: chapterId, class_id: classId, order: 0 }],
+        1,
+      ]);
+      manager.find = jest.fn(async (entity) =>
+        entity === Video ? [fileVideo, linkVideo] : [],
+      );
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('AS is_owner')) return [access];
+        if (sql.includes('FROM file_assets')) return assetRows;
+        return [];
+      });
+    };
+
+    it('gives a file video a signed 10-minute link and a link video none', async () => {
+      listWith([
+        {
+          id: assetId,
+          object_key: 'uploads/u/1790-modul.mp4',
+          original_filename: 'Modul 01.mp4',
+        },
+      ]);
+
+      const response = await service.getChapters(userId, classId, 1);
+      const [file, link] = response.data[0].videos;
+
+      expect(file.video_url).toContain('uploads/u/1790-modul.mp4');
+      expect(file.video_url).toContain('X-Amz-Expires=600');
+      expect(link.video_url).toBeNull();
+      expect(link.youtube_url).toBe('https://www.youtube.com/embed/abc');
+    });
+
+    it('gives no link when the upload was deleted', async () => {
+      listWith([]);
+
+      const response = await service.getChapters(userId, classId, 1);
+
+      expect(response.data[0].videos[0].video_url).toBeNull();
+    });
+
+    it('needs the same permission as the chapter list', async () => {
+      listWith([]);
+      access = null;
+
+      await expect(
+        service.getChapters(userId, classId, 1),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

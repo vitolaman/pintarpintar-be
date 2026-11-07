@@ -30,6 +30,8 @@ import { ClassModule } from './class/class.module';
 import { VoucherModule } from './api/voucher/voucher.module';
 import { CommunityModule } from './api/community/community.module';
 import { HelpTicketModule } from './api/help-ticket/help-ticket.module';
+import { MerchantProRequestModule } from './api/merchant-pro-request/merchant-pro-request.module';
+import { CertificationRequestModule } from './api/certification-request/certification-request.module';
 import { PartnershipRequestModule } from './api/partnership-request/partnership-request.module';
 import { PortalModule } from './api/portal/portal.module';
 import { OrderModule } from './api/order/order.module';
@@ -96,6 +98,8 @@ import { EmailModule } from './api/email/email.module';
     UploadModule,
     VoucherModule,
     HelpTicketModule,
+    MerchantProRequestModule,
+    CertificationRequestModule,
     PartnershipRequestModule,
     CommunityModule,
     PortalModule,

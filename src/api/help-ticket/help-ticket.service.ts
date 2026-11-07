@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { CreateHelpTicketDto } from './dto/create-help-ticket.dto';
 import { HelpTicketResponseDto } from './dto/help-ticket-response.dto';
@@ -38,21 +38,25 @@ export class HelpTicketService {
     };
   }
 
-  async findAll(userId: string, page = 1, limit = 10) {
-    const user = await this.users.findOneBy({ id: userId });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
+  async findAll(page = 1, limit = 10) {
     const [rows, total] = await this.helpTickets.findAndCount({
-      where: { userId },
-      order: { created_at: 'DESC' },
+      order: { created_at: 'DESC', id: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
     });
+    const userIds = [...new Set(rows.map((row) => row.userId).filter(Boolean))];
+    const users = userIds.length
+      ? await this.users.find({ where: { id: In(userIds) } })
+      : [];
+    const names = new Map(users.map((user) => [user.id, user.name]));
 
     return {
-      data: rows.map((item) => this.toResponse(item, user.name)),
+      data: rows.map((item) =>
+        this.toResponse(
+          item,
+          item.userId ? (names.get(item.userId) ?? null) : null,
+        ),
+      ),
       meta: paginationMeta(page, limit, total),
       responseMessage: 'Get help tickets success',
     };

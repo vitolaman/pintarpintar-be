@@ -22,6 +22,7 @@ describe('HelpTicketService', () => {
     };
     users = {
       findOneBy: jest.fn(async () => ({ id: 'user-id', name: 'John' })),
+      find: jest.fn(async () => []),
     };
     service = new HelpTicketService(helpTickets as never, users as never);
   });
@@ -53,12 +54,39 @@ describe('HelpTicketService', () => {
     );
   });
 
-  it("lists only the caller's own tickets", async () => {
-    await service.findAll('user-id');
+  it('lists tickets from all users and anonymous visitors with their names', async () => {
+    helpTickets.findAndCount.mockResolvedValue([
+      [
+        { id: '1', userId: 'user-1' },
+        { id: '2', userId: 'user-2' },
+        { id: '3', userId: null },
+        { id: '4', userId: 'deleted-user' },
+      ],
+      4,
+    ]);
+    users.find.mockResolvedValue([
+      { id: 'user-1', name: 'Alice' },
+      { id: 'user-2', name: 'Bob' },
+    ]);
+    const response = await service.findAll(2, 4);
 
-    expect(helpTickets.findAndCount).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: 'user-id' } }),
-    );
+    expect(helpTickets.findAndCount).toHaveBeenCalledWith({
+      order: { created_at: 'DESC', id: 'DESC' },
+      take: 4,
+      skip: 4,
+    });
+    expect(response.data.map((item) => item.user_name)).toEqual([
+      'Alice',
+      'Bob',
+      null,
+      null,
+    ]);
+    expect(response.meta).toEqual({
+      page: 2,
+      limit: 4,
+      total: 4,
+      total_page: 1,
+    });
   });
 });
 

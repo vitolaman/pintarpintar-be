@@ -50,6 +50,54 @@ const proPurchase = {
 
 // One sample per kind, each with a value that must appear in both parts.
 const SAMPLES: { [K in keyof EmailPayloads]: [EmailPayloads[K], string] } = {
+  internal_help_ticket: [
+    {
+      request_id: 'ticket-1',
+      requested_at: '2026-10-05T08:30:00Z',
+      user_id: null,
+      user_name: null,
+      user_email: null,
+      ticket_type: 'saran',
+      message: 'Tambah mode gelap.',
+    },
+    'Tambah mode gelap.',
+  ],
+  internal_merchant_pro_request: [
+    {
+      request_id: 'pro-1',
+      requested_at: '2026-10-05T08:30:00Z',
+      user_id: 'user-1',
+      user_name: 'Ayu',
+      user_email: 'ayu@example.test',
+      message: 'Hubungi saya.',
+    },
+    'Hubungi saya.',
+  ],
+  internal_merchant_registration_request: [
+    {
+      request_id: 'registration-1',
+      requested_at: '2026-10-05T08:30:00Z',
+      user_id: 'user-1',
+      user_name: 'Ayu',
+      user_email: 'ayu@example.test',
+      message: 'Daftar merchant.',
+    },
+    'Daftar merchant.',
+  ],
+  internal_certification_request: [
+    {
+      request_id: 'cert-1',
+      requested_at: '2026-10-05T08:30:00Z',
+      user_id: 'user-1',
+      user_name: 'Ayu',
+      user_email: 'ayu@example.test',
+      organization_name: 'Lembaga Sertifikasi',
+      organization_profile: 'Pelatihan',
+      organization_email: 'contact@example.test',
+      organization_phone: '6281234567890',
+    },
+    'Lembaga Sertifikasi',
+  ],
   order_awaiting_payment: [
     {
       ...order,

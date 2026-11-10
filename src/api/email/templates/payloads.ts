@@ -250,8 +250,37 @@ export interface CertificateIssuedEmail {
   issued_at: string;
 }
 
+interface InternalRequestEmail {
+  request_id: string;
+  requested_at: string;
+  user_id: string | null;
+  user_name: string | null;
+  user_email: string | null;
+}
+
+export interface InternalHelpTicketEmail extends InternalRequestEmail {
+  ticket_type: string;
+  message: string;
+}
+
+export interface InternalMerchantProRequestEmail extends InternalRequestEmail {
+  message: string | null;
+}
+
+export interface InternalCertificationRequestEmail
+  extends InternalRequestEmail {
+  organization_name: string;
+  organization_profile: string | null;
+  organization_email: string;
+  organization_phone: string;
+}
+
 /** Every email kind and the payload its template takes. */
 export interface EmailPayloads {
+  internal_help_ticket: InternalHelpTicketEmail;
+  internal_merchant_pro_request: InternalMerchantProRequestEmail;
+  internal_merchant_registration_request: InternalMerchantProRequestEmail;
+  internal_certification_request: InternalCertificationRequestEmail;
   order_awaiting_payment: OrderAwaitingPaymentEmail;
   order_paid: OrderPaidEmail;
   order_expired: OrderClosedEmail;

@@ -4,16 +4,27 @@ import { validate } from 'class-validator';
 import { In } from 'typeorm';
 import { CreateMerchantProRequestDto } from './dto/merchant-pro-request.dto';
 import { MerchantProRequestService } from './merchant-pro-request.service';
+import { queueInternalMerchantProRequestEmail } from '../email/events/internal-request-emails';
+
+jest.mock('../email/events/internal-request-emails', () => ({
+  queueInternalMerchantProRequestEmail: jest.fn(),
+}));
 
 describe('MerchantProRequestService', () => {
   let requests: Record<string, jest.Mock>;
   let users: Record<string, jest.Mock>;
   let service: MerchantProRequestService;
+  let manager: { save: jest.Mock };
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    manager = {
+      save: jest.fn(async (_entity, value) => ({ id: 'request-id', ...value })),
+    };
     requests = {
-      create: jest.fn((value) => value),
-      save: jest.fn(async (value) => ({ id: 'request-id', ...value })),
+      manager: {
+        transaction: jest.fn((callback) => callback(manager)),
+      } as never,
       findAndCount: jest.fn(async () => [[], 0]),
     };
     users = {
@@ -32,10 +43,15 @@ describe('MerchantProRequestService', () => {
       message: 'Please contact me',
     });
 
-    expect(requests.save).toHaveBeenCalledWith({
+    expect(manager.save).toHaveBeenCalledWith(expect.any(Function), {
       userId: 'user-id',
       message: 'Please contact me',
     });
+    expect(queueInternalMerchantProRequestEmail).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({ id: 'request-id', userId: 'user-id' }),
+      expect.objectContaining({ id: 'user-id', email: 'alice@example.com' }),
+    );
     expect(result.data).toMatchObject({
       user_id: 'user-id',
       user_name: 'Alice',
@@ -47,8 +63,8 @@ describe('MerchantProRequestService', () => {
   it('allows a request without a message and does not deduplicate', async () => {
     await service.create('user-id', {});
     await service.create('user-id', {});
-    expect(requests.save).toHaveBeenCalledTimes(2);
-    expect(requests.save).toHaveBeenCalledWith({
+    expect(manager.save).toHaveBeenCalledTimes(2);
+    expect(manager.save).toHaveBeenCalledWith(expect.any(Function), {
       userId: 'user-id',
       message: null,
     });
@@ -59,7 +75,14 @@ describe('MerchantProRequestService', () => {
     await expect(service.create('missing', {})).rejects.toBeInstanceOf(
       NotFoundException,
     );
-    expect(requests.save).not.toHaveBeenCalled();
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('fails creation if queuing the notification fails', async () => {
+    jest
+      .mocked(queueInternalMerchantProRequestEmail)
+      .mockRejectedValueOnce(new Error('queue down'));
+    await expect(service.create('user-id', {})).rejects.toThrow('queue down');
   });
 
   it('lists all requests with pagination and requester details', async () => {

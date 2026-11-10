@@ -6,6 +6,7 @@ import { CreateHelpTicketDto } from './dto/create-help-ticket.dto';
 import { HelpTicketResponseDto } from './dto/help-ticket-response.dto';
 import { HelpTicket } from './entities/help-ticket.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
+import { queueInternalHelpTicketEmail } from '../email/events/internal-request-emails';
 
 @Injectable()
 export class HelpTicketService {
@@ -22,12 +23,16 @@ export class HelpTicketService {
       throw new NotFoundException('User not found');
     }
 
-    const created = await this.helpTickets.save(
-      this.helpTickets.create({
-        userId,
-        ticketType: input.ticket_type,
-        message: input.message,
-      }),
+    const created = await this.helpTickets.manager.transaction(
+      async (manager) => {
+        const ticket = await manager.save(HelpTicket, {
+          userId,
+          ticketType: input.ticket_type,
+          message: input.message,
+        });
+        await queueInternalHelpTicketEmail(manager, ticket, user);
+        return ticket;
+      },
     );
 
     const data = this.toResponse(created, user?.name ?? null);

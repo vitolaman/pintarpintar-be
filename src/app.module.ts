@@ -54,6 +54,9 @@ import { PaymentModule } from './api/payment/payment.module';
 import { RecruitmentModule } from './api/recruitment/recruitment.module';
 import { MerchantLevelModule } from './api/merchant-level/merchant-level.module';
 import { EmailModule } from './api/email/email.module';
+import { AdminGuard } from './common/guard/admin.guard';
+import { TransactionAnalyticsModule } from './api/transaction-analytics/transaction-analytics.module';
+import { MerchantRegistrationRequestModule } from './api/merchant-registration-request/merchant-registration-request.module';
 
 @Module({
   imports: [
@@ -99,6 +102,8 @@ import { EmailModule } from './api/email/email.module';
     VoucherModule,
     HelpTicketModule,
     MerchantProRequestModule,
+    MerchantRegistrationRequestModule,
+    TransactionAnalyticsModule,
     CertificationRequestModule,
     PartnershipRequestModule,
     CommunityModule,
@@ -129,6 +134,10 @@ import { EmailModule } from './api/email/email.module';
     {
       provide: APP_GUARD,
       useClass: JwtGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: AdminGuard,
     },
     {
       provide: APP_GUARD,

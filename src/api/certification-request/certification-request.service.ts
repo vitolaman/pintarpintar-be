@@ -8,6 +8,7 @@ import {
   CreateCertificationRequestDto,
 } from './dto/certification-request.dto';
 import { CertificationRequest } from './entities/certification-request.entity';
+import { queueInternalCertificationRequestEmail } from '../email/events/internal-request-emails';
 
 @Injectable()
 export class CertificationRequestService {
@@ -22,15 +23,17 @@ export class CertificationRequestService {
     const user = await this.users.findOneBy({ id: userId });
     if (!user) throw new NotFoundException('User not found');
 
-    const request = await this.requests.save(
-      this.requests.create({
+    const request = await this.requests.manager.transaction(async (manager) => {
+      const saved = await manager.save(CertificationRequest, {
         userId,
         organizationName: input.organization_name,
         organizationProfile: input.organization_profile ?? null,
         organizationEmail: input.organization_email,
         organizationPhone: input.organization_phone,
-      }),
-    );
+      });
+      await queueInternalCertificationRequestEmail(manager, saved, user);
+      return saved;
+    });
     return {
       data: this.toResponse(request, user),
       responseMessage: 'Create certification request success',

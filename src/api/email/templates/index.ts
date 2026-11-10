@@ -44,8 +44,18 @@ import {
   withdrawalSucceeded,
 } from './withdrawal-outcome.template';
 import { withdrawalRequested } from './withdrawal-requested.template';
+import {
+  internalCertificationRequest,
+  internalHelpTicket,
+  internalMerchantProRequest,
+  internalMerchantRegistrationRequest,
+} from './internal-request.template';
 
 const TEMPLATES: { [K in EmailKind]: EmailTemplate<EmailPayloads[K]> } = {
+  internal_help_ticket: internalHelpTicket,
+  internal_merchant_pro_request: internalMerchantProRequest,
+  internal_merchant_registration_request: internalMerchantRegistrationRequest,
+  internal_certification_request: internalCertificationRequest,
   order_awaiting_payment: orderAwaitingPayment,
   order_paid: orderPaid,
   order_expired: orderExpired,
@@ -93,6 +103,21 @@ export const emailKinds = Object.keys(TEMPLATES) as EmailKind[];
  */
 export const SENSITIVE_PAYLOAD_FIELDS: Partial<Record<EmailKind, string[]>> = {
   password_reset: ['reset_token'],
+  internal_help_ticket: ['user_name', 'user_email', 'message'],
+  internal_merchant_pro_request: ['user_name', 'user_email', 'message'],
+  internal_merchant_registration_request: [
+    'user_name',
+    'user_email',
+    'message',
+  ],
+  internal_certification_request: [
+    'user_name',
+    'user_email',
+    'organization_name',
+    'organization_profile',
+    'organization_email',
+    'organization_phone',
+  ],
 };
 
 export function isEmailKind(kind: string): kind is EmailKind {

@@ -126,6 +126,45 @@ describe('EmailSenderService', () => {
     );
   });
 
+  it('delivers internal request notifications and removes sensitive payload fields', async () => {
+    claim([
+      queued({
+        kind: 'internal_certification_request',
+        recipientEmail: 'info@pintarpintar.id',
+        recipientUserId: null,
+        payload: {
+          request_id: 'request-1',
+          requested_at: '2026-10-05T08:30:00Z',
+          user_id: 'user-1',
+          user_name: 'Alice',
+          user_email: 'alice@example.com',
+          organization_name: 'Organization',
+          organization_profile: null,
+          organization_email: 'contact@example.com',
+          organization_phone: '6281234567890',
+        },
+      }),
+    ]);
+
+    expect(await service.sendBatch()).toEqual({
+      sent: 1,
+      retried: 0,
+      failed: 0,
+      discarded: 0,
+    });
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'info@pintarpintar.id',
+        subject: 'Permintaan sertifikasi baru',
+        text: expect.stringContaining('contact@example.com'),
+      }),
+    );
+    const changes = recorded.mock.calls[0][2];
+    expect(changes.status).toBe('sent');
+    expect(changes.payload()).toContain("'organization_email'");
+    expect(changes.payload()).toContain("'user_email'");
+  });
+
   it.each([0, 2])(
     'discards an opted-out email before SMTP, with %s previous attempts',
     async (attempts) => {

@@ -54,6 +54,7 @@ import { CouponClaim } from '~/api/voucher/entities/coupon-claim.entity';
 import { Voucher } from '~/api/voucher/entities/voucher.entity';
 import { HelpTicket } from '~/api/help-ticket/entities/help-ticket.entity';
 import { MerchantProRequest } from '~/api/merchant-pro-request/entities/merchant-pro-request.entity';
+import { MerchantRegistrationRequest } from '~/api/merchant-registration-request/entities/merchant-registration-request.entity';
 import { CertificationRequest } from '~/api/certification-request/entities/certification-request.entity';
 import { CertificationPartnershipRequest } from '~/api/partnership-request/entities/certification-partnership-request.entity';
 import { CommunityGroupMember } from '~/api/community/entities/community-group-member.entity';
@@ -173,6 +174,7 @@ export const dataSourceOptions: DataSourceOptions = {
     DiscountCode,
     HelpTicket,
     MerchantProRequest,
+    MerchantRegistrationRequest,
     CertificationRequest,
     CertificationPartnershipRequest,
     CommunityGroup,

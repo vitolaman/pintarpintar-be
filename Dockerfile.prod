@@ -3,7 +3,7 @@ FROM node:22.12.0-alpine AS development
 WORKDIR /code
 ENV NODE_ENV=production
 COPY --chown=node:node package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci --include=dev --legacy-peer-deps
 COPY --chown=node:node . .
 USER node
 

@@ -4,6 +4,11 @@ import { validate } from 'class-validator';
 import { CreateHelpTicketDto } from './dto/create-help-ticket.dto';
 import { HelpTicketType } from './entities/help-ticket.entity';
 import { HelpTicketService } from './help-ticket.service';
+import { queueInternalHelpTicketEmail } from '../email/events/internal-request-emails';
+
+jest.mock('../email/events/internal-request-emails', () => ({
+  queueInternalHelpTicketEmail: jest.fn(),
+}));
 
 describe('HelpTicketService', () => {
   const input = {
@@ -13,11 +18,17 @@ describe('HelpTicketService', () => {
   let helpTickets: Record<string, jest.Mock>;
   let users: Record<string, jest.Mock>;
   let service: HelpTicketService;
+  let manager: { save: jest.Mock };
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    manager = {
+      save: jest.fn(async (_entity, value) => ({ id: 'ticket-id', ...value })),
+    };
     helpTickets = {
-      create: jest.fn((value) => value),
-      save: jest.fn(async (value) => ({ id: 'ticket-id', ...value })),
+      manager: {
+        transaction: jest.fn((callback) => callback(manager)),
+      } as never,
       findAndCount: jest.fn(async () => [[], 0]),
     };
     users = {
@@ -30,8 +41,14 @@ describe('HelpTicketService', () => {
   it('stores anonymous feedback without a user', async () => {
     const response = await service.create(null, input);
 
-    expect(helpTickets.save).toHaveBeenCalledWith(
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.any(Function),
       expect.objectContaining({ userId: null, message: 'Tambah mode gelap.' }),
+    );
+    expect(queueInternalHelpTicketEmail).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({ userId: null }),
+      null,
     );
     expect(users.findOneBy).not.toHaveBeenCalled();
     expect(response.data).toMatchObject({ user_id: null, user_name: null });
@@ -44,6 +61,18 @@ describe('HelpTicketService', () => {
       user_id: 'user-id',
       user_name: 'John',
     });
+    expect(queueInternalHelpTicketEmail).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({ userId: 'user-id' }),
+      expect.objectContaining({ id: 'user-id', name: 'John' }),
+    );
+  });
+
+  it('fails creation if queuing the notification fails', async () => {
+    jest
+      .mocked(queueInternalHelpTicketEmail)
+      .mockRejectedValueOnce(new Error('queue down'));
+    await expect(service.create(null, input)).rejects.toThrow('queue down');
   });
 
   it('rejects a token for a missing user', async () => {

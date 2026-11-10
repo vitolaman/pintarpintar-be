@@ -4,6 +4,11 @@ import { validate } from 'class-validator';
 import { In } from 'typeorm';
 import { CertificationRequestService } from './certification-request.service';
 import { CreateCertificationRequestDto } from './dto/certification-request.dto';
+import { queueInternalCertificationRequestEmail } from '../email/events/internal-request-emails';
+
+jest.mock('../email/events/internal-request-emails', () => ({
+  queueInternalCertificationRequestEmail: jest.fn(),
+}));
 
 const validInput = {
   organization_name: 'Lembaga Sertifikasi',
@@ -15,17 +20,23 @@ describe('CertificationRequestService', () => {
   let requests: Record<string, jest.Mock>;
   let users: Record<string, jest.Mock>;
   let service: CertificationRequestService;
+  let manager: { save: jest.Mock };
   const requestedAt = new Date('2026-11-07T10:00:00.000Z');
 
   beforeEach(() => {
-    requests = {
-      create: jest.fn((value) => value),
-      save: jest.fn(async (value) => ({
+    jest.clearAllMocks();
+    manager = {
+      save: jest.fn(async (_entity, value) => ({
         id: 'request-id',
         created_at: requestedAt,
         updated_at: requestedAt,
         ...value,
       })),
+    };
+    requests = {
+      manager: {
+        transaction: jest.fn((callback) => callback(manager)),
+      } as never,
       findAndCount: jest.fn(async () => [[], 0]),
     };
     users = {
@@ -47,13 +58,18 @@ describe('CertificationRequestService', () => {
       ...validInput,
       organization_profile: 'Training and certification',
     });
-    expect(requests.save).toHaveBeenCalledWith({
+    expect(manager.save).toHaveBeenCalledWith(expect.any(Function), {
       userId: 'user-id',
       organizationName: 'Lembaga Sertifikasi',
       organizationProfile: 'Training and certification',
       organizationEmail: 'contact@example.com',
       organizationPhone: '6281234567890',
     });
+    expect(queueInternalCertificationRequestEmail).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({ id: 'request-id', userId: 'user-id' }),
+      expect.objectContaining({ id: 'user-id', email: 'alice@example.com' }),
+    );
     expect(result.data).toMatchObject({
       user_id: 'user-id',
       user_name: 'Alice',
@@ -67,8 +83,9 @@ describe('CertificationRequestService', () => {
   it('accepts an omitted profile and keeps repeated requests', async () => {
     await service.create('user-id', validInput);
     await service.create('user-id', validInput);
-    expect(requests.save).toHaveBeenCalledTimes(2);
-    expect(requests.save).toHaveBeenCalledWith(
+    expect(manager.save).toHaveBeenCalledTimes(2);
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.any(Function),
       expect.objectContaining({ organizationProfile: null }),
     );
   });
@@ -78,7 +95,16 @@ describe('CertificationRequestService', () => {
     await expect(service.create('missing', validInput)).rejects.toBeInstanceOf(
       NotFoundException,
     );
-    expect(requests.save).not.toHaveBeenCalled();
+    expect(manager.save).not.toHaveBeenCalled();
+  });
+
+  it('fails creation if queuing the notification fails', async () => {
+    jest
+      .mocked(queueInternalCertificationRequestEmail)
+      .mockRejectedValueOnce(new Error('queue down'));
+    await expect(service.create('user-id', validInput)).rejects.toThrow(
+      'queue down',
+    );
   });
 
   it('paginates all requests and handles unavailable users', async () => {

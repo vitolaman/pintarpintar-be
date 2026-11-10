@@ -8,6 +8,7 @@ import {
   MerchantProRequestResponseDto,
 } from './dto/merchant-pro-request.dto';
 import { MerchantProRequest } from './entities/merchant-pro-request.entity';
+import { queueInternalMerchantProRequestEmail } from '../email/events/internal-request-emails';
 
 @Injectable()
 export class MerchantProRequestService {
@@ -22,9 +23,14 @@ export class MerchantProRequestService {
     const user = await this.users.findOneBy({ id: userId });
     if (!user) throw new NotFoundException('User not found');
 
-    const request = await this.requests.save(
-      this.requests.create({ userId, message: input.message ?? null }),
-    );
+    const request = await this.requests.manager.transaction(async (manager) => {
+      const saved = await manager.save(MerchantProRequest, {
+        userId,
+        message: input.message ?? null,
+      });
+      await queueInternalMerchantProRequestEmail(manager, saved, user);
+      return saved;
+    });
     return {
       data: this.toResponse(request, user),
       responseMessage: 'Create merchant Pro request success',

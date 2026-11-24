@@ -55,8 +55,11 @@ export class HelpTicketController {
 
   @Get()
   @PaginatedResponse(HelpTicketResponseDto, 'Get help tickets success')
-  findAll(@Query() query: RequestPaginatedQueryDto) {
-    return this.helpTicketService.findAll(query.page, query.limit);
+  findAll(
+    @Req() req: { user: { id: string } },
+    @Query() query: RequestPaginatedQueryDto,
+  ) {
+    return this.helpTicketService.findAll(req.user.id, query.page, query.limit);
   }
 
   @Get(':id')

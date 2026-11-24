@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateHelpTicketDto } from './dto/create-help-ticket.dto';
@@ -19,6 +20,7 @@ describe('HelpTicketService', () => {
   let users: Record<string, jest.Mock>;
   let service: HelpTicketService;
   let manager: { save: jest.Mock };
+  let config: { get: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -35,7 +37,12 @@ describe('HelpTicketService', () => {
       findOneBy: jest.fn(async () => ({ id: 'user-id', name: 'John' })),
       find: jest.fn(async () => []),
     };
-    service = new HelpTicketService(helpTickets as never, users as never);
+    config = { get: jest.fn().mockReturnValue('ADMIN-ID') };
+    service = new HelpTicketService(
+      helpTickets as never,
+      users as never,
+      config as unknown as ConfigService,
+    );
   });
 
   it('stores anonymous feedback without a user', async () => {
@@ -83,7 +90,7 @@ describe('HelpTicketService', () => {
     );
   });
 
-  it('lists tickets from all users and anonymous visitors with their names', async () => {
+  it('lists tickets from all users and anonymous visitors to an admin, with their names', async () => {
     helpTickets.findAndCount.mockResolvedValue([
       [
         { id: '1', userId: 'user-1' },
@@ -97,9 +104,10 @@ describe('HelpTicketService', () => {
       { id: 'user-1', name: 'Alice' },
       { id: 'user-2', name: 'Bob' },
     ]);
-    const response = await service.findAll(2, 4);
+    const response = await service.findAll('admin-id', 2, 4);
 
     expect(helpTickets.findAndCount).toHaveBeenCalledWith({
+      where: {},
       order: { created_at: 'DESC', id: 'DESC' },
       take: 4,
       skip: 4,
@@ -116,6 +124,38 @@ describe('HelpTicketService', () => {
       total: 4,
       total_page: 1,
     });
+  });
+
+  it.each([
+    ['the ticket owner', 'user-1'],
+    ['another user', 'user-2'],
+  ])("lists only the caller's own tickets to %s", async (_caller, callerId) => {
+    helpTickets.findAndCount.mockResolvedValue([
+      [{ id: '1', userId: callerId }],
+      1,
+    ]);
+    users.find.mockResolvedValue([{ id: callerId, name: 'Alice' }]);
+    const response = await service.findAll(callerId, 1, 10);
+
+    expect(helpTickets.findAndCount).toHaveBeenCalledWith({
+      where: { userId: callerId },
+      order: { created_at: 'DESC', id: 'DESC' },
+      take: 10,
+      skip: 0,
+    });
+    expect(response.data).toEqual([
+      expect.objectContaining({ id: '1', user_id: callerId }),
+    ]);
+    expect(response.meta.total).toBe(1);
+  });
+
+  it('never lists anonymous tickets to a non-admin, and fails closed without admins', async () => {
+    config.get.mockReturnValue(undefined);
+    await service.findAll('admin-id');
+
+    expect(helpTickets.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'admin-id' } }),
+    );
   });
 });
 

@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { IS_ADMIN_ENDPOINT } from '../decorator/is-admin.decorator';
+import { isAdminUser } from './admin-users';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -26,11 +27,7 @@ export class AdminGuard implements CanActivate {
     const userId = context.switchToHttp().getRequest()?.user?.id;
     if (typeof userId !== 'string' || !userId)
       throw new UnauthorizedException();
-    const admins = (this.config.get<string>('ADMIN_USER_IDS') ?? '')
-      .split(',')
-      .map((id) => id.trim().toLowerCase())
-      .filter(Boolean);
-    if (!admins.includes(userId.toLowerCase())) throw new ForbiddenException();
+    if (!isAdminUser(this.config, userId)) throw new ForbiddenException();
     return true;
   }
 }

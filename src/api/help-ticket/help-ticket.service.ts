@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
@@ -7,6 +8,7 @@ import { HelpTicketResponseDto } from './dto/help-ticket-response.dto';
 import { HelpTicket } from './entities/help-ticket.entity';
 import { paginationMeta } from '~/common/dto/response-meta.dto';
 import { queueInternalHelpTicketEmail } from '../email/events/internal-request-emails';
+import { isAdminUser } from '~/common/guard/admin-users';
 
 @Injectable()
 export class HelpTicketService {
@@ -15,6 +17,7 @@ export class HelpTicketService {
     private readonly helpTickets: Repository<HelpTicket>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    private readonly config: ConfigService,
   ) {}
 
   async create(userId: string | null, input: CreateHelpTicketDto) {
@@ -43,8 +46,10 @@ export class HelpTicketService {
     };
   }
 
-  async findAll(page = 1, limit = 10) {
+  // Admins see every ticket, including anonymous ones; anyone else only their own.
+  async findAll(callerId: string, page = 1, limit = 10) {
     const [rows, total] = await this.helpTickets.findAndCount({
+      where: isAdminUser(this.config, callerId) ? {} : { userId: callerId },
       order: { created_at: 'DESC', id: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,

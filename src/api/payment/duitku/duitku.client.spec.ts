@@ -39,7 +39,7 @@ const client = (overrides: Record<string, string | undefined> = {}) =>
   } as unknown as ConfigService);
 
 const invoice: InvoiceRequest = {
-  orderId: 'order-id',
+  returnParams: { order_id: 'order-id' },
   orderNumber: 'ORD-20260930-0001',
   amount: 150000,
   productDetails: 'Pintar Pintar ORD-20260930-0001: Kelas',
@@ -102,6 +102,29 @@ describe('DuitkuClient', () => {
     expect(headers['x-duitku-signature']).toBe(
       requestSignature('DMOCK1', headers['x-duitku-timestamp'], 'secret-key'),
     );
+  });
+
+  it('returns a Pro invoice with type and subscription id, without an order id', async () => {
+    post.mockResolvedValueOnce({
+      data: { statusCode: '00', reference: 'DS124', paymentUrl: 'https://x' },
+    });
+
+    await client().createInvoice({
+      ...invoice,
+      orderNumber: 'PRO-20261124-0001',
+      returnParams: { type: 'pro', subscription_id: 'pro-transaction-id' },
+    });
+
+    const returnUrl = new URL(post.mock.calls[0][1].returnUrl);
+    expect(returnUrl.origin + returnUrl.pathname).toBe(
+      'https://fe.test/payment',
+    );
+    expect(Object.fromEntries(returnUrl.searchParams)).toEqual({
+      from: 'checkout',
+      type: 'pro',
+      subscription_id: 'pro-transaction-id',
+    });
+    expect(returnUrl.searchParams.has('order_id')).toBe(false);
   });
 
   it.each([

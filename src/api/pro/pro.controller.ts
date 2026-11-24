@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   Body,
+  ConflictException,
   Controller,
   Get,
   HttpCode,
@@ -28,7 +29,10 @@ import {
   ProSubscriptionPreviewDto,
 } from './dto/pro-subscribe.dto';
 import { ProService } from './pro.service';
-import { ProCheckoutService } from './pro-checkout.service';
+import {
+  PRO_PAYMENT_WAITING,
+  ProCheckoutService,
+} from './pro-checkout.service';
 
 const GATEWAY_UNAVAILABLE = new BadGatewayException(
   'Payment gateway is unavailable',
@@ -86,7 +90,7 @@ export class ProSubscriptionController {
     @Req() req: { user: { id: string } },
     @Body() body: ProSubscribeRequestDto,
   ) {
-    return this.checkoutService.preview(req.user.id, body.plan_id, body.code);
+    return this.checkoutService.preview(req.user.id, body.plan_id);
   }
 
   @Post()
@@ -96,6 +100,7 @@ export class ProSubscriptionController {
     HttpStatus.CREATED,
     [
       NotFoundException,
+      new ConflictException(PRO_PAYMENT_WAITING),
       GATEWAY_UNAVAILABLE,
       GATEWAY_NOT_CONFIGURED,
     ],
@@ -104,7 +109,7 @@ export class ProSubscriptionController {
     @Req() req: { user: { id: string } },
     @Body() body: ProSubscribeRequestDto,
   ) {
-    return this.checkoutService.checkout(req.user.id, body.plan_id, body.code);
+    return this.checkoutService.checkout(req.user.id, body.plan_id);
   }
 
   @Post(':id/cancel')

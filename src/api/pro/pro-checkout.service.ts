@@ -1,13 +1,16 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ProPlan } from './entities/pro-plan.entity';
-import { ProTransaction, ProTransactionStatus } from './entities/pro-transaction.entity';
+import {
+  ProTransaction,
+  ProTransactionStatus,
+} from './entities/pro-transaction.entity';
 import { Merchant } from '~/api/merchant/entities/merchant.entity';
 import { User } from '~/api/user/entities/user.entity';
 import { DuitkuClient } from '~/api/payment/duitku/duitku.client';
@@ -19,6 +22,9 @@ import {
 import { queueProSubscriptionAwaitingPaymentEmail } from '~/api/email/events/pro-subscription-emails';
 import { jakartaDate } from '~/api/payment/order-payment.service';
 
+export const PRO_PAYMENT_WAITING =
+  'A Pro payment is still waiting. Finish or cancel it first.';
+
 @Injectable()
 export class ProCheckoutService {
   constructor(
@@ -28,9 +34,10 @@ export class ProCheckoutService {
   ) {}
 
   /**
-   * Preview the pricing for a Pro plan subscription with optional discount code.
+   * Preview the pricing for a Pro plan subscription. A discount code is
+   * accepted by the request but not applied yet.
    */
-  async preview(userId: string, planId: string, code?: string) {
+  async preview(userId: string, planId: string) {
     const plan = await this.dataSource.manager.findOne(ProPlan, {
       where: { id: planId, isOffered: true },
     });
@@ -63,7 +70,7 @@ export class ProCheckoutService {
    * Create a Pro subscription transaction and Duitku invoice.
    * A Rp0 subscription is marked paid immediately without invoicing.
    */
-  async checkout(userId: string, planId: string, code?: string) {
+  async checkout(userId: string, planId: string) {
     const user = await this.dataSource.manager.findOneByOrFail(User, {
       id: userId,
     });
@@ -99,7 +106,7 @@ export class ProCheckoutService {
     // Create Duitku invoice for paid plans
     try {
       const invoice = await this.duitku.createInvoice({
-        orderId: transaction.id,
+        returnParams: { type: 'pro', subscription_id: transaction.id },
         orderNumber: transaction.transactionNumber!,
         amount: totalAmount,
         productDetails: `Pintar Pintar Pro - ${transaction.planName} (${transaction.durationMonths} bulan)`,
@@ -147,6 +154,8 @@ export class ProCheckoutService {
     merchantId: string,
     planId: string,
   ) {
+    await assertNoWaitingPayment(manager, merchantId);
+
     const plan = await manager.findOne(ProPlan, {
       where: { id: planId, isOffered: true },
     });
@@ -163,7 +172,7 @@ export class ProCheckoutService {
     }
 
     const now = new Date();
-    
+
     // Generate transaction number first
     const transactionNumber = await nextProTransactionNumber(manager);
 
@@ -188,8 +197,30 @@ export class ProCheckoutService {
   }
 }
 
+// One unpaid checkout per merchant. The lock makes concurrent checkouts of one
+// merchant take turns, so only the first passes this check; an expired pending
+// transaction no longer blocks.
+async function assertNoWaitingPayment(
+  manager: EntityManager,
+  merchantId: string,
+): Promise<void> {
+  await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+    `pro-checkout:${merchantId}`,
+  ]);
+  const [waiting] = await manager.query(
+    `SELECT id FROM pro_transactions
+     WHERE merchant_id = $1 AND status = 'pending' AND expires_at > now()
+       AND deleted_at IS NULL
+     LIMIT 1`,
+    [merchantId],
+  );
+  if (waiting) throw new ConflictException(PRO_PAYMENT_WAITING);
+}
+
 // `PRO-YYYYMMDD-NNNN` on the Asia/Jakarta date.
-async function nextProTransactionNumber(manager: EntityManager): Promise<string> {
+async function nextProTransactionNumber(
+  manager: EntityManager,
+): Promise<string> {
   const day = (await jakartaDate(manager)).replace(/-/g, '');
   await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
     `pro-transaction:${day}`,
@@ -206,7 +237,8 @@ function toCheckoutResponse(transaction: ProTransaction) {
   return {
     transaction_id: transaction.id,
     transaction_number: transaction.transactionNumber,
-    amount: Number(transaction.totalAmount) + Number(transaction.discountAmount),
+    amount:
+      Number(transaction.totalAmount) + Number(transaction.discountAmount),
     discount_amount: Number(transaction.discountAmount),
     total_amount: Number(transaction.totalAmount),
     status: transaction.status,

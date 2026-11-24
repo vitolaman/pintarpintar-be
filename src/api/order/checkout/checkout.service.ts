@@ -80,7 +80,7 @@ export class CheckoutService {
     if (order.status === OrderStatus.PENDING) {
       try {
         const invoice = await this.duitku.createInvoice({
-          orderId: order.id,
+          returnParams: { order_id: order.id },
           orderNumber: order.orderNumber,
           amount: pricing.total,
           productDetails: `Pintar Pintar ${order.orderNumber}: ${pricing.items

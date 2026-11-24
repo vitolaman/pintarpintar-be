@@ -23,7 +23,10 @@ interface DuitkuConfig {
 }
 
 export interface InvoiceRequest {
-  orderId: string;
+  // Query parameters added to the configured return URL so the payment page
+  // knows what was paid: `order_id` for an order, `type` and
+  // `subscription_id` for a Pro transaction.
+  returnParams: Record<string, string>;
   orderNumber: string;
   amount: number;
   productDetails: string;
@@ -96,7 +99,9 @@ export class DuitkuClient {
     const config = this.requireConfig();
     const timestamp = String(Date.now());
     const returnUrl = new URL(config.returnUrl);
-    returnUrl.searchParams.set('order_id', request.orderId);
+    for (const [name, value] of Object.entries(request.returnParams)) {
+      returnUrl.searchParams.set(name, value);
+    }
 
     try {
       const { data } = await this.http.post(

@@ -405,7 +405,7 @@ Every route that needs a login requires an active enrollment or product access a
 - `GET /api/v1/learning/meetings/:meetingId` — the check-in page (`/absensi`)
 - `POST /api/v1/learning/meetings/:meetingId/check-in` — after the start; identity from the account (`name` or `email` is a 400); optional `feedback`
 - `GET /api/v1/attendance/classes/:classId` — **public** attendance page (`/absensi/{classId}`): class, merchant, mentors, and the latest started meeting (or the next one); never the meeting link
-- `POST /api/v1/attendance/classes/:classId/check-in` — **public**; `{name, email, feedback?}`; the email must belong to a learner enrolled in the class; checks in to the latest started meeting; 10 per 10 minutes per client
+- `POST /api/v1/attendance/classes/:classId/check-in` — **public**; `{name, email, feedback?}`; the email must belong to a learner enrolled in the class; checks in to the latest started meeting; 10 per 10 minutes per client; `feedback` only fills an empty note and never replaces one (the signed-in check-in replaces the learner's own feedback)
 - `GET /api/v1/learning/digital-products/:id` — owned product with a signed download, also after the merchant deletes it
 
 ### File upload (S3 multipart)

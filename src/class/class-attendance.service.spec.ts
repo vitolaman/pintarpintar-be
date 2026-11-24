@@ -96,6 +96,44 @@ describe('ClassAttendanceService', () => {
     expect(saved()).toMatchObject({ checkInTime: '18:00:00', notes: null });
   });
 
+  describe('public check-in (keepExistingNote)', () => {
+    const keep = { keepExistingNote: true };
+
+    it('keeps an existing note and still marks hadir', async () => {
+      existing = { status: 'izin', checkInTime: '18:00:00', notes: 'Bagus' };
+
+      await service.checkIn(userId, meetingId, 'Jelek', keep);
+
+      expect(saved()).toMatchObject({
+        status: 'hadir',
+        checkInTime: '18:00:00',
+        notes: 'Bagus',
+      });
+    });
+
+    it.each([null, '', '  '])('fills an empty note (%p)', async (notes) => {
+      existing = { status: 'hadir', checkInTime: '18:00:00', notes };
+
+      await service.checkIn(userId, meetingId, 'Materi jelas', keep);
+
+      expect(saved()).toMatchObject({ notes: 'Materi jelas' });
+    });
+
+    it('never clears a note with blank feedback', async () => {
+      existing = { status: 'hadir', checkInTime: '18:00:00', notes: 'Bagus' };
+
+      await service.checkIn(userId, meetingId, null, keep);
+
+      expect(saved()).toMatchObject({ notes: 'Bagus' });
+    });
+
+    it('stores the feedback of a first check-in', async () => {
+      await service.checkIn(userId, meetingId, 'Bagus', keep);
+
+      expect(saved()).toMatchObject({ status: 'hadir', notes: 'Bagus' });
+    });
+  });
+
   it('answers with the class kind and the feedback in API names', async () => {
     const response = await service.checkIn(userId, meetingId, 'Materi jelas');
 

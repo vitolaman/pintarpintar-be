@@ -21,7 +21,8 @@ export class CheckInByEmailDto {
 
   @ClearableText({
     max: 1000,
-    description: 'Session feedback (Ulasan & Masukan)',
+    description:
+      'Session feedback (Ulasan & Masukan). Stored only when the attendance has no note yet; a public check-in never replaces an existing note.',
   })
   feedback?: string | null;
 }

@@ -20,6 +20,10 @@ import {
   MeetingMentor,
 } from './meeting-sql';
 
+export interface CheckInOptions {
+  keepExistingNote?: boolean;
+}
+
 interface MeetingRow {
   id: string;
   class_id: string;
@@ -71,9 +75,16 @@ export class ClassAttendanceService {
   }
 
   // The learner is the signed-in account, or the enrolled email of the public
-  // check-in. A repeat check-in keeps the first time and replaces the
-  // feedback when one is sent.
-  async checkIn(userId: string, meetingId: string, feedback?: string | null) {
+  // check-in. A repeat check-in keeps the first time. The signed-in learner
+  // replaces their own feedback when one is sent; the public check-in passes
+  // keepExistingNote because anyone who knows the email can submit it, so it
+  // only fills an empty note and never replaces a review.
+  async checkIn(
+    userId: string,
+    meetingId: string,
+    feedback?: string | null,
+    options: CheckInOptions = {},
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const meeting = await this.findLearnerMeeting(manager, userId, meetingId);
       if (!meeting.has_started) {
@@ -86,7 +97,11 @@ export class ClassAttendanceService {
         where: { meeting_id: meetingId, user_id: userId },
       });
       if (existing) {
-        if (feedback !== undefined) existing.notes = feedback;
+        if (options.keepExistingNote) {
+          if (feedback && !existing.notes?.trim()) existing.notes = feedback;
+        } else if (feedback !== undefined) {
+          existing.notes = feedback;
+        }
         existing.status = AttendanceStatus.HADIR;
         existing.checkInTime ??= await jakartaTime(manager);
         existing.updated_by = userId;

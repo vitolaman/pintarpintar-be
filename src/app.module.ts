@@ -19,7 +19,6 @@ import { EMAIL_ASSETS_PATH } from './api/email/email-assets';
 import { join } from 'path';
 import jwtConfig from './config/jwt.config';
 import redisConfig from './config/redis.config';
-import twitterRapidapiConfig from './config/twitter-rapidapi.config';
 import { dataSourceOptions } from './database/database.data-source';
 import { ProfileModule } from './api/profile/profile.module';
 import { HomeModule } from './api/home/home.module';
@@ -80,7 +79,7 @@ import { MerchantRegistrationRequestModule } from './api/merchant-registration-r
       isGlobal: true,
       cache: true,
       envFilePath: process.env.ENV_FILE || '.env',
-      load: [redisConfig, jwtConfig, twitterRapidapiConfig],
+      load: [redisConfig, jwtConfig],
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     TypeOrmModule.forFeature([User]),

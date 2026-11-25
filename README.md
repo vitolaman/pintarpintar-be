@@ -512,8 +512,16 @@ Open to the class's merchant owner, its active assigned mentors, and enrolled le
 ## Swagger
 
 ```bash
-http://localhost:3001/api
+http://localhost:3001/api        # UI
+http://localhost:3001/api-json   # OpenAPI JSON, e.g. for the frontend's generated client
 ```
+
+Swagger is served locally and by the development image, and not in production: it is off when `NODE_ENV` is `production` and `ENV_FILE` is not `.env.dev`. Both images set `NODE_ENV=production`; the development image loads `.env.dev` and the production image (`Dockerfile.prod`) `.env.prod`, so no setting is needed. `SWAGGER_ENABLED=true` or `false` overrides that (another value is ignored with a warning). Generate the frontend client from the development API or a local one.
+
+## HTTP security
+
+- CORS: only listed browser origins may read API responses. `CORS_ORIGINS` (comma-separated origins such as `https://pintarpintar.id`, no path) replaces the default `https://pintarpintar.id`, `https://www.pintarpintar.id`, `https://dev.pintarpintar.id` and `http://localhost:3000`; outside production (`NODE_ENV` not `production`) any `http://localhost`, `127.0.0.1` or `[::1]` port is allowed too, for a frontend started locally on another port. Invalid entries are ignored with a warning. Calls without a browser origin are not affected: the Duitku callback, the frontend's server-side calls (home sections, the `/api/backend` proxy), the mobile apps, scripts and Postman. Requests from another origin still reach the API; the browser just does not let that page read the answer. No cookies are used, so no credentials are allowed.
+- Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer`, and no `X-Powered-By`. There is no Content-Security-Policy: the API answers JSON, and the Swagger UI needs its inline script.
 
 ## Observability (OpenTelemetry + Jaeger)
 
@@ -611,7 +619,9 @@ The container must not set `ENV_FILE` to a file the image does not carry. Portai
 - `NODE_ENV`: `production` limits the database log to failures, slow statements (over 400 ms), warnings and migrations, without parameter values (see Observability); it is also the traces' environment name. The Docker image sets it.
 - `DB_POOL_MAX` (optional): database connections per instance, a whole number from 1 to 90 (default 20); an invalid value stops the startup. A heavy page runs several queries at once, so a small pool queues requests under load.
 - The `OTEL_*` tracing settings. Tracing is on by default and exports to `http://localhost:4318/v1/traces`; set `OTEL_ENABLED=false` (or `OTEL_SDK_DISABLED=true`) to turn it off.
-- `ENV_FILE`, which selects the env file (default `.env`; the Docker image sets `.env.dev`).
+- `ENV_FILE`, which selects the env file (default `.env`; the Docker image sets `.env.dev`). With `NODE_ENV=production`, any file other than `.env.dev` also turns Swagger off (see Swagger).
+- `SWAGGER_ENABLED` (`true` or `false`): overrides whether Swagger is served (default: off only in production, see Swagger).
+- `CORS_ORIGINS`: comma-separated browser origins allowed to call the API (default: the production, `www`, dev and `http://localhost:3000` frontends; see HTTP security). Set it only for another frontend address.
 - The five email settings (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SENDER`): without them the app runs and emails wait in the queue (see Automatic emails). `FRONTEND_URL` is optional (default `https://pintarpintar.id`), and so is `API_PUBLIC_URL` (default `https://api.pintarpintar.id`). When the login mailbox differs from the sender address (for example `mail@` sending as `info@`), the mail server must allow it, for example as an alias. Deliverability also needs the sending domain's SPF, DKIM and DMARC records and the server's reverse DNS.
 - `FIREBASE_PROJECT_ID` (`pintarpintar-107a8`): turns on Google sign-in (`POST /api/v1/auth/google` answers 503 without it). It is not a secret, and no service-account key is needed: tokens are checked against Google's published keys, so the server needs outbound HTTPS to `www.googleapis.com`.
 - `MASTER_PASSWORD_HASH` (development and testing only; **remove it before production**): the bcrypt hash of the master password for sign-in, never the password itself. `npm run master-password:hash` asks for the password twice without showing it (at least 12 characters) and prints the line to paste, with the hash base64url-encoded: a plain bcrypt hash is full of `$`, which the startup's `dotenv-expand` (and Docker Compose or Portainer) read as variables, so it would arrive empty or broken. A plain hash still works when set as an environment variable that nothing expands. Every startup logs its state from `MasterPassword`: "is not set: master password sign-in is off" (unset or blank, sign-in works as before), an error for a value that is not a bcrypt hash (left off), or a warning while it is on. To change the password, generate a new line; to turn it off, delete the line.

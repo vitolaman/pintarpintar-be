@@ -2,17 +2,14 @@ import './tracing';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { WinstonModule, utilities as WinstonNestUtilities } from 'nest-winston';
 import * as Winston from 'winston';
 import { Logger, ValidationPipe } from '@nestjs/common';
-import { ErrorResponseDto } from './common/dto/error-response.dto';
 import { CustomHttpExceptionFilter } from './common/filters/exception-error.filter';
-import { documentErrorResponses } from './common/swagger/error-responses';
+import { configureHttpSurface } from './common/security/http-surface';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    cors: true,
     logger: WinstonModule.createLogger({
       transports: [
         new Winston.transports.Console({
@@ -28,9 +25,6 @@ async function bootstrap() {
       ],
     }),
   });
-  // Answers do not name the framework (X-Powered-By: Express by default).
-  app.disable('x-powered-by');
-
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -51,21 +45,7 @@ async function bootstrap() {
       'ASSET_PUBLIC_BASE_URL is not set: every image URL in the responses will be null',
     );
   }
-  app.enableCors({ origin: '*' });
-
-  const document = SwaggerModule.createDocument(
-    app,
-    new DocumentBuilder()
-      .setTitle('Pintar Pintar API')
-      .setDescription('Pintar Pintar backend API documentation')
-      .setVersion('1.0')
-      .addBearerAuth()
-      .build(),
-    { extraModels: [ErrorResponseDto] },
-  );
-  documentErrorResponses(app, document);
-
-  SwaggerModule.setup('api', app, document);
+  configureHttpSurface(app);
   await app.listen(3001, () => {
     console.log('[REST]', `http://localhost:3001/api`);
   });

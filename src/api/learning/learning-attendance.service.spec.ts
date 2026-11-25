@@ -82,7 +82,12 @@ describe('LearningAttendanceService', () => {
     expect(query.mock.calls[0][0]).toContain(
       'lower(learner.email) = lower($2)',
     );
-    expect(checkIn).toHaveBeenCalledWith('user-1', 'meeting-2', 'Materi jelas');
+    expect(checkIn).toHaveBeenCalledWith(
+      'user-1',
+      'meeting-2',
+      'Materi jelas',
+      { keepExistingNote: true },
+    );
     expect(data).toEqual({
       class_id: CLASS_ID,
       class_title: 'Bootcamp Revit',

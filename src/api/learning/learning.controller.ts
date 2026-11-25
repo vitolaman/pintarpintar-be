@@ -98,6 +98,7 @@ export class LearningController {
   }
 
   // Check-in without login: the email must belong to an enrolled learner.
+  // Anyone who knows that email can submit it, so it only fills an empty note.
   @Public()
   @Post('attendance/classes/:classId/check-in')
   @HttpCode(HttpStatus.OK)

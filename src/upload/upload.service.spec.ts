@@ -53,6 +53,40 @@ describe('UploadService', () => {
     );
   });
 
+  describe('content disposition', () => {
+    const startedWith = async (contentType: string) => {
+      send.mockResolvedValue({ UploadId: 'upload-1', Key: 'k' });
+      await service.initiateMultipartUpload(USER, 'file', contentType);
+      return (send.mock.calls[0][0] as CreateMultipartUploadCommand).input;
+    };
+
+    it.each([
+      'text/html',
+      'image/svg+xml',
+      'application/x-msdownload',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ])('stores %s as a download', async (contentType) => {
+      const input = await startedWith(contentType);
+
+      expect(input.ContentDisposition).toBe('attachment');
+      expect(input.ContentType).toBe(contentType);
+    });
+
+    it.each([
+      'image/jpeg',
+      'image/png',
+      'video/mp4',
+      'audio/mpeg',
+      'application/pdf',
+      'IMAGE/PNG; charset=x',
+    ])('keeps %s inline', async (contentType) => {
+      const input = await startedWith(contentType);
+
+      expect(input.ContentDisposition).toBeUndefined();
+      expect(input.ContentType).toBe(contentType);
+    });
+  });
+
   it('presigns one URL per part', async () => {
     const urls = await service.getPresignedUrls('uploads/k', 'upload-1', 3);
 

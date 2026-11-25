@@ -13,6 +13,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { buildUploadKey } from '~/common/storage/upload-key';
+import { uploadContentDisposition } from './upload-disposition';
 
 @Injectable()
 export class UploadService {
@@ -53,6 +54,7 @@ export class UploadService {
         Bucket: this.bucketName,
         Key: key,
         ContentType: contentType,
+        ContentDisposition: uploadContentDisposition(contentType),
       });
 
       const response = await this.s3Client.send(command);

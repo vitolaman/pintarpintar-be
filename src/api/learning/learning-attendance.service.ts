@@ -38,7 +38,8 @@ interface MeetingRow {
  * The public attendance page (`/absensi/{classId}`): anyone with the link
  * sees the session, and an enrolled learner checks in by email without
  * logging in. Attendance goes to the class's latest started meeting through
- * the regular check-in, so certificates and recaps stay consistent.
+ * the regular check-in, so certificates and recaps stay consistent. Anyone who
+ * knows a learner's email can submit it, so it never replaces their note.
  */
 @Injectable()
 export class LearningAttendanceService {
@@ -104,6 +105,7 @@ export class LearningAttendanceService {
       target.user_id,
       meeting.id,
       input.feedback,
+      { keepExistingNote: true },
     );
 
     const [attendance] = await this.dataSource.query(

@@ -154,8 +154,16 @@ Groups with threads, replies and likes. A group is `public` (anyone joins at onc
 
 - `GET /api/v1/faqs` — **public**
 - `POST /api/v1/help-tickets` — **public**; anonymous unless a valid token is sent; 5 per visitor address per 10 minutes (429 beyond)
-- `GET /api/v1/help-tickets` — the caller's tickets, paginated
+- `GET /api/v1/help-tickets` — the caller's tickets, paginated; an admin (`ADMIN_USER_IDS`) gets every ticket, including anonymous ones
 - `GET /api/v1/help-tickets/:id` — one of the caller's tickets
+
+### Internal requests (admin)
+
+Admin routes answer only to accounts listed in `ADMIN_USER_IDS`: any other signed-in account gets 403 (also while the setting is empty), and a call without a token 401.
+
+- `GET /api/v1/merchant-pro-requests` — **admin**; every merchant Pro request, newest first, paginated
+- `GET /api/v1/certification-requests` — **admin**; every certification request, newest first, paginated
+- `GET /api/v1/merchant-registration-requests` — **admin**; every merchant registration request, newest first, paginated
 
 ### Sertifikasi
 
@@ -599,6 +607,7 @@ The container must not set `ENV_FILE` to a file the image does not carry. Portai
 
 - `PAYOUT_ACCOUNT_ENCRYPTION_KEY`: never change or remove it once used.
 - `JWT_EXPIRES`: token lifetime (default `30d`).
+- `ADMIN_USER_IDS`: comma-separated user ids allowed on admin routes (the internal request lists, all help tickets, daily transaction analytics). Empty or unset means nobody, so internal staff need it set to read those lists.
 - `NODE_ENV`: `production` limits the database log to failures, slow statements (over 400 ms), warnings and migrations, without parameter values (see Observability); it is also the traces' environment name. The Docker image sets it.
 - `DB_POOL_MAX` (optional): database connections per instance, a whole number from 1 to 90 (default 20); an invalid value stops the startup. A heavy page runs several queries at once, so a small pool queues requests under load.
 - The `OTEL_*` tracing settings. Tracing is on by default and exports to `http://localhost:4318/v1/traces`; set `OTEL_ENABLED=false` (or `OTEL_SDK_DISABLED=true`) to turn it off.

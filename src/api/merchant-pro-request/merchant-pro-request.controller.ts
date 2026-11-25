@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpStatus,
   NotFoundException,
@@ -9,6 +10,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { IsAdmin } from '~/common/decorator/is-admin.decorator';
 import {
   DefaultResponse,
   PaginatedResponse,
@@ -41,9 +43,11 @@ export class MerchantProRequestController {
   }
 
   @Get()
+  @IsAdmin()
   @PaginatedResponse(
     MerchantProRequestResponseDto,
     'Get merchant Pro requests success',
+    [ForbiddenException],
   )
   findAll(@Query() query: RequestPaginatedQueryDto) {
     return this.service.findAll(query.page, query.limit);

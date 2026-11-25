@@ -6,14 +6,15 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
-import { ProTransaction, ProTransactionStatus } from '~/api/pro/entities/pro-transaction.entity';
+import {
+  ProTransaction,
+  ProTransactionStatus,
+} from '~/api/pro/entities/pro-transaction.entity';
 import { MerchantProPeriod } from '~/api/pro/entities/merchant-pro-period.entity';
 import {
   queueProSubscriptionPaidEmails,
   queueProSubscriptionFailedEmails,
 } from '~/api/email/events/pro-subscription-emails';
-
-const SETTLEMENT_FALLBACK_DAYS = 4;
 
 export interface GatewayResult {
   transactionNumber: string;
@@ -50,7 +51,9 @@ export class ProPaymentService {
         where: { transactionNumber: result.transactionNumber },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!transaction) throw new NotFoundException('Pro transaction not found');
+      if (!transaction) {
+        throw new NotFoundException('Pro transaction not found');
+      }
       if (Number(result.amount) !== Number(transaction.totalAmount)) {
         throw new BadRequestException('Amount does not match the transaction');
       }
@@ -76,8 +79,9 @@ export class ProPaymentService {
   }
 
   /**
-   * Mark transaction as paid and create the corresponding Pro period.
-   * The period covers the plan's duration starting from now.
+   * Mark transaction as paid and create the corresponding Pro period. The
+   * period starts when the merchant's latest active period ends, or now when
+   * none ends later, and lasts the plan's months.
    */
   private async markPaid(
     manager: EntityManager,
@@ -85,7 +89,12 @@ export class ProPaymentService {
     payment: Pick<GatewayResult, 'reference' | 'paymentMethod'>,
   ): Promise<void> {
     const now = new Date();
-    const endsAt = new Date(now);
+    const startsAt = await nextPeriodStart(
+      manager,
+      transaction.merchantId,
+      now,
+    );
+    const endsAt = new Date(startsAt);
     const durationMonths = transaction.durationMonths || 1;
     endsAt.setMonth(endsAt.getMonth() + durationMonths);
 
@@ -107,8 +116,8 @@ export class ProPaymentService {
       planName: transaction.planName,
       durationMonths: transaction.durationMonths,
       price: transaction.totalAmount,
-      startsAt: now,
-      endsAt: endsAt,
+      startsAt,
+      endsAt,
       source: 'payment',
       status: 'active',
     } as MerchantProPeriod);
@@ -156,7 +165,9 @@ export class ProPaymentService {
         [transactionId, userId],
       );
       if (!row) {
-        throw new NotFoundException('Pro transaction not found or not cancellable');
+        throw new NotFoundException(
+          'Pro transaction not found or not cancellable',
+        );
       }
       if (!row.is_open) {
         throw new BadRequestException(
@@ -170,4 +181,24 @@ export class ProPaymentService {
       );
     });
   }
+}
+
+// Periods of one merchant must not overlap. Payments for one merchant take
+// turns on this lock until their transaction commits, so a second payment
+// reads the period the first one added.
+async function nextPeriodStart(
+  manager: EntityManager,
+  merchantId: string,
+  now: Date,
+): Promise<Date> {
+  await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+    `pro-period:${merchantId}`,
+  ]);
+  const [{ latest_end }] = await manager.query(
+    `SELECT max(ends_at) AS latest_end FROM merchant_pro_periods
+     WHERE merchant_id = $1 AND status = 'active' AND deleted_at IS NULL`,
+    [merchantId],
+  );
+  const latestEnd = latest_end ? new Date(latest_end) : null;
+  return latestEnd && latestEnd > now ? latestEnd : now;
 }

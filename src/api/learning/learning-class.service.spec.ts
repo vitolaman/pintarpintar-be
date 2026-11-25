@@ -78,6 +78,16 @@ describe('LearningClassService', () => {
           },
         ];
       }
+      if (sql.includes('FROM class_mentors link')) {
+        return [
+          {
+            id: 'mentor-record-1',
+            user_id: 'mentor-user-1',
+            name: 'Tutor Satu',
+            avatar_object_key: null,
+          },
+        ];
+      }
       if (sql.includes('FROM meetings meeting')) {
         return [
           { id: 'meeting-1', title: 'Sesi 1', my_attendance_status: 'hadir' },
@@ -145,6 +155,18 @@ describe('LearningClassService', () => {
       progress: 100,
       certificate: { status: 'ineligible' },
     });
+  });
+
+  it("returns each mentor's user id for the profile link", async () => {
+    const { data } = await service.findClass(userId, classId);
+    expect(data.mentors).toEqual([
+      {
+        id: 'mentor-record-1',
+        user_id: 'mentor-user-1',
+        name: 'Tutor Satu',
+        avatar_url: null,
+      },
+    ]);
   });
 
   it("gives each meeting the caller's attendance from the meeting query", async () => {

@@ -4,15 +4,26 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
 import {
   S3Client,
+  AbortMultipartUploadCommand,
   CreateMultipartUploadCommand,
+  ListMultipartUploadsCommand,
   UploadPartCommand,
   CompleteMultipartUploadCommand,
   CompletedPart,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { buildUploadKey } from '~/common/storage/upload-key';
+
+// Part URLs are presigned for one hour and requested right after initiate, so
+// a multipart upload started a day ago can no longer receive parts. Aborting
+// it frees the parts it stored.
+const STALE_UPLOAD_AGE_MS = 24 * 60 * 60 * 1000;
+const UPLOADS_PREFIX = 'uploads/';
+// Bounds one cleanup run; the next run continues with what is left.
+const MAX_LISTING_PAGES = 50;
 import { uploadContentDisposition } from './upload-disposition';
 
 @Injectable()
@@ -138,9 +149,79 @@ export class UploadService {
         `Failed to complete multipart upload`,
         error instanceof Error ? error.stack : String(error),
       );
+      // Clients start a new upload after a failure, so the parts of this one
+      // would only take up storage.
+      await this.abortMultipartUpload(key, uploadId);
       throw new InternalServerErrorException(
         'Failed to complete multipart upload',
       );
     }
+  }
+
+  async abortMultipartUpload(key: string, uploadId: string): Promise<boolean> {
+    try {
+      await this.s3Client.send(
+        new AbortMultipartUploadCommand({
+          Bucket: this.bucketName,
+          Key: key,
+          UploadId: uploadId,
+        }),
+      );
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to abort multipart upload: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Aborts multipart uploads under `uploads/` that started more than a day
+   * ago and were never completed (a closed tab, a cancelled or failed
+   * upload). Completed objects are not touched.
+   */
+  @Cron('40 3 * * *', { timeZone: 'Asia/Jakarta' })
+  async abortStaleUploads(now = new Date()): Promise<number> {
+    const startedBefore = now.getTime() - STALE_UPLOAD_AGE_MS;
+    let aborted = 0;
+    let keyMarker: string | undefined;
+    let uploadIdMarker: string | undefined;
+    try {
+      for (let page = 0; page < MAX_LISTING_PAGES; page++) {
+        const listing = await this.s3Client.send(
+          new ListMultipartUploadsCommand({
+            Bucket: this.bucketName,
+            Prefix: UPLOADS_PREFIX,
+            KeyMarker: keyMarker,
+            UploadIdMarker: uploadIdMarker,
+          }),
+        );
+        for (const upload of listing.Uploads ?? []) {
+          const initiated = upload.Initiated?.getTime();
+          if (
+            upload.Key &&
+            upload.UploadId &&
+            initiated !== undefined &&
+            initiated < startedBefore &&
+            (await this.abortMultipartUpload(upload.Key, upload.UploadId))
+          ) {
+            aborted++;
+          }
+        }
+        if (!listing.IsTruncated) break;
+        keyMarker = listing.NextKeyMarker;
+        uploadIdMarker = listing.NextUploadIdMarker;
+      }
+    } catch (error) {
+      this.logger.error(
+        'Stale multipart upload cleanup failed',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+    if (aborted > 0) {
+      this.logger.log(`Aborted ${aborted} stale multipart uploads`);
+    }
+    return aborted;
   }
 }

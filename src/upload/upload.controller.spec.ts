@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { UploadController } from './upload.controller';
 import { UploadService } from './upload.service';
 import { FileAssetService } from '~/api/file-asset/file-asset.service';
@@ -12,7 +12,10 @@ describe('UploadController', () => {
     getPresignedUrls: jest.fn(),
     completeMultipartUpload: jest.fn(),
   };
-  const fileAssets = { registerCompleted: jest.fn() };
+  const fileAssets = {
+    registerCompleted: jest.fn(),
+    assertUploadSizeAllowed: jest.fn(),
+  };
   const controller = new UploadController(
     service as unknown as UploadService,
     fileAssets as unknown as FileAssetService,
@@ -31,6 +34,43 @@ describe('UploadController', () => {
       'a.pdf',
       'application/pdf',
     );
+  });
+
+  it('checks a declared size before anything is stored', async () => {
+    fileAssets.assertUploadSizeAllowed.mockRejectedValueOnce(
+      new BadRequestException('The file must be 500 MB or smaller'),
+    );
+    await expect(
+      controller.initiateUpload(req, {
+        fileName: 'big.mp4',
+        contentType: 'video/mp4',
+        fileSize: 600 * 1024 * 1024,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(fileAssets.assertUploadSizeAllowed).toHaveBeenCalledWith(
+      USER,
+      600 * 1024 * 1024,
+    );
+    expect(service.initiateMultipartUpload).not.toHaveBeenCalled();
+  });
+
+  it('initiates a declared size within the cap', async () => {
+    fileAssets.assertUploadSizeAllowed.mockResolvedValueOnce(undefined);
+    await controller.initiateUpload(req, {
+      fileName: 'a.pdf',
+      contentType: 'application/pdf',
+      fileSize: 1024,
+    });
+    expect(service.initiateMultipartUpload).toHaveBeenCalled();
+  });
+
+  it('initiates without a declared size (checked on complete)', async () => {
+    await controller.initiateUpload(req, {
+      fileName: 'a.pdf',
+      contentType: 'application/pdf',
+    });
+    expect(fileAssets.assertUploadSizeAllowed).not.toHaveBeenCalled();
+    expect(service.initiateMultipartUpload).toHaveBeenCalled();
   });
 
   it("refuses to presign or complete another user's key", async () => {

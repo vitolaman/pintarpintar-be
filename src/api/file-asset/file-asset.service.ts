@@ -4,20 +4,27 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { DataSource } from 'typeorm';
 import { FileAsset } from '../profile/entities/file-asset.entity';
 import { createObjectStorage } from '../../common/storage/object-storage';
 import { PENDING_VISIBILITY } from './asset-purpose-rules';
 import { isOwnUploadKey } from '~/common/storage/upload-key';
+import { uploadSizeCap, uploadTooLarge } from './upload-size-cap';
 
 export const STORAGE_PROVIDER = 's3';
 
 @Injectable()
 export class FileAssetService {
+  private readonly logger = new Logger(FileAssetService.name);
   private readonly s3Client: S3Client;
   private readonly bucketName: string;
 
@@ -31,18 +38,35 @@ export class FileAssetService {
   }
 
   /**
+   * Rejects a declared file size that no field could accept from this user,
+   * before anything is stored.
+   */
+  async assertUploadSizeAllowed(
+    userId: string,
+    sizeBytes: number,
+  ): Promise<void> {
+    const cap = await uploadSizeCap(this.dataSource.manager, userId);
+    if (sizeBytes > cap) throw uploadTooLarge(cap);
+  }
+
+  /**
    * Registers a completed upload of the caller as a pending file asset. The
    * first form field it is attached to decides whether it is public or
    * private (see `assertOwnedAsset`). Registering the same key again returns
    * the caller's existing asset.
+   *
+   * The stored size, not the size the client declared, must fit the
+   * uploader's cap (`uploadSizeCap`); a larger object is deleted and the
+   * request answers 400.
    */
   async registerCompleted(userId: string, key: string): Promise<FileAsset> {
     if (!isOwnUploadKey(key, userId)) {
       throw new ForbiddenException('This upload belongs to another user');
     }
     const { contentType, sizeBytes } = await this.readObject(key);
+    const cap = await uploadSizeCap(this.dataSource.manager, userId);
 
-    return this.dataSource.transaction(async (manager) => {
+    const registered = await this.dataSource.transaction(async (manager) => {
       await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
         `file-asset:${key}`,
       ]);
@@ -56,6 +80,7 @@ export class FileAssetService {
         }
         return existing;
       }
+      if (sizeBytes > cap) return null;
 
       return manager.save(
         FileAsset,
@@ -71,6 +96,24 @@ export class FileAssetService {
         }),
       );
     });
+    if (registered) return registered;
+
+    await this.deleteObject(userId, key);
+    throw uploadTooLarge(cap);
+  }
+
+  // The object was never registered, so nothing refers to it.
+  private async deleteObject(userId: string, key: string): Promise<void> {
+    try {
+      await this.s3Client.send(
+        new DeleteObjectCommand({ Bucket: this.bucketName, Key: key }),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to delete an oversized upload of user ${userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   private async readObject(

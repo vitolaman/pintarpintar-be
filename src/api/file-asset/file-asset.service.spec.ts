@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { DataSource, EntityManager } from 'typeorm';
 import { FileAsset } from '../profile/entities/file-asset.entity';
 import {
@@ -37,6 +38,8 @@ describe('originalFilename', () => {
 
 describe('FileAssetService.registerCompleted', () => {
   let manager: Record<string, jest.Mock>;
+  // The uploader's content merchants and their Pro periods (upload-size-cap).
+  let reader: Record<string, jest.Mock>;
   let send: jest.Mock;
   let service: FileAssetService;
 
@@ -47,8 +50,13 @@ describe('FileAssetService.registerCompleted', () => {
       create: jest.fn((_target, value) => ({ ...value })),
       save: jest.fn(async (_target, value) => ({ id: 'asset-id', ...value })),
     };
+    reader = {
+      query: jest.fn().mockResolvedValue([]),
+      find: jest.fn().mockResolvedValue([]),
+    };
     service = new FileAssetService(
       {
+        manager: reader,
         transaction: jest.fn((callback) => callback(manager)),
       } as unknown as DataSource,
       new ConfigService({ AWS_S3_BUCKET_NAME: 'bucket' }),
@@ -83,10 +91,13 @@ describe('FileAssetService.registerCompleted', () => {
     );
   });
 
-  it('records any file type and size; field rules apply at attach', async () => {
+  it('records any file type within the cap; field rules apply at attach', async () => {
+    reader.query.mockResolvedValue([
+      { id: 'merchant-id', storage_level: MerchantStorageLevel.SILVER },
+    ]);
     send.mockResolvedValue({
       ContentType: 'application/octet-stream',
-      ContentLength: 3 * 1024 * MB,
+      ContentLength: 3 * GB,
     });
     await service.registerCompleted(
       USER_ID,
@@ -96,6 +107,103 @@ describe('FileAssetService.registerCompleted', () => {
       FileAsset,
       expect.objectContaining({ originalFilename: 'setup.exe' }),
     );
+  });
+
+  describe('size cap on the stored object', () => {
+    const stored = (bytes: number) =>
+      send.mockImplementation(async (command) =>
+        command instanceof HeadObjectCommand
+          ? { ContentType: 'video/mp4', ContentLength: bytes }
+          : {},
+      );
+    const deleted = () =>
+      send.mock.calls
+        .map(([command]) => command)
+        .filter((command) => command instanceof DeleteObjectCommand)
+        .map((command) => command.input.Key);
+
+    it('accepts a learner file of exactly 500 MB', async () => {
+      stored(500 * MB);
+      await expect(
+        service.registerCompleted(USER_ID, KEY),
+      ).resolves.toMatchObject({ id: 'asset-id' });
+      expect(deleted()).toEqual([]);
+    });
+
+    it('deletes and refuses a learner file over 500 MB, whatever was declared', async () => {
+      stored(500 * MB + 1);
+      await expect(service.registerCompleted(USER_ID, KEY)).rejects.toThrow(
+        new BadRequestException('The file must be 500 MB or smaller'),
+      );
+      expect(manager.save).not.toHaveBeenCalled();
+      expect(deleted()).toEqual([KEY]);
+    });
+
+    it("refuses a file over a Basic merchant's 1 GB", async () => {
+      reader.query.mockResolvedValue([
+        { id: 'merchant-id', storage_level: MerchantStorageLevel.BASIC },
+      ]);
+      stored(1 * GB + 1);
+      await expect(service.registerCompleted(USER_ID, KEY)).rejects.toThrow(
+        'The file must be 1 GB or smaller',
+      );
+      expect(deleted()).toEqual([KEY]);
+    });
+
+    it('accepts 12 GB for a Pro Basic merchant and refuses more than its 30 GB quota', async () => {
+      reader.query.mockResolvedValue([
+        { id: 'merchant-id', storage_level: MerchantStorageLevel.BASIC },
+      ]);
+      reader.find.mockResolvedValue([
+        {
+          status: 'active',
+          startsAt: new Date(Date.now() - 86_400_000),
+          endsAt: new Date(Date.now() + 86_400_000),
+        },
+      ]);
+      stored(12 * GB);
+      await expect(
+        service.registerCompleted(USER_ID, KEY),
+      ).resolves.toMatchObject({ id: 'asset-id' });
+
+      stored(30 * GB + 1);
+      await expect(service.registerCompleted(USER_ID, KEY)).rejects.toThrow(
+        'The file must be 30 GB or smaller',
+      );
+    });
+
+    it('keeps an asset registered earlier even when it is over the cap', async () => {
+      stored(2 * GB);
+      manager.findOne.mockResolvedValue({
+        id: 'existing',
+        uploadedByUserId: USER_ID,
+        deleted_at: null,
+      });
+      await expect(
+        service.registerCompleted(USER_ID, KEY),
+      ).resolves.toMatchObject({ id: 'existing' });
+      expect(deleted()).toEqual([]);
+    });
+
+    it('still refuses when deleting the object fails', async () => {
+      send.mockImplementation(async (command) => {
+        if (command instanceof DeleteObjectCommand) throw new Error('down');
+        return { ContentType: 'video/mp4', ContentLength: 600 * MB };
+      });
+      await expect(
+        service.registerCompleted(USER_ID, KEY),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  it('checks a declared size against the same cap', async () => {
+    await expect(
+      service.assertUploadSizeAllowed(USER_ID, 500 * MB),
+    ).resolves.toBeUndefined();
+    await expect(
+      service.assertUploadSizeAllowed(USER_ID, 500 * MB + 1),
+    ).rejects.toThrow('The file must be 500 MB or smaller');
+    expect(send).not.toHaveBeenCalled();
   });
 
   it('maps a missing object to 400 and storage failures to 502', async () => {

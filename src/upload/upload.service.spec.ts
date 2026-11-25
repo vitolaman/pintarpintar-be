@@ -1,8 +1,10 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   CreateMultipartUploadCommand,
+  ListMultipartUploadsCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -113,6 +115,93 @@ describe('UploadService', () => {
     expect(
       command.input.MultipartUpload.Parts.map((p) => p.PartNumber),
     ).toEqual([1, 2]);
+  });
+
+  it('aborts the upload when completing fails', async () => {
+    send.mockImplementation(async (command) => {
+      if (command instanceof CompleteMultipartUploadCommand) {
+        throw new Error('InvalidPart');
+      }
+      return {};
+    });
+
+    await expect(
+      service.completeMultipartUpload('uploads/k', 'upload-1', [
+        { PartNumber: 1, ETag: '' },
+      ]),
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
+    const abort = send.mock.calls[1][0] as AbortMultipartUploadCommand;
+    expect(abort).toBeInstanceOf(AbortMultipartUploadCommand);
+    expect(abort.input).toEqual({
+      Bucket: 'bucket',
+      Key: 'uploads/k',
+      UploadId: 'upload-1',
+    });
+  });
+
+  it('still answers 500 when the abort fails too', async () => {
+    send.mockRejectedValue(new Error('network'));
+    await expect(
+      service.completeMultipartUpload('uploads/k', 'upload-1', []),
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
+  });
+
+  describe('stale upload cleanup', () => {
+    const now = new Date('2026-11-25T00:00:00Z');
+    const hoursAgo = (hours: number) =>
+      new Date(now.getTime() - hours * 3_600_000);
+    const aborted = () =>
+      send.mock.calls
+        .map(([command]) => command)
+        .filter((command) => command instanceof AbortMultipartUploadCommand)
+        .map((command) => command.input.UploadId);
+
+    it('aborts uploads started more than a day ago, across pages', async () => {
+      send.mockImplementation(async (command) => {
+        if (!(command instanceof ListMultipartUploadsCommand)) return {};
+        expect(command.input.Prefix).toBe('uploads/');
+        if (!command.input.KeyMarker) {
+          return {
+            IsTruncated: true,
+            NextKeyMarker: 'uploads/b',
+            NextUploadIdMarker: 'old-1',
+            Uploads: [
+              { Key: 'uploads/a', UploadId: 'recent', Initiated: hoursAgo(2) },
+              { Key: 'uploads/b', UploadId: 'old-1', Initiated: hoursAgo(25) },
+            ],
+          };
+        }
+        return {
+          IsTruncated: false,
+          Uploads: [
+            { Key: 'uploads/c', UploadId: 'old-2', Initiated: hoursAgo(72) },
+          ],
+        };
+      });
+
+      await expect(service.abortStaleUploads(now)).resolves.toBe(2);
+      expect(aborted()).toEqual(['old-1', 'old-2']);
+    });
+
+    it('logs and stops when storage cannot list uploads', async () => {
+      send.mockRejectedValue(new Error('AccessDenied'));
+      await expect(service.abortStaleUploads(now)).resolves.toBe(0);
+    });
+
+    it('does not count an abort that failed', async () => {
+      send.mockImplementation(async (command) => {
+        if (command instanceof AbortMultipartUploadCommand) {
+          throw new Error('NoSuchUpload');
+        }
+        return {
+          IsTruncated: false,
+          Uploads: [
+            { Key: 'uploads/b', UploadId: 'old', Initiated: hoursAgo(30) },
+          ],
+        };
+      });
+      await expect(service.abortStaleUploads(now)).resolves.toBe(0);
+    });
   });
 
   it('maps storage failures to 500', async () => {

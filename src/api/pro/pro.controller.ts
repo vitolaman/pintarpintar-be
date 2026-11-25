@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -24,6 +25,7 @@ import {
   ProSubscriptionResponseDto,
 } from './dto/pro-response.dto';
 import {
+  PRO_CODE_NOT_APPLICABLE,
   ProSubscribeRequestDto,
   ProSubscriptionCheckoutResponseDto,
   ProSubscriptionPreviewDto,
@@ -84,7 +86,7 @@ export class ProSubscriptionController {
     ProSubscriptionPreviewDto,
     'Preview Pro subscription success',
     HttpStatus.OK,
-    [NotFoundException],
+    [new BadRequestException(PRO_CODE_NOT_APPLICABLE), NotFoundException],
   )
   async preview(
     @Req() req: { user: { id: string } },
@@ -99,6 +101,7 @@ export class ProSubscriptionController {
     'Pro subscription checkout created',
     HttpStatus.CREATED,
     [
+      new BadRequestException(PRO_CODE_NOT_APPLICABLE),
       NotFoundException,
       new ConflictException(PRO_PAYMENT_WAITING),
       GATEWAY_UNAVAILABLE,

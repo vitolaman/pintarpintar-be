@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsEmpty, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+
+// Pro has no discount codes yet. A code is refused rather than ignored, so a
+// merchant never expects a discount and is charged the full price.
+export const PRO_CODE_NOT_APPLICABLE =
+  'Discount codes do not apply to Pro subscriptions';
 
 export class ProSubscribeRequestDto {
   @ApiProperty({
@@ -12,10 +18,16 @@ export class ProSubscribeRequestDto {
 
   @ApiPropertyOptional({
     description:
-      'Optional discount code; accepted but not applied yet (the discount is 0)',
+      'Leave out, or send null or an empty string: Pro has no discount codes, so any other value is a 400',
   })
+  // An empty promo field (null, "" or spaces) means no code was entered.
+  @Transform(({ value }) =>
+    value === null || (typeof value === 'string' && value.trim() === '')
+      ? undefined
+      : value,
+  )
   @IsOptional()
-  @IsString()
+  @IsEmpty({ message: PRO_CODE_NOT_APPLICABLE })
   code?: string;
 }
 

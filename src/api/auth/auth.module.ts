@@ -13,6 +13,7 @@ import {
 } from './google-id-token.verifier';
 import { GoogleSignInService } from './google-sign-in.service';
 import { MasterPassword } from './master-password';
+import { SignInFailures } from './sign-in-failures';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -24,6 +25,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     GoogleIdTokenVerifier,
     GoogleSignInService,
     MasterPassword,
+    SignInFailures,
   ],
   exports: [AuthService, JwtModule],
   imports: [

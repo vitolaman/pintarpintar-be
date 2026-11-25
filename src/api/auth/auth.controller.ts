@@ -71,14 +71,15 @@ export class AuthController {
     return this.authService.signUp(body);
   }
 
-  // Two limits: per address, and per address and email (password guessing).
+  // Three limits: per address, per address and email, and failed sign-ins
+  // per email from any address (SignInFailures, password guessing).
   @Post('sign-in')
   @UseGuards(ClientAddressThrottlerGuard, SignInAccountThrottlerGuard)
   @Throttle({ default: { limit: 100, ttl: 600_000 } })
   @ApiOperation({
     summary: 'Sign in with email and password',
     description:
-      '10 requests per 10 minutes for one email from one client address, and 100 per 10 minutes per client address.',
+      '10 requests per 10 minutes for one email from one client address, and 100 per 10 minutes per client address. After 10 failed sign-ins for one email within 15 minutes, from any address, every sign-in for that email answers 429 (also with the right password) until 15 minutes after the first of them; a successful sign-in resets the count. Unknown emails are limited the same way.',
   })
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(AuthTokenWithUserDto, 'Login Success', HttpStatus.OK, [

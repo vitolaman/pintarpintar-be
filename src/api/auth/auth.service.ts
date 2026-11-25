@@ -19,6 +19,7 @@ import { SignInResDto } from './dto/sign-in.res.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 import { queuePasswordChangedEmail } from '~/api/email/events/account-emails';
 import { MasterPassword } from './master-password';
+import { SignInFailures } from './sign-in-failures';
 
 export const NO_PASSWORD_YET =
   'This account has no password yet; use password reset to add one';
@@ -35,6 +36,7 @@ export class AuthService {
     private userService: UserService,
     private dataSource: DataSource,
     private masterPassword: MasterPassword,
+    private signInFailures: SignInFailures,
   ) {}
 
   async signUp(
@@ -63,9 +65,13 @@ export class AuthService {
     );
   }
 
+  // Every attempt, the master password included, counts against the email's
+  // failure limit before any check, so a locked account answers 429 even to
+  // the right password, and an unknown email behaves like a known one.
   async signIn(
     body: SignInBodyDto,
   ): Promise<ResponseDto<AuthTokenWithUserDto>> {
+    await this.signInFailures.countAttempt(body.email);
     const user = await this.userService.findForAuthentication(body.email);
     if (!user) throw new ForbiddenException('invalid username or password');
 
@@ -74,6 +80,7 @@ export class AuthService {
       user.passwordHash &&
       (await verifyPassword(body.password, user.passwordHash))
     ) {
+      await this.signInFailures.clear(body.email);
       return this.createSignedInResponse(
         'Login Success',
         user.id,
@@ -85,6 +92,7 @@ export class AuthService {
     // personal data and stay out of the log.
     if (await this.masterPassword.matches(body.password)) {
       this.logger.warn(`Master password sign-in for user ${user.id}`);
+      await this.signInFailures.clear(body.email);
       return this.createSignedInResponse(
         'Login Success',
         user.id,

@@ -14,6 +14,8 @@ import { UserService } from '../user/user.service';
 import { AuthService, NO_PASSWORD_YET } from './auth.service';
 import { GoogleSignInBodyDto } from './dto/google-sign-in.req.dto';
 import { MasterPassword } from './master-password';
+import { SignInFailures } from './sign-in-failures';
+import { ThrottlerException } from '@nestjs/throttler';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
 
@@ -31,6 +33,9 @@ describe('AuthService', () => {
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
   let dataSource: jest.Mocked<Pick<DataSource, 'transaction'>>;
   let masterPassword: jest.Mocked<Pick<MasterPassword, 'matches'>>;
+  let signInFailures: jest.Mocked<
+    Pick<SignInFailures, 'countAttempt' | 'clear'>
+  >;
   let entityManager: {
     create: jest.Mock;
     save: jest.Mock;
@@ -79,6 +84,10 @@ describe('AuthService', () => {
     masterPassword = {
       matches: jest.fn().mockResolvedValue(false),
     };
+    signInFailures = {
+      countAttempt: jest.fn().mockResolvedValue(undefined),
+      clear: jest.fn().mockResolvedValue(undefined),
+    };
     (dataSource.transaction as jest.Mock).mockImplementation(
       async (runInTransaction: (manager: EntityManager) => Promise<unknown>) =>
         runInTransaction(entityManager as unknown as EntityManager),
@@ -88,6 +97,7 @@ describe('AuthService', () => {
       userService as unknown as UserService,
       dataSource as unknown as DataSource,
       masterPassword as unknown as MasterPassword,
+      signInFailures as unknown as SignInFailures,
     );
   });
 
@@ -183,6 +193,90 @@ describe('AuthService', () => {
     await service.signIn({ email: 'john@example.com', password: 'password1' });
 
     expect(jwtService.signAsync).toHaveBeenCalledWith({ id: user.id, tv: 3 });
+  });
+
+  describe('failed sign-ins per account', () => {
+    beforeEach(() => jwtService.signAsync.mockResolvedValue('signed-token'));
+
+    it('counts the attempt before looking up the account', async () => {
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: await hash('own-password1', 10),
+      });
+      await service.signIn({
+        email: 'john@example.com',
+        password: 'own-password1',
+      });
+      expect(signInFailures.countAttempt).toHaveBeenCalledWith(
+        'john@example.com',
+      );
+      expect(
+        signInFailures.countAttempt.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        userService.findForAuthentication.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('resets the count after signing in with the own password', async () => {
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: await hash('own-password1', 10),
+      });
+      await service.signIn({
+        email: 'john@example.com',
+        password: 'own-password1',
+      });
+      expect(signInFailures.clear).toHaveBeenCalledWith('john@example.com');
+    });
+
+    it('keeps the count after a wrong password or an unknown email', async () => {
+      userService.findForAuthentication.mockResolvedValueOnce({
+        ...user,
+        passwordHash: await hash('own-password1', 10),
+      });
+      await expect(
+        service.signIn({ email: 'john@example.com', password: 'wrong-pass1' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      userService.findForAuthentication.mockResolvedValueOnce(null);
+      await expect(
+        service.signIn({ email: 'nobody@example.com', password: 'x' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(signInFailures.countAttempt).toHaveBeenCalledTimes(2);
+      expect(signInFailures.clear).not.toHaveBeenCalled();
+    });
+
+    it('answers 429 to a locked email without checking any password', async () => {
+      signInFailures.countAttempt.mockRejectedValue(
+        new ThrottlerException('Too many requests, please try again later'),
+      );
+      masterPassword.matches.mockResolvedValue(true);
+
+      await expect(
+        service.signIn({ email: 'john@example.com', password: 'any' }),
+      ).rejects.toBeInstanceOf(ThrottlerException);
+      expect(userService.findForAuthentication).not.toHaveBeenCalled();
+      expect(masterPassword.matches).not.toHaveBeenCalled();
+      expect(jwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('resets the count after a master password sign-in', async () => {
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: null,
+      });
+      masterPassword.matches.mockResolvedValue(true);
+
+      await service.signIn({
+        email: 'john@example.com',
+        password: 'master-pass1',
+      });
+      expect(signInFailures.countAttempt).toHaveBeenCalledTimes(1);
+      expect(signInFailures.clear).toHaveBeenCalledWith('john@example.com');
+      warn.mockRestore();
+    });
   });
 
   describe('master password', () => {

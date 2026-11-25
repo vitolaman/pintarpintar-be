@@ -6,7 +6,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { hashPassword, verifyPassword } from '~/common/security/password';
+import {
+  hashPassword,
+  simulatePasswordCheck,
+  verifyPassword,
+} from '~/common/security/password';
 import { DataSource, EntityManager } from 'typeorm';
 import { ResponseDto } from '~/common/dto/response.dto-default';
 import { Profile } from '../profile/entities/profile.entity';
@@ -73,7 +77,13 @@ export class AuthService {
   ): Promise<ResponseDto<AuthTokenWithUserDto>> {
     await this.signInFailures.countAttempt(body.email);
     const user = await this.userService.findForAuthentication(body.email);
-    if (!user) throw new ForbiddenException('invalid username or password');
+    // Every failure costs the same password checks (own, then master), so the
+    // response time does not reveal whether an account or password exists.
+    if (!user?.passwordHash) await simulatePasswordCheck(body.password);
+    if (!user) {
+      await this.masterPassword.matches(body.password);
+      throw new ForbiddenException('invalid username or password');
+    }
 
     // An account created through Google has no password yet.
     if (

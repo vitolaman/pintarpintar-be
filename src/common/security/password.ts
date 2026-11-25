@@ -16,3 +16,15 @@ export function verifyPassword(
 ): Promise<boolean> {
   return verify(password, passwordHash);
 }
+
+// bcrypt hash, at PASSWORD_COST, of a random secret that was discarded.
+// Comparing a password with it takes as long as checking a real one.
+export const UNUSABLE_PASSWORD_HASH =
+  '$2y$10$f5/KKXL8SaOY/yucuEksnu9zjB0W0somXTD15iMQg9K5kL2aPjcIe';
+
+// Spends one password check without a stored hash, so a sign-in for a missing
+// account or an account without a password takes as long as a wrong password.
+// The result is ignored: it never signs anyone in.
+export async function simulatePasswordCheck(password: string): Promise<void> {
+  await verify(password, UNUSABLE_PASSWORD_HASH);
+}

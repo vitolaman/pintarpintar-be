@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
+import * as password from '~/common/security/password';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { DataSource, EntityManager } from 'typeorm';
@@ -182,6 +183,76 @@ describe('AuthService', () => {
     expect(jwtService.signAsync).not.toHaveBeenCalled();
   });
 
+  // Timing must not tell a missing account or password from a wrong password.
+  describe('password checks on failure', () => {
+    let verify: jest.SpyInstance;
+    let simulate: jest.SpyInstance;
+
+    beforeEach(() => {
+      verify = jest.spyOn(password, 'verifyPassword');
+      simulate = jest.spyOn(password, 'simulatePasswordCheck');
+    });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('checks the password against the unusable hash, then the master password, for an unknown email', async () => {
+      userService.findForAuthentication.mockResolvedValue(null);
+
+      await expect(
+        service.signIn({ email: 'nobody@example.com', password: 'password1' }),
+      ).rejects.toThrow(new ForbiddenException('invalid username or password'));
+      expect(simulate).toHaveBeenCalledTimes(1);
+      expect(simulate).toHaveBeenCalledWith('password1');
+      expect(verify).not.toHaveBeenCalled();
+      expect(masterPassword.matches).toHaveBeenCalledWith('password1');
+    });
+
+    it('spends the same checks for a wrong password of a known account', async () => {
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: await hash('different1', 10),
+      });
+
+      await expect(
+        service.signIn({ email: 'john@example.com', password: 'password1' }),
+      ).rejects.toThrow('invalid username or password');
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(simulate).not.toHaveBeenCalled();
+      expect(masterPassword.matches).toHaveBeenCalledWith('password1');
+    });
+
+    it('checks the unusable hash for an account without a password and still refuses it', async () => {
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: null,
+      });
+
+      await expect(
+        service.signIn({ email: 'john@example.com', password: 'password1' }),
+      ).rejects.toThrow('invalid username or password');
+      expect(simulate).toHaveBeenCalledWith('password1');
+      expect(verify).not.toHaveBeenCalled();
+      expect(masterPassword.matches).toHaveBeenCalledWith('password1');
+      expect(jwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('does not spend an extra check on a successful sign-in', async () => {
+      userService.findForAuthentication.mockResolvedValue({
+        ...user,
+        passwordHash: await hash('password1', 10),
+      });
+      jwtService.signAsync.mockResolvedValue('signed-token');
+
+      await service.signIn({
+        email: 'john@example.com',
+        password: 'password1',
+      });
+
+      expect(simulate).not.toHaveBeenCalled();
+      expect(verify).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('signs in with the user current token version', async () => {
     user.passwordHash = await hash('password1', 10);
     userService.findForAuthentication.mockResolvedValue({
@@ -351,7 +422,8 @@ describe('AuthService', () => {
       await expect(
         service.signIn({ email: 'john@example.com', password: 'master-pass1' }),
       ).rejects.toThrow(new ForbiddenException('invalid username or password'));
-      expect(masterPassword.matches).not.toHaveBeenCalled();
+      // Checked only to spend the same time as for an existing account.
+      expect(masterPassword.matches).toHaveBeenCalledWith('master-pass1');
       expect(jwtService.signAsync).not.toHaveBeenCalled();
     });
 

@@ -1,7 +1,10 @@
+import { Logger } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { emailPreferenceKey } from '../email-preference-policy';
 import { renderEmail, SENSITIVE_PAYLOAD_FIELDS } from '../templates';
 import {
+  DEFAULT_INTERNAL_NOTIFICATION_EMAIL,
+  internalNotificationRecipient,
   queueInternalCertificationRequestEmail,
   queueInternalHelpTicketEmail,
   queueInternalMerchantProRequestEmail,
@@ -13,8 +16,18 @@ describe('internal request notifications', () => {
   const user = { id: 'user-1', name: 'Alice', email: 'alice@example.com' };
   let values: jest.Mock;
   let manager: EntityManager;
+  const savedSetting = process.env.INTERNAL_NOTIFICATION_EMAIL;
+
+  afterEach(() => {
+    if (savedSetting === undefined) {
+      delete process.env.INTERNAL_NOTIFICATION_EMAIL;
+    } else {
+      process.env.INTERNAL_NOTIFICATION_EMAIL = savedSetting;
+    }
+  });
 
   beforeEach(() => {
+    delete process.env.INTERNAL_NOTIFICATION_EMAIL;
     values = jest.fn().mockReturnThis();
     const builder = {
       insert: jest.fn().mockReturnThis(),
@@ -147,5 +160,81 @@ describe('internal request notifications', () => {
     expect(SENSITIVE_PAYLOAD_FIELDS[kind]).toEqual(
       expect.arrayContaining(['user_name', 'user_email']),
     );
+  });
+
+  describe('recipient setting', () => {
+    const queueAll = async () => {
+      await queueInternalHelpTicketEmail(
+        manager,
+        {
+          id: 'ticket-1',
+          userId: null,
+          created_at: createdAt,
+          ticketType: 'saran',
+          message: 'Help',
+        } as never,
+        null,
+      );
+      await queueInternalMerchantProRequestEmail(
+        manager,
+        { id: 'pro-1', userId: user.id, created_at: createdAt } as never,
+        user as never,
+      );
+      await queueInternalCertificationRequestEmail(
+        manager,
+        { id: 'cert-1', userId: user.id, created_at: createdAt } as never,
+        user as never,
+      );
+      await queueInternalMerchantRegistrationRequestEmail(
+        manager,
+        { id: 'reg-1', userId: user.id, created_at: createdAt } as never,
+        user as never,
+      );
+      return values.mock.calls.map(([rows]) => rows[0].recipientEmail);
+    };
+
+    it('sends every internal email to info@pintarpintar.id when unset', async () => {
+      expect(DEFAULT_INTERNAL_NOTIFICATION_EMAIL).toBe('info@pintarpintar.id');
+      expect(await queueAll()).toEqual(Array(4).fill('info@pintarpintar.id'));
+    });
+
+    it('sends every internal email to INTERNAL_NOTIFICATION_EMAIL when set', async () => {
+      process.env.INTERNAL_NOTIFICATION_EMAIL = '  dev-team@pintarpintar.id ';
+      expect(await queueAll()).toEqual(
+        Array(4).fill('dev-team@pintarpintar.id'),
+      );
+    });
+
+    it('reads the setting when each email is queued', () => {
+      expect(internalNotificationRecipient()).toBe('info@pintarpintar.id');
+      process.env.INTERNAL_NOTIFICATION_EMAIL = 'ops@example.org';
+      expect(internalNotificationRecipient()).toBe('ops@example.org');
+    });
+
+    it.each(['', '   '])('uses the default for a blank value %p', (value) => {
+      expect(internalNotificationRecipient(value)).toBe('info@pintarpintar.id');
+    });
+
+    it('uses the default for an invalid value and warns once without the value', () => {
+      const warn = jest
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => undefined);
+      try {
+        for (const value of [
+          'not-an-email',
+          'a@example.org, b@example.org',
+          'Team <team@example.org>',
+        ]) {
+          expect(internalNotificationRecipient(value)).toBe(
+            'info@pintarpintar.id',
+          );
+        }
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toContain('INTERNAL_NOTIFICATION_EMAIL');
+        expect(warn.mock.calls[0][0]).not.toContain('not-an-email');
+      } finally {
+        warn.mockRestore();
+      }
+    });
   });
 });

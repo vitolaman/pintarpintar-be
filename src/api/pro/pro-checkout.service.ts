@@ -34,8 +34,8 @@ export class ProCheckoutService {
   ) {}
 
   /**
-   * Preview the pricing for a Pro plan subscription. A discount code is
-   * accepted by the request but not applied yet.
+   * Preview the pricing for a Pro plan subscription. Pro has no discount codes;
+   * the request DTO refuses one.
    */
   async preview(userId: string, planId: string) {
     const plan = await this.dataSource.manager.findOne(ProPlan, {
@@ -43,7 +43,6 @@ export class ProCheckoutService {
     });
     if (!plan) throw new NotFoundException('Pro plan not found');
 
-    // TODO: Calculate discount from code if provided
     const discountAmount = 0;
     const totalAmount = Number(plan.price) - discountAmount;
 
@@ -161,7 +160,6 @@ export class ProCheckoutService {
     });
     if (!plan) throw new NotFoundException('Pro plan not found');
 
-    // TODO: Apply discount code if provided
     const discountAmount = 0;
     const totalAmount = Number(plan.price) - discountAmount;
 

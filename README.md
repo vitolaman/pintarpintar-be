@@ -271,8 +271,8 @@ After the Pro time ends without a following period, the Pro benefits continue un
 - `GET /api/v1/pro-plans` — **public**; the offered plans (empty until plans exist)
 - `GET /api/v1/merchant/pro-subscription` — `is_pro`, `pro_until` (end of the Pro time continuing from now), the current period, upcoming periods and past or cancelled periods
 - `GET /api/v1/profile` and `GET /api/v1/merchant/profile` also return `is_pro` and `pro_until`
-- `POST /api/v1/pro-subscription/preview` — `{plan_id, code}`; the plan's name, duration, `base_price`, `discount_amount` and `total_amount`; 404 for a plan that is not offered; `code` is accepted but not applied yet (discount 0)
-- `POST /api/v1/pro-subscription` — merchants only (404 without a store); `{plan_id, code}`; creates a pending Pro transaction and its Duitku invoice (`payment_reference`, `payment_url`), payable for 60 minutes; a Rp0 total is paid at once; 502 when Duitku is unavailable, 503 when it is not configured; `code` is not applied yet
+- `POST /api/v1/pro-subscription/preview` — `{plan_id, code}`; the plan's name, duration, `base_price`, `discount_amount` and `total_amount`; 404 for a plan that is not offered; Pro has no discount codes: a non-empty `code` is a 400 `Discount codes do not apply to Pro subscriptions` (an omitted, null or blank `code` is no code), `discount_amount` is 0
+- `POST /api/v1/pro-subscription` — merchants only (404 without a store); `{plan_id, code}`; creates a pending Pro transaction and its Duitku invoice (`payment_reference`, `payment_url`), payable for 60 minutes; a Rp0 total is paid at once; 502 when Duitku is unavailable, 503 when it is not configured; a non-empty `code` is a 400 as in the preview, before any transaction is created
 - `POST /api/v1/pro-subscription/:id/cancel` — cancels the caller's own pending, unexpired Pro transaction; 404 otherwise
 
 ### Merchant dashboard

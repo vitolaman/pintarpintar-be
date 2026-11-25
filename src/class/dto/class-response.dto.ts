@@ -122,6 +122,11 @@ export class ChapterResponseDto {
 
 export class MeetingMentorDto {
   @ApiProperty({ description: 'Mentor id' }) id: string;
+  @ApiProperty({
+    format: 'uuid',
+    description: "The mentor's user id, used by the profile page",
+  })
+  user_id: string;
   @ApiProperty() name: string;
 }
 

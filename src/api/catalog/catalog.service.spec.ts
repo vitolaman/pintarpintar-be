@@ -131,6 +131,7 @@ describe('CatalogService', () => {
           ...cardRow,
           type: 'digital',
           mentor_id: null,
+          mentor_user_id: '10000000-0000-4000-8000-000000000009',
           mentor_name: 'Budi Santoso',
           mentor_avatar_object_key: null,
           file_format: 'PDF, DWG',
@@ -147,7 +148,12 @@ describe('CatalogService', () => {
     } as never);
 
     expect(response.data[0]).toMatchObject({
-      mentor: { id: null, name: 'Budi Santoso', avatar_url: null },
+      mentor: {
+        id: null,
+        user_id: '10000000-0000-4000-8000-000000000009',
+        name: 'Budi Santoso',
+        avatar_url: null,
+      },
       file_format: 'PDF, DWG',
       file_size: 15728640,
       image_url: null,
@@ -396,6 +402,7 @@ describe('CatalogService', () => {
           return [
             {
               id: 'mentor-id',
+              user_id: 'mentor-user-id',
               name: 'Budi',
               headline: 'Arsitek',
               avatar_object_key: 'avatars/budi.png',
@@ -403,6 +410,7 @@ describe('CatalogService', () => {
             },
             {
               id: 'mentor-2',
+              user_id: 'mentor-2-user-id',
               name: 'Sari',
               headline: null,
               avatar_object_key: null,
@@ -422,6 +430,7 @@ describe('CatalogService', () => {
       expect(data.mentors).toEqual([
         {
           id: 'mentor-id',
+          user_id: 'mentor-user-id',
           name: 'Budi',
           headline: 'Arsitek',
           avatar_url: 'https://cdn.example.com/avatars/budi.png',
@@ -429,6 +438,7 @@ describe('CatalogService', () => {
         },
         {
           id: 'mentor-2',
+          user_id: 'mentor-2-user-id',
           name: 'Sari',
           headline: null,
           avatar_url: null,
@@ -438,6 +448,52 @@ describe('CatalogService', () => {
     } finally {
       delete process.env.ASSET_PUBLIC_BASE_URL;
     }
+  });
+
+  // The profile page is keyed by user id; the mentor record id is not one.
+  it('reads the user id of every listed mentor for profile links', async () => {
+    dataSource.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('AS owned')) return [{ owned: false }];
+      if (sql.includes('learning_outcomes FROM classes')) {
+        return [
+          { duration: null, prerequisites: null, learning_outcomes: null },
+        ];
+      }
+      if (sql.includes('FROM ('))
+        return [
+          {
+            ...cardRow,
+            mentor_id: 'mentor-id',
+            mentor_user_id: 'mentor-user-id',
+            mentor_name: 'Budi',
+            mentor_avatar_object_key: null,
+          },
+        ];
+      return [];
+    });
+
+    const { data } = await service.findClass(classId);
+
+    expect(data.mentor).toEqual({
+      id: 'mentor-id',
+      user_id: 'mentor-user-id',
+      name: 'Budi',
+      avatar_url: null,
+    });
+    const sqls = dataSource.query.mock.calls.map(([sql]) => sql as string);
+    const mentorsSql = sqls.find(
+      (sql) =>
+        sql.includes('FROM class_mentors link') && !sql.includes('FROM ('),
+    );
+    expect(mentorsSql).toContain('mentor_user.id AS user_id');
+    const cardSql = sqls.find((sql) => sql.includes('card_mentor'));
+    expect(cardSql).toContain('card_mentor.user_id AS mentor_user_id');
+    // Both card mentor sources (class tutors and product mentors) select it.
+    expect(cardSql.match(/SELECT mentor\.id, mentor_user\.id/g)).toHaveLength(
+      2,
+    );
+    const meetingSql = sqls.find((sql) => sql.includes('FROM meetings'));
+    expect(meetingSql).toContain("'user_id', meeting_mentor_user.id");
   });
 
   it('returns the signed-in caller wishlist, cart and review state on a class', async () => {

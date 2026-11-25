@@ -213,6 +213,13 @@ export class CatalogCardMentorDto {
   })
   id: string | null;
 
+  @ApiProperty({
+    format: 'uuid',
+    description:
+      "The mentor's user id, used by the profile page (/users/{user_id}/profile)",
+  })
+  user_id: string;
+
   @ApiProperty()
   name: string;
 
@@ -322,8 +329,15 @@ export class CatalogItemCardDto extends CatalogCardDto {
 }
 
 export class CatalogMentorDto {
-  @ApiProperty({ description: 'Mentor id used by the profile page' })
+  @ApiProperty({ description: 'Mentor id' })
   id: string;
+
+  @ApiProperty({
+    format: 'uuid',
+    description:
+      "The mentor's user id, used by the profile page (/users/{user_id}/profile)",
+  })
+  user_id: string;
 
   @ApiProperty()
   name: string;

@@ -39,8 +39,12 @@ export class LearningMerchantDto {
 }
 
 export class LearningMentorDto {
-  @ApiProperty({ description: 'Mentor id used by the profile page' })
+  @ApiProperty({ description: 'Mentor record id' })
   id: string;
+  @ApiProperty({
+    description: "The mentor's user id, used by the profile page",
+  })
+  user_id: string;
   @ApiProperty() name: string;
   @ApiPropertyOptional({ nullable: true }) avatar_url: string | null;
 }

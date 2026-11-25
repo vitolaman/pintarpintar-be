@@ -89,7 +89,7 @@ export class LearningClassService {
         [classId],
       ),
       manager.query(
-        `SELECT mentor.id, tutor.name, avatar.object_key AS avatar_object_key
+        `SELECT mentor.id, mentor.user_id, tutor.name, avatar.object_key AS avatar_object_key
            FROM class_mentors link
            INNER JOIN mentors mentor ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
            INNER JOIN users tutor ON tutor.id = mentor.user_id AND tutor.deleted_at IS NULL
@@ -193,6 +193,7 @@ export class LearningClassService {
       students_count: header.students_count,
       mentors: mentors.map((mentor) => ({
         id: mentor.id,
+        user_id: mentor.user_id,
         name: mentor.name,
         avatar_url: assetUrl(mentor.avatar_object_key),
       })),

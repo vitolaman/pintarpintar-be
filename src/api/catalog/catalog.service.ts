@@ -136,13 +136,13 @@ const CARD_SQL = `
 // Mentor and file details for already filtered, sorted, and paged cards; kept
 // out of CARD_SQL so they are looked up for one page instead of every item.
 const PAGE_DETAILS_SQL = (page: string) => `
-  SELECT page.*, card_mentor.id AS mentor_id, card_mentor.name AS mentor_name,
-         card_mentor.avatar_object_key AS mentor_avatar_object_key,
+  SELECT page.*, card_mentor.id AS mentor_id, card_mentor.user_id AS mentor_user_id,
+         card_mentor.name AS mentor_name, card_mentor.avatar_object_key AS mentor_avatar_object_key,
          card_files.file_format, card_files.file_size
   FROM (${page}) page
   LEFT JOIN LATERAL (
-    SELECT mentor.id, mentor_user.name, mentor_avatar.object_key AS avatar_object_key,
-           link.created_at AS assigned_at
+    SELECT mentor.id, mentor_user.id AS user_id, mentor_user.name,
+           mentor_avatar.object_key AS avatar_object_key, link.created_at AS assigned_at
     FROM class_mentors link
     INNER JOIN mentors mentor ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
     INNER JOIN users mentor_user ON mentor_user.id = mentor.user_id AND mentor_user.deleted_at IS NULL
@@ -150,7 +150,7 @@ const PAGE_DETAILS_SQL = (page: string) => `
     LEFT JOIN file_assets mentor_avatar ON mentor_avatar.id = mentor_profile.avatar_asset_id AND mentor_avatar.deleted_at IS NULL
     WHERE page.type <> 'digital' AND link.class_id = page.id AND link.deleted_at IS NULL
     UNION ALL
-    SELECT mentor.id, mentor_user.name, mentor_avatar.object_key, assignment.created_at
+    SELECT mentor.id, mentor_user.id, mentor_user.name, mentor_avatar.object_key, assignment.created_at
     FROM product_mentors assignment
     INNER JOIN users mentor_user ON mentor_user.id = assignment.mentor_user_id AND mentor_user.deleted_at IS NULL
     LEFT JOIN mentors mentor ON mentor.user_id = mentor_user.id AND mentor.deleted_at IS NULL
@@ -237,6 +237,7 @@ interface CardRow {
   merchant_slug: string | null;
   merchant_avatar_object_key: string | null;
   mentor_id: string | null;
+  mentor_user_id: string | null;
   mentor_name: string | null;
   mentor_avatar_object_key: string | null;
   file_format: string | null;
@@ -245,6 +246,7 @@ interface CardRow {
 
 interface MentorRow {
   id: string;
+  user_id: string;
   name: string;
   headline: string | null;
   avatar_object_key: string | null;
@@ -321,7 +323,8 @@ export class CatalogService {
       faqs,
     ] = await Promise.all([
       this.dataSource.query(
-        `SELECT mentor.id, mentor_user.name, profile.headline, avatar.object_key AS avatar_object_key, link.role
+        `SELECT mentor.id, mentor_user.id AS user_id, mentor_user.name, profile.headline,
+                avatar.object_key AS avatar_object_key, link.role
          FROM class_mentors link
          INNER JOIN mentors mentor ON mentor.id = link.mentor_id AND mentor.deleted_at IS NULL
          INNER JOIN users mentor_user ON mentor_user.id = mentor.user_id AND mentor_user.deleted_at IS NULL
@@ -576,6 +579,7 @@ function toCard(row: CardRow): CatalogCardDto {
     mentor: row.mentor_name
       ? {
           id: row.mentor_id,
+          user_id: row.mentor_user_id,
           name: row.mentor_name,
           avatar_url: assetUrl(row.mentor_avatar_object_key),
         }
@@ -588,6 +592,7 @@ function toCard(row: CardRow): CatalogCardDto {
 function toMentor(row: MentorRow): CatalogMentorDto {
   return {
     id: row.id,
+    user_id: row.user_id,
     name: row.name,
     headline: row.headline,
     avatar_url: assetUrl(row.avatar_object_key),

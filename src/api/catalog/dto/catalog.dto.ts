@@ -496,7 +496,11 @@ export class CatalogDigitalFileDto {
   @ApiProperty({ example: 'template-rab.xlsx' })
   name: string;
 
-  @ApiProperty({ example: 'xlsx' })
+  @ApiProperty({
+    example: 'XLSX',
+    description:
+      'File format in upper case, as on the merchant and learning routes',
+  })
   format: string;
 
   @ApiProperty({ example: 2048000, description: 'Bytes' })

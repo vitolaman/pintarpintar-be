@@ -541,6 +541,28 @@ describe('CatalogService', () => {
     });
   });
 
+  // Uploads store the extension in lower case; older rows may differ.
+  it('reports digital file formats in upper case like the merchant and learning routes', async () => {
+    dataSource.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('AS owned')) return [{ owned: false }];
+      if (sql.includes('FROM digital_files file'))
+        return [
+          { id: 'file-1', format: 'pdf', size: '2048', name: 'rab.pdf' },
+          { id: 'file-2', format: 'Dwg', size: '4096', name: 'denah.dwg' },
+        ];
+      if (sql.includes('FROM ('))
+        return [{ ...cardRow, type: 'digital', id: classId }];
+      return [];
+    });
+
+    const { data } = await service.findDigitalProduct(classId);
+
+    expect(data.files).toEqual([
+      { id: 'file-1', format: 'PDF', size: 2048, name: 'rab.pdf' },
+      { id: 'file-2', format: 'DWG', size: 4096, name: 'denah.dwg' },
+    ]);
+  });
+
   it('searches titles, merchant names, category names and file formats', async () => {
     dataSource.query.mockResolvedValueOnce([{ total: 0 }]);
 

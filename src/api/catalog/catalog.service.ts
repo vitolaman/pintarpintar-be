@@ -479,7 +479,11 @@ export class CatalogService {
       ...toCard(row),
       covers: covers.get(row.id) ?? [],
       description: row.description,
-      files: files.map((file) => ({ ...file, size: Number(file.size) })),
+      files: files.map((file) => ({
+        ...file,
+        format: file.format.toUpperCase(),
+        size: Number(file.size),
+      })),
       is_owned: viewerState.owned,
       in_wishlist: viewerState.in_wishlist,
       in_cart: viewerState.in_cart,

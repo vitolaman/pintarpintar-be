@@ -6,7 +6,8 @@ export interface ObjectStorage {
   bucket: string;
 }
 
-// Reads the same AWS_* settings as the upload module so every feature uses one bucket.
+// Every storage use, the multipart upload routes included, builds its client
+// here, so all features share one bucket and one addressing style.
 export function createObjectStorage(config: ConfigService): ObjectStorage {
   const accessKeyId = config.get<string>('AWS_ACCESS_KEY_ID');
   const secretAccessKey = config.get<string>('AWS_SECRET_ACCESS_KEY');

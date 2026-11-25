@@ -12,6 +12,7 @@ import {
   CompletedPart,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createObjectStorage } from '~/common/storage/object-storage';
 import { buildUploadKey } from '~/common/storage/upload-key';
 import { uploadContentDisposition } from './upload-disposition';
 
@@ -21,25 +22,12 @@ export class UploadService {
   private s3Client: S3Client;
   private bucketName: string;
 
+  // The shared factory applies every AWS_* setting (AWS_S3_FORCE_PATH_STYLE
+  // included), so presigned part URLs address the bucket like other features.
   constructor(private configService: ConfigService) {
-    this.bucketName =
-      this.configService.get<string>('AWS_S3_BUCKET_NAME') || 'default-bucket';
-
-    const region = this.configService.get<string>('AWS_REGION') || 'auto';
-    const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
-    const secretAccessKey = this.configService.get<string>(
-      'AWS_SECRET_ACCESS_KEY',
-    );
-    const endpoint = this.configService.get<string>('AWS_S3_ENDPOINT');
-
-    this.s3Client = new S3Client({
-      region,
-      endpoint: endpoint ? endpoint : undefined,
-      credentials:
-        accessKeyId && secretAccessKey
-          ? { accessKeyId, secretAccessKey }
-          : undefined, // fallback to standard environment/role credentials
-    });
+    const storage = createObjectStorage(this.configService);
+    this.bucketName = storage.bucket;
+    this.s3Client = storage.client;
   }
 
   async initiateMultipartUpload(

@@ -50,14 +50,16 @@ export function nextAttemptDelay(attempts: number): number | null {
   return RETRY_DELAYS_MS[attempts - 1] ?? null;
 }
 
-// Domains that cannot receive mail: the reserved example domains and the
-// testers' accounts (demo.pintarpintar.id has no mail server). Mail to them
-// would only bounce and hurt the sender's reputation.
+// Domains that cannot receive mail: the reserved example domains, the
+// testers' accounts and the simulated users (demo.pintarpintar.id and
+// sim.pintarpintar.id have no mail server). Mail to them would only bounce
+// and hurt the sender's reputation.
 const UNDELIVERABLE_DOMAINS = [
   'example.com',
   'example.net',
   'example.org',
   'demo.pintarpintar.id',
+  'sim.pintarpintar.id',
 ];
 // Reserved top-level names (RFC 2606 and RFC 6761).
 const UNDELIVERABLE_TOP_LEVEL_NAMES = [

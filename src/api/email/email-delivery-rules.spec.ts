@@ -78,6 +78,8 @@ describe('isUndeliverableTestAddress', () => {
     'a@dev.localhost',
     'a@demo.pintarpintar.id',
     'a@Demo.PintarPintar.ID',
+    'learner-17@sim.pintarpintar.id',
+    'Merchant-3@SIM.PintarPintar.id',
     ' a@example.com. ',
   ])('treats %s as a test address', (address) => {
     expect(isUndeliverableTestAddress(address)).toBe(true);
@@ -86,6 +88,7 @@ describe('isUndeliverableTestAddress', () => {
   it.each([
     'a@gmail.com',
     'a@pintarpintar.id',
+    'a@simpintarpintar.id',
     'a@notexample.com',
     'a@example.com.au',
     'a@testing.co',

@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Post,
   ServiceUnavailableException,
   UseGuards,
@@ -21,8 +22,9 @@ import {
   ClientAddressThrottlerGuard,
   SignInAccountThrottlerGuard,
 } from '~/common/guard/client-address-throttler.guard';
-import { AuthService } from './auth.service';
+import { AuthService, INVALID_CREDENTIALS } from './auth.service';
 import { AuthTokenWithUserDto } from './dto/auth-token-with-user.dto';
+import { GoogleLinkBodyDto } from './dto/google-link.req.dto';
 import { GoogleSignInBodyDto } from './dto/google-sign-in.req.dto';
 import { SignInBodyDto } from './dto/sign-in.req.dto';
 import { SignUpBodyDto } from './dto/sign-up.req.dto';
@@ -42,7 +44,10 @@ import {
 } from './google-id-token.verifier';
 import {
   EMAIL_LINKED_TO_OTHER_GOOGLE_ACCOUNT,
+  GOOGLE_ACCOUNT_LINKED_ELSEWHERE_MESSAGE,
+  GOOGLE_ALREADY_LINKED_MESSAGE,
   GoogleSignInService,
+  NO_ACCOUNT_TO_LINK,
   PASSWORD_ACCOUNT_EXISTS_MESSAGE,
 } from './google-sign-in.service';
 
@@ -85,7 +90,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(AuthTokenWithUserDto, 'Login Success', HttpStatus.OK, [
     BadRequestException,
-    new ForbiddenException('invalid username or password'),
+    new ForbiddenException(INVALID_CREDENTIALS),
   ])
   signIn(@Body() body: SignInBodyDto) {
     return this.authService.signIn(body);
@@ -97,7 +102,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Sign in or sign up with Google (Firebase ID token)',
     description:
-      'Answers like sign-in. Signs in the account linked to this Google account; otherwise links the account with the same email when it has no password; otherwise creates an account named after the Google profile, without a password (`has_password` false; password reset adds one). 403 for a token that is invalid, expired, from another Firebase project, not from Google, or without a verified email; 409 with `details.code` `PASSWORD_ACCOUNT_EXISTS` when the email belongs to an account with a password that is not linked to Google (sign in with the password or reset it); 409 without `details` when the email belongs to an account linked to another Google account; 503 when Google sign-in is not configured. 100 requests per 10 minutes per client address.',
+      'Answers like sign-in. Signs in the account linked to this Google account; otherwise links the account with the same email when it has no password; otherwise creates an account named after the Google profile, without a password (`has_password` false; password reset adds one). 403 with `details.code` `GOOGLE_TOKEN_REJECTED` for a token that is invalid, expired, from another Firebase project, not from Google, or without a verified email; 409 with `details.code` `PASSWORD_ACCOUNT_EXISTS` when the email belongs to an account with a password that is not linked to Google (nothing changes; confirm the password once through `POST /api/v1/auth/google/link`, sign in with the password, or reset it); 409 without `details` when the email belongs to an account linked to another Google account; 503 when Google sign-in is not configured. 100 requests per 10 minutes per client address.',
   })
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(AuthTokenWithUserDto, 'Login Success', HttpStatus.OK, [
@@ -109,6 +114,30 @@ export class AuthController {
   ])
   signInWithGoogle(@Body() body: GoogleSignInBodyDto) {
     return this.googleSignIn.signIn(body);
+  }
+
+  // Shares sign-in's per-email failure limit (SignInFailures), so linking
+  // gives no extra password guesses.
+  @Post('google/link')
+  @UseGuards(ClientAddressThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 600_000 } })
+  @ApiOperation({
+    summary: 'Link Google to an existing password account and sign in',
+    description:
+      'For the 409 `PASSWORD_ACCOUNT_EXISTS` of `POST /api/v1/auth/google`: the person confirms the password of the account with the Google email once. The token is checked exactly as on `POST /api/v1/auth/google`. On success the account is linked to the Google account (its password, name, roles and data stay), and the answer is the same as sign-in; afterwards `POST /api/v1/auth/google` signs it in directly. The password is checked as on sign-in: a wrong password, or an account without a password, answers 403 with the sign-in message; every attempt counts against the sign-in failure limit of that email (10 failures within 15 minutes, from any address, then 429 also for the right password; shared with `POST /api/v1/auth/sign-in`); the master password does not link. 403 with `details.code` `GOOGLE_TOKEN_REJECTED` for a rejected token (as on `POST /api/v1/auth/google`; get a fresh token and retry); 404 when no active account has the email; 409 with `details.code` `GOOGLE_ALREADY_LINKED` when the account is already linked to this Google account (sign in with Google); 409 without `details` when it is linked to another Google account; 409 with `details.code` `GOOGLE_ACCOUNT_LINKED_ELSEWHERE` when this Google account is linked to another account; 503 when Google sign-in is not configured. 20 requests per 10 minutes per client address.',
+  })
+  @HttpCode(HttpStatus.OK)
+  @DefaultResponse(AuthTokenWithUserDto, 'Login Success', HttpStatus.OK, [
+    BadRequestException,
+    new ForbiddenException(INVALID_CREDENTIALS),
+    new NotFoundException(NO_ACCOUNT_TO_LINK),
+    new ConflictException(GOOGLE_ALREADY_LINKED_MESSAGE),
+    new ConflictException(EMAIL_LINKED_TO_OTHER_GOOGLE_ACCOUNT),
+    new ConflictException(GOOGLE_ACCOUNT_LINKED_ELSEWHERE_MESSAGE),
+    new ServiceUnavailableException(GOOGLE_SIGN_IN_UNAVAILABLE),
+  ])
+  linkGoogle(@Body() body: GoogleLinkBodyDto) {
+    return this.googleSignIn.link(body);
   }
 
   // The same answer for every address, so the route reveals no accounts.

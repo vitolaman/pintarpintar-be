@@ -25,6 +25,8 @@ import { queuePasswordChangedEmail } from '~/api/email/events/account-emails';
 import { MasterPassword } from './master-password';
 import { SignInFailures } from './sign-in-failures';
 
+export const INVALID_CREDENTIALS = 'invalid username or password';
+
 export const NO_PASSWORD_YET =
   'This account has no password yet; use password reset to add one';
 
@@ -79,17 +81,13 @@ export class AuthService {
     const user = await this.userService.findForAuthentication(body.email);
     // Every failure costs the same password checks (own, then master), so the
     // response time does not reveal whether an account or password exists.
-    if (!user?.passwordHash) await simulatePasswordCheck(body.password);
+    const ownPassword = await this.matchesOwnPassword(user, body.password);
     if (!user) {
       await this.masterPassword.matches(body.password);
-      throw new ForbiddenException('invalid username or password');
+      throw new ForbiddenException(INVALID_CREDENTIALS);
     }
 
-    // An account created through Google has no password yet.
-    if (
-      user.passwordHash &&
-      (await verifyPassword(body.password, user.passwordHash))
-    ) {
+    if (ownPassword) {
       await this.signInFailures.clear(body.email);
       return this.createSignedInResponse(
         'Login Success',
@@ -111,7 +109,23 @@ export class AuthService {
       );
     }
 
-    throw new ForbiddenException('invalid username or password');
+    throw new ForbiddenException(INVALID_CREDENTIALS);
+  }
+
+  /**
+   * The account's own password check, shared by sign-in and Google linking.
+   * An account without a password (created through Google) or no account
+   * costs one check against an unusable hash, as long as a wrong password.
+   */
+  async matchesOwnPassword(
+    user: Pick<User, 'passwordHash'> | null,
+    password: string,
+  ): Promise<boolean> {
+    if (!user?.passwordHash) {
+      await simulatePasswordCheck(password);
+      return false;
+    }
+    return verifyPassword(password, user.passwordHash);
   }
 
   // Signs every other session out: tokens carry the version they were issued

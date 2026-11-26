@@ -10,6 +10,9 @@ import { getApps, initializeApp } from 'firebase-admin/app';
 import { Auth, DecodedIdToken, getAuth } from 'firebase-admin/auth';
 
 export const GOOGLE_SIGN_IN_FAILED = 'Google sign-in failed';
+// Tells a rejected token apart from sign-in's 403 for a wrong password on
+// POST /auth/google/link, so the client can get a fresh token and retry.
+export const GOOGLE_TOKEN_REJECTED = 'GOOGLE_TOKEN_REJECTED';
 export const GOOGLE_SIGN_IN_UNAVAILABLE = 'Google sign-in is not available';
 
 /** Firebase Auth for verifying ID tokens, or null when Google sign-in is off. */
@@ -95,7 +98,10 @@ export class GoogleIdTokenVerifier {
 
   private rejected(reason: string): ForbiddenException {
     this.logger.warn(`Google sign-in rejected: ${reason}`);
-    return new ForbiddenException(GOOGLE_SIGN_IN_FAILED);
+    return new ForbiddenException({
+      message: GOOGLE_SIGN_IN_FAILED,
+      details: { code: GOOGLE_TOKEN_REJECTED },
+    });
   }
 }
 

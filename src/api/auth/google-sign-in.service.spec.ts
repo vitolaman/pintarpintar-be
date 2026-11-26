@@ -8,6 +8,8 @@ import {
   EMAIL_LINKED_TO_OTHER_GOOGLE_ACCOUNT,
   googleAccountName,
   GoogleSignInService,
+  PASSWORD_ACCOUNT_EXISTS,
+  PASSWORD_ACCOUNT_EXISTS_MESSAGE,
 } from './google-sign-in.service';
 
 const identity = {
@@ -93,21 +95,54 @@ describe('GoogleSignInService', () => {
     );
   });
 
-  it('links the password account with the same email and keeps it unchanged', async () => {
+  it('refuses to link an unlinked password account with the same email', async () => {
     manager.findOne.mockResolvedValue(account());
 
-    await service.signIn({ id_token: 'id-token' });
+    const refusal = await service
+      .signIn({ id_token: 'id-token' })
+      .catch((error: unknown) => error);
 
     expect(manager.findOne).toHaveBeenCalledWith(User, {
       where: { email: identity.email },
       lock: { mode: 'pessimistic_write' },
     });
+    expect(refusal).toBeInstanceOf(ConflictException);
+    expect((refusal as ConflictException).getResponse()).toEqual({
+      message: PASSWORD_ACCOUNT_EXISTS_MESSAGE,
+      details: { code: PASSWORD_ACCOUNT_EXISTS },
+    });
+    expect(manager.update).not.toHaveBeenCalled();
+    expect(manager.save).not.toHaveBeenCalled();
+    expect(authService.createSignedInResponse).not.toHaveBeenCalled();
+  });
+
+  it('links an unlinked account without a password and keeps it unchanged', async () => {
+    manager.findOne.mockResolvedValue(account({ passwordHash: null }));
+
+    await service.signIn({ id_token: 'id-token' });
+
     expect(manager.update).toHaveBeenCalledWith(
       User,
       { id: account().id },
       { firebaseUid: identity.uid },
     );
     expect(manager.save).not.toHaveBeenCalled();
+    expect(authService.createSignedInResponse).toHaveBeenCalledWith(
+      'Login Success',
+      account().id,
+      2,
+    );
+  });
+
+  it('signs in an account already linked to this Google account that also has a password', async () => {
+    manager.findOneBy.mockResolvedValue(
+      account({ firebaseUid: identity.uid, passwordHash: 'stored-hash' }),
+    );
+
+    await service.signIn({ id_token: 'id-token' });
+
+    expect(manager.findOne).not.toHaveBeenCalled();
+    expect(manager.update).not.toHaveBeenCalled();
     expect(authService.createSignedInResponse).toHaveBeenCalledWith(
       'Login Success',
       account().id,

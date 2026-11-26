@@ -43,6 +43,7 @@ import {
 import {
   EMAIL_LINKED_TO_OTHER_GOOGLE_ACCOUNT,
   GoogleSignInService,
+  PASSWORD_ACCOUNT_EXISTS_MESSAGE,
 } from './google-sign-in.service';
 
 @Controller('api/v1/auth')
@@ -96,13 +97,14 @@ export class AuthController {
   @ApiOperation({
     summary: 'Sign in or sign up with Google (Firebase ID token)',
     description:
-      'Answers like sign-in. Signs in the account linked to this Google account; otherwise links the account with the same email, keeping its password; otherwise creates an account named after the Google profile, without a password (`has_password` false; password reset adds one). 403 for a token that is invalid, expired, from another Firebase project, not from Google, or without a verified email; 409 when the email belongs to an account linked to another Google account; 503 when Google sign-in is not configured. 100 requests per 10 minutes per client address.',
+      'Answers like sign-in. Signs in the account linked to this Google account; otherwise links the account with the same email when it has no password; otherwise creates an account named after the Google profile, without a password (`has_password` false; password reset adds one). 403 for a token that is invalid, expired, from another Firebase project, not from Google, or without a verified email; 409 with `details.code` `PASSWORD_ACCOUNT_EXISTS` when the email belongs to an account with a password that is not linked to Google (sign in with the password or reset it); 409 without `details` when the email belongs to an account linked to another Google account; 503 when Google sign-in is not configured. 100 requests per 10 minutes per client address.',
   })
   @HttpCode(HttpStatus.OK)
   @DefaultResponse(AuthTokenWithUserDto, 'Login Success', HttpStatus.OK, [
     BadRequestException,
     new ForbiddenException(GOOGLE_SIGN_IN_FAILED),
     new ConflictException(EMAIL_LINKED_TO_OTHER_GOOGLE_ACCOUNT),
+    new ConflictException(PASSWORD_ACCOUNT_EXISTS_MESSAGE),
     new ServiceUnavailableException(GOOGLE_SIGN_IN_UNAVAILABLE),
   ])
   signInWithGoogle(@Body() body: GoogleSignInBodyDto) {

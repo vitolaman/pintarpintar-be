@@ -14,6 +14,9 @@ import {
 
 export const EMAIL_LINKED_TO_OTHER_GOOGLE_ACCOUNT =
   'This email is linked to another Google account';
+export const PASSWORD_ACCOUNT_EXISTS = 'PASSWORD_ACCOUNT_EXISTS';
+export const PASSWORD_ACCOUNT_EXISTS_MESSAGE =
+  'This email is registered with a password. Sign in with the password or reset it.';
 
 // The sign-up form's name limit.
 const MAX_NAME_LENGTH = 120;
@@ -54,7 +57,12 @@ export class GoogleSignInService {
     }
   }
 
-  /** The linked account, else the account with that email (linked now), else a new one. */
+  /**
+   * The linked account; else the account with that email when it has no
+   * password (linked now); else a new account. An unlinked account with a
+   * password is refused: emails are not verified at sign-up, so its password
+   * may belong to someone who registered another person's email first.
+   */
   private async resolveAccount(
     manager: EntityManager,
     identity: GoogleIdentity,
@@ -72,6 +80,12 @@ export class GoogleSignInService {
     if (sameEmail) {
       if (sameEmail.firebaseUid && sameEmail.firebaseUid !== identity.uid) {
         throw new ConflictException(EMAIL_LINKED_TO_OTHER_GOOGLE_ACCOUNT);
+      }
+      if (!sameEmail.firebaseUid && sameEmail.passwordHash) {
+        throw new ConflictException({
+          message: PASSWORD_ACCOUNT_EXISTS_MESSAGE,
+          details: { code: PASSWORD_ACCOUNT_EXISTS },
+        });
       }
       if (!sameEmail.firebaseUid) {
         await manager.update(

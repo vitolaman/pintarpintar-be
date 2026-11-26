@@ -86,6 +86,17 @@ describe('GoogleIdTokenVerifier', () => {
     );
   });
 
+  it('marks every rejection with details.code GOOGLE_TOKEN_REJECTED', async () => {
+    verifyIdToken.mockRejectedValue({ code: 'auth/id-token-expired' });
+
+    const error = await verifier.verify('id-token').catch((e: unknown) => e);
+
+    expect((error as ForbiddenException).getResponse()).toEqual({
+      message: GOOGLE_SIGN_IN_FAILED,
+      details: { code: 'GOOGLE_TOKEN_REJECTED' },
+    });
+  });
+
   it('answers 503 when Google sign-in is not configured', async () => {
     await expect(
       new GoogleIdTokenVerifier(null).verify('id-token'),

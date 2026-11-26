@@ -1,11 +1,19 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { Profile } from '../profile/entities/profile.entity';
 import { User } from '../user/entities/user.entity';
 import { AuthService } from './auth.service';
 import { GoogleIdTokenVerifier } from './google-id-token.verifier';
+import { SignInFailures } from './sign-in-failures';
 import {
   EMAIL_LINKED_TO_OTHER_GOOGLE_ACCOUNT,
+  GOOGLE_ACCOUNT_LINKED_ELSEWHERE,
+  GOOGLE_ALREADY_LINKED,
   googleAccountName,
   GoogleSignInService,
   PASSWORD_ACCOUNT_EXISTS,
@@ -34,7 +42,11 @@ const uniqueViolation = () =>
 
 describe('GoogleSignInService', () => {
   let verifier: { verify: jest.Mock };
-  let authService: { createSignedInResponse: jest.Mock };
+  let authService: {
+    createSignedInResponse: jest.Mock;
+    matchesOwnPassword: jest.Mock;
+  };
+  let signInFailures: { countAttempt: jest.Mock; clear: jest.Mock };
   let manager: {
     findOneBy: jest.Mock;
     findOne: jest.Mock;
@@ -51,6 +63,14 @@ describe('GoogleSignInService', () => {
       createSignedInResponse: jest
         .fn()
         .mockResolvedValue({ responseMessage: 'Login Success', data: {} }),
+      matchesOwnPassword: jest.fn(
+        async (user: User | null, password: string) =>
+          Boolean(user?.passwordHash) && password === 'right-password',
+      ),
+    };
+    signInFailures = {
+      countAttempt: jest.fn().mockResolvedValue(undefined),
+      clear: jest.fn().mockResolvedValue(undefined),
     };
     manager = {
       findOneBy: jest.fn().mockResolvedValue(null),
@@ -71,6 +91,7 @@ describe('GoogleSignInService', () => {
       verifier as unknown as GoogleIdTokenVerifier,
       authService as unknown as AuthService,
       { transaction } as unknown as DataSource,
+      signInFailures as unknown as SignInFailures,
     );
   });
 
@@ -219,6 +240,158 @@ describe('GoogleSignInService', () => {
       service.signIn({ id_token: 'id-token' }),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  describe('link', () => {
+    const link = (password = 'right-password') =>
+      service.link({ id_token: 'id-token', password });
+    const refusal = (password?: string) =>
+      link(password).catch((error: unknown) => error);
+
+    it('links the password account after its password and signs in like sign-in', async () => {
+      manager.findOne.mockResolvedValue(account());
+
+      await link();
+
+      expect(verifier.verify).toHaveBeenCalledWith('id-token');
+      expect(signInFailures.countAttempt).toHaveBeenCalledWith(identity.email);
+      expect(manager.findOne).toHaveBeenCalledWith(User, {
+        where: { email: identity.email },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(authService.matchesOwnPassword).toHaveBeenCalledWith(
+        account(),
+        'right-password',
+      );
+      expect(manager.update).toHaveBeenCalledWith(
+        User,
+        { id: account().id },
+        { firebaseUid: identity.uid },
+      );
+      expect(manager.save).not.toHaveBeenCalled();
+      expect(signInFailures.clear).toHaveBeenCalledWith(identity.email);
+      expect(authService.createSignedInResponse).toHaveBeenCalledWith(
+        'Login Success',
+        account().id,
+        2,
+      );
+    });
+
+    it('refuses a wrong password with the sign-in 403 and links nothing', async () => {
+      manager.findOne.mockResolvedValue(account());
+
+      expect(await refusal('wrong-password')).toEqual(
+        new ForbiddenException('invalid username or password'),
+      );
+      expect(signInFailures.countAttempt).toHaveBeenCalledWith(identity.email);
+      expect(signInFailures.clear).not.toHaveBeenCalled();
+      expect(manager.update).not.toHaveBeenCalled();
+      expect(authService.createSignedInResponse).not.toHaveBeenCalled();
+    });
+
+    it('refuses every attempt once the sign-in failure limit is reached, before any password check', async () => {
+      signInFailures.countAttempt.mockRejectedValue(
+        new ThrottlerException('Too many requests, please try again later'),
+      );
+
+      expect(await refusal()).toBeInstanceOf(ThrottlerException);
+      expect(transaction).not.toHaveBeenCalled();
+      expect(authService.matchesOwnPassword).not.toHaveBeenCalled();
+    });
+
+    it('refuses an account without a password with the same 403', async () => {
+      manager.findOne.mockResolvedValue(account({ passwordHash: null }));
+
+      expect(await refusal()).toEqual(
+        new ForbiddenException('invalid username or password'),
+      );
+      expect(authService.matchesOwnPassword).toHaveBeenCalled();
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('answers 404 when no active account has the email (deleted or never created), after the same password cost', async () => {
+      expect(await refusal()).toBeInstanceOf(NotFoundException);
+      expect(authService.matchesOwnPassword).toHaveBeenCalledWith(
+        null,
+        'right-password',
+      );
+      expect(manager.update).not.toHaveBeenCalled();
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('answers 409 GOOGLE_ALREADY_LINKED when a concurrent link of the same Google account won', async () => {
+      manager.findOne.mockResolvedValue(account({ firebaseUid: identity.uid }));
+
+      const error = await refusal();
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        details: { code: GOOGLE_ALREADY_LINKED },
+      });
+      expect(authService.matchesOwnPassword).not.toHaveBeenCalled();
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('answers 409 without a code when the account is linked to another Google account', async () => {
+      manager.findOne.mockResolvedValue(account({ firebaseUid: 'other-uid' }));
+
+      expect(await refusal()).toEqual(
+        new ConflictException(EMAIL_LINKED_TO_OTHER_GOOGLE_ACCOUNT),
+      );
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('answers 409 GOOGLE_ACCOUNT_LINKED_ELSEWHERE when the Google account is linked to another account', async () => {
+      manager.findOne.mockResolvedValue(account());
+      manager.findOneBy.mockResolvedValue(
+        account({ id: 'other-account', firebaseUid: identity.uid }),
+      );
+
+      const error = await refusal();
+
+      expect(manager.findOneBy).toHaveBeenCalledWith(User, {
+        firebaseUid: identity.uid,
+      });
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        details: { code: GOOGLE_ACCOUNT_LINKED_ELSEWHERE },
+      });
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('maps a unique violation from a concurrent link of the Google account elsewhere to 409', async () => {
+      manager.findOne.mockResolvedValue(account());
+      manager.update.mockRejectedValue(uniqueViolation());
+
+      const error = await refusal();
+
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        details: { code: GOOGLE_ACCOUNT_LINKED_ELSEWHERE },
+      });
+      expect(signInFailures.clear).not.toHaveBeenCalled();
+      expect(authService.createSignedInResponse).not.toHaveBeenCalled();
+    });
+
+    it('checks the token first and counts nothing for a rejected token', async () => {
+      verifier.verify.mockRejectedValue(new ForbiddenException());
+
+      expect(await refusal()).toBeInstanceOf(ForbiddenException);
+      expect(signInFailures.countAttempt).not.toHaveBeenCalled();
+      expect(transaction).not.toHaveBeenCalled();
+    });
+
+    it('lets a later Google sign-in use the linked account directly', async () => {
+      const linked = account({ firebaseUid: identity.uid });
+      manager.findOneBy.mockResolvedValue(linked);
+
+      await service.signIn({ id_token: 'id-token' });
+
+      expect(manager.findOne).not.toHaveBeenCalled();
+      expect(authService.createSignedInResponse).toHaveBeenCalledWith(
+        'Login Success',
+        linked.id,
+        2,
+      );
+    });
   });
 });
 
